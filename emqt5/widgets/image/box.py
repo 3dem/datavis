@@ -9,7 +9,7 @@ from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt, QPointF, QPoint, QRect
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QTransform
 
-from transform import ImageTransform
+from .transform import ImageTransform
  
 
 class ImageBox(QWidget): 
