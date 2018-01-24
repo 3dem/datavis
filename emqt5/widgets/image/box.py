@@ -14,7 +14,9 @@ from .transform import ImageTransform
 
 class ImageBox(QWidget): 
     """
-    Class documentation goes here.
+    This Class display an image in a QWidget and implement several methods
+    to perform some transformation in this image. Taking into account some
+    widget events, the images can be rotated, scaled, fit to window, etc.s
     """
     onMousePressed = pyqtSignal()  
     onMouseReleased = pyqtSignal()  
@@ -43,18 +45,61 @@ class ImageBox(QWidget):
         self.shapeList = []
         self.autoFit = True
         
-        self.setMouseTracking(True)     
-        
+        self.setMouseTracking(True)
+
+    def getScale(self):
+        """
+        Get the value of scale
+        :return: value of scale
+        """
+        return self.imageTransform.getScale()
+
+    def setImage(self, qimage):
+        """
+        Set a new image that will be displayed in the ImageBox.
+        :param qimage: QImage instance
+        """
+        self.setupProperties()
+        self.image = qimage
+        if self.image:
+            self.imageTransform = ImageTransform(self.image.width(),
+                                                 self.image.height())
+
+        self.update()
+
+    def rotationAngle(self):
+        """
+        Get the actual rotation angle
+        """
+        return self.rotation
+
+    def setAutoFit(self, autoFit):
+        """
+        Set the value of auto fit
+        :param autoFit: new value of auto fit
+        """
+        self.autoFit = autoFit
+
+    def isAutoFit(self):
+        """
+        Get the value of autoFit
+        :return: value of autoFit
+        """
+        return self.autoFit
+
     def setupProperties(self):
         """
         Setup all properties
         """
-        self.image = None #The image      
+        self.image = None #The image
         self.imgPos = QPointF() #Initial image position
         self.transformation = QTransform()        
         self.painter = QPainter()
 
     def setupUi(self):
+        """
+        Create the GUI of ImageBox
+        """
         self.resize(205, 121)
         self.gridLayout = QtWidgets.QGridLayout(self)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
@@ -71,25 +116,10 @@ class ImageBox(QWidget):
 
         QtCore.QMetaObject.connectSlotsByName(self)
 
-    def setImage(self, qimage):
-        """
-        Set a new image that will be displayed in the ImageBox.
-        :param qimage: QtImage instance
-        :return:
-        """
-        self.setupProperties()
-        self.image = qimage        
-        if self.image:
-           self.imageTransform = ImageTransform(self.image.width(),
-                                                self.image.height())
-           
-        self.update()
-        
     def paintEvent(self, event):
         """
         PyQt method to implement the paint logic.
-        :param event:
-        :return:
+        :param event: paint event
         """
         self.painter.begin(self)
 
@@ -106,7 +136,7 @@ class ImageBox(QWidget):
     @pyqtSlot()
     def rotate(self, angle):
         """
-        Rotate image
+        Rotate the image by the given angle
         @param angle The angle is specified in degrees.
         """        
         if self.image:            
@@ -123,24 +153,83 @@ class ImageBox(QWidget):
             self.imageTransform.setScale(factor)
             self.update()
 
-    def getScale(self):
-        return self.imageTransform.getScale()
-    
+
     @pyqtSlot()
-    def horizontalFlip(self):   
+    def horizontalFlip(self):
+        """
+        Flip horizontally the image
+        """
         if self.image:
             self.imageTransform.horizontalFlip()
-            self.update()     
-        
+            self.update()
+
+    def mousePressEvent(self, event):
+        """
+        This method receive mouse press events for the widget
+        :param event: Mouse press event
+        """
+        if event.buttons() & Qt.LeftButton:
+            self.mouseBtnState = self.down
+
+        self.lastPos = event.pos()
+        self.mouseBtnState = self.down
+
+        self.onMousePressed.emit()
+
+    def mouseMoveEvent(self, e):
+        """
+        This method receive mouse move events for the widget
+        :param e: Mouse move event
+        """
+        if (e.buttons() & Qt.LeftButton) and self.mouseBtnState == self.down:
+            if self.mouseBtnState == self.down:
+                self.moveImage(e.pos(), self.lastPos)
+
+        self.lastPos = e.pos()
+        self.onMouseMoved.emit()
+
+    def mouseReleaseEvent(self, event):
+        """
+        This method receive mouse release events for the widget
+        :param event: Mouse Release event
+        """
+        self.mouseBtnState = self.up
+        self.lastPos = event.pos()
+
+        self.onMouseReleased.emit()
+
+    def leaveEvent(self, event):
+        """
+        This method receive widget leave events which are passed in the event
+        parameter. A leave event is sent to the widget when the mouse cursor
+        leaves the widget
+        :param event: leave event
+        """
+        self.onMouseLeave.emit()
+
+    def enterEvent(self, event):
+        """
+        This methods receive widget enter events which are passed in the event
+        parameter. An event is sent to the widget when the mouse cursor enters
+        the widget
+        :param event: enter event
+        """
+        self.onMouseEnter.emit()
+
     def verticalFlip(self):
+        """
+        Flip vertically the image
+        """
         if self.image:
             self.imageTransform.verticalFlip()
             self.update()     
     
-    def rotationAngle(self):
-        return self.rotation
-
     def moveImage(self, point1,  point2):
+        """
+        Move the image from point1 to point2
+        :param point1: actual image location point
+        :param point2: future image location point
+        """
         if self.image:
             origDragPoint = self.imageTransform.mapInverse(point1)
             origLastPoint = self.imageTransform.mapInverse(point2)
@@ -150,36 +239,10 @@ class ImageBox(QWidget):
             self.imageTransform.translate(dx1,dy1);
             self.update()
 
-    def mousePressEvent(self, event):  
-        if event.buttons() & Qt.LeftButton:
-           self.mouseBtnState = self.down 
-           
-        self.lastPos = event.pos()
-        self.mouseBtnState = self.down
-            
-        self.onMousePressed.emit()
-        
-    def mouseMoveEvent(self, event):          
-        if (event.buttons() & Qt.LeftButton) and self.mouseBtnState==self.down:  
-           if self.mouseBtnState==self.down:  
-               self.moveImage(event.pos(), self.lastPos)
-        
-        self.lastPos = event.pos()
-        self.onMouseMoved.emit()    
-        
-    def mouseReleaseEvent(self, event):
-        self.mouseBtnState = self.up  
-        self.lastPos = event.pos()
-        
-        self.onMouseReleased.emit()      
-    
-    def leaveEvent(self,event):                     
-        self.onMouseLeave.emit() 
-        
-    def enterEvent(self,event):  
-        self.onMouseEnter.emit()    
-
     def preferedImageSize(self):
+        """
+        Get the preferred image size
+        """
         if self.image:
             compW = self.width()
             compH = self.height()
@@ -196,12 +259,15 @@ class ImageBox(QWidget):
             else:
                r = rh 
                
-            wscaled = ((origW*r)-1)#hacer casting a int
+            wscaled = ((origW*r)-1)  # hacer casting a int
             hscaled = ((origH*r)-1)
         
         return QRect((compW-wscaled)/2, (compH-hscaled)/2, wscaled, hscaled)
 
     def preferedScale(self):
+        """
+        Get the preferred scale
+        """
         if not self.image:
            return 1.0 
         
@@ -219,12 +285,15 @@ class ImageBox(QWidget):
         
         return QRect(0, 0, w, h)
         
-    def centerImage(self):    
+    def centerImage(self):
+        """
+        This method center the image
+        """
         if not self.image:
             return
         
-        origImgCenterX = self.imageTransform.imgWidth() / 2
-        origImgCenterY = self.imageTransform.imgHeigth() / 2
+        origImgCenterX = self.imageTransform.getImgHeigth() / 2
+        origImgCenterY = self.imageTransform.getImgHeigth() / 2
         
         cRegion = self.clipRegion()        
         compCenter = QPointF(cRegion.width() / 2, cRegion.height() / 2)
@@ -238,6 +307,11 @@ class ImageBox(QWidget):
         self.update()    
         
     def changeZoom(self, sFact, point=None):
+        """
+        The image is resized taking into account the value of sFact
+        :param sFact: resize factor
+        :param point: center of image
+        """
         
         if not self.image or sFact <= 0:
             return
@@ -256,22 +330,31 @@ class ImageBox(QWidget):
         self.update()
         
     def fitToWindow(self):
+        """
+        The image is fit to window
+        """
         if self.image:
             self.imageTransform.setScale(self.preferedScale())
             self.centerImage()
     
-    def addShape(self, shape):        
+    def addShape(self, shape):
+        """
+        This method add a new shape to the image
+        :param shape: new shape
+        """
         if not shape:
            return
         self.shapeList.append(shape)    
     
     def resizeEvent(self, resizeEvent):
+        """
+        This method receive widget resize events which are passed in the event
+        parameter. When resizeEvent is called, the widget already has its new
+        geometry and the image is automatically fit to window.
+        :param resizeEvent: resize event
+        """
         QWidget.resizeEvent(self, resizeEvent) 
         if self.autoFit:
             self.fitToWindow()
             
-    def setAutoFit(self, autoFit):
-        self.autoFit = autoFit
 
-    def isAutoFit(self):
-        return self.autoFit        

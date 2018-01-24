@@ -5,19 +5,26 @@ from PyQt5.QtGui import QPainter, QTransform, QColor
 
 
 class Shape():
-    
+    """ Declaration of the class Shape
+
+        This class is used to define an interface for which  derived  some
+        others Geometric Figures classes like Rectangle, Ellipse, etc, and
+        can be used only as a base class.
+        In this class we declared a set of common properties that be used by
+        the derived classes """
+
     ABSTRACT_SHAPE = 999
     RECTANGLE = 1000
     ELLIPSE = 1001
     SEGMENT = 1002
-    POLYGONE = 1003
+    POLYGON = 1003
     POLYLINE = 1004
-    
+
     def __init__(self, location, color):
-        
+
         self.location = location
         self.color = color
-        self.handlerColor = QColor(23,45,122)#Qt.Yellow
+        self.handlerColor = QColor(23,45,122)  # Qt.Yellow
         self.scale = 1.0
         self.filled = False
         self.selected = False
@@ -25,43 +32,268 @@ class Shape():
         self.origGeomOp = None
         self.handlers = []
         self.origHandlers = []
-        self.mPos = QPoint(0, 0)      
+        self.mPos = QPoint(0, 0)
         self.hndIndex = -1
-        self.HND_LENGTH = 6 #Handlers length
-        
-    def makeHandlers(self, newGeomOp):    
-        
-        if self.origHandlers!=None and newGeomOp!=None:           
-           transform = newGeomOp.getTransform()                
-           self.handlers.clear()         
-          
+        self.HND_LENGTH = 6  # Handlers length
+
+    def getLocation(self):
+        """
+        Get the value of location
+        :return: value de location
+        """
+        return self.location
+
+    def setLocation(self, point):
+        """
+        Set the shape location
+        :param point: new value of the Shape position
+        """
+        self.location = point
+        self.updateHandlersPosition()
+
+    def getColor(self):
+        """
+        Get the color value
+        :return: the color value
+        """
+        return self.color
+
+    def setColor(self, color):
+        """
+        Set the value of color
+        :param color: value of the new color
+        self.color = color """
+
+    def getHandlersColor(self):
+        """
+        Get the color handler
+        :return: the color handler
+        """
+        return self.handlerColor
+
+    def setHandlersColor(self, handlerColor):
+        """
+        Set de value of handlerColor
+        :param handlerColor: new value of handlerColor
+        :return: new value of of handlerColor
+        """
+        self.handlerColor = handlerColor
+
+    def setScale(self, newScale):
+        """
+        Set the value of scale
+        :param newScale: new value of scale
+        :return: value of scale
+        """
+        self.scale = newScale
+
+    def getScale(self):
+        """
+        Get the value of scale
+        :return: value of scale
+        """
+        return self.scale
+
+    def getFilled(self):
+        """
+        Get the value of filled
+        :return: value of filled
+        """
+        return self.filled
+
+    def setFilled(self, fill):
+        """
+        Set the value of filled (True or False)
+        :param fill: new value of fill
+        """
+        self.filled = fill
+
+    def getSelected(self):
+        """
+        Get the value of selected
+        :return: value of selected
+        """
+        return self.selected
+
+    def setSelected(self, sel):
+        """
+        Set the value of selected
+        :param sel: new value of selected
+        """
+        self.selected = sel
+
+    def getReferencePoint(self):
+        """
+        Get the value of referencePoint
+        :return: value of referencePoint
+        """
+        return self.referencePoint
+
+    def setReferencePoint(self, newRefPoint):
+        """
+        Set the value of referencePoint
+        """
+        self.referencePoint = newRefPoint
+
+    def getOrigGeomOp(self):
+        """
+        Get the value of origGeomOp
+        :return: value of origGeomOp
+        """
+        return self.origGeomOp
+
+    def setOrigGeomOp(self, newOrigGeomOp):
+        """
+        Set the value of origGeomOp
+        :param newOrigGeomOp: new value of origGeomOp
+        """
+        self.origGeomOp = newOrigGeomOp
+
+    def getHandlers(self):
+        """
+        :return:
+        """
+        return self.handlers
+
+    def setHandlers(self, newHandlers):
+        """
+        Set the value of handlers
+        :param newHandlers: new value of handlers
+        :return:
+        """
+        self.handlers = newHandlers
+
+    def getOrigHandlers(self):
+        """
+        Get the value of origHandlers
+        :return: value of origHandlers
+        """
+        return self.origHandlers
+
+    def setOrigHandlers(self, handlers):
+        """
+        :param handlers:
+        :return:
+        """
+        self.origHandlers = handlers
+
+    def getMPos(self):
+        """
+        Get the value of mos
+        :return: 
+        """
+        return self.mPos
+
+    def setMPos(self, newMPos):
+        """
+        Set the value of mPos
+        :param newMPos: new value of mPos
+        :return:
+        """
+        self.mPos = newMPos
+
+    def getBounds(self):
+        return
+
+    def getType(self):
+        """
+        Get the Shape type
+        :return: the Shape type
+        """
+        return Shape.ABSTRACT_SHAPE
+
+    def getHndIndex(self, point):
+        """
+        Get the handler index
+        :param point:
+        :return:
+        """
+        if self.handlers==None:
+           return -1
+
+        i =0
+        rect = QRect()
+        for ph in self.handlers:
+            rect.setRect(ph.x(), ph.y(), self.HND_LENGTH, self.HND_LENGTH)
+            if rect.contains(point):
+               return i
+            i = i+1
+
+    def getHandlersLength(self):
+        """
+        :return:
+        """
+        return self.HND_LENGTH
+
+    def setMousePos(self, point):
+        """
+        Set the value of the mouse position (QPoint)
+        :param point: value of the new position
+        :return: new value of mPos
+        """
+        self.mPos = point
+
+    def getMousePos(self):
+        """
+        Get the mouse position
+        :return: the mouse position
+        """
+        return self.mPos
+
+    def getHandlerIndex(self):
+        """
+        :return:
+        """
+        return self.hndIndex
+
+    def setHandlerIndex(self, index):
+        """
+        :param index:
+        :return:
+        """
+        self.hndIndex = index
+
+    def getPerimeter(self, pixelWidth, pixelHeigth):
+        return
+
+    def makeHandlers(self, newGeomOp):
+        """
+        :param newGeomOp:
+        :return:
+        """
+        if self.origHandlers==None and newGeomOp==None:
+           transform = newGeomOp.getTransform()
+           self.handlers.clear()
+
            for p in self.origHandlers:
-               self.handlers.append(transform.map(p))          
-          
+               self.handlers.append(transform.map(p))
+
     def makeOrigHandlers(self, geomOp):
-    
+        """
+        :param self:
+        :param geomOp:
+        :return:
+        """
         if self.handlers!=None:
-           self.origHandlers = []          
+           self.origHandlers = []
            for p in self.handlers:
                self.origHandlers.append(geomOp.transform.inverted()[0].map(p))
-    
-    def getColor(self):    
-        return self.color
-        
-    def getHandlersColor(self):    
-        return self.handlerColor
-        
-    def setColor(self, color):
-        self.color = color    
-        
-    def setFilled(self, fill):
-        self.filled = fill
-    
+
     def isFilled(self):
+        """
+        Return the value of parameter Filled (True or False)
+        :return: value of Filled
+        """
         return self.filled
-   
-    def translate(self, dx, dy, moveRefPoint):   
-        
+
+    def translate(self, dx, dy, moveRefPoint):
+        """
+        Move a reference point to another location
+        :param dx: Variation of coordinate X
+        :param dy: Variation of coordinate Y
+        :param moveRefPoint: Reference point
+        """
+
         for p1 in self.handlers:
             p1.setX(p1.x()+dx)
             p1.setY(p1.y()+dy)
@@ -69,97 +301,56 @@ class Shape():
         if moveRefPoint and self.referencePoint!=None:
            self.referencePoint.setX(self.referencePoint.getX()+dx)
            self.referencePoint.setY(self.referencePoint.getY()+dy)
-           
-    def setOrigHandlers(self, handlers):
-        self.origHandlers = handlers
-        
+
     def paintHandlers(self, painter):
+        """
+        :param painter:
+        :return:
+        """
         painter.save()
         if self.handlers!=None:
            for h in self.handlers:
                self.paintHandler(painter, h)
-        
-        painter.restore()       
-              
-    def paintHandler(self, painter, point):    
-        painter.save()      
+
+        painter.restore()
+
+    def paintHandler(self, painter, point):
+        """
+        :param painter:
+        :param point:
+        :return:
+        """
+        painter.save()
         x = point.getX()
         y = point.getY()
         painter.setPen(self.handlerColor)
         painter.drawRect(x-self.HND_LENGTH/2,y-self.HND_LENGTH/2,self.HND_LENGTH,self.HND_LENGTH)
         painter.fillRect(x-self.HND_LENGTH/2,y-self.HND_LENGTH/2,self.HND_LENGTH,self.HND_LENGTH)
         painter.restore()
-        
+
     def paint(self, painter):
-        return    
+        return
 
     def updateHandlersPosition(self):
         return
-    
-    def getBounds(self):
-        return
-    
-    def setLocation(self, point):
-        self.location = point   
-        self.updateHandlersPosition()
-    
-    def getType(self):
-        return Shape.ABSTRACT_SHAPE
-      
-    def getHndIndex(self, point):
-        
-        if self.handlers==None:
-           return -1
-        
-        i =0
-        rect = QRect()
-        for ph in self.handlers:
-            rect.setRect(ph.x(), ph.y(), self.HND_LENGTH, self.HND_LENGTH)
-            if rect.contains(point):
-               return i
-            i = i+1  
-           
-    def getHandlersLength(self):
-        return self.HND_LENGTH
- 
-    def getHandlers(self):
-        return self.handlers
-      
-    def setSelected(self, sel):
-        self.selected = sel   
-    
+
     def isSelected(self):
+        """
+        :return: the value of selected (True or False)
+        """
         return self.selected
-       
-    def getReferencePoint(self):
-        return self.referencePoint
-    
-    def seltMousePos(self, point):
-        self.mPos = point    
-    
-    def getMousePos(self):
-        return self.mPos     
-    
-    def getHandlerIndex(self):
-        return self.hndIndex
-    
-    def setHandlerIndex(self, index):
-        self.hndIndex = index
-    
+
     def zoom(self, newScale):
-        return 
-    
-    def getPerimeter(self, pixelWidth, pixelHeigth):     
         return
-        
-    def setScale(self, newScale):
-        self.scale = newScale
-    
-    def getScale(self):
-        return self.scale
 
 
 class Rectangle(Shape):
+    """ Rectangle Class Declaration
+
+        Rectangle class is used to fill areas to provide a rectangular border
+        in a 2D image. This class inherit from Shape
+        Constructor of Rectangle calls Shape class constructor"""
+
     def __init__(self, location, w, h, color, hndColor, hndLength, filled):
         Shape.__init__(self, location, color)
         self.width = w
@@ -176,14 +367,80 @@ class Rectangle(Shape):
         self.handlers.append(QPointF(x, y + h))
         self.handlers.append(QPointF(x, y + h / 2.0))
 
+    def getWidth(self):
+        """
+        Get the value of width
+        :return: value of width
+        """
+        return self.width
+
     def setWidth(self, w):
+        """
+        Set the value of the Rectangle width
+        :param w: new value of width
+        """
         self.width = w
 
+    def getHeigth(self, newHeigth):
+        """
+        Set the value of heigth
+        :param newHeigth: new value of heigth
+        """
+        self.height = newHeigth
+
     def setHeight(self, h):
+        """
+        Set the value of the Rectangle Heigth
+        :param h: new value of heigth
+        """
         self.height = h
 
-    def updateHandlersPosition(self):
+    def getOrigBounds(self):
+        """
 
+        :return:
+        """
+
+        if len(self.origHandlers) == 0:
+            return None
+
+        p = self.origHandlers[0]
+        minX = maxX = p.x()
+        minY = maxY = p.y()
+        for p in self.origHandlers:
+            x = p.x()
+            y = p.y()
+            if x < minX:
+                minX = x
+            elif x > maxX:
+                maxX = x
+
+            if y < minY:
+                minY = y
+            elif y > maxY:
+                maxY = y
+
+        return QRectF(minX, minY, maxX - minX, maxY - minY)
+
+    def getBounds(self):
+        """
+
+        :return:
+        """
+        return QRect(int(self.location.x()), int(self.location.y()),
+                     int(self.width), int(self.height))
+
+    def getType(self):
+        """
+        Get the type of Shape. In this case Rectangle
+        :return: Rectangle
+        """
+        return Shape.RECTANGLE
+
+    def updateHandlersPosition(self):
+        """
+        :return:
+        """
         p = self.handlers[1]
         p.setX(self.location.x() + self.width / 2.0)
         p.setY(self.location.y())
@@ -206,11 +463,11 @@ class Rectangle(Shape):
         p.setX(self.location.x())
         p.setY(self.location.y() + self.height / 2.0)
 
-    def getType(self):
-        return Shape.RECTANGLE
-
     def paint(self, painter):
-
+        """
+        This method paint a new Rectangle
+        :param painter: object painter
+        """
         if painter == None:
             return
 
@@ -226,6 +483,10 @@ class Rectangle(Shape):
             self.paintHandlers(painter)
 
     def makeScaledShape(self, transform):
+        """
+        This method scale(zoom) the rectangle when the image was scaled too
+        :param transform: object QTransform
+        """
         if transform != None and len(self.origHandlers) == 0:
             self.handlers.clear()
 
@@ -264,10 +525,20 @@ class Rectangle(Shape):
         self.updateHandlersPosition()
 
     def makeHandlers(self, newGeomOp):
+        """
+
+        :param newGeomOp:
+        :return:
+        """
         if newGeomOp != None:
             self.makeScaledShape(newGeomOp.transformation())
 
     def makeOriginalHandlers(self, geomOp):
+        """
+
+        :param geomOp:
+        :return:
+        """
 
         if geomOp == None:
             return
@@ -292,30 +563,12 @@ class Rectangle(Shape):
         self.origHandlers.append(QPointF(x, y + h1))
         self.origHandlers.append(QPointF(x, y + h1 / 2.0))
 
-    def getOrigBounds(self):
-
-        if len(self.origHandlers) == 0:
-            return None
-
-        p = self.origHandlers[0]
-        minX = maxX = p.x()
-        minY = maxY = p.y()
-        for p in self.origHandlers:
-            x = p.x()
-            y = p.y()
-            if x < minX:
-                minX = x
-            elif x > maxX:
-                maxX = x
-
-            if y < minY:
-                minY = y
-            elif y > maxY:
-                maxY = y
-
-        return QRectF(minX, minY, maxX - minX, maxY - minY)
-
     def contains(self, point):
+        """
+
+        :param point:
+        :return:
+        """
 
         if self.getHndIndex(point) != -1:
             return True
@@ -324,6 +577,11 @@ class Rectangle(Shape):
                      int(self.width), int(self.height)).contains(point)
 
     def handle(self, hndIndex, point):
+        """
+        :param hndIndex:
+        :param point:
+        :return:
+        """
 
         if hndIndex <= len(self.handlers) and hndIndex >= 0:
             man = self.handlers[hndIndex]
@@ -435,11 +693,18 @@ class Rectangle(Shape):
 
         self.updateHandlersPosition()
 
-    def getBounds(self):
-        return QRect(int(self.location.x()), int(self.location.y()),
-                     int(self.width), int(self.height))
+    def isFilled(self):
+        """
+        Return the value of parameter Filled (True or False)
+        :return: value of Filled
+        """
+        return self.filled
 
     def zoom(self, newScale):
+        """
+        This methods scale objects type Rectangles using a new scale
+        :param newScale: new scale
+        """
 
         t = QTransform()
         t.scale(newScale)

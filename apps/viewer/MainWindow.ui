@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>633</width>
-    <height>540</height>
+    <width>984</width>
+    <height>769</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,6 +24,12 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>290</width>
+          <height>0</height>
+         </size>
         </property>
         <property name="mouseTracking">
          <bool>true</bool>
@@ -227,6 +233,17 @@
          <attribute name="title">
           <string>Setting</string>
          </attribute>
+         <widget class="QWidget" name="layoutWidget">
+          <property name="geometry">
+           <rect>
+            <x>2</x>
+            <y>10</y>
+            <width>261</width>
+            <height>711</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_8"/>
+         </widget>
         </widget>
         <widget class="QWidget" name="tab_3">
          <attribute name="title">
@@ -253,7 +270,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>633</width>
+     <width>984</width>
      <height>26</height>
     </rect>
    </property>

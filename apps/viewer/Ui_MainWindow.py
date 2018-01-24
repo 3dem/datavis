@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'E:\Work\Project\example\Yunior\ImageView\MainWindow.ui'
+# Form implementation generated from reading ui file 'E:\Work\Project\example\Jose\ImageView\MainWindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.6
 #
@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(633, 540)
+        MainWindow.resize(984, 769)
         self.centralWidget = QtWidgets.QWidget(MainWindow)
         self.centralWidget.setObjectName("centralWidget")
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.centralWidget)
@@ -24,6 +24,7 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.tabWidget.sizePolicy().hasHeightForWidth())
         self.tabWidget.setSizePolicy(sizePolicy)
+        self.tabWidget.setMinimumSize(QtCore.QSize(290, 0))
         self.tabWidget.setMouseTracking(True)
         self.tabWidget.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.tabWidget.setTabPosition(QtWidgets.QTabWidget.West)
@@ -110,6 +111,12 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.tab, "")
         self.tab_2 = QtWidgets.QWidget()
         self.tab_2.setObjectName("tab_2")
+        self.layoutWidget = QtWidgets.QWidget(self.tab_2)
+        self.layoutWidget.setGeometry(QtCore.QRect(2, 10, 261, 711))
+        self.layoutWidget.setObjectName("layoutWidget")
+        self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.layoutWidget)
+        self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.tabWidget.addTab(self.tab_2, "")
         self.tab_3 = QtWidgets.QWidget()
         self.tab_3.setObjectName("tab_3")
@@ -127,7 +134,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_3.addLayout(self.horizontalLayout)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 633, 26))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 984, 26))
         self.menuBar.setObjectName("menuBar")
         self.menuFile = QtWidgets.QMenu(self.menuBar)
         self.menuFile.setObjectName("menuFile")
