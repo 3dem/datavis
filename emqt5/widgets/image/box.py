@@ -95,6 +95,7 @@ class ImageBox(QWidget):
         self.imgPos = QPointF() #Initial image position
         self.transformation = QTransform()        
         self.painter = QPainter()
+        self.zoomStep = 0.15  # zoom step for mouse wheel
 
     def setupUi(self):
         """
@@ -215,6 +216,35 @@ class ImageBox(QWidget):
         :param event: enter event
         """
         self.onMouseEnter.emit()
+
+    def wheelEvent(self, event):
+        """
+        Handle the mouse wheel event.
+        From Qt Help: Returns the distance that the wheel is rotated, in eighths
+                      of a degree. A positive value indicates that the wheel was
+                      rotated forwards away from the user; a negative value
+                      indicates that the wheel was rotated backwards toward
+                      the user. Most mouse types work in steps of 15 degrees,
+                      in which case the delta value is a multiple of 120; i.e.,
+                      120 units * 1/8 = 15 degrees. However, some mice have
+                      finer-resolution wheels and send delta values that are
+                      less than 120 units (less than 15 degrees).
+        :param event: enter event
+        """
+        if self.image:
+            numPixels = event.pixelDelta()
+            numDegrees = event.angleDelta() / 8
+
+            if not numDegrees.isNull():
+                numSteps = numDegrees / 15
+                self.changeZoom(self.imageTransform.getScale() +
+                                self.zoomStep * numSteps.y(),
+                                self.lastPos)
+            elif not numPixels.isNull():
+                # handle with pixel calc. May be in the future
+                pass
+
+        event.accept()
 
     def verticalFlip(self):
         """
