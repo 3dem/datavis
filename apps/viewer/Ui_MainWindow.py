@@ -161,7 +161,11 @@ class Ui_MainWindow(object):
         self.actionMove.setObjectName("actionMove")
         self.actionFit_to_Size = QtWidgets.QAction(MainWindow)
         self.actionFit_to_Size.setObjectName("actionFit_to_Size")
+        self.actionLoad_Raw_Data = QtWidgets.QAction(MainWindow)
+        self.actionLoad_Raw_Data.setObjectName("actionLoad_Raw_Data")
+        self.actionSave_As_Raw_Data = QtWidgets.QAction(MainWindow)
         self.menuFile.addAction(self.actionOpen)
+        self.menuFile.addAction(self.actionLoad_Raw_Data)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
         self.menuTools.addAction(self.actionZoom_In)
@@ -208,6 +212,7 @@ class Ui_MainWindow(object):
         self.actionZoom_Out.setText(_translate("MainWindow", "Zoom Out"))
         self.actionMove.setText(_translate("MainWindow", "Move"))
         self.actionFit_to_Size.setText(_translate("MainWindow", "Fit to Size"))
+        self.actionLoad_Raw_Data.setText(_translate("MainWindow", "Load Raw Data"))
 
 
 if __name__ == "__main__":

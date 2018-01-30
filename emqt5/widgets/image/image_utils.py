@@ -9,13 +9,15 @@ class ImageBuilder:
     This class construct an image with the given width, height, type, and
     format, that uses an existing memory buffer, data.
     """
-    # Suported Data types values
+    # Supported Data types values
     UINT8 = 1
     UINT16 = 2
     UINT32 = 3
     INT8 = 4
     INT16 = 5
     INT32 = 6
+    FLOAT = 7
+    DOUBLE = 8
 
     def __init__(self, dataArray, imgWidth, imgHeigth, dataType, imgFormat):
 
@@ -29,6 +31,28 @@ class ImageBuilder:
         self.min = self.minDataValue()
         self.image = QImage(self.width, self.heigth, imgFormat)
         self.convertToImage()
+
+    def getBuffer(self):
+        """
+        Get the buffer data
+        :return: the buffer data
+        """
+        return self.buffer
+
+    def getMaxPixelValue(self):
+        """
+        Get the maximal pixel value from the buffer data
+        :return: maximal pixel value
+        """
+        return self.maxPixelValue
+
+    def getMinPixelValue(self):
+        """
+        Get the minimal pixel value from the buffer data
+        :return: minimal pixel value
+        """
+        return self.minPixelValue
+
 
     def getPixelValue(self, x, y):
         """
@@ -73,11 +97,11 @@ class ImageBuilder:
                 color.setRgb(pixelValue, pixelValue, pixelValue)
                 self.image.setPixelColor(i, j, color)
 
-                #  Compare the actual pixel with the determined min pixel
+                #  Compare the actual pixel with the determined minimal pixel
                 if self.buffer[pixelPos] < self.minPixelValue:
                     self.minPixelValue = self.buffer[pixelPos]
 
-                #  Compare the actual pixel with the determined max pixel
+                #  Compare the actual pixel with the determined maximal pixel
                 if self.buffer[pixelPos] > self.maxPixelValue:
                     self.maxPixelValue = self.buffer[pixelPos]
 
@@ -97,11 +121,19 @@ class ImageBuilder:
         if self.dataType == self.UINT32:
             return round((value*255)/(2**32 - 1))
 
+        if self.dataType == self.INT8:
+            return value + round(2**8/2)
+        if self.dataType == self.INT16:
+            value += round(2**16/2)
+            return round((value * 255) / (2 ** 16 - 1))
+        if self.dataType == self.INT32:
+            value += round(2**32/2)
+            return round((value * 255) / (2 ** 32 - 1))
 
     def maxDataValue(self):
         """
-        Determine the max possible value taking into account the data type
-        :return: max possible value
+        Determine the maximum possible value taking into account the data type
+        :return: maximal possible value
         """
         if self.dataType == self.UINT8:
             return 255
@@ -109,16 +141,28 @@ class ImageBuilder:
             return 2**16 - 1
         if self.dataType == self.UINT32:
             return 2**32 - 1
+        if self.dataType == self.INT8:
+            return 127
+        if self.dataType == self.INT16:
+            return round(2**16/2 - 1)
+        if self.dataType == self.UINT32:
+            return round(2**32/2 - 1)
 
     def minDataValue(self):
         """
-        Determine the min possible value taking into account the data type
-        :return: min possible value
+        Determine the minimum possible value taking into account the data type
+        :return: minimal possible value
         """
         if self.dataType == self.UINT8 or \
            self.dataType == self.UINT16 or \
            self.dataType == self.UINT32:
             return 0
+        if self.dataType == self.INT8:
+            return -128
+        if self.dataType == self.INT16:
+            return round(-2**16/2)
+        if self.dataType == self.INT32:
+            return round(-2**32/2)
         return 0
 
 

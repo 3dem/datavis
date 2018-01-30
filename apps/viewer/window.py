@@ -13,6 +13,7 @@ from emqt5.widgets.image.shapes import Rectangle
 from emqt5.widgets.image.adjust_widgets import WindowLevels, BrightnessContrast, HistogramData
 
 from Ui_MainWindow import Ui_MainWindow
+from emqt5.widgets.image.image_utils import ImageBuilder
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -36,10 +37,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.zoom = 0
 
         self.__insertAdjustWidgets__()
-        imageFile = kwargs.get('imageFile', None)
-        if imageFile:
-            print("Loading filename:", imageFile)
-            self.openImage(imageFile)
+        self.imageFile = kwargs.get('imageFile', None)
+        if self.imageFile:
+            print("Loading filename:", self.imageFile)
+            self.openImage(self.imageFile)
             self.imageBox.centerImage()
 
     def __insertAdjustWidgets__(self):
@@ -134,6 +135,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
              self.imageBox.rotate(self.imageBox.rotationAngle()+self.rotationStep);
     
+
     @pyqtSlot()
     def openImage(self,  fileName):
         """
@@ -150,7 +152,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.information(self, "Image Viewer",
                         "Cannot load %s." % fileName)
                 return
-            self.imageBox.setImage(image)
+
+            width = image.width()
+            heigth = image.height()
+
+            dataAux = []
+            pixel = QColor()
+
+            for i in range(0, width):
+                for j in range(0, heigth):
+                    pixel = image.pixelColor(i, j)
+                    red = pixel.red()
+                    grayValue = red
+                    dataAux = dataAux + [grayValue]
+
+            imgFrombuffer = ImageBuilder(dataAux, width, heigth,
+                                         ImageBuilder.UINT8,
+                                         QImage.Format_Grayscale8)
+
+            image2 = imgFrombuffer.convertToImage()
+
+            self.imageBox.setImage(image2)
             self.imageBox.update()
             self.imageBox.fitToWindow()
             self.tabWidget.setEnabled(True)
@@ -288,4 +310,85 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                          QColor(120, 230, 30), QColor(120, 30,
                                                                       30), 6,
                                          False))
-        self.imageBox.update()    
+        self.imageBox.update()
+
+    def loadFromRawData(self, fileName):
+        """
+        Load an image from a given file raw data
+        :param fileName: data file
+        """
+        if fileName == None:
+            fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
+                                                 QDir.currentPath(), "(*.out)")
+            if fileName:
+                self.fileName = fileName
+                inputFile = open(self.fileName, 'r')
+                #  Read comments
+                line = inputFile.readline()
+                line = inputFile.readline()
+                line = inputFile.readline()
+                # Read Image Width
+                width = int(inputFile.readline())
+                line = inputFile.readline()
+                # Read Image Heigth
+                heigth = int(inputFile.readline())
+                line = inputFile.readline()
+                #  Read the Image Data Type
+                type = inputFile.readline()
+                type = type[0:len(type)-1]
+                Imagetype = self.convertStringToImageType(type)
+                line = inputFile.readline()
+                # Read the Image Format
+                format = inputFile.readline()
+                format = format[0:len(type) - 1]
+                imageFormat = self.convertStringToImageFormat(format)
+                line = inputFile.readline()
+                # Image Data pixels
+                dataAux = []
+                dataValueCount = width * heigth
+
+                # Reading the pixel values
+                for i in range(0, dataValueCount):
+                    line = inputFile.readline()
+                    dataAux = dataAux + [int(line)]
+
+                inputFile.close()
+                imgFrombuffer = ImageBuilder(dataAux, width, heigth,
+                                             Imagetype,
+                                             QImage.Format_Grayscale8)
+                image2 = imgFrombuffer.convertToImage()
+
+                self.imageBox.setImage(image2)
+                self.imageBox.update()
+                self.imageBox.fitToWindow()
+                self.tabWidget.setEnabled(True)
+
+    def convertStringToImageType(self, type):
+        """
+        Convert a give string to a valid image type
+        :param type: string that represent a image type
+        :return: a valid image type
+        """
+        if type == "UINT8":
+            return ImageBuilder.UINT8
+        if type == "UINT16":
+            return ImageBuilder.UINT16
+        if type == "UINT32":
+            return ImageBuilder.UINT32
+
+    def convertStringToImageFormat(self, format):
+        """
+        Convert a give string to a valid image format
+        :param format: string that represent a image format
+        :return: a valid image format
+        """
+        if format == "QImage.Format_Grayscale8":
+            return QImage.Format_Grayscale8
+
+
+    @pyqtSlot()
+    def on_actionLoad_Raw_Data_triggered(self):
+        """
+        Action to Load an image from file raw data
+        """
+        self.loadFromRawData(None)
