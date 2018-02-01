@@ -1,7 +1,6 @@
 
 from PyQt5.QtGui import QImage, QColor
 
-
 class ImageBuilder:
     """
     Declaration of the class ImageBuffer
@@ -30,7 +29,6 @@ class ImageBuilder:
         self.max = self.maxDataValue()
         self.min = self.minDataValue()
         self.image = QImage(self.width, self.heigth, imgFormat)
-        self.convertToImage()
 
     def getBuffer(self):
         """
@@ -77,35 +75,36 @@ class ImageBuilder:
         return x >=0 and x < self.width and y >= 0 and y < self.heigth
 
     def convertToImage(self):
-        """
+        """"
         Returns an image in the given type and format using a memory buffer.
         The image was store using an 8-bits, 16-bits or 32-bits gray scale
         format.
         :return: a 8-bits image
         """
         pixelPos = 0
-        color = QColor(0, 0, 0)
         self.minPixelValue = self.buffer[pixelPos]
         self.maxPixelValue = self.buffer[pixelPos]
 
         #  Construct the image using a buffer data and determine the max and the
         #  min pixel value in this buffer
 
-        for i in range(0, self.width):
-            for j in range(0, self.heigth):
-                pixelValue = self.__toUInt8__(self.buffer[pixelPos])
-                color.setRgb(pixelValue, pixelValue, pixelValue)
-                self.image.setPixelColor(i, j, color)
+        dataArray = self.image.scanLine(0)
+        pixelValues = dataArray.asarray(self.width * self.heigth)
 
-                #  Compare the actual pixel with the determined minimal pixel
-                if self.buffer[pixelPos] < self.minPixelValue:
-                    self.minPixelValue = self.buffer[pixelPos]
+        for i in range(0, self.width * self.heigth):
+            pixelValue = self.__toUInt8__(self.buffer[pixelPos])
+            pixelValues[pixelPos] = pixelValue
 
-                #  Compare the actual pixel with the determined maximal pixel
-                if self.buffer[pixelPos] > self.maxPixelValue:
-                    self.maxPixelValue = self.buffer[pixelPos]
+            #  Compare the actual pixel with the determined minimal pixel
+            if self.buffer[pixelPos] < self.minPixelValue:
+                self.minPixelValue = self.buffer[pixelPos]
 
-                pixelPos += 1
+            #  Compare the actual pixel with the determined maximal pixel
+            if self.buffer[pixelPos] > self.maxPixelValue:
+                self.maxPixelValue = self.buffer[pixelPos]
+
+            pixelPos += 1
+
         return self.image
 
     def __toUInt8__(self, value):

@@ -14,6 +14,7 @@ from emqt5.widgets.image.adjust_widgets import WindowLevels, BrightnessContrast,
 
 from Ui_MainWindow import Ui_MainWindow
 from emqt5.widgets.image.image_utils import ImageBuilder
+from ctypes import *
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -149,33 +150,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if fileName:
             image = QImage(fileName)
             if image.isNull():
-                QMessageBox.information(self, "Image Viewer",
-                        "Cannot load %s." % fileName)
+                QMessageBox.information(self, "Image Viewer", "Cannot load %s."
+                                        % fileName)
                 return
 
-            width = image.width()
-            heigth = image.height()
 
-            dataAux = []
-            pixel = QColor()
-
-            for i in range(0, width):
-                for j in range(0, heigth):
-                    pixel = image.pixelColor(i, j)
-                    red = pixel.red()
-                    grayValue = red
-                    dataAux = dataAux + [grayValue]
-
-            imgFrombuffer = ImageBuilder(dataAux, width, heigth,
-                                         ImageBuilder.UINT8,
-                                         QImage.Format_Grayscale8)
-
-            image2 = imgFrombuffer.convertToImage()
-
-            self.imageBox.setImage(image2)
+            self.imageBox.setImage(image)
             self.imageBox.update()
             self.imageBox.fitToWindow()
             self.tabWidget.setEnabled(True)
+
+
     
     @pyqtSlot()
     def on_actionOpen_triggered(self):
@@ -323,37 +308,47 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if fileName:
                 self.fileName = fileName
                 inputFile = open(self.fileName, 'r')
-                #  Read comments
+
+                #  Reading comments
                 line = inputFile.readline()
                 line = inputFile.readline()
                 line = inputFile.readline()
-                # Read Image Width
+
+                # Reading Image Width
                 width = int(inputFile.readline())
                 line = inputFile.readline()
-                # Read Image Heigth
+
+                # Reading Image Heigth
                 heigth = int(inputFile.readline())
                 line = inputFile.readline()
-                #  Read the Image Data Type
+
+                # Reading the Image Data Type
                 type = inputFile.readline()
                 type = type[0:len(type)-1]
                 Imagetype = self.convertStringToImageType(type)
                 line = inputFile.readline()
-                # Read the Image Format
+
+                # Reading the Image Format
                 format = inputFile.readline()
                 format = format[0:len(type) - 1]
                 imageFormat = self.convertStringToImageFormat(format)
                 line = inputFile.readline()
-                # Image Data pixels
+
+                # Reading Image Data pixels
                 dataAux = []
+                array = bytearray()
                 dataValueCount = width * heigth
 
                 # Reading the pixel values
                 for i in range(0, dataValueCount):
                     line = inputFile.readline()
                     dataAux = dataAux + [int(line)]
+                    array.append(int(line))
 
                 inputFile.close()
-                imgFrombuffer = ImageBuilder(dataAux, width, heigth,
+
+                # Creating an ImageBuider object
+                imgFrombuffer = ImageBuilder(array, width, heigth,
                                              Imagetype,
                                              QImage.Format_Grayscale8)
                 image2 = imgFrombuffer.convertToImage()
