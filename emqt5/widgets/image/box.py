@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QTransform
 
 from .transform import ImageTransform
+from .shapes import ShapeList
  
 
 class ImageBox(QWidget): 
@@ -42,7 +43,7 @@ class ImageBox(QWidget):
         self.mouseBtnState = self.up
         self.isVerticalFlip = False
         self.isHorizontalFlip = False
-        self.shapeList = []
+        self.shapeList = ShapeList()
         self.autoFit = True
         
         self.setMouseTracking(True)
@@ -122,17 +123,18 @@ class ImageBox(QWidget):
         PyQt method to implement the paint logic.
         :param event: paint event
         """
-        self.painter.begin(self)
 
         if self.image: # Paint image
+            self.painter.begin(self)
             self.painter.setTransform(self.imageTransform.transformation())
             self.painter.drawImage(0, 0, self.image)
-        
-        if self.shapeList: # Paint all the shapes            
-            for s in self.shapeList:
-                s.paint(self.painter)                
+            self.painter.end()
 
-        self.painter.end()
+        if self.shapeList: # Paint all the shapes
+            self.painter.begin(self)
+            for s in self.shapeList.getShapes():
+                s.paint(self.painter)
+            self.painter.end()
 
     @pyqtSlot()
     def rotate(self, angle):
@@ -266,7 +268,10 @@ class ImageBox(QWidget):
             dx1 = origDragPoint.x()-origLastPoint.x()
             dy1 = origDragPoint.y()-origLastPoint.y()
 
-            self.imageTransform.translate(dx1,dy1);
+            self.imageTransform.translate(dx1, dy1)
+
+            self.shapeList.makeHandlers(self.imageTransform)
+
             self.update()
 
     def preferedImageSize(self):
@@ -357,6 +362,7 @@ class ImageBox(QWidget):
         dy1 = (newMagPoint.y() - origMagPoint.y())
         
         self.imageTransform.translate(dx1, dy1)
+        self.shapeList.makeHandlers(self.imageTransform)
         self.update()
         
     def fitToWindow(self):
@@ -372,9 +378,9 @@ class ImageBox(QWidget):
         This method add a new shape to the image
         :param shape: new shape
         """
-        if not shape:
-           return
-        self.shapeList.append(shape)    
+        if shape:
+            self.shapeList.appendShape(shape)
+            shape.makeOrigHandlers(self.imageTransform)
     
     def resizeEvent(self, resizeEvent):
         """

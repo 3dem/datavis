@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, QPointF, QPoint, QRect
+from PyQt5.QtCore import Qt, QPointF, QPoint, QRect, QRectF
 from PyQt5.QtGui import QPainter, QTransform, QColor
 
 
-class Shape():
+
+class Shape:
     """ Declaration of the class Shape
 
         This class is used to define an interface for which  derived  some
@@ -29,7 +30,6 @@ class Shape():
         self.filled = False
         self.selected = False
         self.referencePoint = QPointF(0, 0)
-        self.origGeomOp = None
         self.handlers = []
         self.origHandlers = []
         self.mPos = QPoint(0, 0)
@@ -134,20 +134,6 @@ class Shape():
         Set the value of referencePoint
         """
         self.referencePoint = newRefPoint
-
-    def getOrigGeomOp(self):
-        """
-        Get the value of origGeomOp
-        :return: value of origGeomOp
-        """
-        return self.origGeomOp
-
-    def setOrigGeomOp(self, newOrigGeomOp):
-        """
-        Set the value of origGeomOp
-        :param newOrigGeomOp: new value of origGeomOp
-        """
-        self.origGeomOp = newOrigGeomOp
 
     def getHandlers(self):
         """
@@ -254,30 +240,21 @@ class Shape():
         self.hndIndex = index
 
     def getPerimeter(self, pixelWidth, pixelHeigth):
-        return
+        return 0
 
-    def makeHandlers(self, newGeomOp):
-        """
-        :param newGeomOp:
-        :return:
-        """
-        if self.origHandlers==None and newGeomOp==None:
-           transform = newGeomOp.getTransform()
+    def makeHandlers(self, imageTransform):
+
+        if imageTransform:
            self.handlers.clear()
-
            for p in self.origHandlers:
-               self.handlers.append(transform.map(p))
+               self.handlers.append(imageTransform.map(p))
 
-    def makeOrigHandlers(self, geomOp):
-        """
-        :param self:
-        :param geomOp:
-        :return:
-        """
-        if self.handlers!=None:
-           self.origHandlers = []
-           for p in self.handlers:
-               self.origHandlers.append(geomOp.transform.inverted()[0].map(p))
+    def makeOrigHandlers(self, imageTransform):
+
+        if imageTransform:
+            self.origHandlers = []
+            for p in self.handlers:
+                self.origHandlers.append(imageTransform.mapInverse(p))
 
     def isFilled(self):
         """
@@ -298,7 +275,7 @@ class Shape():
             p1.setX(p1.x()+dx)
             p1.setY(p1.y()+dy)
 
-        if moveRefPoint and self.referencePoint!=None:
+        if moveRefPoint and self.referencePoint:
            self.referencePoint.setX(self.referencePoint.getX()+dx)
            self.referencePoint.setY(self.referencePoint.getY()+dy)
 
@@ -308,7 +285,7 @@ class Shape():
         :return:
         """
         painter.save()
-        if self.handlers!=None:
+        if self.handlers:
            for h in self.handlers:
                self.paintHandler(painter, h)
 
@@ -343,6 +320,18 @@ class Shape():
     def zoom(self, newScale):
         return
 
+    def move(self, dx, dy):
+        """
+        Move the original handlers
+        :param dx:
+        :param dy:
+        :return:
+        """
+        if self.origHandlers:
+            for h in self.origHandlers:
+                h.setX(h.x() + dx)
+                h.setY(h.y() + dy)
+
 
 class Rectangle(Shape):
     """ Rectangle Class Declaration
@@ -356,6 +345,8 @@ class Rectangle(Shape):
         self.width = w
         self.height = h
         self.filled = filled
+        self.handlerColor = hndColor
+        self.HND_LENGTH = hndLength
         x = self.location.x()
         y = self.location.y()
         self.handlers.append(self.location)
@@ -381,12 +372,11 @@ class Rectangle(Shape):
         """
         self.width = w
 
-    def getHeigth(self, newHeigth):
+    def getHeigth(self):
         """
-        Set the value of heigth
-        :param newHeigth: new value of heigth
+        Get the value of heigth
         """
-        self.height = newHeigth
+        return self.height
 
     def setHeight(self, h):
         """
@@ -468,39 +458,37 @@ class Rectangle(Shape):
         This method paint a new Rectangle
         :param painter: object painter
         """
-        if painter == None:
-            return
+        if painter:
+           if self.filled:
+              painter.fillRect(self.location.x(), self.location.y(), self.width,
+                               self.height, self.color)
+           else:
+              painter.setPen(self.color)
+              painter.drawRect(self.location.x(), self.location.y(), self.width,
+                               self.height)
 
-        if self.filled:
-            painter.fillRect(self.location.x(), self.location.y(), self.width,
-                             self.height, self.color)
-        else:
-            painter.setPen(self.color)
-            painter.drawRect(self.location.x(), self.location.y(), self.width,
-                             self.height)
+           if self.selected:
+              self.paintHandlers(painter)
 
-        if self.selected:
-            self.paintHandlers(painter)
-
-    def makeScaledShape(self, transform):
+    def makeScaledShape(self, imageTransform):
         """
         This method scale(zoom) the rectangle when the image was scaled too
-        :param transform: object QTransform
+        :param imageTransform: object ImageTransform
         """
-        if transform != None and len(self.origHandlers) == 0:
+        if imageTransform and len(self.origHandlers) != 0:
             self.handlers.clear()
 
             p = self.origHandlers[0]
             minX = minY = 0
             maxX = maxY = 0
 
-            p = transform.map(p)
+            p = imageTransform.map(p)
             minX = maxX = p.x()
             minY = maxY = p.y()
             self.handlers.append(p)
 
             for p1 in self.origHandlers:
-                p = transform.map(p1)
+                p = imageTransform.map(p1)
                 self.handlers.append(p)
                 x = p.x()
                 y = p.y()
@@ -524,44 +512,42 @@ class Rectangle(Shape):
         self.height = maxY - minY
         self.updateHandlersPosition()
 
-    def makeHandlers(self, newGeomOp):
+    def makeHandlers(self, imageTransform):
         """
 
-        :param newGeomOp:
+        :param imageTransform:
         :return:
         """
-        if newGeomOp != None:
-            self.makeScaledShape(newGeomOp.transformation())
+        if imageTransform:
+            self.makeScaledShape(imageTransform)
 
-    def makeOriginalHandlers(self, geomOp):
+    def makeOriginalHandlers(self, imageTransform):
         """
 
-        :param geomOp:
+        :param imageTransform:
         :return:
         """
 
-        if geomOp == None:
-            return
+        if imageTransform:
+            self.origHandlers.clear()
 
-        self.origHandlers.clear()
-        t = geomOp.transformation()
-        for p in self.handlers:
-            self.origHandlers.append(t.inverted()[0].map(p))
+            for p in self.handlers:
+                self.origHandlers.append(imageTransform.mapInverse(p))
 
-        bounds = self.getOrigBounds()
-        w1 = bounds.width()
-        h1 = bounds.height()
-        self.origHandlers.clear()
-        x = bounds.x()
-        y = bounds.y()
-        self.origHandlers.append(QPointF(x, y))
-        self.origHandlers.append(QPointF(x + w1 / 2.0, y))
-        self.origHandlers.append(QPointF(x + w1, y))
-        self.origHandlers.append(QPointF(x + w1, y + h1 / 2.0))
-        self.origHandlers.append(QPointF(x + w1, y + h1))
-        self.origHandlers.append(QPointF(x + w1 / 2.0, y + h1))
-        self.origHandlers.append(QPointF(x, y + h1))
-        self.origHandlers.append(QPointF(x, y + h1 / 2.0))
+            bounds = self.getOrigBounds()
+            w1 = bounds.width()
+            h1 = bounds.height()
+            self.origHandlers.clear()
+            x = bounds.x()
+            y = bounds.y()
+            self.origHandlers.append(QPointF(x, y))
+            self.origHandlers.append(QPointF(x + w1 / 2.0, y))
+            self.origHandlers.append(QPointF(x + w1, y))
+            self.origHandlers.append(QPointF(x + w1, y + h1 / 2.0))
+            self.origHandlers.append(QPointF(x + w1, y + h1))
+            self.origHandlers.append(QPointF(x + w1 / 2.0, y + h1))
+            self.origHandlers.append(QPointF(x, y + h1))
+            self.origHandlers.append(QPointF(x, y + h1 / 2.0))
 
     def contains(self, point):
         """
@@ -729,3 +715,52 @@ class Rectangle(Shape):
         self.height = int((dx ** 2 + dy ** 2) ** 0.5)
 
         self.setScale(newScale)
+
+
+class Ellipse(Rectangle):
+
+    def __init__(self, location, w, h, color, hndColor, hndLength, filled):
+        Rectangle.__init__(self, location, w, h, color, hndColor, hndLength, filled)
+
+    def paint(self, painter):
+        """
+        This method paint a new Rectangle
+        :param painter: object painter
+        """
+        if painter:
+           if self.filled:
+              painter.fillEllipse(self.location.x(), self.location.y(), self.width,
+                               self.height, self.color)
+           else:
+              painter.setPen(self.color)
+              painter.drawEllipse(self.location.x(), self.location.y(), self.width,
+                               self.height)
+
+           if self.selected:
+              self.paintHandlers(painter)
+
+
+class ShapeList:
+    """
+
+    """
+
+    def __init__(self):
+        self.shapes = []
+
+    def appendShape(self, shape):
+        self.shapes.append(shape)
+
+    def move(self, dx, dy):
+
+        for s in self.shapes:
+            s.move(dx, dy)
+
+    def getShapes(self):
+        return self.shapes
+
+    def makeHandlers(self, imageTransform):
+
+        for s in self.shapes:
+            s.makeHandlers(imageTransform)
+

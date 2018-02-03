@@ -212,3 +212,12 @@ class ImageTransform:
         :param point: value of the point
         """
         return self.transform.inverted()[0].map(point)
+
+    def map(self, point):
+        """
+        Creates and returns a point that is a copy of the given point, mapped
+        into the coordinate system defined by this trasformation
+        :param point: value of the point
+        :return: mapped point
+        """
+        return self.transform.map(point)

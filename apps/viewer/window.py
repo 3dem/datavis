@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox, QApplication, QFileDialog,
 from PyQt5.QtGui import QImage, QColor
 
 from emqt5.widgets.image import ImageBox
-from emqt5.widgets.image.shapes import Rectangle
+from emqt5.widgets.image.shapes import Rectangle, Ellipse
 from emqt5.widgets.image.adjust_widgets import WindowLevels, BrightnessContrast, HistogramData
 
 from Ui_MainWindow import Ui_MainWindow
@@ -291,9 +291,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         Slot documentation goes here.
         """
-        self.imageBox.addShape(Rectangle(QPoint(-30, -30), 70, 100,
-                                         QColor(120, 230, 30), QColor(120, 30,
-                                                                      30), 6,
+        self.imageBox.addShape(Rectangle(QPoint(60, -30), 70, 100,
+                                         QColor(120, 230, 30),
+                                         QColor(120, 30, 30),
+                                         6,
+                                         False))
+
+        self.imageBox.addShape(Ellipse(QPoint(30, 30), 70, 100,
+                                         QColor(120, 230, 30),
+                                         QColor(120, 30, 30),
+                                         6,
                                          False))
         self.imageBox.update()
 
