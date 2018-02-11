@@ -1,5 +1,7 @@
 
-from PyQt5.QtGui import QImage, QColor
+from PyQt5.QtGui import QImage
+import numpy as np
+
 
 class ImageBuilder:
     """
@@ -88,8 +90,9 @@ class ImageBuilder:
         #  Construct the image using a buffer data and determine the max and the
         #  min pixel value in this buffer
 
-        dataArray = self.image.scanLine(0)
-        pixelValues = dataArray.asarray(self.width * self.heigth)
+        dataBuffer = self.image.scanLine(0)
+        pixelValuesAux = dataBuffer.asarray(self.width * self.heigth)
+        pixelValues = np.array(pixelValuesAux, dtype=np.uint8, copy=False)
 
         for i in range(0, self.width * self.heigth):
             pixelValue = self.__toUInt8__(self.buffer[pixelPos])
@@ -164,5 +167,24 @@ class ImageBuilder:
             return round(-2**32/2)
         return 0
 
+    def applyWindowLevel(self, window, level, ymin=0, ymax=255):
+        print("applyWindowLevel")
+        #x: output pixel value
+        #ymin: minimum output pixel value
+        #ymax: maximum output pixel value
+        #if  (x <= c - 0.5 - (w-1)/2), then y = Ymin
+        #else if (x > c - 0.5 + (w-1)/2), then y = Ymax
+        #else  y = ((x - (c - 0.5)) / (w-1) + 0.5) * (Ymax - Ymin )+ Ymin
 
+        if self.image:
+            dataArray = self.image.scanLine(0)
+            pixelValues = dataArray.asarray(self.width * self.heigth)
 
+            for i in range(0, self.width * self.heigth):
+                pValue = self.buffer[i]
+                if pValue <= (level-0.5-(window-1)/2):
+                    pixelValues[i] = ymin
+                elif pValue > (level-0.5+(window-1)/2):
+                    pixelValues[i] = ymax
+                else:
+                    pixelValues[i] = ((pValue-(level-0.5))/(window-1)+0.5)*(ymax-ymin)+ymin

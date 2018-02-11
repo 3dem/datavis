@@ -464,8 +464,16 @@ class Rectangle(Shape):
                                self.height, self.color)
            else:
               painter.setPen(self.color)
-              painter.drawRect(self.location.x(), self.location.y(), self.width,
-                               self.height)
+              #painter.drawRect(self.location.x(), self.location.y(), self.width,
+              #                 self.height)
+              painter.drawLine(self.handlers[0], self.handlers[1])
+              painter.drawLine(self.handlers[1], self.handlers[2])
+              painter.drawLine(self.handlers[2], self.handlers[3])
+              painter.drawLine(self.handlers[3], self.handlers[4])
+              painter.drawLine(self.handlers[4], self.handlers[5])
+              painter.drawLine(self.handlers[5], self.handlers[6])
+              painter.drawLine(self.handlers[6], self.handlers[7])
+              painter.drawLine(self.handlers[7], self.handlers[0])
 
            if self.selected:
               self.paintHandlers(painter)

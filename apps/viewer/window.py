@@ -14,7 +14,7 @@ from emqt5.widgets.image.adjust_widgets import WindowLevels, BrightnessContrast,
 
 from Ui_MainWindow import Ui_MainWindow
 from emqt5.widgets.image.image_utils import ImageBuilder
-from ctypes import *
+import numpy as np
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -38,6 +38,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.zoom = 0
 
         self.__insertAdjustWidgets__()
+        self.windowLevels.windowLevelChanged.connect(self.on_window_level_changed)
         self.imageFile = kwargs.get('imageFile', None)
         if self.imageFile:
             print("Loading filename:", self.imageFile)
@@ -331,7 +332,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 # Reading the Image Data Type
                 type = inputFile.readline()
-                type = type[0:len(type)-1]
+                type = type[0:len(type) - 1]
                 Imagetype = self.convertStringToImageType(type)
                 line = inputFile.readline()
 
@@ -342,23 +343,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 line = inputFile.readline()
 
                 # Reading Image Data pixels
-                dataAux = []
-                array = bytearray()
                 dataValueCount = width * heigth
+                array = np.zeros(dataValueCount, dtype=np.uint8)
 
                 # Reading the pixel values
                 for i in range(0, dataValueCount):
                     line = inputFile.readline()
-                    dataAux = dataAux + [int(line)]
-                    array.append(int(line))
+                    array[i] = int(line)
 
                 inputFile.close()
 
                 # Creating an ImageBuider object
-                imgFrombuffer = ImageBuilder(array, width, heigth,
+                self.imgFrombuffer = ImageBuilder(array, width, heigth,
                                              Imagetype,
                                              QImage.Format_Grayscale8)
-                image2 = imgFrombuffer.convertToImage()
+
+                self.windowLevels.setLevelRange(1, 255)
+                self.windowLevels.setWindowRange(1, 255)
+                image2 = self.imgFrombuffer.convertToImage()
+
+                maxPValue = self.imgFrombuffer.getMaxPixelValue()
+                minPValue = self.imgFrombuffer.getMinPixelValue()
+
+                self.windowLevels.setWindowLevels(maxPValue - minPValue,
+                                                  int((maxPValue + minPValue)/2))
 
                 self.imageBox.setImage(image2)
                 self.imageBox.update()
@@ -394,3 +402,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         Action to Load an image from file raw data
         """
         self.loadFromRawData(None)
+
+    def on_window_level_changed(self, window, level):
+        if self.imgFrombuffer:
+            self.imgFrombuffer.applyWindowLevel(window,
+                                                level)
+            self.imageBox.update()

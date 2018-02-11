@@ -28,8 +28,8 @@ class WindowLevels(QWidget):
         super(WindowLevels, self).__init__(parent)
         self.setupUi()
         # we need the last scoll values
-        self.lastLevelValue = self.levelScroll.minimum() - 1
-        self.lastWindowValue = self.windowScroll.minimum() - 1
+        self.lastLevelValue = self.levelScroll.value()
+        self.lastWindowValue = self.windowScroll.value()
 
         self.btnAuto.clicked.connect(self.autoWindowLevels)
         self.btnReset.clicked.connect(self.resetWindowLevels)
@@ -128,6 +128,22 @@ class WindowLevels(QWidget):
     def getHistogramWidget(self):
         return self.histogramWidget
 
+    def setWindowRange(self, min, max):
+        self.windowScroll.setMinimum(min)
+        self.windowScroll.setMaximum(max)
+
+    def setLevelRange(self, min, max):
+        self.levelScroll.setMinimum(min)
+        self.levelScroll.setMaximum(max)
+
+    def showWindow(self):
+
+        self.windowLabelValue.setText("%i" % self.windowScroll.value())
+
+    def showLevel(self):
+
+        self.levelLabelValue.setText("%i" % self.levelScroll.value())
+
     @pyqtSlot(int, int)
     def setWindowLevels(self, window, level):
         """
@@ -136,10 +152,12 @@ class WindowLevels(QWidget):
         if self.lastWindowValue != window:
             self.lastWindowValue = window
             self.windowScroll.setValue(window)
+            self.showWindow()
 
         if self.lastLevelValue != level:
             self.lastLevelValue = level
             self.levelScroll.setValue(level)
+            self.showLevel()
 
     @pyqtSlot(int)
     def on_levelScroll_valueChanged(self, value):
@@ -272,6 +290,9 @@ class BrightnessContrast(QWidget):
     Class documentation goes here.
     """
 
+    # signal for minimum
+    minimumChanged = pyqtSignal(int, int)
+
     def __init__(self, parent=None):
         """
         Constructor
@@ -280,6 +301,9 @@ class BrightnessContrast(QWidget):
         @type QWidget
         """
         super(BrightnessContrast, self).__init__(parent)
+        self.defMin = 0
+        self.defMax = 255
+
         self.setupUi()
 
     def setupUi(self):
@@ -392,6 +416,10 @@ class BrightnessContrast(QWidget):
 
     def getHistogramWidget(self):
         return self.histogramWidget
+
+    def setDefaultMinMax(self, min, max):
+        self.defMin = min
+        self.defMax = max
 
     @pyqtSlot(int)
     def on_minScroll_sliderMoved(self, position):

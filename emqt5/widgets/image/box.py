@@ -144,6 +144,7 @@ class ImageBox(QWidget):
         """        
         if self.image:            
             self.imageTransform.rotate(angle)
+            self.shapeList.makeHandlers(self.imageTransform)
             self.update()
             
     @pyqtSlot()
@@ -164,6 +165,7 @@ class ImageBox(QWidget):
         """
         if self.image:
             self.imageTransform.horizontalFlip()
+            self.shapeList.makeHandlers(self.imageTransform)
             self.update()
 
     def mousePressEvent(self, event):
@@ -254,6 +256,7 @@ class ImageBox(QWidget):
         """
         if self.image:
             self.imageTransform.verticalFlip()
+            self.shapeList.makeHandlers(self.imageTransform)
             self.update()     
     
     def moveImage(self, point1,  point2):
@@ -327,7 +330,7 @@ class ImageBox(QWidget):
         if not self.image:
             return
         
-        origImgCenterX = self.imageTransform.getImgHeigth() / 2
+        origImgCenterX = self.imageTransform.getImgWidth() / 2
         origImgCenterY = self.imageTransform.getImgHeigth() / 2
         
         cRegion = self.clipRegion()        
