@@ -1,7 +1,7 @@
 
 from PyQt5.QtGui import QImage
 import numpy as np
-
+import sys
 
 class ImageBuilder:
     """
@@ -168,7 +168,7 @@ class ImageBuilder:
         return 0
 
     def applyWindowLevel(self, window, level, ymin=0, ymax=255):
-        print("applyWindowLevel")
+
         #x: output pixel value
         #ymin: minimum output pixel value
         #ymax: maximum output pixel value
@@ -179,12 +179,15 @@ class ImageBuilder:
         if self.image:
             dataArray = self.image.scanLine(0)
             pixelValues = dataArray.asarray(self.width * self.heigth)
+            x = np.array(pixelValues, copy=False)
+            buff = np.array(self.buffer, copy=False)
+            try:
+                x[:] = np.piecewise(buff,
+                                    [buff[:] <= (level - 0.5 - (window - 1) / 2),
+                                     buff[:] > (level - 0.5 + (window - 1) / 2)],
+                                    [ymin, ymax, lambda x:
+                                    ((x[:] - (level - 0.5)) / (window-1) + 0.5)*
+                                    (ymax - ymin)])
 
-            for i in range(0, self.width * self.heigth):
-                pValue = self.buffer[i]
-                if pValue <= (level-0.5-(window-1)/2):
-                    pixelValues[i] = ymin
-                elif pValue > (level-0.5+(window-1)/2):
-                    pixelValues[i] = ymax
-                else:
-                    pixelValues[i] = ((pValue-(level-0.5))/(window-1)+0.5)*(ymax-ymin)+ymin
+            except:
+                print(sys.exc_info())
