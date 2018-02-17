@@ -2,6 +2,8 @@
 from PyQt5.QtGui import QImage
 import numpy as np
 import sys
+import em
+
 
 class ImageBuilder:
     """
@@ -28,9 +30,14 @@ class ImageBuilder:
         self.dataType = dataType
         self.maxPixelValue = 0
         self.minPixelValue = 0
-        self.max = self.maxDataValue()
-        self.min = self.minDataValue()
         self.image = QImage(self.width, self.heigth, imgFormat)
+
+    def getImage(self):
+        """
+        Get the image
+        :return: the image
+        """
+        return self.image
 
     def getBuffer(self):
         """
@@ -52,6 +59,14 @@ class ImageBuilder:
         :return: minimal pixel value
         """
         return self.minPixelValue
+
+    def computeMinMaxPixelValues(self):
+        """
+        Calculate the minimum and maximum pixels in the buffer array
+        :return:
+        """
+        self.minPixelValue = self.buffer.min()
+        self.maxPixelValue = self.buffer.max()
 
 
     def getPixelValue(self, x, y):
@@ -75,97 +90,6 @@ class ImageBuilder:
         :return:
         """
         return x >=0 and x < self.width and y >= 0 and y < self.heigth
-
-    def convertToImage(self):
-        """"
-        Returns an image in the given type and format using a memory buffer.
-        The image was store using an 8-bits, 16-bits or 32-bits gray scale
-        format.
-        :return: a 8-bits image
-        """
-        pixelPos = 0
-        self.minPixelValue = self.buffer[pixelPos]
-        self.maxPixelValue = self.buffer[pixelPos]
-
-        #  Construct the image using a buffer data and determine the max and the
-        #  min pixel value in this buffer
-
-        dataBuffer = self.image.scanLine(0)
-        pixelValuesAux = dataBuffer.asarray(self.width * self.heigth)
-        pixelValues = np.array(pixelValuesAux, dtype=np.uint8, copy=False)
-
-        for i in range(0, self.width * self.heigth):
-            pixelValue = self.__toUInt8__(self.buffer[pixelPos])
-            pixelValues[pixelPos] = pixelValue
-
-            #  Compare the actual pixel with the determined minimal pixel
-            if self.buffer[pixelPos] < self.minPixelValue:
-                self.minPixelValue = self.buffer[pixelPos]
-
-            #  Compare the actual pixel with the determined maximal pixel
-            if self.buffer[pixelPos] > self.maxPixelValue:
-                self.maxPixelValue = self.buffer[pixelPos]
-
-            pixelPos += 1
-
-        return self.image
-
-    def __toUInt8__(self, value):
-        """
-        Creates and returns a 8-bits pixel color based on this value.
-        :param value: value of pixel
-        :return: a 8-bits pixel color
-        """
-        if self.dataType == self.UINT8:
-            return value
-        if self.dataType == self.UINT16:
-            return round((value*255)/(2**16 - 1))
-        if self.dataType == self.UINT32:
-            return round((value*255)/(2**32 - 1))
-
-        if self.dataType == self.INT8:
-            return value + round(2**8/2)
-        if self.dataType == self.INT16:
-            value += round(2**16/2)
-            return round((value * 255) / (2 ** 16 - 1))
-        if self.dataType == self.INT32:
-            value += round(2**32/2)
-            return round((value * 255) / (2 ** 32 - 1))
-
-    def maxDataValue(self):
-        """
-        Determine the maximum possible value taking into account the data type
-        :return: maximal possible value
-        """
-        if self.dataType == self.UINT8:
-            return 255
-        if self.dataType == self.UINT16:
-            return 2**16 - 1
-        if self.dataType == self.UINT32:
-            return 2**32 - 1
-        if self.dataType == self.INT8:
-            return 127
-        if self.dataType == self.INT16:
-            return round(2**16/2 - 1)
-        if self.dataType == self.UINT32:
-            return round(2**32/2 - 1)
-
-    def minDataValue(self):
-        """
-        Determine the minimum possible value taking into account the data type
-        :return: minimal possible value
-        """
-        if self.dataType == self.UINT8 or \
-           self.dataType == self.UINT16 or \
-           self.dataType == self.UINT32:
-            return 0
-        if self.dataType == self.INT8:
-            return -128
-        if self.dataType == self.INT16:
-            return round(-2**16/2)
-        if self.dataType == self.INT32:
-            return round(-2**32/2)
-        return 0
 
     def applyWindowLevel(self, window, level, ymin=0, ymax=255):
 

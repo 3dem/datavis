@@ -15,6 +15,8 @@ from emqt5.widgets.image.adjust_widgets import WindowLevels, BrightnessContrast,
 from Ui_MainWindow import Ui_MainWindow
 from emqt5.widgets.image.image_utils import ImageBuilder
 import numpy as np
+import em
+
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -155,20 +157,58 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                         % fileName)
                 return
 
-
             self.imageBox.setImage(image)
             self.imageBox.update()
             self.imageBox.fitToWindow()
             self.tabWidget.setEnabled(True)
 
+    @pyqtSlot()
+    def openMRCImage(self, fileName):
+        """
+        Loads an image from the file with the given fileName.
+        :param fileName: image file name
+        :return: return false if the image was unsuccessfully loaded
+        """
+        if not fileName:
+            fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
+                                                      QDir.currentPath(),
+                                                      "(*.mrc)")
+        if fileName:
 
-    
+            img = em.Image()
+            loc2 = em.ImageLocation(fileName)
+            img.read(loc2)
+            a = np.array(img, copy=False)
+            dim = img.getDim()
+            type = img.getType()
+            dx = dim.x
+            dy = dim.y
+
+            # Convert a 2D matrix in a vector
+            array = a.reshape(1, dx*dy)[0]
+
+            # Creating an ImageBuider object
+            self.imgFrombuffer = ImageBuilder(array, dx, dy, type,
+                                              QImage.Format_Grayscale8)
+
+            self.imgFrombuffer.computeMinMaxPixelValues()
+            maxPValue = self.imgFrombuffer.getMaxPixelValue()
+            minPValue = self.imgFrombuffer.getMinPixelValue()
+
+            self.imgFrombuffer.applyWindowLevel(maxPValue - minPValue,
+                                               int((maxPValue + minPValue) / 2))
+
+            self.imageBox.setImage(self.imgFrombuffer.getImage())
+            self.imageBox.update()
+            self.imageBox.fitToWindow()
+            self.tabWidget.setEnabled(True)
+
     @pyqtSlot()
     def on_actionOpen_triggered(self):
         """
         This Slot communicate the action to open an image with openImage method.
         """
-        self.openImage(None)
+        self.openMRCImage(None)
     
     @pyqtSlot()
     def on_actionFlip_Vertical_triggered(self):
@@ -238,7 +278,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.changeFitToSizeCheckBoxEnable(True) 
         #self.imageBox.rotate(value);
         
-            
     @pyqtSlot(int)
     def on_horizontalSlider_2_valueChanged(self, value):
         """
