@@ -1,28 +1,61 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
+import os
+import numpy as np
 
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
-                             QSplitter, QApplication, QTreeView, QFileSystemModel,
-                             QLineEdit, QVBoxLayout, QListWidget, QMainWindow,
-                             QMenuBar, QMenu, QAction, QToolBar, QLabel)
-from PyQt5.QtCore import Qt, QDir, QCoreApplication, QMetaObject
+                             QSplitter, QTreeView,
+                             QFileSystemModel, QLineEdit, QVBoxLayout,
+                             QListWidget, QMainWindow, QMenuBar, QMenu,
+                             QAction, QToolBar, QLabel)
+from PyQt5.QtCore import Qt, QDir, QCoreApplication, QMetaObject, pyqtSlot
 from PyQt5.QtGui import QIcon, QPixmap
-import numpy as np
 import pyqtgraph as pg
+import qtawesome as qta
+
 import em
 
 
-class Browser(object):
+class BrowserWindow(QMainWindow):
     """
     Declaration of the class Browser
     This class construct a Browser User Interface
     """
+    def __init__(self, parent=None, **kwargs):
+        super(QMainWindow, self).__init__(parent)
+        self._initGUI()
 
-    def initBUI(self, MainWindow):
+    @pyqtSlot()
+    def on_actionExit_triggered(self):
+        """
+        This Slot is executed when a exit signal was fire. The application is
+        terminate
+        """
+        import sys
+        sys.exit()
 
-        self.centralWidget = QWidget(MainWindow)
+    def _onPathDoubleClick(self, signal):
+        """
+        This slot is executed when the action "double click"  inside the tree
+        view is realized. The tree view path change
+        :param signal: double clicked signal
+        """
+        file_path = self.model.filePath(signal)
+        self.setLineCompleter(file_path)
+
+    def _onPathClick(self, signal):
+        """
+        This slot is executed when the action "click" inside the tree view
+        is realized. The tree view path change
+        :param signal: clicked signal
+        """
+        file_path = self.model.filePath(signal)
+        self.setLineCompleter(file_path)
+        self.imagePlot(file_path)
+
+    def _initGUI(self):
+        self.centralWidget = QWidget(self)
         self.horizontalLayout = QHBoxLayout(self.centralWidget)
         self.splitter = QSplitter(self.centralWidget)
         self.splitter.setOrientation(Qt.Horizontal)
@@ -73,51 +106,40 @@ class Browser(object):
 
         self.verticalLayout_3.addLayout(self.verticalLayout_2)
         self.horizontalLayout.addWidget(self.splitter)
-        MainWindow.setCentralWidget(self.centralWidget)
+        self.setCentralWidget(self.centralWidget)
 
         # Create a Menu Bar
-        self.menuBar = QMenuBar(MainWindow)
+        self.menuBar = QMenuBar(self)
         self.menuBar.setObjectName("menuBar")
         self.menuFile = QMenu(self.menuBar)
         self.menuFile.setObjectName("menuFile")
-        MainWindow.setMenuBar(self.menuBar)
-        self.actionExit = QAction(MainWindow)
+        self.setMenuBar(self.menuBar)
+        self.actionExit = QAction(self)
         self.actionExit.setObjectName("actionExit")
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
         self.menuBar.addAction(self.menuFile.menuAction())
 
         # Create a Tool Bar
-        self.toolBar = QToolBar(MainWindow)
-        MainWindow.addToolBar(Qt.TopToolBarArea, self.toolBar)
+        self.toolBar = QToolBar(self)
+        self.addToolBar(Qt.TopToolBarArea, self.toolBar)
 
-        self.homeAction = QAction(MainWindow)
-        icon = QIcon()
-        icon.addPixmap(QPixmap("icons/home.ico"), QIcon.Normal,
-                       QIcon.Off)
-        self.homeAction.setIcon(icon)
-        self.toolBar.addAction(self.homeAction)
+        def _addAction(iconName):
+            action = QAction(self)
+            action.setIcon(qta.icon(iconName))
+            self.toolBar.addAction(action)
+            return action
 
-        self.refreshAction = QAction(MainWindow)
-        icon = QIcon()
-        icon.addPixmap(QPixmap("icons/folder_update.ico"), QIcon.Normal,
-                       QIcon.Off)
-        self.refreshAction.setIcon(icon)
-        self.toolBar.addAction(self.refreshAction)
-
-        self.folderUpAction = QAction(MainWindow)
-        icon = QIcon()
-        icon.addPixmap(QPixmap("icons/folder_up.ico"), QIcon.Normal,
-                       QIcon.Off)
-        self.folderUpAction.setIcon(icon)
-        self.toolBar.addAction(self.folderUpAction)
+        self.homeAction = _addAction('fa.home')
+        self.refreshAction = _addAction('fa.arrow-up')
+        self.folderUpAction = _addAction('fa.refresh')
 
         # Create and define the file system model
         self.model = QFileSystemModel()
-        filters = []
-        filters.append("*.mrc")
-        self.model.setNameFilters(filters)
-        self.model.setNameFilterDisables(False)
+        # filters = []
+        # filters.append("*.mrc")
+        # self.model.setNameFilters(filters)
+        # self.model.setNameFilterDisables(False)
         rootPath = QDir.homePath()
         self.lineCompleter.setText(QDir.homePath())
         self.model.setRootPath(rootPath)
@@ -126,17 +148,17 @@ class Browser(object):
         self.treeView.setSortingEnabled(True)
         self.treeView.resize(640, 380)
 
-        self.retranslateUi(MainWindow)
-        QMetaObject.connectSlotsByName(MainWindow)
+        self.retranslateUi()
+        QMetaObject.connectSlotsByName(self)
 
         # Show the Main Window
         self.setGeometry(200, 100, 900, 600)
         self.setWindowTitle('EM-Browser')
         self.show()
 
-    def retranslateUi(self, MainWindow):
+    def retranslateUi(self):
         _translate = QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Browser"))
+        self.setWindowTitle(_translate("MainWindow", "Browser"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))
         self.actionExit.setText(_translate("MainWindow", "Exit"))
@@ -165,8 +187,7 @@ class Browser(object):
         :param imagePath: the image path
         """
 
-        if self.isValidImage(imagePath):
-
+        if self.isEmImage(imagePath):
             # Create an image from imagePath using em-bindings
             img = em.Image()
             loc2 = em.ImageLocation(imagePath)
@@ -178,7 +199,6 @@ class Browser(object):
                 item = self.imageLayout.takeAt(0)
                 self.imageLayout.removeItem(item)
 
-
             # Display an image using pyqtgraph
             self.v1 = pg.ImageView()
             self.imageLayout.addWidget(self.v1)
@@ -189,6 +209,9 @@ class Browser(object):
             self.listWidget.addItem("Dimension: " + str(img.getDim()))
             self.listWidget.addItem("Type: " + str(img.getType()))
 
+        elif self.isImage(imagePath):
+            # TODO: Also show normal images using QImage
+            pass
         else:
             if not (self.imageLayout.isEmpty()):
                 item = self.imageLayout.takeAt(0)
@@ -199,20 +222,17 @@ class Browser(object):
             self.listWidget.clear()
             self.listWidget.addItem("NO IMAGE FORMAT")
 
-    def isValidImage(self, imagePath):
-        ext = imagePath[-4:]
-        if (ext == ".mrc"):
-            return True
-        return False
+    @staticmethod
+    def isEmImage(imagePath):
+        """ Return True if imagePath has an extension recognized as supported
+        EM-image """
+        _, ext = os.path.splitext(imagePath)
+        return ext in ['.mrc', '.mrcs', '.spi', '.stk']
 
+    @staticmethod
+    def isImage(imagePath):
+        """ Return True if imagePath has a standard image format. """
+        _, ext = os.path.splitext(imagePath)
+        return ext in ['.jpg', '.jpeg', '.png', '.tif']
 
-if __name__ == '__main__':
-    import sys
-
-    app = QApplication(sys.argv)
-    MainWindow = QMainWindow()
-    browser = Browser()
-    browser.initUI(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())
 
