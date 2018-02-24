@@ -3,11 +3,14 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-
-from browser_window import Example
+from browser_actions import MainWindow
 
 if __name__ == '__main__':
-    
     app = QApplication(sys.argv)
-    ex = Example()
+    kwargs = {}
+    if len(sys.argv) > 1:
+        kwargs['imageFile'] = sys.argv[1]
+
+    mWindow = MainWindow(**kwargs)
+    mWindow.show()
     sys.exit(app.exec_())
