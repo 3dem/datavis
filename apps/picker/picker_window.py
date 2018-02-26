@@ -10,11 +10,12 @@ import numpy as np
 import em
 
 
-from apps.ppicking.ppiking_utils import PPSystem, Micrograph
+from model import PPSystem, Micrograph
+
 
 class PPWindow(QMainWindow):
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, parent=None, system=None, **kwargs):
         """
         Constructor
 
@@ -23,7 +24,7 @@ class PPWindow(QMainWindow):
         """
         super(PPWindow, self).__init__(parent)
         self.__setupUi__()
-        self.ppSystem = PPSystem()
+        self.ppSystem = system or PPSystem()
         self.model = QStandardItemModel()
         self.treeViewImages.setModel(self.model)
 
@@ -201,7 +202,8 @@ class PPWindow(QMainWindow):
             pos = ev.pos()
 
             pos = self.imageView.getView().mapToView(pos)
-            roi = pg.RectROI([pos.x()-self.pickingH/2, pos.y()-self.pickingW/2], [self.pickingW, self.pickingH], pen=(0, 9))
+            roi = pg.RectROI([pos.x()-self.pickingH/2, pos.y()-self.pickingW/2],
+                             [self.pickingW, self.pickingH], pen=(0, 9))
             roi.sigRegionChanged.connect(self.update)
             self.imageView.getView().addItem(roi)
 

@@ -86,6 +86,9 @@ class PPSystem:
             self.lastErrorStr = sys.exc_info()
             return None
 
+    def addMicrograph(self, micPath):
+        self.micrographs.append(micPath)
+
     def __parseMicrograph__(self, jsonObj):
 
         name = jsonObj["name"].toString()
