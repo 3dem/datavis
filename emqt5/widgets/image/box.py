@@ -308,9 +308,14 @@ class ImageBox(QWidget):
         """
         if not self.image:
            return 1.0 
-        
-        rect = self.preferedImageSize() 
-        return rect.width()/(self.image.width()*1.0)   
+
+        rect = self.preferedImageSize()
+        if rect:
+            return rect.width() / (self.image.width() * 1.0)
+        else:
+            return 1.0
+
+
     
     def clipRegion(self):
         w = self.width()
@@ -373,8 +378,9 @@ class ImageBox(QWidget):
         The image is fit to window
         """
         if self.image:
-            self.imageTransform.setScale(self.preferedScale())
-            self.centerImage()
+            if self.preferedScale():
+                self.imageTransform.setScale(self.preferedScale())
+                self.centerImage()
     
     def addShape(self, shape):
         """

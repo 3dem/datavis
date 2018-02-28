@@ -10,8 +10,9 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QAction, QToolBar, QLabel, QPushButton,
                              QSpacerItem, QCompleter)
 from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
-                         QItemSelectionModel
+                         QItemSelectionModel, QEvent
 from PyQt5.QtGui import QImage, QPixmap
+from emqt5.widgets.image import ImageBox
 
 import qtawesome as qta
 import numpy as np
@@ -32,6 +33,8 @@ class BrowserWindow(QMainWindow):
         self.disableHistogram = kwargs.get('--disable-histogram', False)
         self.disableROI = kwargs.get('--disable-roi', False)
         self.disableMenu = kwargs.get('--disable-menu', False)
+        self.image = pg.ImageView()
+        self.imageBox = ImageBox()
 
         self._initGUI()
 
@@ -102,6 +105,24 @@ class BrowserWindow(QMainWindow):
             index = self.model.index(QDir.toNativeSeparators(self.path))
             self.treeView.collapse(index)
 
+    def _onExpandTreeView(self):
+
+         self.path = self.lineCompleter.text()
+         index = self.model.index(QDir.toNativeSeparators(self.path))
+         self.treeView.selectionModel().select(index,
+                                               QItemSelectionModel.ClearAndSelect |
+                                               QItemSelectionModel.Rows)
+
+         self.treeView.expand(index)
+         self.treeView.scrollTo(index)
+         self.treeView.resizeColumnToContents(index.column())
+
+    def _onSplitterMove(self, pos, index):
+        if index > 0:
+            print('Derecha')
+        else:
+            print('Izquierda')
+
     def _initGUI(self):
 
         self.centralWidget = QWidget(self)
@@ -109,7 +130,7 @@ class BrowserWindow(QMainWindow):
         self.splitter = QSplitter(self.centralWidget)
         self.splitter.setOrientation(Qt.Horizontal)
         self.widget = QWidget(self.splitter)
-
+        self.splitter.splitterMoved.connect(self._onSplitterMove)
         self.leftVerticalLayout = QVBoxLayout(self.widget)
         self.verticalLayout = QVBoxLayout()
 
@@ -154,15 +175,20 @@ class BrowserWindow(QMainWindow):
         self.leftVerticalLayout.addLayout(self.verticalLayout)
 
         # Create right Panel
+
         self.rightWidget = QWidget(self.splitter)
         self.widgetsVerticalLayout = QVBoxLayout(self.rightWidget)
         self.imageVerticalLayout = QVBoxLayout()
 
-        self.frame = QFrame(self.rightWidget)
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding,
-                                 QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
+        self.imageSplitter = QSplitter(self.rightWidget)
+        self.imageSplitter.setOrientation(Qt.Vertical)
+
+
+        self.frame = QFrame(self.imageSplitter)
+        sizePolicy = QSizePolicy(QSizePolicy.Maximum,
+                                 QSizePolicy.Maximum)
+        sizePolicy.setHorizontalStretch(100)
+        sizePolicy.setVerticalStretch(100)
         sizePolicy.setHeightForWidth(self.frame.sizePolicy().hasHeightForWidth())
         self.frame.setSizePolicy(sizePolicy)
         self.frame.setFrameShape(QFrame.Box)
@@ -170,10 +196,9 @@ class BrowserWindow(QMainWindow):
         self.labelImage = QLabel(self.frame)
 
         self.imageLayout = QHBoxLayout(self.frame)
-        self.listWidget = QListWidget(self.rightWidget)
+        self.listWidget = QListWidget(self.imageSplitter)
 
-        self.imageVerticalLayout.addWidget(self.frame)
-        self.imageVerticalLayout.addWidget(self.listWidget)
+        self.imageVerticalLayout.addWidget(self.imageSplitter)
 
         self.widgetsVerticalLayout.addLayout(self.imageVerticalLayout)
         self.horizontalLayout.addWidget(self.splitter)
@@ -219,7 +244,7 @@ class BrowserWindow(QMainWindow):
         self.completer.setFilterMode(Qt.MatchCaseSensitive)
         self.completer.setModel(self.treeView.model())
         self.treeView.setModel(self.completer.model())
-        self.lineCompleter.textChanged.connect(self.expandTreeView)
+        self.lineCompleter.textChanged.connect(self._onExpandTreeView)
 
         self.retranslateUi(self)
         QMetaObject.connectSlotsByName(self)
@@ -260,7 +285,17 @@ class BrowserWindow(QMainWindow):
         :param imagePath: the image path
         """
 
+        if not (self.imageLayout.isEmpty()):
+            item = self.imageLayout.takeAt(0)
+            self.imageLayout.removeItem(item)
+            self.image.clear()
+            self.image.close()
+            self.image = pg.ImageView()
+            self.imageBox.setupProperties()
+
         if self.isEmImage(imagePath):
+
+            self.frame.setEnabled(True)
 
             # Create an image from imagePath using em-bindings
             img = em.Image()
@@ -268,25 +303,19 @@ class BrowserWindow(QMainWindow):
             img.read(loc2)
             array = np.array(img, copy=False)
 
-            if not(self.imageLayout.isEmpty()):
-                item = self.imageLayout.takeAt(0)
-                self.imageLayout.removeItem(item)
-
             # Display an image using pyqtgraph
-            self.v1 = pg.ImageView()
-            self.imageLayout.addWidget(self.v1)
-            self.v1.setImage(array)
-
+            self.imageLayout.addWidget(self.image)
+            self.image.setImage(array)
 
             # Disable image operations
             if self.disableHistogram:
-                self.v1.ui.histogram.hide()
+                self.image.ui.histogram.hide()
             if self.disableMenu:
-                self.v1.ui.menuBtn.hide()
+                self.image.ui.menuBtn.hide()
             if self.disableROI:
-                self.v1.ui.roiBtn.hide()
+                self.image.ui.roiBtn.hide()
             if self.disableZoom:
-                self.v1.getView().setMouseEnabled(False, False)
+                self.image.getView().setMouseEnabled(False, False)
 
             # Show the image dimension and type
             self.listWidget.clear()
@@ -294,34 +323,30 @@ class BrowserWindow(QMainWindow):
             self.listWidget.addItem("Type: " + str(img.getType()))
 
         elif self.isImage(imagePath):
-            # TODO: Also show normal images using QImage
-            """ self.v1 = pg.ImageView()
-                image = pg.QtGui.QImage(imagePath)
-                image = image.convertToFormat(QImage.Format_ARGB32_Premultiplied)
-                imgArray = pg.imageToArray(image, copy=False)
-                self.imageLayout.addWidget(self.v1)
-                self.v1.setImage(imgArray)
-                self.v1.ui.histogram.hide() """
-        else:
-            if not (self.imageLayout.isEmpty()):
-                item = self.imageLayout.takeAt(0)
-                self.imageLayout.removeItem(item)
-                self.v1.clear()
-                self.v1.close()
 
+                self.frame.setEnabled(False)
+                # Create and dsiplay a conventional image using ImageBox class
+                self.imageBox = ImageBox()
+                self.imageLayout.addWidget(self.imageBox)
+                image = QImage(imagePath)
+                self.imageBox.setImage(image)
+                self.imageBox.update()
+                self.imageBox.fitToWindow()
+
+                width = image.width()
+                height = image.height()
+                type = image.format()
+
+                # Show the image dimension and type
+                self.listWidget.clear()
+                self.listWidget.addItem("Dimension: " + str(width) + " x "
+                                        + str(height))
+                #self.listWidget.addItem("Type: " + str(type))
+        else:
+            self.imageBox.setupProperties()
+            self.imageBox.update()
             self.listWidget.clear()
             self.listWidget.addItem("NO IMAGE FORMAT")
-
-    def expandTreeView(self):
-
-         self.path = self.lineCompleter.text()
-         index = self.model.index(QDir.toNativeSeparators(self.path))
-         self.treeView.selectionModel().select(index, QItemSelectionModel.ClearAndSelect |
-                                               QItemSelectionModel.Rows)
-
-         self.treeView.expand(index)
-         self.treeView.scrollTo(index)
-
 
     @staticmethod
     def isEmImage(imagePath):
@@ -334,7 +359,8 @@ class BrowserWindow(QMainWindow):
     def isImage(imagePath):
         """ Return True if imagePath has a standard image format. """
         _, ext = os.path.splitext(imagePath)
-        return ext in ['.jpg', '.jpeg', '.png', '.tif']
+        return ext in ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+
 
 
 
