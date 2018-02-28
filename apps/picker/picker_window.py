@@ -1,3 +1,6 @@
+import sys
+import os
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex, QItemSelectionModel,
                           QFile, QIODevice, QJsonDocument, QJsonParseError)
@@ -8,7 +11,6 @@ import qtawesome as qta
 from pyqtgraph import RectROI
 import numpy as np
 import em
-import sys
 
 
 from model import PPSystem, ImageElem, PPCoordinate
@@ -24,7 +26,7 @@ class PPWindow(QMainWindow):
         @param parent reference to the parent widget
         @type QWidget
         """
-        super(PPWindow, self).__init__(parent)
+        QMainWindow.__init__(self, parent)
         self.__setupUi__()
         self.ppSystem = PPSystem()
         self.model = QStandardItemModel()
@@ -47,8 +49,8 @@ class PPWindow(QMainWindow):
         self.disableROI = kwargs.get('--disable-roi', False)
         self.disableMenu = kwargs.get('--disable-menu', False)
 
-        for pickFile in kwargs.get('--pick-files'):
-            self.openPickingFile(pickFile)
+        for pickFile in kwargs.get('--pick-files', []):
+            self._openFile(pickFile)
 
         self._setupImageView()
 
@@ -63,8 +65,8 @@ class PPWindow(QMainWindow):
     @pyqtSlot()
     def _on_imageAdded(self, imgElem):
         """
-        Add an image to the treeview widget. The user can invoke this method when he wants to add an image or
-        connect it to a signal that notifies the action of add an ImageElem.
+        Add an image to the treeview widget. The user can invoke this method
+        when he wants to add an image or connect it to a signal that notifies the action of add an ImageElem.
         We use the fa.archive icon from qtawesome temporarily.
         :param imgElem: The image
         """
@@ -78,22 +80,9 @@ class PPWindow(QMainWindow):
         Open the file, if was selected, and add a new node corresponding to the image specified in the file.
         """
         fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
-                                                  QDir.currentPath(),
-                                                  "(*.json)")
+                                                  QDir.currentPath())
         if fileName:
-            self.openPickingFile(fileName)
-
-    @pyqtSlot()
-    def on_actionOpenImage_triggered(self):
-        """
-        Show a FileDialog for the picking file (.json) selection.
-        Open the file, if was selected, and add a new node corresponding to the image specified in the file.
-        """
-        fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
-                                                  QDir.currentPath(),
-                                                  "(*.mrc)")
-        if fileName:
-            self.openImageFile(fileName)
+            self._openFile(fileName)
 
     @pyqtSlot()
     def on_actionNextImage_triggered(self):
@@ -158,6 +147,14 @@ class PPWindow(QMainWindow):
                 roi.sigRegionChangeFinished.connect(self._roiSizeChanged)
                 viewBox.addItem(roi)
 
+    def _openFile(self, path):
+        _, ext = os.path.splitext(path)
+
+        if ext == '.json':
+            self.openPickingFile(path)
+        else:
+            self.openImageFile(path)
+
     def openImageFile(self, path):
         """
         Open an em image for picking
@@ -165,13 +162,7 @@ class PPWindow(QMainWindow):
         """
         if path:
             try:
-                img = em.Image()
-                loc2 = em.ImageLocation(path)
-                img.read(loc2)
-                # no problem, add to the tree
-                file = QFile(path)
-                imgElem = ImageElem(file.fileName(),
-                                    path,
+                imgElem = ImageElem(os.path.basename(path), path,
                                     [self.pickingW, self.pickingH],
                                     [])
                 self._on_imageAdded(imgElem)
@@ -264,7 +255,8 @@ class PPWindow(QMainWindow):
         self.menuFile.setObjectName("menuFile")
         self.setMenuBar(self.menuBar)
 
-        def _creaNewAction(parent, actionName, faIconName, text="", checkable=False):
+        def _creaNewAction(parent, actionName, faIconName,
+                           text="", checkable=False):
             a = QtWidgets.QAction(parent)
             a.setObjectName(actionName)
             a.setIcon(qta.icon(faIconName))
@@ -272,20 +264,22 @@ class PPWindow(QMainWindow):
             a.setText(text)
             return a
 
-        self.actionPickRect = _creaNewAction(self, "actionPickRect", "fa.clone", checkable=True)
-        self.actionOpenPick = _creaNewAction(self, "actionOpenPick", "fa.folder-open", text="Open Pick File")
-        self.actionOpenImage = _creaNewAction(self, "actionOpenImage", "fa.archive", text="Open Image")
-        self.actionNextImage = _creaNewAction(self, "actionNextImage", "fa.arrow-right")
-        self.actionPrevImage = _creaNewAction(self, "actionPrevImage", "fa.arrow-left")
+        self.actionPickRect = _creaNewAction(self, "actionPickRect", "fa.clone",
+                                             checkable=True)
+        self.actionOpenPick = _creaNewAction(self, "actionOpenPick",
+                                             "fa.folder-open",
+                                             text="Open Pick File")
+        self.actionNextImage = _creaNewAction(self, "actionNextImage",
+                                              "fa.arrow-right")
+        self.actionPrevImage = _creaNewAction(self, "actionPrevImage",
+                                              "fa.arrow-left")
 
-        self.toolBar.addAction(self.actionOpenImage)
         self.toolBar.addAction(self.actionOpenPick)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionPrevImage)
         self.toolBar.addAction(self.actionNextImage)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionPickRect)
-        self.menuFile.addAction(self.actionOpenImage)
         self.menuFile.addAction(self.actionOpenPick)
         self.menuFile.addSeparator()
         self.menuBar.addAction(self.menuFile.menuAction())
@@ -300,7 +294,6 @@ class PPWindow(QMainWindow):
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.actionPickRect.setText(_translate("MainWindow", "PickRect"))
         self.actionOpenPick.setText(_translate("MainWindow", "Open Pick"))
-        self.actionOpenImage.setText(_translate("MainWindow", "Open Image"))
         self.actionNextImage.setText(_translate("MainWindow", "Next Image"))
         self.actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
 

@@ -18,7 +18,8 @@ if __name__ == '__main__':
         options = ['--disable-zoom',
                    '--disable-histogram',
                    '--disable-roi',
-                   '--disable-menu'
+                   '--disable-menu',
+                   '--pick-files'
                    ]
 
         kwargs['--disable-zoom'] = False

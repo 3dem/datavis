@@ -22,16 +22,15 @@ class ImageElem:
     """
     ImageElem is the base element managed by the PPSystem class(See PPSystem documentation).
     """
-    def __init__(self, name, path, box, ppCoordList=[]):
-        super(ImageElem).__init__()
+    def __init__(self, name, path, box, ppCoordList=None):
         self.name = name
         self.path = path
         self.box = box
-        self.ppCoordList = ppCoordList
+        self.ppCoordList = ppCoordList or []
 
     def addPPCoordinate(self, ppCoord):
         """
-        Add a coordinae to the list of coordinates
+        Add a coordinate to the list of coordinates
         :param ppCoord: Coordinate
         """
         if ppCoord:
