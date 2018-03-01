@@ -20,7 +20,8 @@ if __name__ == '__main__':
                    '--disable-roi',
                    '--disable-menu',
                    '--pick-files',
-                   '--disable-remove-rois'
+                   '--disable-remove-rois',
+				   '--disable-roi-aspect-locked'
                    ]
 
         kwargs['--disable-zoom'] = False
