@@ -2,7 +2,7 @@
 from PyQt5.QtCore import (QJsonDocument, QJsonParseError, QFile, QIODevice,
                           QObject, pyqtSignal)
 
-from model import ImageElem, PPCoordinate
+from model import ImageElem, PPCoordinate, PPBox
 
 class ImageElemParser:
     """
@@ -43,7 +43,7 @@ class ImageElemParser:
 
         imageElem = ImageElem(jsonObj["name"].toString(),
                               jsonObj["file"].toString(),
-                              (jsonBox["w"].toInt(), jsonBox["w"].toInt()),
+                              PPBox(jsonBox["w"].toInt(), jsonBox["w"].toInt()),
                               [])
 
         self._addCoordToImage(jsonObj["coord"].toArray(), imageElem)

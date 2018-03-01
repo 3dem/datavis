@@ -2,10 +2,12 @@
 
 class PPCoordinate:
     """
-    The PPCoordinate class describes a coordinate defined in a plane with X and Y axes
+    The PPCoordinate class describes a coordinate defined in a plane
+    with X and Y axes
     """
     def __init__(self, x, y):
-        self.set(x, y)
+        self.x = x
+        self.y = y
 
     def set(self, x, y):
         """
@@ -18,9 +20,19 @@ class PPCoordinate:
         self.y = y
 
 
+class PPBox:
+    """
+    Box for pick rect
+    """
+    def __init__(self, w, h):
+        self.width = w
+        self.height = h
+
+
 class ImageElem:
     """
-    ImageElem is the base element managed by the PPSystem class(See PPSystem documentation).
+    ImageElem is the base element managed by the PPSystem class
+    (See PPSystem documentation).
     """
     def __init__(self, name, path, box, ppCoordList=None):
         self.name = name
@@ -60,7 +72,7 @@ class ImageElem:
         """
         :return: The path of the image
         """
-        return  self.path
+        return self.path
 
     def getCoordinates(self):
         """
@@ -71,7 +83,7 @@ class ImageElem:
     def setBox(self, box):
         """
         Set the box for all coordinates
-        :param box: [width, height]
+        :param box: PPBox
         """
         self.box = box
 
@@ -84,7 +96,8 @@ class ImageElem:
 
 class PPSystem:
     """
-    The PPSystem class is responsible for managing the list of images in particle picking operation
+    The PPSystem class is responsible for managing the list of images
+    in particle picking operation
     """
 
     def __init__(self):
