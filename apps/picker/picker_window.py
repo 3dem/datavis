@@ -376,7 +376,7 @@ class PPWindow(QMainWindow):
         :param args:
         :return:
         """
-        roi = PPRectROI(pos, size, **args, centered=centered,
+        roi = PPRectROI(pos, size, centered=centered,
                          sideScalers=sideScalers,
                          removable=not self.disableRemoveROIs)
         roi.sigRegionChangeFinished.connect(self._roiSizeChanged)
@@ -494,10 +494,9 @@ class PPRectROI(RectROI):
     Rect roi for particle picking
     """
 
-    def __init__(self, pos, size, centered=False, sideScalers=False, **args):
-        RectROI.__init__(self, pos, size, **args,
-                        centered=centered,
-                        sideScalers=sideScalers)
+    def __init__(self, pos, size, centered=False, sideScalers=False, **kwargs):
+        RectROI.__init__(self, pos, size,
+                         centered=centered, sideScalers=sideScalers, **kwargs)
         self.pickCoord = None
 
     def hoverEvent(self, ev):
