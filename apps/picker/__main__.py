@@ -21,7 +21,8 @@ if __name__ == '__main__':
                    '--disable-menu',
                    '--pick-files',
                    '--disable-remove-rois',
-				   '--disable-roi-aspect-locked'
+                   '--disable-roi-aspect-locked',
+                   '--disable-roi-centered'
                    ]
 
         kwargs['--disable-zoom'] = False
@@ -30,6 +31,8 @@ if __name__ == '__main__':
         kwargs['--disable-menu'] = True
         kwargs['--disable-remove-rois'] = False
         kwargs['--disable-roi-aspect-locked'] = False
+        kwargs['--disable-roi-centered'] = False
+
         for a in ppArg:
             if a not in options:
                 pFiles.append(a)

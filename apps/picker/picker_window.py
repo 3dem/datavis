@@ -5,7 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex, QItemSelectionModel,
                           QFile, QIODevice, QJsonDocument, QJsonParseError)
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QCompleter,
-                             QInputDialog)
+                             QInputDialog, QActionGroup, QLabel, QSpinBox)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 import pyqtgraph as pg
 import qtawesome as qta
@@ -52,11 +52,16 @@ class PPWindow(QMainWindow):
         self.disableRemoveROIs = kwargs.get('--disable-remove-rois', False)
         self.disableROIAspectLocked = kwargs.get('--disable-roi-aspect-locked',
                                                  False)
+        self.disableROICentered = kwargs.get('--disable-roi-centered', False)
 
         for pickFile in kwargs.get('--pick-files', []):
             self._openFile(pickFile)
 
         self._setupImageView()
+
+        self.spinBoxBoxSize.setValue(self.pickingW)
+        #self.spinBoxBoxSize.valueChanged[int].connect(self._boxSizeChanged)
+        self.spinBoxBoxSize.editingFinished.connect(self._boxSizeEditingFinished)
 
     @pyqtSlot()
     def showError(self, msg):
@@ -170,6 +175,9 @@ class PPWindow(QMainWindow):
                                            ppCoord.y-imgElem.box.height/2),
                                           (imgElem.box.width,
                                            imgElem.box.height),
+                                          aspectLocked=not
+                                          self.disableROIAspectLocked,
+                                          centered=not self.disableROICentered,
                                           pen=(0, 9))
                 roi.pickCoord = ppCoord
                 viewBox.addItem(roi)
@@ -295,6 +303,14 @@ class PPWindow(QMainWindow):
 
         self.actionPickRect = _creaNewAction(self, "actionPickRect", "fa.clone",
                                              checkable=True)
+        self.actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
+        self.actionPickRect.setChecked(True)
+        self.actionErasePickBox = _creaNewAction(self, "actionErasePickBox",
+                                                 "fa.eye-slash",
+                                                 checkable=True)
+        self.actionErasePickBox.setShortcut(
+            QtGui.QKeySequence(Qt.CTRL + Qt.Key_2))
+        self.actionErasePickBox.setChecked(False)
         self.actionOpenPick = _creaNewAction(self, "actionOpenPick",
                                              "fa.folder-open",
                                              text="Open Pick File")
@@ -304,18 +320,29 @@ class PPWindow(QMainWindow):
                                               "fa.arrow-left")
         self.actionSetPickBox = _creaNewAction(self, "actionSetPickBox",
                                                "fa.arrows-alt")
+        self.labelBoxSize = QLabel("Size (px)", self)
+        self.spinBoxBoxSize = QSpinBox(self)
+        self.spinBoxBoxSize.setRange(3, 65535)
 
         self.toolBar.addAction(self.actionOpenPick)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionPrevImage)
         self.toolBar.addAction(self.actionNextImage)
         self.toolBar.addSeparator()
-        self.toolBar.addAction(self.actionSetPickBox)
+        self.toolBar.addWidget(self.labelBoxSize)
+        self.toolBar.addWidget(self.spinBoxBoxSize)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.actionErasePickBox)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionPickRect)
         self.menuFile.addAction(self.actionOpenPick)
         self.menuFile.addSeparator()
         self.menuBar.addAction(self.menuFile.menuAction())
+
+        self.actionGroupPick = QActionGroup(self)
+        self.actionGroupPick.setExclusive(True)
+        self.actionGroupPick.addAction(self.actionPickRect)
+        self.actionGroupPick.addAction(self.actionErasePickBox)
 
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
@@ -330,7 +357,7 @@ class PPWindow(QMainWindow):
         self.actionNextImage.setText(_translate("MainWindow", "Next Image"))
         self.actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
         self.actionSetPickBox.setText(_translate("MainWindow", "Box size..."))
-
+        self.actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
 
     def viewBoxMouseClickEvent(self, ev):
         """
@@ -347,8 +374,11 @@ class PPWindow(QMainWindow):
             roi = self._createRectROI((pos.x()-self.pickingH/2,
                                        pos.y()-self.pickingW/2),
                                       (self.pickingW, self.pickingH),
-                                      centered=True,
+                                      centered=not self.disableROICentered,
+                                      aspectLocked=not
+                                      self.disableROIAspectLocked,
                                       pen=(0, 9))
+
             roi.pickCoord = PPCoordinate(pos.x(), pos.y())
             self.imageView.getView().addItem(roi)
             # add coordinate to actual image elem
@@ -360,14 +390,54 @@ class PPWindow(QMainWindow):
     def completerSelection(self):
         QMessageBox.information(self, "Information", "Not yet implemented")
 
+    @pyqtSlot(int)
+    def _boxSizeChanged(self, value):
+        """
+        This slot is invoked when de value of spinBoxBoxSize is changed
+        :param value: The value
+        """
+        self.pickingH = value
+        self.pickingW = value
+
+        self._updateActualPickBox(self.pickingW, self.pickingH)
+
+    pyqtSlot()
+    def _boxSizeEditingFinished(self):
+        """
+        This slot is invoked when spinBoxBoxSize editing is finished
+        """
+        v = self.spinBoxBoxSize.value()
+        if not self.pickingW == v:
+            self.pickingW = v
+            self.pickingH = v
+            self._updateActualPickBox(self.pickingW, self.pickingH)
+
+    def _updateActualPickBox(self, w, h):
+        """
+        Update the box size for the actual image
+        :param w: Box width
+        :param h: Box height
+        """
+        if self.actualImage:
+            roiSize = (w, h)
+            for r in self.imageView.getView().addedItems:
+                if isinstance(r, PPRectROI):
+                    r.setPos(r.pos() + (r.size()-roiSize)/2,
+                             update=False, finish=False)
+                    r.setSize(roiSize)  # By default finish=True cause
+                    # emmit sigRegionChangeFinished signal and all ROIs updated
+                    return
+
+
     def _createRectROI(self, pos, size, centered=False, sideScalers=False,
-                       **args):
+                       aspectLocked=True, **args):
         """
         Create a RectROI. The params are in agreement to the constructor
         of the class. We connect the following slots:
         PPWindow._roiSizeChanged
         PPWindow._roiMouseHover
         PPWindow._roiRemoveRequested
+        PPWindow._roiMouseClicked
 
         :param pos:
         :param size:
@@ -377,13 +447,16 @@ class PPWindow(QMainWindow):
         :return:
         """
         roi = PPRectROI(pos, size, centered=centered,
-                         sideScalers=sideScalers,
-                         removable=not self.disableRemoveROIs)
+                        sideScalers=sideScalers,
+                        removable=not self.disableRemoveROIs,
+                        aspectLocked=aspectLocked)
+
+        roi.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
+
         roi.sigRegionChangeFinished.connect(self._roiSizeChanged)
         roi.sigHoverEvent.connect(self._roiMouseHover)
         roi.sigRemoveRequested.connect(self._roiRemoveRequested)
-
-        roi.aspectLocked = not self.disableROIAspectLocked
+        roi.sigClicked.connect(self._roiMouseClicked)
 
         for h in roi.getHandles():
             h.hide()  # Hide all handlers
@@ -400,6 +473,17 @@ class PPWindow(QMainWindow):
         for h in roi.getHandles():
             h.show()  # Show all handlers
 
+    @pyqtSlot(object, object)
+    def _roiMouseClicked(self, roi, ev):
+        """
+        This slot is invoked when the user clicks on a ROI
+        :param roi:
+        :param ev:
+        """
+        if ev.button() == QtCore.Qt.LeftButton and \
+                self.actionErasePickBox.isChecked():
+            roi.sigRemoveRequested.emit(roi)
+
     @pyqtSlot(object)
     def _roiSizeChanged(self, roi):
         """
@@ -409,13 +493,14 @@ class PPWindow(QMainWindow):
         """
         if isinstance(roi, PPRectROI):  # Only PPRectROI for now
             roiSize = roi.size()
-            roiPos = roi.pos()
-            pos = roiPos + roiSize/2
+            pos = roi.pos() + roiSize/2
 
             roi.pickCoord.set(pos.x(), pos.y())
 
             for r in self.imageView.getView().addedItems:
                 if isinstance(r, PPRectROI) and not r == roi:
+                    r.setPos(r.pos() + (r.size()-roiSize)/2,
+                             update=False, finish=False)
                     r.setSize(roiSize, finish=False)
 
             if self.actualImage:
@@ -430,12 +515,16 @@ class PPWindow(QMainWindow):
         if roi:
             self.imageView.getView().removeItem(roi)
 
+        if self.actualImage:
+            self.actualImage.removeCoordinate(roi.pickCoord)
+
     def _disconnectAllSlots(self, roi):
         """
         Disconnect from roi the slots:
         PPWindow._roiSizeChanged
         PPWindow._roiMouseHover
         PPWindow._roiRemoveRequested
+        PPWindow._roiMouseClicked
         :param roi:
         :return:
         """
@@ -443,6 +532,7 @@ class PPWindow(QMainWindow):
             roi.sigRegionChangeFinished.disconnect(self._roiSizeChanged)
             roi.sigHoverEvent.disconnect(self._roiMouseHover)
             roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
+            roi.sigClicked.disconnect(self._roiMouseClicked)
 
     def _clearImageView(self):
         """
@@ -494,10 +584,12 @@ class PPRectROI(RectROI):
     Rect roi for particle picking
     """
 
-    def __init__(self, pos, size, centered=False, sideScalers=False, **kwargs):
+    def __init__(self, pos, size, centered=False,
+                 sideScalers=False, aspectLocked=True, **kwargs):
         RectROI.__init__(self, pos, size,
                          centered=centered, sideScalers=sideScalers, **kwargs)
         self.pickCoord = None
+        self.aspectLocked = aspectLocked
 
     def hoverEvent(self, ev):
         """

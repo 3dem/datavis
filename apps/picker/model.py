@@ -93,6 +93,14 @@ class ImageElem:
         """
         return self.box
 
+    def removeCoordinate(self, ppCoord):
+        """
+        Remove the coordinate from the list
+        :param ppCoord:
+        """
+        if ppCoord and self.ppCoordList:
+            self.ppCoordList.remove(ppCoord)
+
 
 class PPSystem:
     """
