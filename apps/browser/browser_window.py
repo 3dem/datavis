@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QSplitter, QApplication, QTreeView, QFileSystemModel,
                              QLineEdit, QVBoxLayout, QListWidget, QMainWindow,
                              QAction, QToolBar, QLabel, QPushButton,
-                             QSpacerItem, QCompleter)
+                             QSpacerItem, QCompleter, QGridLayout)
 from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
                          QItemSelectionModel, QEvent
 from PyQt5.QtGui import QImage, QPixmap
@@ -33,7 +33,9 @@ class BrowserWindow(QMainWindow):
         self.disableHistogram = kwargs.get('--disable-histogram', False)
         self.disableROI = kwargs.get('--disable-roi', False)
         self.disableMenu = kwargs.get('--disable-menu', False)
-        self.image = pg.ImageView()
+        self.enableAxis = kwargs.get('--enable-axis', False)
+
+        self.image = pg.GraphicsLayoutWidget()
         self.imageBox = ImageBox()
 
         self._initGUI()
@@ -290,7 +292,7 @@ class BrowserWindow(QMainWindow):
             self.imageLayout.removeItem(item)
             self.image.clear()
             self.image.close()
-            self.image = pg.ImageView()
+            self.image = pg.GraphicsLayoutWidget()
             self.imageBox.setupProperties()
 
         if self.isEmImage(imagePath):
@@ -303,19 +305,34 @@ class BrowserWindow(QMainWindow):
             img.read(loc2)
             array = np.array(img, copy=False)
 
-            # Display an image using pyqtgraph
+            # A plot area (ViewBox + axes) for displaying the image
             self.imageLayout.addWidget(self.image)
-            self.image.setImage(array)
+            plotArea = self.image.addPlot()
 
-            # Disable image operations
-            if self.disableHistogram:
-                self.image.ui.histogram.hide()
-            if self.disableMenu:
-                self.image.ui.menuBtn.hide()
-            if self.disableROI:
-                self.image.ui.roiBtn.hide()
+            # Item for displaying image data
+            imageItem = pg.ImageItem()
+            plotArea.addItem(imageItem)
+            plotArea.showAxis('bottom', False)
+            plotArea.showAxis('left', False)
+
+            # Generate image data
+            imageItem.setImage(array)
+            plotArea.autoRange()
+
+            # Contrast/color control
+            if not self.disableHistogram:
+                hist = pg.HistogramLUTItem()
+                hist.setImageItem(imageItem)
+                self.image.addItem(hist)
+
+            # Zoom control
             if self.disableZoom:
-                self.image.getView().setMouseEnabled(False, False)
+                self.frame.setEnabled(False)
+
+            # Axis control
+            if self.enableAxis:
+                plotArea.showAxis('bottom', True)
+                plotArea.showAxis('left', True)
 
             # Show the image dimension and type
             self.listWidget.clear()
