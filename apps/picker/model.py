@@ -1,113 +1,150 @@
 
-from PyQt5.QtCore import (QJsonDocument, QJsonParseError, QFile, QIODevice,
-                          QObject, pyqtSignal)
-import sys
-
 
 class PPCoordinate:
-
-    def __init__(self, x, y, width, height):
-        self.set(x, y, width, height)
-
-    def set(self, x, y, width, height):
+    """
+    The PPCoordinate class describes a coordinate defined in a plane
+    with X and Y axes
+    """
+    def __init__(self, x, y):
         self.x = x
         self.y = y
+
+    def set(self, x, y):
+        """
+        Set x and y values for this coordinate
+        :param x:
+        :param y:
+        :return:
+        """
+        self.x = x
+        self.y = y
+
+
+class PPBox:
+    """
+    Box for pick rect
+    """
+    def __init__(self, w, h):
+        self.width = w
+        self.height = h
+
+    def setSize(self, width, height):
+        """
+        Sets the width and height
+        :param width: The width
+        :param height: The height
+        """
         self.width = width
         self.height = height
 
 
-class Micrograph(QObject):
-
-    def __init__(self, name, path, ppCoordList = []):
-        super(Micrograph).__init__()
-        self.name = name
+class ImageElem:
+    """
+    ImageElem is the base element managed by the PPSystem class
+    (See PPSystem documentation).
+    """
+    def __init__(self, imgId, path, box, ppCoordList=None):
+        self.imgId = imgId
         self.path = path
-        self.ppCoordList = ppCoordList
+        self.box = box
+        self.ppCoordList = ppCoordList or []
 
     def addPPCoordinate(self, ppCoord):
-
+        """
+        Add a coordinate to the list of coordinates
+        :param ppCoord: Coordinate
+        """
         if ppCoord:
             self.ppCoordList.append(ppCoord)
 
-    def setName(self, name):
+    def setId(self, imgId):
+        """
+        Sets the image Id
+        """
+        self.imgId = imgId
 
-        self.name = name
-
-    def getName(self):
-
-        return self.name
+    def getImageId(self):
+        """
+        :return: Get the image Id
+        """
+        return self.imgId
 
     def setPath(self, path):
-
+        """
+        Set de path to the image file
+        :param path: absolute path
+        """
         self.path = path
 
     def getPath(self):
-
-        return  self.path
+        """
+        :return: The path of the image
+        """
+        return self.path
 
     def getCoordinates(self):
-
+        """
+        :return: The coordinate list of the image
+        """
         return self.ppCoordList
 
+    def setBox(self, box):
+        """
+        Set the box for all coordinates
+        :param box: PPBox
+        """
+        self.box = box
+
+    def getBox(self):
+        """
+        :return: The box for all coordinates
+        """
+        return self.box
+
+    def getPickCount(self):
+        """
+        :return: The picking count
+        """
+        return len(self.ppCoordList)
+
+    def removeCoordinate(self, ppCoord):
+        """
+        Remove the coordinate from the list
+        :param ppCoord:
+        """
+        if ppCoord and self.ppCoordList:
+            self.ppCoordList.remove(ppCoord)
+
+
 class PPSystem:
+    """
+    The PPSystem class is responsible for managing the list of images
+    in particle picking operation
+    """
 
+    def __init__(self):
+        self.images = []
 
-    def __init__(self, parent=None):
-        self.jsonDocument = None
-        self.micrographs = []
-        self.lastErrorStr = None
+    def addImage(self, imgElem):
+        """
+        Add an image
+        :param imgElem: The image
+        :return:
+        """
+        if imgElem:
+            self.images.append(imgElem)
 
-    def openMicrograph(self, path):
+    def setBoxToImages(self, boxSize):
+        """
+        Set the box size to all images in the system
+        :param boxSize: PPBox
+        """
+        for imgElem in self.images:
+            b = imgElem.getBox()
+            b.setSize(boxSize.width, boxSize.height)
 
-        try:
-            file = QFile(path)
-
-            if file.open(QIODevice.ReadOnly):
-                error = QJsonParseError()
-                json = QJsonDocument.fromJson(file.readAll(), error)
-
-                if not error.error == QJsonParseError.NoError:
-                    self.lastErrorStr = error.errorString()
-                    return None
-
-                micro = self.__parseMicrograph__(json.object())
-                if micro:
-                    self.micrographs.append(micro)
-                    return micro
-                else:
-                    self.lastErrorStr = "Error parsing micrograph"
-                    return None
-            else:
-                self.lastErrorStr = "Error reading file"
-                return None
-
-        except:
-            print(sys.exc_info())
-            self.lastErrorStr = sys.exc_info()
-            return None
-
-    def addMicrograph(self, micPath):
-        self.micrographs.append(micPath)
-
-    def __parseMicrograph__(self, jsonObj):
-
-        name = jsonObj["name"].toString()
-        path = jsonObj["file"].toString()
-
-        coord = jsonObj["coord"].toArray()
-
-        micro = Micrograph(name, path)
-
-        self.__addCoordToMicrograph__(coord, micro)
-
-        return micro
-
-    def __addCoordToMicrograph__(self, jsonArray, micro):
-
-        for v in jsonArray:
-            jsonC = v.toObject()
-            coord = PPCoordinate(jsonC["x"].toInt(),
-                                 jsonC["y"].toInt(),
-                                 jsonC["w"].toInt(),
-                                 jsonC["h"].toInt())
-            micro.addPPCoordinate(coord)
+    def getImgCount(self):
+        """
+        :return: The image count
+        """
+        return len(self.images)
