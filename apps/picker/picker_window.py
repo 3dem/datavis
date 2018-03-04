@@ -61,7 +61,8 @@ class PPWindow(QMainWindow):
 
         self.spinBoxBoxSize.setValue(self.pickingW)
         #self.spinBoxBoxSize.valueChanged[int].connect(self._boxSizeChanged)
-        self.spinBoxBoxSize.editingFinished.connect(self._boxSizeEditingFinished)
+        self.spinBoxBoxSize.editingFinished.connect(
+            self._boxSizeEditingFinished)
 
     @pyqtSlot()
     def showError(self, msg):
@@ -80,8 +81,13 @@ class PPWindow(QMainWindow):
         We use the fa.archive icon from qtawesome temporarily.
         :param imgElem: The image
         """
-        item = PPItem(imgElem.getName(), imgElem, qta.icon("fa.archive"))
-        self.model.appendRow(item)
+        item = PPItem(imgElem, qta.icon("fa.archive"))
+        if imgElem:
+            row = [item,
+                   QStandardItem(os.path.basename(imgElem.getPath())),
+                   QStandardItem("%i" % imgElem.getPickCount())]
+
+        self.model.appendRow(row)
 
     @pyqtSlot()
     def on_actionOpenPick_triggered(self):
@@ -150,7 +156,8 @@ class PPWindow(QMainWindow):
         :param index: Index for the selected node (or item)
         :return:
         """
-        item = self.model.itemFromIndex(index)
+        item = self.model.itemFromIndex(self.treeViewImages.
+                                        selectedIndexes()[0])
         if item:
             self.showImage(item.getImageElem())
 
@@ -197,9 +204,12 @@ class PPWindow(QMainWindow):
         """
         if path:
             try:
-                imgElem = ImageElem(os.path.basename(path), path,
+                imgElem = ImageElem(0,
+                                    path,
                                     PPBox(self.pickingW, self.pickingH),
                                     [])
+                imgElem.setId(self.ppSystem.getImgCount()+1)
+                self.ppSystem.addImage(imgElem)
                 self._on_imageAdded(imgElem)
             except:
                 print(sys.exc_info())
@@ -227,6 +237,7 @@ class PPWindow(QMainWindow):
                         parser = ImageElemParser()
                         imgElem = parser.parseImage(json.object())
                         if imgElem:
+                            imgElem.setId(self.ppSystem.getImgCount()+1)
                             self.ppSystem.addImage(imgElem)
                             self._on_imageAdded(imgElem)
                 else:
@@ -381,10 +392,16 @@ class PPWindow(QMainWindow):
 
             roi.pickCoord = PPCoordinate(pos.x(), pos.y())
             self.imageView.getView().addItem(roi)
+
             # add coordinate to actual image elem
             if self.actualImage:
                 self.actualImage.\
                     addPPCoordinate(roi.pickCoord)
+
+                item = self.model.itemFromIndex(self.treeViewImages.
+                                                selectedIndexes()[2])
+                if item:
+                    item.setText("%i" % self.actualImage.getPickCount())
 
     @pyqtSlot()
     def completerSelection(self):
@@ -411,6 +428,8 @@ class PPWindow(QMainWindow):
             self.pickingW = v
             self.pickingH = v
             self._updateActualPickBox(self.pickingW, self.pickingH)
+            # update box size to all images ?
+            self.ppSystem.setBoxToImages(PPBox(self.pickingW, self.pickingH))
 
     def _updateActualPickBox(self, w, h):
         """
@@ -506,6 +525,10 @@ class PPWindow(QMainWindow):
             if self.actualImage:
                 self.actualImage.setBox(PPBox(roiSize.x(), roiSize.y()))
 
+            self.ppSystem.setBoxToImages(PPBox(int(roiSize.x()),
+                                               int(roiSize.y())))
+            self.spinBoxBoxSize.setValue(int(roiSize.x()))
+
     @pyqtSlot(object)
     def _roiRemoveRequested(self, roi):
         """
@@ -517,6 +540,10 @@ class PPWindow(QMainWindow):
 
         if self.actualImage:
             self.actualImage.removeCoordinate(roi.pickCoord)
+            item = self.model.itemFromIndex(self.treeViewImages.
+                                            selectedIndexes()[2])
+            if item:
+                item.setText("%i" % self.actualImage.getPickCount())
 
     def _disconnectAllSlots(self, roi):
         """
@@ -557,9 +584,8 @@ class PPItem(QStandardItem):
     The PPItem is the item that we use in the treeview
     where the images are displayed
     """
-    def __init__(self, text="", imgElem=None, icon=None):
-
-        super(PPItem, self).__init__(text)
+    def __init__(self, imgElem, icon=None):
+        super(PPItem, self).__init__("%i" % imgElem.getImageId())
         self.imgElem = imgElem
         self.setIcon(icon)
         self.roiList = []

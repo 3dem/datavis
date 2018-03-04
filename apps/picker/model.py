@@ -28,14 +28,23 @@ class PPBox:
         self.width = w
         self.height = h
 
+    def setSize(self, width, height):
+        """
+        Sets the width and height
+        :param width: The width
+        :param height: The height
+        """
+        self.width = width
+        self.height = height
+
 
 class ImageElem:
     """
     ImageElem is the base element managed by the PPSystem class
     (See PPSystem documentation).
     """
-    def __init__(self, name, path, box, ppCoordList=None):
-        self.name = name
+    def __init__(self, imgId, path, box, ppCoordList=None):
+        self.imgId = imgId
         self.path = path
         self.box = box
         self.ppCoordList = ppCoordList or []
@@ -48,18 +57,17 @@ class ImageElem:
         if ppCoord:
             self.ppCoordList.append(ppCoord)
 
-    def setName(self, name):
+    def setId(self, imgId):
         """
-        Set the ImageElem name
-        :param name: the new name
+        Sets the image Id
         """
-        self.name = name
+        self.imgId = imgId
 
-    def getName(self):
+    def getImageId(self):
         """
-        :return: The ImageElem name
+        :return: Get the image Id
         """
-        return self.name
+        return self.imgId
 
     def setPath(self, path):
         """
@@ -93,6 +101,12 @@ class ImageElem:
         """
         return self.box
 
+    def getPickCount(self):
+        """
+        :return: The picking count
+        """
+        return len(self.ppCoordList)
+
     def removeCoordinate(self, ppCoord):
         """
         Remove the coordinate from the list
@@ -117,4 +131,20 @@ class PPSystem:
         :param imgElem: The image
         :return:
         """
-        self.images.append(imgElem)
+        if imgElem:
+            self.images.append(imgElem)
+
+    def setBoxToImages(self, boxSize):
+        """
+        Set the box size to all images in the system
+        :param boxSize: PPBox
+        """
+        for imgElem in self.images:
+            b = imgElem.getBox()
+            b.setSize(boxSize.width, boxSize.height)
+
+    def getImgCount(self):
+        """
+        :return: The image count
+        """
+        return len(self.images)

@@ -41,7 +41,7 @@ class ImageElemParser:
         """
         jsonBox = jsonObj["box"].toObject()
 
-        imageElem = ImageElem(jsonObj["name"].toString(),
+        imageElem = ImageElem(0,
                               jsonObj["file"].toString(),
                               PPBox(jsonBox["w"].toInt(), jsonBox["w"].toInt()),
                               [])
