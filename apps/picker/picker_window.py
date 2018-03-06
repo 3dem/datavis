@@ -3,13 +3,15 @@ import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex, QItemSelectionModel,
-                          QFile, QIODevice, QJsonDocument, QJsonParseError)
+                          QFile, QIODevice, QJsonDocument, QJsonParseError,
+                          QAbstractItemModel)
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QCompleter,
-                             QInputDialog, QActionGroup, QLabel, QSpinBox)
+                             QInputDialog, QActionGroup, QLabel, QSpinBox,
+                             QAbstractItemView)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 import pyqtgraph as pg
 import qtawesome as qta
-from pyqtgraph import RectROI, ROI
+from pyqtgraph import ROI, RectROI, EllipseROI
 import numpy as np
 import em
 
@@ -30,8 +32,7 @@ class PPWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         self.__setupUi__()
         self.ppSystem = PPSystem()
-        self.model = QStandardItemModel()
-        self.treeViewImages.setModel(self.model)
+        self._setupTreeView()
 
         # Completer init
         self.completer = QCompleter()
@@ -44,6 +45,7 @@ class PPWindow(QMainWindow):
         self.pickingW = 200
         self.pickingH = 200
         self.actualImage = None
+        self.removeROIKeyModifier = QtCore.Qt.ControlModifier
 
         self.disableZoom = kwargs.get('--disable-zoom', False)
         self.disableHistogram = kwargs.get('--disable-histogram', False)
@@ -81,13 +83,19 @@ class PPWindow(QMainWindow):
         We use the fa.archive icon from qtawesome temporarily.
         :param imgElem: The image
         """
-        item = PPItem(imgElem, qta.icon("fa.archive"))
-        if imgElem:
-            row = [item,
-                   QStandardItem(os.path.basename(imgElem.getPath())),
-                   QStandardItem("%i" % imgElem.getPickCount())]
 
-        self.model.appendRow(row)
+        if imgElem:
+            column1 = PPItem(imgElem, qta.icon("fa.archive"))
+
+            column2 = PPItem(imgElem)
+            column2.setText(os.path.basename(imgElem.getPath()))
+
+            column3 = PPItem(imgElem)
+            column3.setText("%i" % imgElem.getPickCount())
+
+            self.model.appendRow([column1, column2, column3])
+
+            self.treeViewImages.resizeColumnToContents(0)
 
     @pyqtSlot()
     def on_actionOpenPick_triggered(self):
@@ -112,26 +120,15 @@ class PPWindow(QMainWindow):
             selectedIndex = indexes[0]
             nextIndex = self.treeViewImages.indexBelow(selectedIndex)
             if nextIndex:
+                if not nextIndex.isValid():  # take first index
+                    nextIndex = self.treeViewImages.model().index(0, 0)
+
                 selectionModel = self.treeViewImages.selectionModel()
-                selectionModel.select(selectedIndex, QItemSelectionModel.Toggle)
-                selectionModel.select(nextIndex, QItemSelectionModel.Toggle)
+                selectionModel.select(selectedIndex, QItemSelectionModel.Toggle
+                                      | QItemSelectionModel.Rows)
+                selectionModel.select(nextIndex, QItemSelectionModel.Toggle
+                                      | QItemSelectionModel.Rows)
                 self.on_treeViewImages_clicked(nextIndex)
-
-    @pyqtSlot()
-    def on_actionSetPickBox_triggered(self):
-        """
-        Show an input dialog for user configuration
-        """
-
-        boxSize = QInputDialog.getInt(self,
-                                      "Particle picking",
-                                      "Box size",
-                                      self.pickingW,
-                                      5,
-                                      65535)
-        if boxSize[1]:
-            self.pickingW = boxSize[0]
-            self.pickingH = boxSize[0]
 
     @pyqtSlot()
     def on_actionPrevImage_triggered(self):
@@ -144,10 +141,61 @@ class PPWindow(QMainWindow):
             selectedIndex = indexes[0]
             nextIndex = self.treeViewImages.indexAbove(selectedIndex)
             if nextIndex:
+                if not nextIndex.isValid():  # select last row
+                    model = self.treeViewImages.model()
+                    nextIndex = model.index(model.rowCount()-1, 0)
+
                 selectionModel = self.treeViewImages.selectionModel()
-                selectionModel.select(selectedIndex, QItemSelectionModel.Toggle)
-                selectionModel.select(nextIndex, QItemSelectionModel.Toggle)
+                selectionModel.select(selectedIndex, QItemSelectionModel.Toggle
+                                      | QItemSelectionModel.Rows)
+                selectionModel.select(nextIndex, QItemSelectionModel.Toggle
+                                      | QItemSelectionModel.Rows)
                 self.on_treeViewImages_clicked(nextIndex)
+
+    @pyqtSlot()
+    def on_actionPickEllipse_triggered(self):
+        """
+        Activate the pick elipse ROI.
+        Change all boxes to ellipse ROI
+        """
+        v = self.imageView.getView()
+
+        for r in v.addedItems[:]:
+            if isinstance(r, PPRectROI):
+                self._roiRemoveRequested(r, False)
+                roi = self._createEllipseROI(r.pos(),
+                                             (self.pickingW, self.pickingH),
+                                             centered=
+                                             not self.disableROICentered,
+                                             aspectLocked=not
+                                             self.disableROIAspectLocked,
+                                             removable=
+                                             not self.disableRemoveROIs,
+                                             pen=(0, 9))
+                roi.pickCoord = r.pickCoord
+                v.addItem(roi)
+
+    @pyqtSlot()
+    def on_actionPickRect_triggered(self):
+        """
+        Activate the pick rect ROI.
+        Change all boxes to rect ROI
+        """
+        v = self.imageView.getView()
+
+        for r in v.addedItems[:]:
+            if isinstance(r, PPEllipseROI):
+                self._roiRemoveRequested(r, False)
+                roi = self._createRectROI(r.pos(),
+                                          (self.pickingW, self.pickingH),
+                                          centered=not self.disableROICentered,
+                                          aspectLocked=not
+                                          self.disableROIAspectLocked,
+                                          removable=
+                                          not self.disableRemoveROIs,
+                                          pen=(0, 9))
+                roi.pickCoord = r.pickCoord
+                v.addItem(roi)
 
     @pyqtSlot(QModelIndex)
     def on_treeViewImages_clicked(self, index):
@@ -156,8 +204,8 @@ class PPWindow(QMainWindow):
         :param index: Index for the selected node (or item)
         :return:
         """
-        item = self.model.itemFromIndex(self.treeViewImages.
-                                        selectedIndexes()[0])
+        item = self.model.itemFromIndex(index)
+
         if item:
             self.showImage(item.getImageElem())
 
@@ -177,15 +225,30 @@ class PPWindow(QMainWindow):
             viewBox = self.imageView.getView()
 
             for ppCoord in imgElem.getCoordinates():
+                roi = None
+                if self.actionPickEllipse.isChecked():
+                    roi = self._createEllipseROI((ppCoord.x-imgElem.box.width/2,
+                                                ppCoord.y-imgElem.box.height/2),
+                                                 (imgElem.box.width,
+                                                 imgElem.box.height),
+                                                 centered=
+                                                 not self.disableROICentered,
+                                                 aspectLocked=not
+                                                 self.disableROIAspectLocked,
+                                                 removable=
+                                                 not self.disableRemoveROIs,
+                                                 pen=(0, 9))
+                else:
+                    roi = self._createRectROI((ppCoord.x-imgElem.box.width/2,
+                                              ppCoord.y-imgElem.box.height/2),
+                                              (imgElem.box.width,
+                                              imgElem.box.height),
+                                              aspectLocked=not
+                                              self.disableROIAspectLocked,
+                                              centered=not
+                                              self.disableROICentered,
+                                              pen=(0, 9))
 
-                roi = self._createRectROI((ppCoord.x-imgElem.box.width/2,
-                                           ppCoord.y-imgElem.box.height/2),
-                                          (imgElem.box.width,
-                                           imgElem.box.height),
-                                          aspectLocked=not
-                                          self.disableROIAspectLocked,
-                                          centered=not self.disableROICentered,
-                                          pen=(0, 9))
                 roi.pickCoord = ppCoord
                 viewBox.addItem(roi)
 
@@ -264,6 +327,17 @@ class PPWindow(QMainWindow):
             if self.disableZoom:
                 self.imageView.getView().setMouseEnabled(False, False)
 
+    def _setupTreeView(self):
+        """
+        Setup the treeview
+        """
+        self.model = QStandardItemModel()
+        self.model.setHorizontalHeaderLabels(["Id", "Micrograph",
+                                              "Coordinates"])
+        self.treeViewImages.setModel(self.model)
+        self.treeViewImages.setSelectionBehavior(
+            QAbstractItemView.SelectRows)
+
     def __setupUi__(self):
         self.setObjectName("MainWindow")
         self.resize(1097, 741)
@@ -303,7 +377,7 @@ class PPWindow(QMainWindow):
         self.menuFile.setObjectName("menuFile")
         self.setMenuBar(self.menuBar)
 
-        def _creaNewAction(parent, actionName, faIconName,
+        def _createNewAction(parent, actionName, faIconName,
                            text="", checkable=False):
             a = QtWidgets.QAction(parent)
             a.setObjectName(actionName)
@@ -312,25 +386,34 @@ class PPWindow(QMainWindow):
             a.setText(text)
             return a
 
-        self.actionPickRect = _creaNewAction(self, "actionPickRect", "fa.clone",
-                                             checkable=True)
+        self.actionPickRect = _createNewAction(self, "actionPickRect",
+                                               "fa.square",
+                                               checkable=True)
         self.actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
         self.actionPickRect.setChecked(True)
-        self.actionErasePickBox = _creaNewAction(self, "actionErasePickBox",
-                                                 "fa.eye-slash",
-                                                 checkable=True)
+
+        self.actionPickEllipse = _createNewAction(self, "actionPickEllipse",
+                                                  "fa.circle",
+                                                  checkable=True)
+        self.actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.CTRL +
+                                                              Qt.Key_2))
+        self.actionPickEllipse.setChecked(False)
+
+        self.actionErasePickBox = _createNewAction(self, "actionErasePickBox",
+                                                   "fa.eye-slash",
+                                                   checkable=True)
         self.actionErasePickBox.setShortcut(
-            QtGui.QKeySequence(Qt.CTRL + Qt.Key_2))
+            QtGui.QKeySequence(Qt.CTRL + Qt.Key_0))
         self.actionErasePickBox.setChecked(False)
-        self.actionOpenPick = _creaNewAction(self, "actionOpenPick",
-                                             "fa.folder-open",
-                                             text="Open Pick File")
-        self.actionNextImage = _creaNewAction(self, "actionNextImage",
-                                              "fa.arrow-right")
-        self.actionPrevImage = _creaNewAction(self, "actionPrevImage",
-                                              "fa.arrow-left")
-        self.actionSetPickBox = _creaNewAction(self, "actionSetPickBox",
-                                               "fa.arrows-alt")
+
+        self.actionOpenPick = _createNewAction(self, "actionOpenPick",
+                                               "fa.folder-open",
+                                               text="Open Pick File")
+        self.actionNextImage = _createNewAction(self, "actionNextImage",
+                                                "fa.arrow-right")
+        self.actionPrevImage = _createNewAction(self, "actionPrevImage",
+                                                "fa.arrow-left")
+
         self.labelBoxSize = QLabel("Size (px)", self)
         self.spinBoxBoxSize = QSpinBox(self)
         self.spinBoxBoxSize.setRange(3, 65535)
@@ -346,6 +429,7 @@ class PPWindow(QMainWindow):
         self.toolBar.addAction(self.actionErasePickBox)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionPickRect)
+        self.toolBar.addAction(self.actionPickEllipse)
         self.menuFile.addAction(self.actionOpenPick)
         self.menuFile.addSeparator()
         self.menuBar.addAction(self.menuFile.menuAction())
@@ -353,6 +437,7 @@ class PPWindow(QMainWindow):
         self.actionGroupPick = QActionGroup(self)
         self.actionGroupPick.setExclusive(True)
         self.actionGroupPick.addAction(self.actionPickRect)
+        self.actionGroupPick.addAction(self.actionPickEllipse)
         self.actionGroupPick.addAction(self.actionErasePickBox)
 
         self.retranslateUi()
@@ -363,11 +448,11 @@ class PPWindow(QMainWindow):
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
-        self.actionPickRect.setText(_translate("MainWindow", "PickRect"))
+        self.actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
+        self.actionPickEllipse.setText(_translate("MainWindow", "Pick Ellipse"))
         self.actionOpenPick.setText(_translate("MainWindow", "Open Pick"))
         self.actionNextImage.setText(_translate("MainWindow", "Next Image"))
         self.actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
-        self.actionSetPickBox.setText(_translate("MainWindow", "Box size..."))
         self.actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
 
     def viewBoxMouseClickEvent(self, ev):
@@ -377,31 +462,47 @@ class PPWindow(QMainWindow):
         :param ev: Mouse event
         :return:
         """
-        if ev.button() == QtCore.Qt.LeftButton and \
-                self.actionPickRect.isChecked():
+        if ev.button() == QtCore.Qt.LeftButton:
+
             pos = ev.pos()
-
             pos = self.imageView.getView().mapToView(pos)
-            roi = self._createRectROI((pos.x()-self.pickingH/2,
-                                       pos.y()-self.pickingW/2),
-                                      (self.pickingW, self.pickingH),
-                                      centered=not self.disableROICentered,
-                                      aspectLocked=not
-                                      self.disableROIAspectLocked,
-                                      pen=(0, 9))
 
-            roi.pickCoord = PPCoordinate(pos.x(), pos.y())
-            self.imageView.getView().addItem(roi)
+            roi = None
+            if self.actionPickRect.isChecked():
+                roi = self._createRectROI((pos.x()-self.pickingH/2,
+                                           pos.y()-self.pickingW/2),
+                                          (self.pickingW, self.pickingH),
+                                          centered=not self.disableROICentered,
+                                          aspectLocked=not
+                                          self.disableROIAspectLocked,
+                                          removable=
+                                          not self.disableRemoveROIs,
+                                          pen=(0, 9))
+            elif self.actionPickEllipse.isChecked():
+                roi = self._createEllipseROI((pos.x() - self.pickingH / 2,
+                                             pos.y() - self.pickingW / 2),
+                                             (self.pickingW, self.pickingH),
+                                             centered=
+                                             not self.disableROICentered,
+                                             aspectLocked=not
+                                             self.disableROIAspectLocked,
+                                             removable=
+                                             not self.disableRemoveROIs,
+                                             pen=(0, 9))
 
-            # add coordinate to actual image elem
-            if self.actualImage:
-                self.actualImage.\
-                    addPPCoordinate(roi.pickCoord)
+            if roi:
+                roi.pickCoord = PPCoordinate(pos.x(), pos.y())
+                self.imageView.getView().addItem(roi)
 
-                item = self.model.itemFromIndex(self.treeViewImages.
-                                                selectedIndexes()[2])
-                if item:
-                    item.setText("%i" % self.actualImage.getPickCount())
+                # add coordinate to actual image elem
+                if self.actualImage:
+                    self.actualImage.\
+                        addPPCoordinate(roi.pickCoord)
+
+                    item = self.model.itemFromIndex(self.treeViewImages.
+                                                    selectedIndexes()[2])
+                    if item:
+                        item.setText("%i" % self.actualImage.getPickCount())
 
     @pyqtSlot()
     def completerSelection(self):
@@ -440,23 +541,45 @@ class PPWindow(QMainWindow):
         if self.actualImage:
             roiSize = (w, h)
             for r in self.imageView.getView().addedItems:
-                if isinstance(r, PPRectROI):
+                if isinstance(r, (PPRectROI, PPEllipseROI)):
                     r.setPos(r.pos() + (r.size()-roiSize)/2,
                              update=False, finish=False)
                     r.setSize(roiSize)  # By default finish=True cause
                     # emmit sigRegionChangeFinished signal and all ROIs updated
                     return
 
-
-    def _createRectROI(self, pos, size, centered=False, sideScalers=False,
-                       aspectLocked=True, **args):
+    def _setupROI(self, roi):
         """
-        Create a RectROI. The params are in agreement to the constructor
-        of the class. We connect the following slots:
+        Configure the roi.
+
+        We connect the following slots:
+
         PPWindow._roiSizeChanged
         PPWindow._roiMouseHover
         PPWindow._roiRemoveRequested
         PPWindow._roiMouseClicked
+
+        :param roi:
+        :return:
+        """
+        if roi:
+            roi.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
+
+            roi.sigRegionChangeFinished.connect(self._roiSizeChanged)
+            roi.sigHoverEvent.connect(self._roiMouseHover)
+            roi.sigRemoveRequested.connect(self._roiRemoveRequested)
+            roi.sigClicked.connect(self._roiMouseClicked)
+
+            for h in roi.getHandles():
+                h.hide()  # Hide all handlers
+
+    def _createRectROI(self, pos, size, centered=False, sideScalers=False,
+                       aspectLocked=True, removable=True, **args):
+        """
+        Create a RectROI. The params are in agreement to the constructor
+        of the class.
+        We connect the following slots:
+        See _setupROI for details
 
         :param pos:
         :param size:
@@ -467,18 +590,34 @@ class PPWindow(QMainWindow):
         """
         roi = PPRectROI(pos, size, centered=centered,
                         sideScalers=sideScalers,
-                        removable=not self.disableRemoveROIs,
+                        removable=removable,
                         aspectLocked=aspectLocked)
 
-        roi.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
+        self._setupROI(roi)
 
-        roi.sigRegionChangeFinished.connect(self._roiSizeChanged)
-        roi.sigHoverEvent.connect(self._roiMouseHover)
-        roi.sigRemoveRequested.connect(self._roiRemoveRequested)
-        roi.sigClicked.connect(self._roiMouseClicked)
+        return roi
 
-        for h in roi.getHandles():
-            h.hide()  # Hide all handlers
+    def _createEllipseROI(self, pos, size, centered=False, aspectLocked=True,
+                          removable=True, **args):
+        """
+        Create a EllipseROI. The params are in agreement to the constructor
+        of the class.
+        We connect the following slots:
+        See _setupROI for details
+
+        :param pos:
+        :param size:
+        :param centered:
+        :param sideScalers:
+        :param args:
+        :return:
+        """
+        roi = PPEllipseROI(pos, size,
+                           aspectLocked=aspectLocked,
+                           centered=centered,
+                           removable=removable)
+
+        self._setupROI(roi)
 
         return roi
 
@@ -499,9 +638,11 @@ class PPWindow(QMainWindow):
         :param roi:
         :param ev:
         """
-        if ev.button() == QtCore.Qt.LeftButton and \
-                self.actionErasePickBox.isChecked():
-            roi.sigRemoveRequested.emit(roi)
+        if ev.button() == QtCore.Qt.LeftButton:
+            if self.actionErasePickBox.isChecked() or \
+                QtGui.QGuiApplication.keyboardModifiers() == \
+                    self.removeROIKeyModifier:
+                roi.sigRemoveRequested.emit(roi)
 
     @pyqtSlot(object)
     def _roiSizeChanged(self, roi):
@@ -510,14 +651,14 @@ class PPWindow(QMainWindow):
         :param roi:
         :return:
         """
-        if isinstance(roi, PPRectROI):  # Only PPRectROI for now
+        if isinstance(roi, (PPRectROI, PPEllipseROI)):  # Only PPRectROI for now
             roiSize = roi.size()
             pos = roi.pos() + roiSize/2
 
             roi.pickCoord.set(pos.x(), pos.y())
 
             for r in self.imageView.getView().addedItems:
-                if isinstance(r, PPRectROI) and not r == roi:
+                if isinstance(r, (PPRectROI, PPEllipseROI)) and not r == roi:
                     r.setPos(r.pos() + (r.size()-roiSize)/2,
                              update=False, finish=False)
                     r.setSize(roiSize, finish=False)
@@ -528,17 +669,19 @@ class PPWindow(QMainWindow):
             self.ppSystem.setBoxToImages(PPBox(int(roiSize.x()),
                                                int(roiSize.y())))
             self.spinBoxBoxSize.setValue(int(roiSize.x()))
+            self.pickingH = self.pickingW = int(roiSize.x())
 
     @pyqtSlot(object)
-    def _roiRemoveRequested(self, roi):
+    def _roiRemoveRequested(self, roi, removePick=True):
         """
         This slot is invoked when the roi will be removed
         :param roi: The roi
         """
         if roi:
             self.imageView.getView().removeItem(roi)
+            self._disconnectAllSlots(roi)
 
-        if self.actualImage:
+        if self.actualImage and removePick:
             self.actualImage.removeCoordinate(roi.pickCoord)
             item = self.model.itemFromIndex(self.treeViewImages.
                                             selectedIndexes()[2])
@@ -572,7 +715,7 @@ class PPWindow(QMainWindow):
         v = self.imageView.getView()
 
         for r in v.addedItems[:]:
-            if isinstance(r, PPRectROI):
+            if isinstance(r, (PPRectROI, PPEllipseROI)):
                 v.removeItem(r)
                 self._disconnectAllSlots(r)
 
@@ -585,18 +728,13 @@ class PPItem(QStandardItem):
     where the images are displayed
     """
     def __init__(self, imgElem, icon=None):
-        super(PPItem, self).__init__("%i" % imgElem.getImageId())
-        self.imgElem = imgElem
-        self.setIcon(icon)
-        self.roiList = []
 
-    def addROI(self, roi):
-        """
-        Add a roi to the roi list
-        :param roi: the roi
-        """
-        if roi:
-            self.roiList.append(roi)
+        super(PPItem, self).__init__("%i" % imgElem.getImageId())
+
+        self.imgElem = imgElem
+
+        if icon:
+            self.setIcon(icon)
 
     def getImageElem(self):
         """
@@ -640,3 +778,51 @@ class PPRectROI(RectROI):
         :return:  The PPCoordinate
         """
         return self.pickCoord
+
+
+class PPEllipseROI(EllipseROI):
+    """
+    Ellipse roi for particle picking
+    """
+
+    def __init__(self, pos, size, aspectLocked=True, centered=True,
+                 removable=True, **kwargs):
+        EllipseROI.__init__(self, pos, size,
+                            **kwargs)
+
+        self.pickCoord = None
+        self.aspectLocked = aspectLocked
+        self.removable = removable
+
+        if centered:
+            center = [0.5, 0.5]
+        else:
+            center = [0, 0]
+
+        self.addScaleHandle([0.5 * 2. ** -0.5 + 0.5, 0.5 * 2. ** -0.5 + 0.5],
+                            center)
+
+    def hoverEvent(self, ev):
+        """
+        Reimplementation of hoverEvent.
+        Hide all handlers
+        :param ev: Mouse event
+        """
+        if ev.isExit():
+            for h in self.getHandles():
+                h.hide()  # Hide all handlers
+        ROI.hoverEvent(self, ev)
+
+    def setPickCoordinate(self, coordinate):
+        """
+        Set de picking coordinate
+        :param coordinate: The PPCoordinate
+        """
+        self.pickCoord = coordinate
+
+    def getPickCoordinate(self):
+        """
+        :return:  The PPCoordinate
+        """
+        return self.pickCoord
+
