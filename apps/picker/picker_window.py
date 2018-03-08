@@ -87,7 +87,7 @@ class PPWindow(QMainWindow):
         """
 
         if imgElem:
-            column1 = PPItem(imgElem, qta.icon("fa.archive"))
+            column1 = PPItem(imgElem, qta.icon("fa.file-o"))
 
             column2 = PPItem(imgElem)
             column2.setText(os.path.basename(imgElem.getPath()))
@@ -396,13 +396,13 @@ class PPWindow(QMainWindow):
             return a
 
         self.actionPickRect = _createNewAction(self, "actionPickRect", "",
-                                               "fa.square",
+                                               "fa.square-o",
                                                checkable=True)
         self.actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
         self.actionPickRect.setChecked(True)
 
         self.actionPickEllipse = _createNewAction(self, "actionPickEllipse", "",
-                                                  "fa.circle",
+                                                  "fa.circle-o",
                                                   checkable=True)
         self.actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.CTRL +
                                                               Qt.Key_2))
@@ -410,7 +410,7 @@ class PPWindow(QMainWindow):
 
         self.actionErasePickBox = _createNewAction(self, "actionErasePickBox",
                                                    "",
-                                                   "fa.eye-slash",
+                                                   "fa.eraser",
                                                    checkable=True)
         self.actionErasePickBox.setShortcut(
             QtGui.QKeySequence(Qt.CTRL + Qt.Key_0))
