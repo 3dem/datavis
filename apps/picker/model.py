@@ -124,6 +124,8 @@ class PPSystem:
 
     def __init__(self):
         self.images = []
+        self.labels = {}
+        self._initLabels()
 
     def addImage(self, imgElem):
         """
@@ -148,3 +150,23 @@ class PPSystem:
         :return: The image count
         """
         return len(self.images)
+
+    def getLabels(self):
+        """
+        :return:The labels for this PPSystem
+        """
+        return self.labels
+
+    def _initLabels(self):
+        """
+        Initialize the labels for this PPSystem
+        """
+        automatic = {}
+        automatic["name"] = "Auto"
+        automatic["color"] = "#FF0004"  # #AARRGGBB
+        self.labels["Auto"] = automatic
+
+        manual = {}
+        manual["name"] = "Manual"
+        manual["color"] = "#1500FF"  # #AARRGGBB
+        self.labels["Manual"] = manual
