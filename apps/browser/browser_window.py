@@ -8,10 +8,10 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QSplitter, QApplication, QTreeView, QFileSystemModel,
                              QLineEdit, QVBoxLayout, QListWidget, QMainWindow,
                              QAction, QToolBar, QLabel, QPushButton,
-                             QSpacerItem, QCompleter, QGridLayout)
+                             QSpacerItem, QCompleter, QGridLayout, QDialog)
 from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
-                         QItemSelectionModel, QEvent
-from PyQt5.QtGui import QImage, QPixmap
+                         QItemSelectionModel
+from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
 
 import qtawesome as qta
@@ -76,6 +76,14 @@ class BrowserWindow(QMainWindow):
         """
         import sys
         sys.exit()
+
+    def _onSelectButtonClicked(self):
+        """
+        This Slot is executed when a exit signal was fire.
+        Select an em-image to realize a simple data-slicing
+        """
+        if self.isEmImage(self.path):
+            self.volumeSlice(self.path)
 
     def _onHomeActionClicked(self):
         """
@@ -169,6 +177,7 @@ class BrowserWindow(QMainWindow):
         self.selectButton = QPushButton(self.widget)
         self.selectButton.setGeometry(QRect(160, 190, 101, 22))
         self.selectButton.setIcon(qta.icon('fa.check'))
+        self.selectButton.clicked.connect(self._onSelectButtonClicked)
 
         buttonHorizontalLayout.addWidget(self.selectButton)
 
@@ -292,6 +301,7 @@ class BrowserWindow(QMainWindow):
             self.imageLayout.removeItem(item)
             self.image.clear()
             self.image.close()
+
             self.image = pg.GraphicsLayoutWidget()
             self.imageBox.setupProperties()
 
@@ -303,46 +313,70 @@ class BrowserWindow(QMainWindow):
             img = em.Image()
             loc2 = em.ImageLocation(imagePath)
             img.read(loc2)
-            array = np.array(img, copy=False)
 
-            # A plot area (ViewBox + axes) for displaying the image
-            self.imageLayout.addWidget(self.image)
-            plotArea = self.image.addPlot()
+            # Determinate the image dimension
+            z = img.getDim().z
 
-            # Item for displaying image data
-            imageItem = pg.ImageItem()
-            plotArea.addItem(imageItem)
-            plotArea.showAxis('bottom', False)
-            plotArea.showAxis('left', False)
+            if z == 1:  # The data is a 2D numpy array
 
-            # Generate image data
-            imageItem.setImage(array)
-            plotArea.autoRange()
+                array = np.array(img, copy=False)
 
-            # Contrast/color control
-            if not self.disableHistogram:
-                hist = pg.HistogramLUTItem()
-                hist.setImageItem(imageItem)
-                self.image.addItem(hist)
+                # A plot area (ViewBox + axes) for displaying the image
+                self.imageLayout.addWidget(self.image)
+                plotArea = self.image.addPlot()
 
-            # Zoom control
-            if self.disableZoom:
-                self.frame.setEnabled(False)
+                # Item for displaying image data
+                imageItem = pg.ImageItem()
+                plotArea.addItem(imageItem)
+                plotArea.showAxis('bottom', False)
+                plotArea.showAxis('left', False)
 
-            # Axis control
-            if self.enableAxis:
-                plotArea.showAxis('bottom', True)
-                plotArea.showAxis('left', True)
+                # Generate image data
+                imageItem.setImage(array)
 
-            # Show the image dimension and type
-            self.listWidget.clear()
-            self.listWidget.addItem("Dimension: " + str(img.getDim()))
-            self.listWidget.addItem("Type: " + str(img.getType()))
+                # Contrast/color control
+                if not self.disableHistogram:
+                    hist = pg.HistogramLUTItem()
+                    hist.setImageItem(imageItem)
+                    self.image.addItem(hist)
+
+                # Zoom control
+                if self.disableZoom:
+                    self.frame.setEnabled(False)
+
+                # Axis control
+                if self.enableAxis:
+                    plotArea.showAxis('bottom', True)
+                    plotArea.showAxis('left', True)
+
+                # Custom ROI for selecting an image region
+                if self.disableROI:
+                    roi = pg.ROI([-8, 14], [6, 5])
+                    roi.addScaleHandle([0.5, 1], [0.5, 0.5])
+                    roi.addScaleHandle([0, 0.5], [0.5, 0.5])
+                    plotArea.addItem(roi)
+                    roi.setZValue(10)  # make sure ROI is drawn above image
+
+                # Show the image dimension and type
+                self.listWidget.clear()
+                self.listWidget.addItem("Dimension: " + str(img.getDim()))
+                self.listWidget.addItem("Type: " + str(img.getType()))
+
+            else:  # The image has a volume. The data is a numpy 3D array. In
+                   # this case, we take one slice and display as a image.
+
+
+                # Show the image dimension and type
+                self.listWidget.clear()
+                self.listWidget.addItem("Dimension: " + str(img.getDim()))
+                self.listWidget.addItem("Type: " + str(img.getType()))
+
 
         elif self.isImage(imagePath):
 
                 self.frame.setEnabled(False)
-                # Create and dsiplay a conventional image using ImageBox class
+
+                # Create and display a standard image using ImageBox class
                 self.imageBox = ImageBox()
                 self.imageLayout.addWidget(self.imageBox)
                 image = QImage(imagePath)
@@ -358,12 +392,116 @@ class BrowserWindow(QMainWindow):
                 self.listWidget.clear()
                 self.listWidget.addItem("Dimension: " + str(width) + " x "
                                         + str(height))
-                #self.listWidget.addItem("Type: " + str(type))
+                #self.listWidget.addItem("Type: " + str(type))"""
         else:
             self.imageBox.setupProperties()
             self.imageBox.update()
             self.listWidget.clear()
             self.listWidget.addItem("NO IMAGE FORMAT")
+
+
+    def volumeSlice(self, imagePath):
+        """
+        Given 3D data (displayed at left), select a 2D plane and interpolate data
+        along that plane to generate a slice image (displayed at right).
+        :param imagePath: an em-image
+        """
+        if self.isEmImage(imagePath):
+
+            # Create an image from imagePath using em-bindings
+            img = em.Image()
+            loc2 = em.ImageLocation(imagePath)
+            img.read(loc2)
+
+            imageDim = img.getDim()
+
+            x = imageDim.x
+            y = imageDim.y
+            z = imageDim.z
+
+            if z > 1:  # The image has a volumes
+
+                # Create a numpy 3D array with the image values pixel
+                array3D = np.array(img, copy=False)
+
+                # Create window with two ImageView widgets
+                self.volumeSliceDialog = QDialog()
+                self.volumeSliceDialog.setGeometry(250, 150, 800, 500)
+                self.volumeSliceDialog.setWindowTitle('Volume Slicer')
+                self.sliceWidget = QWidget(self.volumeSliceDialog)
+                self.gridLayoutSlice = QGridLayout()
+                self.sliceWidget.setLayout(self.gridLayoutSlice)
+                self.volumeSliceDialog.setLayout(self.gridLayoutSlice.layout())
+
+                self.imv1 = pg.ImageView()
+                self.imv2 = pg.ImageView()
+                self.gridLayoutSlice.addWidget(self.imv1, 0, 0)
+                self.gridLayoutSlice.addWidget(self.imv2, 0, 1)
+
+                self.imv1.ui.menuBtn.hide()
+                self.imv1.ui.roiBtn.hide()
+                self.imv2.ui.menuBtn.hide()
+                self.imv2.ui.roiBtn.hide()
+
+                self.buttonHorizontalLayout = QHBoxLayout(self.volumeSliceDialog)
+                """buttonHorizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding,
+                                                     QSizePolicy.Minimum)
+                buttonHorizontalLayout.addItem(buttonHorizontalSpacer)"""
+
+                self.galeryViewButton = QPushButton(self.volumeSliceDialog)
+                self.galeryViewButton.setText('Galery View')
+                self.galeryViewButton.setIcon(qta.icon('fa.eye'))
+                self.galeryViewButton.clicked.connect(self.galeryView)
+
+                self.buttonHorizontalLayout.addWidget(self.galeryViewButton)
+
+                self.closeButton = QPushButton(self.volumeSliceDialog)
+                self.closeButton.setText('Close')
+                self.closeButton.setIcon(qta.icon('fa.times'))
+                self.closeButton.clicked.connect(self.closeDialog)
+    
+                self.buttonHorizontalLayout.addWidget(self.closeButton)
+
+                self.gridLayoutSlice.addLayout(self.buttonHorizontalLayout, 1, 1)
+
+                # Create a line with two freely-moving handles to generate a
+                # slice image
+                roi = pg.LineSegmentROI([[10, 64], [120, 64]], pen='r')
+                self.imv1.addItem(roi)
+
+                def update():
+                    """
+                    Use the position of the ROI relative to an imageItem to
+                    pull a slice from an array
+                    """
+                    d2 = roi.getArrayRegion(array3D, self.imv1.imageItem,
+                                            axes=(1, 2))
+                    self.imv2.setImage(d2)
+
+                roi.sigRegionChanged.connect(update)
+
+                # Display the data
+                self.imv1.setImage(array3D)
+                """self.imv1.setHistogramRange(-0.01, 0.01)
+                self.imv1.setLevels(-0.003, 0.003)"""
+
+                self.update()
+
+                self.volumeSliceDialog.exec()
+
+    def closeDialog(self):
+        """
+        Close the Volume Slicer Window
+        """
+        self.volumeSliceDialog.close()
+
+
+    def galeryView(self, imagePath):
+        """
+
+        """
+        return
+
 
     @staticmethod
     def isEmImage(imagePath):
@@ -377,6 +515,10 @@ class BrowserWindow(QMainWindow):
         """ Return True if imagePath has a standard image format. """
         _, ext = os.path.splitext(imagePath)
         return ext in ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+
+
+
+
 
 
 
