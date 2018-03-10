@@ -22,7 +22,9 @@ if __name__ == '__main__':
                    '--pick-files',
                    '--disable-remove-rois',
                    '--disable-roi-aspect-locked',
-                   '--disable-roi-centered'
+                   '--disable-roi-centered',
+                   '--disable-x-axis',
+                   '--disable-y-axis'
                    ]
 
         kwargs['--disable-zoom'] = False
@@ -32,10 +34,15 @@ if __name__ == '__main__':
         kwargs['--disable-remove-rois'] = False
         kwargs['--disable-roi-aspect-locked'] = False
         kwargs['--disable-roi-centered'] = False
+        kwargs['--disable-x-axis'] = False
+        kwargs['--disable-y-axis'] = False
 
         for a in ppArg:
             if a not in options:
                 pFiles.append(a)
+            else:
+                kwargs[a] = True
+
         kwargs['--pick-files'] = pFiles
 
     pickerWin = PPWindow(**kwargs)
