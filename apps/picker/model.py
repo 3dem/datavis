@@ -5,9 +5,10 @@ class PPCoordinate:
     The PPCoordinate class describes a coordinate defined in a plane
     with X and Y axes
     """
-    def __init__(self, x, y):
+    def __init__(self, x, y, label="Manual"):
         self.x = x
         self.y = y
+        self.label = label
 
     def set(self, x, y):
         """
@@ -18,6 +19,19 @@ class PPCoordinate:
         """
         self.x = x
         self.y = y
+
+    def setLabel(self, labelName):
+        """
+        Sets the label name
+        :param labelName: the label name
+        """
+        self.label = labelName
+
+    def getLabel(self):
+        """
+        :return: The label name
+        """
+        return self.label
 
 
 class PPBox:
@@ -157,6 +171,14 @@ class PPSystem:
         """
         return self.labels
 
+    def getLabel(self, labelName):
+        """
+        Returns the label with name=labelName in Labels List
+        :param labelName: The label name
+        :return: dict value
+        """
+        return self.labels.get(labelName)
+
     def _initLabels(self):
         """
         Initialize the labels for this PPSystem
@@ -170,3 +192,8 @@ class PPSystem:
         manual["name"] = "Manual"
         manual["color"] = "#1500FF"  # #AARRGGBB
         self.labels["Manual"] = manual
+
+        default = {}
+        default["name"] = "Default"
+        default["color"] = "#74ea00"  # #AARRGGBB
+        self.labels["Default"] = default

@@ -6,7 +6,7 @@ from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex, QItemSelectionModel,
                           QFile, QIODevice, QJsonDocument, QJsonParseError)
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QCompleter,
                              QPushButton, QActionGroup, QButtonGroup, QLabel,
-                             QSpinBox, QAbstractItemView)
+                             QSpinBox, QAbstractItemView, QSizePolicy)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 import pyqtgraph as pg
 import qtawesome as qta
@@ -45,12 +45,13 @@ class PPWindow(QMainWindow):
         self.pickingW = 200
         self.pickingH = 200
         self.actualImage = None
+        self.actualLabelName = None
         self.removeROIKeyModifier = QtCore.Qt.ControlModifier
 
         self.disableZoom = kwargs.get('--disable-zoom', False)
         self.disableHistogram = kwargs.get('--disable-histogram', False)
-        self.disableROI = kwargs.get('--disable-roi', False)
-        self.disableMenu = kwargs.get('--disable-menu', False)
+        self.disableROI = kwargs.get('--disable-roi', True)
+        self.disableMenu = kwargs.get('--disable-menu', True)
         self.disableRemoveROIs = kwargs.get('--disable-remove-rois', False)
         self.disableROIAspectLocked = kwargs.get('--disable-roi-aspect-locked',
                                                  False)
@@ -224,10 +225,11 @@ class PPWindow(QMainWindow):
             img.read(loc2)
             array = np.array(img, copy=False)
             self.imageView.setImage(array)
-            viewBox = self.imageView.getView()
+            viewBox = self._getViewBox()
 
             for ppCoord in imgElem.getCoordinates():
                 roi = None
+
                 if self.actionPickEllipse.isChecked():
                     roi = self._createEllipseROI((ppCoord.x-imgElem.box.width/2,
                                                 ppCoord.y-imgElem.box.height/2),
@@ -239,7 +241,8 @@ class PPWindow(QMainWindow):
                                                  self.disableROIAspectLocked,
                                                  removable=
                                                  not self.disableRemoveROIs,
-                                                 pen=(0, 9))
+                                                 pen=self._makePen(
+                                                     ppCoord.getLabel()))
                 else:
                     roi = self._createRectROI((ppCoord.x-imgElem.box.width/2,
                                               ppCoord.y-imgElem.box.height/2),
@@ -249,18 +252,11 @@ class PPWindow(QMainWindow):
                                               self.disableROIAspectLocked,
                                               centered=not
                                               self.disableROICentered,
-                                              pen=(0, 9))
+                                              pen=self._makePen(
+                                                  ppCoord.getLabel()))
 
                 roi.pickCoord = ppCoord
                 viewBox.addItem(roi)
-
-    def _openFile(self, path):
-        _, ext = os.path.splitext(path)
-
-        if ext == '.json':
-            self.openPickingFile(path)
-        else:
-            self.openImageFile(path)
 
     def openImageFile(self, path):
         """
@@ -315,6 +311,27 @@ class PPWindow(QMainWindow):
                 if file:
                     file.close()
 
+    def _openFile(self, path):
+        _, ext = os.path.splitext(path)
+
+        if ext == '.json':
+            self.openPickingFile(path)
+        else:
+            self.openImageFile(path)
+
+    def _makePen(self, labelName):
+        """
+        Make the Pen for labelName
+        :param labelName: the label name
+        :return: pg.makePen
+        """
+        label = self.ppSystem.getLabel(labelName)
+
+        if label:
+            return pg.mkPen(color=label["color"])
+
+        return pg.mkPen(color="#FF0004")
+
     def _setupImageView(self):
         """
         Setup the ImageView widget used to show the images
@@ -357,13 +374,11 @@ class PPWindow(QMainWindow):
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralWidget)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.splitter = QtWidgets.QSplitter(self.centralWidget)
-        self.splitter.setOrientation(QtCore.Qt.Horizontal)
         self.splitter.setObjectName("splitter")
+        self.splitter.setOrientation(QtCore.Qt.Horizontal)
         self.widget = QtWidgets.QWidget(self.splitter)
-        self.widget.setObjectName("widget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.widget)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
         self.lineEdit = QtWidgets.QLineEdit(self.widget)
         self.lineEdit.setObjectName("lineEdit")
         self.verticalLayout.addWidget(self.lineEdit)
@@ -371,16 +386,25 @@ class PPWindow(QMainWindow):
         self.treeViewImages.setObjectName("treeViewImages")
         self.verticalLayout.addWidget(self.treeViewImages)
         self.imageView = pg.ImageView(self, view=pg.PlotItem())
-        self.splitter.addWidget(self.imageView)
         self.imageView.setObjectName("imageView")
+        self.viewWidget = QtWidgets.QWidget(self)
+        self.viewLayout = QtWidgets.QVBoxLayout(self.viewWidget)
+        self.viewLayout.setContentsMargins(1, 1, 1, 1)
+        self.viewLayout.addWidget(self.imageView)
+        self.labelMouseCoord = QLabel(self)
+        self.labelMouseCoord.setMaximumHeight(22)
+        self.labelMouseCoord.setAlignment(Qt.AlignRight)
+        self.viewLayout.addWidget(self.labelMouseCoord)
+        self.splitter.addWidget(self.viewWidget)
+        self.splitter.setStretchFactor(1, 3)
         self.horizontalLayout.addWidget(self.splitter)
         self.setCentralWidget(self.centralWidget)
         self.toolBar = QtWidgets.QToolBar(self)
         self.toolBar.setObjectName("toolBar")
         self.addToolBar(QtCore.Qt.TopToolBarArea, self.toolBar)
         self.menuBar = QtWidgets.QMenuBar(self)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1097, 26))
         self.menuBar.setObjectName("menuBar")
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1097, 26))
         self.menuFile = QtWidgets.QMenu(self.menuBar)
         self.menuFile.setObjectName("menuFile")
         self.setMenuBar(self.menuBar)
@@ -428,7 +452,6 @@ class PPWindow(QMainWindow):
         self.labelBoxSize = QLabel("Size (px)", self)
         self.spinBoxBoxSize = QSpinBox(self)
         self.spinBoxBoxSize.setRange(3, 65535)
-        self.labelMouseCoord = QLabel(self)
 
         self.toolBar.addAction(self.actionOpenPick)
         self.toolBar.addSeparator()
@@ -440,6 +463,7 @@ class PPWindow(QMainWindow):
         self.toolBar.addSeparator()
 
         self.buttonGroup = QButtonGroup(self)
+        self.buttonGroup.setExclusive(True)
         hasLabels = False
         for label in self.ppSystem.getLabels().values():
             hasLabels = True
@@ -447,6 +471,7 @@ class PPWindow(QMainWindow):
             btn.setText(label["name"])
             btn.setStyleSheet("color: %s;" % label["color"])
             btn.setCheckable(True)
+            btn.setChecked(True)
             self.buttonGroup.addButton(btn)
             btn.clicked.connect(self._labelAction_triggered)
 
@@ -459,8 +484,6 @@ class PPWindow(QMainWindow):
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionPickRect)
         self.toolBar.addAction(self.actionPickEllipse)
-        self.toolBar.addSeparator()
-        self.toolBar.addWidget(self.labelMouseCoord)
         self.menuFile.addAction(self.actionOpenPick)
         self.menuFile.addSeparator()
         self.menuBar.addAction(self.menuFile.menuAction())
@@ -469,7 +492,6 @@ class PPWindow(QMainWindow):
         self.actionGroupPick.setExclusive(True)
         self.actionGroupPick.addAction(self.actionPickRect)
         self.actionGroupPick.addAction(self.actionPickEllipse)
-        self.actionGroupPick.addAction(self.actionErasePickBox)
 
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
@@ -493,7 +515,8 @@ class PPWindow(QMainWindow):
         :param ev: Mouse event
         :return:
         """
-        if ev.button() == QtCore.Qt.LeftButton:
+        if ev.button() == QtCore.Qt.LeftButton and \
+                not self.actionErasePickBox.isChecked():
 
             pos = ev.pos()
             pos = self._getViewBox().mapToView(pos)
@@ -519,10 +542,11 @@ class PPWindow(QMainWindow):
                                              self.disableROIAspectLocked,
                                              removable=
                                              not self.disableRemoveROIs,
-                                             pen=(0, 9))
+                                             pen=self._getSelectedPen())
 
             if roi:
-                roi.pickCoord = PPCoordinate(pos.x(), pos.y())
+                roi.pickCoord = PPCoordinate(pos.x(), pos.y(),
+                                             self.actualLabelName)
                 self.imageView.getView().addItem(roi)
 
                 # add coordinate to actual image elem
@@ -550,14 +574,16 @@ class PPWindow(QMainWindow):
 
             if w and h:
                 if x>=0 and x<w and y>=0 and y<h:
-                    value = "%0.2f" % imgItem.image[int(x), int(y)]
-
-            self.labelMouseCoord.setText(
-                    "<span style='font-size: 12pt'>x=%0.1f,   "
-                    "<span style='color: red'>y=%0.1f</span>,   "
-                    "<span style='color: green'>value=%s</span>" % (
-                    pos.x(), pos.y(), value))
-
+                    value = "%0.4f" % imgItem.image[int(x), int(y)]
+            text = "<table width=\"279\" border=\"0\" align=\"right\">" \
+                   "<tbody><tr><td width=\"18\" align=\"right\">x=</td>" \
+                   "<td width=\"38\" align=\"left\" nowrap>%i</td>" \
+                   "<td width=\"28\" align=\"right\">y=</td>" \
+                   "<td width=\"42\" nowrap>%i</td>" \
+                   "<td width=\"46\" align=\"right\">value=</td>" \
+                   "<td width=\"67\" align=\"left\">%s</td></tr>" \
+                   "</tbody></table>"
+            self.labelMouseCoord.setText(text % (pos.x(), pos.y(), value))
 
     @pyqtSlot()
     def completerSelection(self):
@@ -592,7 +618,10 @@ class PPWindow(QMainWindow):
         """
         This slot is invoked when clicks on label
         """
-        pass
+        btn = self.buttonGroup.checkedButton()
+
+        if checked and btn:
+            self.actualLabelName = btn.text()
 
     def _updateActualPickBox(self, w, h):
         """
@@ -602,21 +631,25 @@ class PPWindow(QMainWindow):
         """
         if self.actualImage:
             roiSize = (w, h)
-            for r in self.imageView.getView().addedItems:
-                if isinstance(r, (PPRectROI, PPEllipseROI)):
-                    r.setPos(r.pos() + (r.size()-roiSize)/2,
-                             update=False, finish=False)
-                    r.setSize(roiSize)  # By default finish=True cause
-                    # emmit sigRegionChangeFinished signal and all ROIs updated
-                    return
+            v = self._getViewBox()
+            if v:
+                for r in v.addedItems:
+                    if isinstance(r, (PPRectROI, PPEllipseROI)):
+                        r.setPos(r.pos() + (r.size()-roiSize)/2,
+                                 update=False, finish=False)
+                        r.setSize(roiSize)  # By default finish=True cause
+                        # emmit sigRegionChangeFinished signal and all ROIs
+                        # updated
+                        return
 
     def _getSelectedPen(self):
         """
         :return: The selected pen(PPSystem label depending)
         """
-        for btn in self.buttonGroup.buttons():
-            if btn.isChecked():
-                return pg.mkPen(self.ppSystem.labels[btn.text()]["color"])
+        btn = self.buttonGroup.checkedButton()
+
+        if btn:
+            return pg.mkPen(color=self.ppSystem.getLabel(btn.text())["color"])
 
         return pg.mkPen(0, 9)
 

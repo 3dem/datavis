@@ -29,11 +29,13 @@ class ImageElemParser:
             "coord":[
                      {
 		  	          "x":20,
-                      "y":20
+                      "y":20,
+                      "label":"Manual"
                      },
                      {
                       "x":80,
                       "y":20,
+                      "label":"Auto"
                      },
                      ...
                     ]
@@ -60,19 +62,22 @@ class ImageElemParser:
         Coordinates specification in json array format:
         [
             {
-			 "x":20,
-			 "y":20
-			},
-			{
-			 "x":80,
-			 "y":80
-			},
-			...
+            "x":20,
+            "y":20,
+            "label":"Manual"
+            },
+            {
+            "x":80,
+            "y":20,
+            "label":"Auto"
+            },
+            ...
          ]
         """
 
         for v in jsonArray:
             jsonC = v.toObject()
             coord = PPCoordinate(jsonC["x"].toInt(),
-                                 jsonC["y"].toInt())
+                                 jsonC["y"].toInt(),
+                                 jsonC.get("label", "Manual"))
             imgElem.addPPCoordinate(coord)
