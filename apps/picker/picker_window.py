@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QCompleter,
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 import pyqtgraph as pg
 import qtawesome as qta
-from pyqtgraph import ROI, RectROI, EllipseROI
 import numpy as np
 import em
 
@@ -305,11 +304,28 @@ class PPWindow(QMainWindow):
                 if file:
                     file.close()
 
+    def _loadMicCoordinates(self, path, parserFunc):
+        """ Load coordinates for the current selected micrograph.
+        Params:
+            path: Path that will be parsed and search for coordinates.
+            parserFunc: function that will parse the file and yield
+                all coordinates.
+        """
+        self.currentMicrograph.clear() # remove all coordinates
+        for (x, y) in parserFunc(path):
+            coord = PPCoordinate(x, y)
+            self.currentMicrograph.addPPCoordinate(coord)
+
+        self.showImage(self.currentMicrograph)
+
     def _openFile(self, path):
         _, ext = os.path.splitext(path)
 
         if ext == '.json':
             self.openPickingFile(path)
+        elif ext == '.box':
+            from utils import parseTextCoordinates
+            self._loadMicCoordinates(path, parserFunc=parseTextCoordinates)
         else:
             self.openImageFile(path)
 
@@ -867,7 +883,7 @@ class PPItem(QStandardItem):
         return self.imgElem
 
 
-class PPRectROI(RectROI):
+class PPRectROI(pg.RectROI):
     """
     Rect roi for particle picking
     """
@@ -875,7 +891,7 @@ class PPRectROI(RectROI):
     def __init__(self, pos, size, centered=False,
                  sideScalers=False, aspectLocked=True, removable=True,
                  pen=(0,9)):
-        RectROI.__init__(self, pos, size,
+        pg.RectROI.__init__(self, pos, size,
                          centered=centered, sideScalers=sideScalers,
                          removable=removable, pen=pen)
         self.pickCoord = None
@@ -890,7 +906,7 @@ class PPRectROI(RectROI):
         if ev.isExit():
             for h in self.getHandles():
                 h.hide()  # Hide all handlers
-        ROI.hoverEvent(self, ev)
+        pg.ROI.hoverEvent(self, ev)
 
     def setPickCoordinate(self, coordinate):
         """
@@ -906,14 +922,14 @@ class PPRectROI(RectROI):
         return self.pickCoord
 
 
-class PPEllipseROI(EllipseROI):
+class PPEllipseROI(pg.EllipseROI):
     """
     Ellipse roi for particle picking
     """
 
     def __init__(self, pos, size, aspectLocked=True, centered=True,
                  removable=True, pen=(0, 9)):
-        EllipseROI.__init__(self, pos, size,
+        pg.EllipseROI.__init__(self, pos, size,
                             pen=pen)
 
         self.pickCoord = None
@@ -937,7 +953,7 @@ class PPEllipseROI(EllipseROI):
         if ev.isExit():
             for h in self.getHandles():
                 h.hide()  # Hide all handlers
-        ROI.hoverEvent(self, ev)
+        pg.ROI.hoverEvent(self, ev)
 
     def setPickCoordinate(self, coordinate):
         """

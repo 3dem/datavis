@@ -81,3 +81,13 @@ class ImageElemParser:
                                  jsonC["y"].toInt(),
                                  jsonC.get("label", "Manual"))
             imgElem.addPPCoordinate(coord)
+
+
+def parseTextCoordinates(path):
+    """ Parse (x, y) coordinates from a texfile assuming
+     that the first two columns on each line are x and y.
+    """
+    with open(path) as f:
+        for line in f:
+            parts = line.split()
+            yield int(parts[0]), int(parts[1])

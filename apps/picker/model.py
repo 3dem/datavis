@@ -129,6 +129,10 @@ class ImageElem:
         if ppCoord and self.ppCoordList:
             self.ppCoordList.remove(ppCoord)
 
+    def clear(self):
+        """ Remove all coordinates of this micrograph. """
+        self.ppCoordList = []
+
 
 class PPSystem:
     """
