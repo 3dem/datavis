@@ -44,7 +44,7 @@ class PPWindow(QMainWindow):
         # picking dim in pixels, respect to the image size
         self.pickingW = 200
         self.pickingH = 200
-        self.actualImage = None
+        self.currentMicrograph = None
         self.actualLabelName = None
         self.removeROIKeyModifier = QtCore.Qt.ControlModifier
 
@@ -112,48 +112,42 @@ class PPWindow(QMainWindow):
         if fileName:
             self._openFile(fileName)
 
-    @pyqtSlot()
-    def on_actionNextImage_triggered(self):
-        """
-        Select the next node in the treeview widget
+    def _changeTreeViewMic(self, nextIndexFunc):
+        """ This method will change to a different micrograph in the
+        TreeView. It should be invoked both for move 'next' or 'back'.
+        Params:
+           nextIndexFunc: function to return the next index based on
+                the current selected index. If None is returned, no
+                change will be done
         """
         indexes = self.treeViewImages.selectedIndexes()
 
         if indexes:
             selectedIndex = indexes[0]
-            nextIndex = self.treeViewImages.indexBelow(selectedIndex)
+            nextIndex = nextIndexFunc(selectedIndex)
             if nextIndex:
-                if not nextIndex.isValid():  # take first index
-                    nextIndex = self.treeViewImages.model().index(0, 0)
-
-                selectionModel = self.treeViewImages.selectionModel()
-                selectionModel.select(selectedIndex, QItemSelectionModel.Toggle
-                                      | QItemSelectionModel.Rows)
-                selectionModel.select(nextIndex, QItemSelectionModel.Toggle
-                                      | QItemSelectionModel.Rows)
+                mode = QItemSelectionModel.Toggle | QItemSelectionModel.Rows
+                sModel = self.treeViewImages.selectionModel()
+                sModel.select(selectedIndex, mode)
+                sModel.select(nextIndex, mode)
                 self.on_treeViewImages_clicked(nextIndex)
+
+    @pyqtSlot()
+    def on_actionNextImage_triggered(self):
+        """
+        Select the next node in the treeview widget
+        """
+        self._changeTreeViewMic(lambda i: self.treeViewImages.indexBelow(i) or
+                                          self.treeViewImages.model().index(0, 0))
 
     @pyqtSlot()
     def on_actionPrevImage_triggered(self):
         """
         Select the previous node in the treeview widget
         """
-        indexes = self.treeViewImages.selectedIndexes()
-
-        if indexes:
-            selectedIndex = indexes[0]
-            nextIndex = self.treeViewImages.indexAbove(selectedIndex)
-            if nextIndex:
-                if not nextIndex.isValid():  # select last row
-                    model = self.treeViewImages.model()
-                    nextIndex = model.index(model.rowCount()-1, 0)
-
-                selectionModel = self.treeViewImages.selectionModel()
-                selectionModel.select(selectedIndex, QItemSelectionModel.Toggle
-                                      | QItemSelectionModel.Rows)
-                selectionModel.select(nextIndex, QItemSelectionModel.Toggle
-                                      | QItemSelectionModel.Rows)
-                self.on_treeViewImages_clicked(nextIndex)
+        model = self.treeViewImages.model()
+        self._changeTreeViewMic(lambda i: self.treeViewImages.indexAbove(i) or
+                                          model.index(model.rowCount()-1, 0))
 
     @pyqtSlot()
     def on_actionPickEllipse_triggered(self):
@@ -218,7 +212,7 @@ class PPWindow(QMainWindow):
         :param imgElem: the ImageElem
         """
         if imgElem:
-            self.actualImage = imgElem
+            self.currentMicrograph = imgElem
             self._clearImageView()  # clean the widget for the new image
             img = em.Image()
             loc2 = em.ImageLocation(imgElem.getPath())
@@ -550,14 +544,13 @@ class PPWindow(QMainWindow):
                 self.imageView.getView().addItem(roi)
 
                 # add coordinate to actual image elem
-                if self.actualImage:
-                    self.actualImage.\
-                        addPPCoordinate(roi.pickCoord)
+                if self.currentMicrograph:
+                    self.currentMicrograph.addPPCoordinate(roi.pickCoord)
 
                     item = self.model.itemFromIndex(self.treeViewImages.
                                                     selectedIndexes()[2])
                     if item:
-                        item.setText("%i" % self.actualImage.getPickCount())
+                        item.setText("%i" % self.currentMicrograph.getPickCount())
 
     @pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
@@ -629,7 +622,7 @@ class PPWindow(QMainWindow):
         :param w: Box width
         :param h: Box height
         """
-        if self.actualImage:
+        if self.currentMicrograph:
             roiSize = (w, h)
             v = self._getViewBox()
             if v:
@@ -745,11 +738,10 @@ class PPWindow(QMainWindow):
         :param roi:
         :param ev:
         """
-        if ev.button() == QtCore.Qt.LeftButton:
-            if self.actionErasePickBox.isChecked() or \
-                QtGui.QGuiApplication.keyboardModifiers() == \
-                    self.removeROIKeyModifier:
-                roi.sigRemoveRequested.emit(roi)
+        if (ev.button() == QtCore.Qt.LeftButton
+            and self.actionErasePickBox.isChecked()
+            or QtGui.QGuiApplication.keyboardModifiers() == self.removeROIKeyModifier):
+            roi.sigRemoveRequested.emit(roi)
 
     @pyqtSlot(object)
     def _roiSizeChanged(self, roi):
@@ -772,8 +764,8 @@ class PPWindow(QMainWindow):
                              update=False, finish=False)
                     r.setSize(roiSize, finish=False)
 
-            if self.actualImage:
-                self.actualImage.setBox(PPBox(roiSize.x(), roiSize.y()))
+            if self.currentMicrograph:
+                self.currentMicrograph.setBox(PPBox(roiSize.x(), roiSize.y()))
 
             self.ppSystem.setBoxToImages(PPBox(int(roiSize.x()),
                                                int(roiSize.y())))
@@ -790,12 +782,12 @@ class PPWindow(QMainWindow):
             self._getViewBox().removeItem(roi)
             self._disconnectAllSlots(roi)
 
-        if self.actualImage and removePick:
-            self.actualImage.removeCoordinate(roi.pickCoord)
+        if self.currentMicrograph and removePick:
+            self.currentMicrograph.removeCoordinate(roi.pickCoord)
             item = self.model.itemFromIndex(self.treeViewImages.
                                             selectedIndexes()[2])
             if item:
-                item.setText("%i" % self.actualImage.getPickCount())
+                item.setText("%i" % self.currentMicrograph.getPickCount())
 
     def _disconnectAllSlots(self, roi):
         """
