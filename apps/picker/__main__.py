@@ -3,48 +3,40 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from picker_window import PPWindow
-from model import PPSystem
+from picker_window import PickerWindow
+from model import PickerDataModel
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     kwargs = {}
-    if len(sys.argv) > 1:
-        ppArg = sys.argv[1:]
+    if len(sys.argv) < 1:
+        raise Exception("You should provide at least one input micrograph to pick")
 
-        pFiles = []
-        options = ['--disable-zoom',
-                   '--disable-histogram',
-                   '--disable-roi',
-                   '--disable-menu',
-                   '--pick-files',
-                   '--disable-remove-rois',
-                   '--disable-roi-aspect-locked',
-                   '--disable-roi-centered',
-                   '--disable-x-axis',
-                   '--disable-y-axis'
-                   ]
+    kwargs = {
+        '--disable-zoom': False,
+        '--disable-histogram': False,
+        '--disable-roi': False,
+        '--disable-menu': False,
+        '--pick-files': False,
+        '--disable-remove-rois': False,
+        '--disable-roi-aspect-locked': False,
+        '--disable-roi-centered': False,
+        '--disable-x-axis': False,
+        '--disable-y-axis': False
+    }
 
-        kwargs['--disable-zoom'] = False
-        kwargs['--disable-histogram'] = False
-        kwargs['--disable-roi'] = True
-        kwargs['--disable-menu'] = True
-        kwargs['--disable-remove-rois'] = False
-        kwargs['--disable-roi-aspect-locked'] = False
-        kwargs['--disable-roi-centered'] = False
-        kwargs['--disable-x-axis'] = False
-        kwargs['--disable-y-axis'] = False
+    model = PickerDataModel()
 
-        for a in ppArg:
-            if a not in options:
-                pFiles.append(a)
-            else:
-                kwargs[a] = True
+    for a in sys.argv[1:]:
+        if a in kwargs:
+            kwargs[a] = True
+        elif not a.startswith('--'):
+            model.addMicrograph(a)
 
-        kwargs['--pick-files'] = pFiles
+    model.setBoxSize(int(kwargs.get('--boxsize', 100)))
 
-    pickerWin = PPWindow(**kwargs)
+    pickerWin = PickerWindow(model, **kwargs)
     pickerWin.show()
     sys.exit(app.exec_())

@@ -1,6 +1,6 @@
 
 
-class PPCoordinate:
+class Coordinate:
     """
     The PPCoordinate class describes a coordinate defined in a plane
     with X and Y axes
@@ -34,33 +34,14 @@ class PPCoordinate:
         return self.label
 
 
-class PPBox:
-    """
-    Box for pick rect
-    """
-    def __init__(self, w, h):
-        self.width = w
-        self.height = h
-
-    def setSize(self, width, height):
-        """
-        Sets the width and height
-        :param width: The width
-        :param height: The height
-        """
-        self.width = width
-        self.height = height
-
-
-class ImageElem:
+class Micrograph:
     """
     ImageElem is the base element managed by the PPSystem class
     (See PPSystem documentation).
     """
-    def __init__(self, imgId, path, box, ppCoordList=None):
+    def __init__(self, imgId, path, ppCoordList=None):
         self.imgId = imgId
         self.path = path
-        self.box = box
         self.ppCoordList = ppCoordList or []
 
     def addPPCoordinate(self, ppCoord):
@@ -102,19 +83,6 @@ class ImageElem:
         """
         return self.ppCoordList
 
-    def setBox(self, box):
-        """
-        Set the box for all coordinates
-        :param box: PPBox
-        """
-        self.box = box
-
-    def getBox(self):
-        """
-        :return: The box for all coordinates
-        """
-        return self.box
-
     def getPickCount(self):
         """
         :return: The picking count
@@ -134,7 +102,7 @@ class ImageElem:
         self.ppCoordList = []
 
 
-class PPSystem:
+class PickerDataModel:
     """
     The PPSystem class is responsible for managing the list of images
     in particle picking operation
@@ -144,24 +112,28 @@ class PPSystem:
         self.images = []
         self.labels = {}
         self._initLabels()
+        self._boxsize = None
+        self._lastId = 0
 
-    def addImage(self, imgElem):
+    def setBoxSize(self, newSizeX):
+        """ Set the box size for the coordinates. """
+        self._boxsize = newSizeX
+
+    def getBoxSize(self):
+        """ Return the current box size of the coordinates. """
+        return self._boxsize
+
+    def addMicrograph(self, imgElem):
         """
         Add an image
         :param imgElem: The image
         :return:
         """
-        if imgElem:
-            self.images.append(imgElem)
+        if isinstance(imgElem, basestring):
+            self._lastId += 1
+            imgElem = Micrograph(self._lastId, imgElem)
 
-    def setBoxToImages(self, boxSize):
-        """
-        Set the box size to all images in the system
-        :param boxSize: PPBox
-        """
-        for imgElem in self.images:
-            b = imgElem.getBox()
-            b.setSize(boxSize.width, boxSize.height)
+        self.images.append(imgElem)
 
     def getImgCount(self):
         """

@@ -14,23 +14,22 @@ import numpy as np
 import em
 
 
-from model import PPSystem, ImageElem, PPCoordinate, PPBox
+from model import Micrograph, Coordinate
 from utils import ImageElemParser
 
+SHAPE_RECT = 0
+SHAPE_CIRCLE = 1
 
-class PPWindow(QMainWindow):
 
-    def __init__(self, parent=None, **kwargs):
-        """
-        Constructor
-
+class PickerWindow(QMainWindow):
+    def __init__(self, model, parent=None, **kwargs):
+        """ Constructor
         @param parent reference to the parent widget
-        @type QWidget
+        @model input PickerDataModel
         """
         QMainWindow.__init__(self, parent)
-        self.ppSystem = PPSystem()
+        self._model = model
         self.__setupUi__()
-        self.ppSystem = PPSystem()
         self._setupTreeView()
 
         # Completer init
@@ -41,9 +40,8 @@ class PPWindow(QMainWindow):
         self.completer.activated[QModelIndex].connect(self.on_treeViewImages_clicked)
 
         # picking dim in pixels, respect to the image size
-        self.pickingW = 200
-        self.pickingH = 200
-        self.currentMicrograph = None
+        self._currentMic = None
+        self._roiList = []
         self.actualLabelName = None
         self.removeROIKeyModifier = QtCore.Qt.ControlModifier
 
@@ -52,23 +50,27 @@ class PPWindow(QMainWindow):
         self.disableROI = kwargs.get('--disable-roi', True)
         self.disableMenu = kwargs.get('--disable-menu', True)
         self.disableRemoveROIs = kwargs.get('--disable-remove-rois', False)
-        self.disableROIAspectLocked = kwargs.get('--disable-roi-aspect-locked',
-                                                 False)
+        self.aspectLocked = not kwargs.get('--disable-roi-aspect-locked', False)
         self.disableROICentered = kwargs.get('--disable-roi-centered', False)
         self.disableXAxis = kwargs.get('--disable-x-axis', False)
         self.disableYAxis = kwargs.get('--disable-y-axis', False)
 
-        for pickFile in kwargs.get('--pick-files', []):
-            self._openFile(pickFile)
-
+        self._shape = kwargs.get('shape', SHAPE_RECT)
         self._setupImageView()
+        self.spinBoxBoxSize.setValue(self._model.getBoxSize())
+        self.spinBoxBoxSize.editingFinished.connect(self._boxSizeEditingFinished)
 
-        self.spinBoxBoxSize.setValue(self.pickingW)
-        #self.spinBoxBoxSize.valueChanged[int].connect(self._boxSizeChanged)
-        self.spinBoxBoxSize.editingFinished.connect(
-            self._boxSizeEditingFinished)
+        # Load the input model and check there is at least one micrograph
+        if self._model.getImgCount() == 0:
+            raise Exception("There are not micrographs in the current model.")
 
-    @pyqtSlot()
+        for mic in self._model.images:
+            self._addMicToTreeView(mic)
+
+        # By default select the first micrograph in the list
+        self._changeTreeViewMic(lambda i: self.treeViewImages.model().index(0, 0))
+        #self._showMicrograph(self._model.images[0])
+
     def showError(self, msg):
         """
         Popup the error msg
@@ -76,28 +78,23 @@ class PPWindow(QMainWindow):
         """
         QMessageBox.critical(self, "Particle Picking", msg)
 
-    @pyqtSlot()
-    def _on_imageAdded(self, imgElem):
+    def _addMicToTreeView(self, mic):
         """
         Add an image to the treeview widget. The user can invoke this method
         when he wants to add an image or connect it to a signal that notifies
         the action of add an ImageElem.
-        We use the fa.archive icon from qtawesome temporarily.
-        :param imgElem: The image
         """
+        column1 = PPItem(mic, qta.icon("fa.file-o"))
 
-        if imgElem:
-            column1 = PPItem(imgElem, qta.icon("fa.file-o"))
+        column2 = PPItem(mic)
+        column2.setText(os.path.basename(mic.getPath()))
 
-            column2 = PPItem(imgElem)
-            column2.setText(os.path.basename(imgElem.getPath()))
+        column3 = PPItem(mic)
+        column3.setText("%i" % mic.getPickCount())
 
-            column3 = PPItem(imgElem)
-            column3.setText("%i" % imgElem.getPickCount())
+        self.model.appendRow([column1, column2, column3])
 
-            self.model.appendRow([column1, column2, column3])
-
-            self.treeViewImages.resizeColumnToContents(0)
+        self.treeViewImages.resizeColumnToContents(0)
 
     @pyqtSlot()
     def on_actionOpenPick_triggered(self):
@@ -124,6 +121,8 @@ class PPWindow(QMainWindow):
         if indexes:
             selectedIndex = indexes[0]
             nextIndex = nextIndexFunc(selectedIndex)
+            print("nextIndex:", nextIndex)
+
             if nextIndex:
                 mode = QItemSelectionModel.Toggle | QItemSelectionModel.Rows
                 sModel = self.treeViewImages.selectionModel()
@@ -133,43 +132,22 @@ class PPWindow(QMainWindow):
 
     @pyqtSlot()
     def on_actionNextImage_triggered(self):
-        """
-        Select the next node in the treeview widget
-        """
+        """ Select the next node in the treeview. """
         self._changeTreeViewMic(lambda i: self.treeViewImages.indexBelow(i) or
                                           self.treeViewImages.model().index(0, 0))
 
     @pyqtSlot()
     def on_actionPrevImage_triggered(self):
-        """
-        Select the previous node in the treeview widget
-        """
+        """ Select the previous micrograph in the treeview. """
         model = self.treeViewImages.model()
         self._changeTreeViewMic(lambda i: self.treeViewImages.indexAbove(i) or
                                           model.index(model.rowCount()-1, 0))
 
     @pyqtSlot()
     def on_actionPickEllipse_triggered(self):
-        """
-        Activate the pick elipse ROI.
-        Change all boxes to ellipse ROI
-        """
-        v = self._getViewBox()
-
-        for r in v.addedItems[:]:
-            if isinstance(r, PPRectROI):
-                self._roiRemoveRequested(r, False)
-                roi = self._createEllipseROI(r.pos(),
-                                             (self.pickingW, self.pickingH),
-                                             centered=
-                                             not self.disableROICentered,
-                                             aspectLocked=not
-                                             self.disableROIAspectLocked,
-                                             removable=
-                                             not self.disableRemoveROIs,
-                                             pen=r.pen)
-                roi.pickCoord = r.pickCoord
-                v.addItem(roi)
+        """ Activate the coordinates to ellipse ROI. """
+        self._shape = SHAPE_CIRCLE
+        self._updateROIs()
 
     @pyqtSlot()
     def on_actionPickRect_triggered(self):
@@ -177,21 +155,8 @@ class PPWindow(QMainWindow):
         Activate the pick rect ROI.
         Change all boxes to rect ROI
         """
-        v = self._getViewBox()
-
-        for r in v.addedItems[:]:
-            if isinstance(r, PPEllipseROI):
-                self._roiRemoveRequested(r, False)
-                roi = self._createRectROI(r.pos(),
-                                          (self.pickingW, self.pickingH),
-                                          centered=not self.disableROICentered,
-                                          aspectLocked=not
-                                          self.disableROIAspectLocked,
-                                          removable=
-                                          not self.disableRemoveROIs,
-                                          pen=r.pen)
-                roi.pickCoord = r.pickCoord
-                v.addItem(roi)
+        self._shape = SHAPE_RECT
+        self._updateROIs()
 
     @pyqtSlot(QModelIndex)
     def on_treeViewImages_clicked(self, index):
@@ -201,55 +166,33 @@ class PPWindow(QMainWindow):
         :return:
         """
         item = self.model.itemFromIndex(index)
-
         if item:
-            self.showImage(item.getImageElem())
+            self._showMicrograph(item.getImageElem())
 
-    def showImage(self, imgElem):
+    def _showMicrograph(self, mic):
         """
         Show the an image in the ImageView
-        :param imgElem: the ImageElem
+        :param mic: the ImageElem
         """
-        if imgElem:
-            self.currentMicrograph = imgElem
-            self._clearImageView()  # clean the widget for the new image
-            img = em.Image()
-            loc2 = em.ImageLocation(imgElem.getPath())
-            img.read(loc2)
-            array = np.array(img, copy=False)
-            self.imageView.setImage(array)
-            viewBox = self._getViewBox()
+        self._currentMic = mic
+        img = em.Image()
+        loc2 = em.ImageLocation(mic.getPath())
+        img.read(loc2)
+        array = np.array(img, copy=False)
+        self.imageView.setImage(array)
+        self._updateROIs()
 
-            for ppCoord in imgElem.getCoordinates():
-                roi = None
+    def _updateROIs(self):
+        """ Update all ROIs that need to be shown in the current micrographs.
+        Remove first the old ones and then create new ones.
+        """
+        # Clear previous ROIs if exists
+        for coordROI in self._roiList:
+            self._destroyCoordROI(coordROI.getROI())
 
-                if self.actionPickEllipse.isChecked():
-                    roi = self._createEllipseROI((ppCoord.x-imgElem.box.width/2,
-                                                ppCoord.y-imgElem.box.height/2),
-                                                 (imgElem.box.width,
-                                                 imgElem.box.height),
-                                                 centered=
-                                                 not self.disableROICentered,
-                                                 aspectLocked=not
-                                                 self.disableROIAspectLocked,
-                                                 removable=
-                                                 not self.disableRemoveROIs,
-                                                 pen=self._makePen(
-                                                     ppCoord.getLabel()))
-                else:
-                    roi = self._createRectROI((ppCoord.x-imgElem.box.width/2,
-                                              ppCoord.y-imgElem.box.height/2),
-                                              (imgElem.box.width,
-                                              imgElem.box.height),
-                                              aspectLocked=not
-                                              self.disableROIAspectLocked,
-                                              centered=not
-                                              self.disableROICentered,
-                                              pen=self._makePen(
-                                                  ppCoord.getLabel()))
-
-                roi.pickCoord = ppCoord
-                viewBox.addItem(roi)
+        # Create new ROIs and add to the list
+        self._roiList = [self._createCoordROI(coord)
+                         for coord in self._currentMic.getCoordinates()]
 
     def openImageFile(self, path):
         """
@@ -258,13 +201,13 @@ class PPWindow(QMainWindow):
         """
         if path:
             try:
-                imgElem = ImageElem(0,
-                                    path,
-                                    PPBox(self.pickingW, self.pickingH),
-                                    [])
-                imgElem.setId(self.ppSystem.getImgCount()+1)
-                self.ppSystem.addImage(imgElem)
-                self._on_imageAdded(imgElem)
+                imgElem = Micrograph(0,
+                                     path,
+                                     PPBox(self.pickingW, self.pickingH),
+                                     [])
+                imgElem.setId(self._model.getImgCount()+1)
+                self._model.addMicrograph(imgElem)
+                self._addMicToTreeView(imgElem)
             except:
                 print(sys.exc_info())
                 self.showError(sys.exc_info()[2])
@@ -291,9 +234,9 @@ class PPWindow(QMainWindow):
                         parser = ImageElemParser()
                         imgElem = parser.parseImage(json.object())
                         if imgElem:
-                            imgElem.setId(self.ppSystem.getImgCount()+1)
-                            self.ppSystem.addImage(imgElem)
-                            self._on_imageAdded(imgElem)
+                            imgElem.setId(self._model.getImgCount()+1)
+                            self._model.addMicrograph(imgElem)
+                            self._addMicToTreeView(imgElem)
                 else:
                     self.showError("Error opening file.")
                     file = None
@@ -311,12 +254,12 @@ class PPWindow(QMainWindow):
             parserFunc: function that will parse the file and yield
                 all coordinates.
         """
-        self.currentMicrograph.clear() # remove all coordinates
+        self._currentMic.clear() # remove all coordinates
         for (x, y) in parserFunc(path):
-            coord = PPCoordinate(x, y)
-            self.currentMicrograph.addPPCoordinate(coord)
+            coord = Coordinate(x, y)
+            self._currentMic.addPPCoordinate(coord)
 
-        self.showImage(self.currentMicrograph)
+        self._showMicrograph(self._currentMic)
 
     def _openFile(self, path):
         _, ext = os.path.splitext(path)
@@ -335,7 +278,7 @@ class PPWindow(QMainWindow):
         :param labelName: the label name
         :return: pg.makePen
         """
-        label = self.ppSystem.getLabel(labelName)
+        label = self._model.getLabel(labelName)
 
         if label:
             return pg.mkPen(color=label["color"])
@@ -475,7 +418,7 @@ class PPWindow(QMainWindow):
         self.buttonGroup = QButtonGroup(self)
         self.buttonGroup.setExclusive(True)
         hasLabels = False
-        for label in self.ppSystem.getLabels().values():
+        for label in self._model.getLabels().values():
             hasLabels = True
             btn = QPushButton(self)
             btn.setText(label["name"])
@@ -518,55 +461,24 @@ class PPWindow(QMainWindow):
         self.actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
         self.actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
 
-    def viewBoxMouseClickEvent(self, ev):
+    def viewBoxMouseClickEvent(self, event):
+        """ Invoked when the user clicks on the ViewBox
+        (ImageView contains a ViewBox).
         """
-        Invoked when the user clicks
-        on the ViewBox (ImageView contains a ViewBox).
-        :param ev: Mouse event
-        :return:
-        """
-        if ev.button() == QtCore.Qt.LeftButton and \
-                not self.actionErasePickBox.isChecked():
+        if not self._currentMic:
+            return
 
-            pos = ev.pos()
-            pos = self._getViewBox().mapToView(pos)
+        if (event.button() == QtCore.Qt.LeftButton and
+            not self.actionErasePickBox.isChecked()):
+            pos = self._getViewBox().mapToView(event.pos())
+            # Create coordinate with event click coordinates and add it
+            coord = Coordinate(pos.x(), pos.y(), self.actualLabelName)
+            self._currentMic.addPPCoordinate(coord)
 
-            roi = None
-            if self.actionPickRect.isChecked():
-                roi = self._createRectROI((pos.x()-self.pickingH/2,
-                                           pos.y()-self.pickingW/2),
-                                          (self.pickingW, self.pickingH),
-                                          centered=not self.disableROICentered,
-                                          aspectLocked=not
-                                          self.disableROIAspectLocked,
-                                          removable=
-                                          not self.disableRemoveROIs,
-                                          pen=self._getSelectedPen())
-            elif self.actionPickEllipse.isChecked():
-                roi = self._createEllipseROI((pos.x() - self.pickingH / 2,
-                                             pos.y() - self.pickingW / 2),
-                                             (self.pickingW, self.pickingH),
-                                             centered=
-                                             not self.disableROICentered,
-                                             aspectLocked=not
-                                             self.disableROIAspectLocked,
-                                             removable=
-                                             not self.disableRemoveROIs,
-                                             pen=self._getSelectedPen())
-
-            if roi:
-                roi.pickCoord = PPCoordinate(pos.x(), pos.y(),
-                                             self.actualLabelName)
-                self.imageView.getView().addItem(roi)
-
-                # add coordinate to actual image elem
-                if self.currentMicrograph:
-                    self.currentMicrograph.addPPCoordinate(roi.pickCoord)
-
-                    item = self.model.itemFromIndex(self.treeViewImages.
-                                                    selectedIndexes()[2])
-                    if item:
-                        item.setText("%i" % self.currentMicrograph.getPickCount())
+            coordROI = self._createCoordROI(coord)
+            self.imageView.getView().addItem(coordROI.getROI())
+            item = self.model.itemFromIndex(self.treeViewImages.selectedIndexes()[2])
+            item.setText("%i" % self._currentMic.getPickCount())
 
     @pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
@@ -604,23 +516,14 @@ class PPWindow(QMainWindow):
         This slot is invoked when de value of spinBoxBoxSize is changed
         :param value: The value
         """
-        self.pickingH = value
-        self.pickingW = value
-
-        self._updateActualPickBox(self.pickingW, self.pickingH)
+        self._updateBoxSize(value)
 
     @pyqtSlot()
     def _boxSizeEditingFinished(self):
         """
         This slot is invoked when spinBoxBoxSize editing is finished
         """
-        v = self.spinBoxBoxSize.value()
-        if not self.pickingW == v:
-            self.pickingW = v
-            self.pickingH = v
-            self._updateActualPickBox(self.pickingW, self.pickingH)
-            # update box size to all images ?
-            self.ppSystem.setBoxToImages(PPBox(self.pickingW, self.pickingH))
+        self._updateBoxSize(self.spinBoxBoxSize.value())
 
     @pyqtSlot(bool)
     def _labelAction_triggered(self, checked):
@@ -632,24 +535,13 @@ class PPWindow(QMainWindow):
         if checked and btn:
             self.actualLabelName = btn.text()
 
-    def _updateActualPickBox(self, w, h):
-        """
-        Update the box size for the actual image
-        :param w: Box width
-        :param h: Box height
-        """
-        if self.currentMicrograph:
-            roiSize = (w, h)
-            v = self._getViewBox()
-            if v:
-                for r in v.addedItems:
-                    if isinstance(r, (PPRectROI, PPEllipseROI)):
-                        r.setPos(r.pos() + (r.size()-roiSize)/2,
-                                 update=False, finish=False)
-                        r.setSize(roiSize)  # By default finish=True cause
-                        # emmit sigRegionChangeFinished signal and all ROIs
-                        # updated
-                        return
+    def _updateBoxSize(self, newBoxSize):
+        """ Update the box size to be used. """
+        if newBoxSize != self._model.getBoxSize():
+            self._model.setBoxSize(newBoxSize)
+            # Probably is more efficient to just change size and position
+            # of ROIs, but maybe re-creating is good enough
+            self._updateROIs()
 
     def _getSelectedPen(self):
         """
@@ -658,195 +550,82 @@ class PPWindow(QMainWindow):
         btn = self.buttonGroup.checkedButton()
 
         if btn:
-            return pg.mkPen(color=self.ppSystem.getLabel(btn.text())["color"])
+            return pg.mkPen(color=self._model.getLabel(btn.text())["color"])
 
         return pg.mkPen(0, 9)
 
-    def _setupROI(self, roi):
+    def _createCoordROI(self, coord):
+        """ Create the CoordROI for a given coordinate.
+        This function will take into account the selected ROI shape
+        and other global properties.
         """
-        Configure the roi.
+        roiDict = {
+            #'centered': not self.disableROICentered,
+            #'aspectLocked': self.aspectLocked,
+            'pen': self._makePen(coord.getLabel())
+        }
 
-        We connect the following slots:
+        if self._shape == SHAPE_RECT:
+            # roiDict['sideScalers'] = sideScalers ??
+            roiClass = pg.RectROI
+        elif self._shape == SHAPE_CIRCLE:
+            roiClass = pg.EllipseROI
+        else:
+            raise Exception("Unknown shape value: %s" % self._shape)
 
-        PPWindow._roiSizeChanged
-        PPWindow._roiMouseHover
-        PPWindow._roiRemoveRequested
-        PPWindow._roiMouseClicked
+        coordROI = CoordROI(coord, self._model.getBoxSize(),
+                            roiClass, **roiDict)
+        roi = coordROI.getROI()
 
-        :param roi:
-        :return:
+        # Connect some slots we are interested in
+        roi.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
+        roi.sigHoverEvent.connect(self._roiMouseHover)
+        # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
+        roi.sigClicked.connect(self._roiMouseClicked)
+
+        self._getViewBox().addItem(roi)
+        self._roiList.append(coordROI)
+
+        coordROI.showHandlers(False)  # initially hide ROI handlers
+
+        return coordROI
+
+    def _destroyCoordROI(self, roi):
+        """ Remove a ROI from the view, from our list and
+        disconnect all related slots.
         """
-        if roi:
-            roi.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
-
-            roi.sigRegionChangeFinished.connect(self._roiSizeChanged)
-            roi.sigHoverEvent.connect(self._roiMouseHover)
-            roi.sigRemoveRequested.connect(self._roiRemoveRequested)
-            roi.sigClicked.connect(self._roiMouseClicked)
-
-            for h in roi.getHandles():
-                h.hide()  # Hide all handlers
-
-    def _createRectROI(self, pos, size, centered=False, sideScalers=False,
-                       aspectLocked=True, removable=True, pen=(0, 9)):
-        """
-        Create a RectROI. The params are in agreement to the constructor
-        of the class.
-        We connect the following slots:
-        See _setupROI for details
-
-        :param pos:
-        :param size:
-        :param centered:
-        :param sideScalers:
-        :param args:
-        :return:
-        """
-        roi = PPRectROI(pos, size, centered=centered,
-                        sideScalers=sideScalers,
-                        aspectLocked=aspectLocked,
-                        removable=removable,
-                        pen=pen)
-
-        self._setupROI(roi)
-
-        return roi
-
-    def _createEllipseROI(self, pos, size, centered=False, aspectLocked=True,
-                          removable=True, pen=(0, 9)):
-        """
-        Create a EllipseROI. The params are in agreement to the constructor
-        of the class.
-        We connect the following slots:
-        See _setupROI for details
-
-        :param pos:
-        :param size:
-        :param centered:
-        :param sideScalers:
-        :param args:
-        :return:
-        """
-        roi = PPEllipseROI(pos, size,
-                           aspectLocked=aspectLocked,
-                           centered=centered,
-                           removable=removable,
-                           pen=pen)
-
-        self._setupROI(roi)
-
-        return roi
-
-    @pyqtSlot(object)
-    def _roiMouseHover(self, roi):
-        """
-        This slot is invoked when the mouse enters the ROI.
-        We need to show the handlers for user operations
-        :param roi: The roi
-        """
-        for h in roi.getHandles():
-            h.show()  # Show all handlers
+        view = self._getViewBox()
+        view.removeItem(roi)
+        # Disconnect from roi the slots.
+        roi.sigHoverEvent.disconnect(self._roiMouseHover)
+        # roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
+        roi.sigClicked.disconnect(self._roiMouseClicked)
 
     @pyqtSlot(object, object)
-    def _roiMouseClicked(self, roi, ev):
-        """
-        This slot is invoked when the user clicks on a ROI
-        :param roi:
-        :param ev:
-        """
-        if (ev.button() == QtCore.Qt.LeftButton
+    def _roiMouseClicked(self, roi, event):
+        """ This slot is invoked when the user clicks on a ROI. """
+        if (event.button() == QtCore.Qt.LeftButton
             and self.actionErasePickBox.isChecked()
             or QtGui.QGuiApplication.keyboardModifiers() == self.removeROIKeyModifier):
-            roi.sigRemoveRequested.emit(roi)
-
-    @pyqtSlot(object)
-    def _roiSizeChanged(self, roi):
-        """
-        This slot is invoked when a roi change its size
-        :param roi:
-        :return:
-        """
-        if isinstance(roi, (PPRectROI, PPEllipseROI)):  # Only PPRectROI for now
-            roiSize = roi.size()
-            pos = roi.pos() + roiSize/2
-
-            roi.pickCoord.set(pos.x(), pos.y())
-
-            v = self._getViewBox()
-
-            for r in v.addedItems:
-                if isinstance(r, (PPRectROI, PPEllipseROI)) and not r == roi:
-                    r.setPos(r.pos() + (r.size()-roiSize)/2,
-                             update=False, finish=False)
-                    r.setSize(roiSize, finish=False)
-
-            if self.currentMicrograph:
-                self.currentMicrograph.setBox(PPBox(roiSize.x(), roiSize.y()))
-
-            self.ppSystem.setBoxToImages(PPBox(int(roiSize.x()),
-                                               int(roiSize.y())))
-            self.spinBoxBoxSize.setValue(int(roiSize.x()))
-            self.pickingH = self.pickingW = int(roiSize.x())
-
-    @pyqtSlot(object)
-    def _roiRemoveRequested(self, roi, removePick=True):
-        """
-        This slot is invoked when the roi will be removed
-        :param roi: The roi
-        """
-        if roi:
-            self._getViewBox().removeItem(roi)
-            self._disconnectAllSlots(roi)
-
-        if self.currentMicrograph and removePick:
-            self.currentMicrograph.removeCoordinate(roi.pickCoord)
+            self._destroyCoordROI(roi)
+            self._roiList.remove(roi.parent)  # remove the coordROI
+            self._currentMic.removeCoordinate(roi.coordinate)
             item = self.model.itemFromIndex(self.treeViewImages.
                                             selectedIndexes()[2])
             if item:
-                item.setText("%i" % self.currentMicrograph.getPickCount())
+                item.setText("%i" % self._currentMic.getPickCount())
 
-    def _disconnectAllSlots(self, roi):
-        """
-        Disconnect from roi the slots:
-        PPWindow._roiSizeChanged
-        PPWindow._roiMouseHover
-        PPWindow._roiRemoveRequested
-        PPWindow._roiMouseClicked
-        :param roi:
-        :return:
-        """
-        if roi:
-            roi.sigRegionChangeFinished.disconnect(self._roiSizeChanged)
-            roi.sigHoverEvent.disconnect(self._roiMouseHover)
-            roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
-            roi.sigClicked.disconnect(self._roiMouseClicked)
-
-    def _clearImageView(self):
-        """
-        Clear the ImageView.
-        Note: ImageView has the clear() method, but we need to make others
-        operations like disconnect
-              the sigRegionChangeFinished signal
-        :return:
-        """
-        v = self._getViewBox()
-
-        for r in v.addedItems[:]:
-            if isinstance(r, (PPRectROI, PPEllipseROI)):
-                v.removeItem(r)
-                self._disconnectAllSlots(r)
-
-        self.imageView.clear()
+    @pyqtSlot(object)
+    def _roiMouseHover(self, roi):
+        """ Handler invoked when the roi is hovered by the mouse. """
+        roi.parent.showHandlers(False)
 
     def _getViewBox(self):
         """
         :return: The ViewBox for the self.imageView
         """
         v = self.imageView.getView()
-        if isinstance(v, pg.PlotItem):
-            return v.getViewBox()
-
-        return v
+        return v.getViewBox() if isinstance(v, pg.PlotItem) else v
 
     def _setupViewBox(self):
         """
@@ -883,88 +662,29 @@ class PPItem(QStandardItem):
         return self.imgElem
 
 
-class PPRectROI(pg.RectROI):
-    """
-    Rect roi for particle picking
-    """
+class CoordROI:
+    """ Class to match between ROI objects and corresponding coordinate """
+    def __init__(self, coord, boxSize, roiClass, **kwargs):
+        # Lets compute the left-upper corner for the ROI
+        half = boxSize / 2
+        x = coord.x - half
+        y = coord.y - half
+        self._roi = roiClass((x, y), (boxSize, boxSize), **kwargs)
+        # Set a reference to the corresponding coordinate
+        self._roi.coordinate = coord
+        self._roi.parent = self
 
-    def __init__(self, pos, size, centered=False,
-                 sideScalers=False, aspectLocked=True, removable=True,
-                 pen=(0,9)):
-        pg.RectROI.__init__(self, pos, size,
-                         centered=centered, sideScalers=sideScalers,
-                         removable=removable, pen=pen)
-        self.pickCoord = None
-        self.aspectLocked = aspectLocked
+    def getCoord(self):
+        """ Return the internal coordinate. """
+        return self._roi.coordinate
 
-    def hoverEvent(self, ev):
-        """
-        Reimplementation of hoverEvent.
-        Hide all handlers
-        :param ev: Mouse event
-        """
-        if ev.isExit():
-            for h in self.getHandles():
-                h.hide()  # Hide all handlers
-        pg.ROI.hoverEvent(self, ev)
+    def getROI(self):
+        return self._roi
 
-    def setPickCoordinate(self, coordinate):
-        """
-        Set de picking coordinate
-        :param coordinate: The PPCoordinate
-        """
-        self.pickCoord = coordinate
+    def showHandlers(self, show=True):
+        """ Show or hide the ROI handlers. """
+        funcName = 'show' if show else 'hide'
+        for h in self._roi.getHandles():
+            getattr(h, funcName)()  # show/hide
 
-    def getPickCoordinate(self):
-        """
-        :return:  The PPCoordinate
-        """
-        return self.pickCoord
-
-
-class PPEllipseROI(pg.EllipseROI):
-    """
-    Ellipse roi for particle picking
-    """
-
-    def __init__(self, pos, size, aspectLocked=True, centered=True,
-                 removable=True, pen=(0, 9)):
-        pg.EllipseROI.__init__(self, pos, size,
-                            pen=pen)
-
-        self.pickCoord = None
-        self.aspectLocked = aspectLocked
-        self.removable = removable
-
-        if centered:
-            center = [0.5, 0.5]
-        else:
-            center = [0, 0]
-
-        self.addScaleHandle([0.5 * 2. ** -0.5 + 0.5, 0.5 * 2. ** -0.5 + 0.5],
-                            center)
-
-    def hoverEvent(self, ev):
-        """
-        Reimplementation of hoverEvent.
-        Hide all handlers
-        :param ev: Mouse event
-        """
-        if ev.isExit():
-            for h in self.getHandles():
-                h.hide()  # Hide all handlers
-        pg.ROI.hoverEvent(self, ev)
-
-    def setPickCoordinate(self, coordinate):
-        """
-        Set de picking coordinate
-        :param coordinate: The PPCoordinate
-        """
-        self.pickCoord = coordinate
-
-    def getPickCoordinate(self):
-        """
-        :return:  The PPCoordinate
-        """
-        return self.pickCoord
 

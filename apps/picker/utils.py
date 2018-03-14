@@ -2,7 +2,7 @@
 from PyQt5.QtCore import (QJsonDocument, QJsonParseError, QFile, QIODevice,
                           QObject, pyqtSignal)
 
-from model import ImageElem, PPCoordinate, PPBox
+from model import Micrograph, Coordinate
 
 class ImageElemParser:
     """
@@ -43,10 +43,8 @@ class ImageElemParser:
         """
         jsonBox = jsonObj["box"].toObject()
 
-        imageElem = ImageElem(0,
-                              jsonObj["file"].toString(),
-                              PPBox(jsonBox["w"].toInt(), jsonBox["w"].toInt()),
-                              [])
+        imageElem = Micrograph(0,
+                               jsonObj["file"].toString(), [])
 
         self._addCoordToImage(jsonObj["coord"].toArray(), imageElem)
 
@@ -77,9 +75,9 @@ class ImageElemParser:
 
         for v in jsonArray:
             jsonC = v.toObject()
-            coord = PPCoordinate(jsonC["x"].toInt(),
-                                 jsonC["y"].toInt(),
-                                 jsonC.get("label", "Manual"))
+            coord = Coordinate(jsonC["x"].toInt(),
+                               jsonC["y"].toInt(),
+                               jsonC.get("label", "Manual"))
             imgElem.addPPCoordinate(coord)
 
 
@@ -89,5 +87,7 @@ def parseTextCoordinates(path):
     """
     with open(path) as f:
         for line in f:
-            parts = line.split()
-            yield int(parts[0]), int(parts[1])
+            l = line.strip()
+            if l:
+                parts = l.strip().split()
+                yield int(parts[0]), int(parts[1])
