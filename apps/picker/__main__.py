@@ -9,7 +9,7 @@ import argparse
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
+
 
     kwargs = {}
 
@@ -79,6 +79,7 @@ if __name__ == '__main__':
     kwargs['--disable-y-axis'] = args.disable_y_axis
     kwargs['--shape'] = 0 if args.shape == 'RECT' else 1
 
+    app = QApplication(sys.argv)
     pickerWin = PickerWindow(model, **kwargs)
     pickerWin.show()
     sys.exit(app.exec_())

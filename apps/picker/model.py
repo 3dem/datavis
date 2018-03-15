@@ -39,78 +39,58 @@ class Micrograph:
     Micrograph is the base element managed by the PickerDataModel class
     (See PickerDataModel documentation).
     """
-    def __init__(self, imgId, path, ppCoordList=None):
-        self.imgId = imgId
-        self.path = path
-        self.ppCoordList = ppCoordList or []
+    def __init__(self, micId, path, coordinates=None):
+        self._micId = micId
+        self._path = path
+        self._coordinates = coordinates or []
 
-    def addPPCoordinate(self, ppCoord):
-        """
-        Add a coordinate to the list of coordinates
-        :param ppCoord: Coordinate
-        """
-        if ppCoord:
-            self.ppCoordList.append(ppCoord)
+    def setId(self, micId):
+        """ Set the micrograph Id. """
+        self._micId = micId
 
-    def setId(self, imgId):
-        """
-        Sets the image Id
-        """
-        self.imgId = imgId
-
-    def getImageId(self):
-        """
-        :return: Get the image Id
-        """
-        return self.imgId
+    def getId(self):
+        """ Returns the micrograph Id. """
+        return self._micId
 
     def setPath(self, path):
-        """
-        Set de path to the image file
-        :param path: absolute path
-        """
-        self.path = path
+        """ Set the micrograph path. """
+        self._path = path
 
     def getPath(self):
-        """
-        :return: The path of the image
-        """
-        return self.path
+        """ Returns the path of the micrograph. """
+        return self._path
 
-    def getCoordinates(self):
-        """
-        :return: The coordinate list of the image
-        """
-        return self.ppCoordList
+    def __len__(self):
+        """ The lenght of the Micrograph is the number of coordinates. """
+        return len(self._coordinates)
 
-    def getPickCount(self):
-        """
-        :return: The picking count
-        """
-        return len(self.ppCoordList)
+    def __iter__(self):
+        """ Iterates over all coordinates in the micrograph. """
+        return iter(self._coordinates)
+
+    def addCoordinate(self, coord):
+        """ Add a new coordinate to this micrograph. """
+        self._coordinates.append(coord)
 
     def removeCoordinate(self, ppCoord):
-        """
-        Remove the coordinate from the list
-        :param ppCoord:
-        """
-        if ppCoord and self.ppCoordList:
-            self.ppCoordList.remove(ppCoord)
+        """ Remove the coordinate from the list. """
+        if ppCoord and self._coordinates:
+            self._coordinates.remove(ppCoord)
 
     def clear(self):
         """ Remove all coordinates of this micrograph. """
-        self.ppCoordList = []
+        self._coordinates = []
 
 
 class PickerDataModel:
     """
-    The PPSystem class is responsible for managing the list of images
-    in particle picking operation
+    This class stores the basic information to the particle picking data.
+    It contains a list of Micrographs and each Micrographs contains a list
+    of Coordinates (x, y positions in the Micrograph).
     """
-
     def __init__(self):
-        self.images = []
-        self.labels = {}
+        self._micrographs = []
+        self._labels = {}
         self._initLabels()
         self._boxsize = None
         self._lastId = 0
@@ -123,29 +103,26 @@ class PickerDataModel:
         """ Return the current box size of the coordinates. """
         return self._boxsize
 
-    def addMicrograph(self, imgElem):
+    def addMicrograph(self, mic):
+        """ Add a new micrograph to the model.
+        Params:
+            mic: could be Micrograph instance or a path.
         """
-        Add an image
-        :param imgElem: The image
-        :return:
-        """
+<<<<<<< HEAD
         if isinstance(imgElem, str):
+=======
+        if isinstance(mic, basestring):
+>>>>>>> 973ed37938999a3113a152d7019d17f8e65894cd
             self._lastId += 1
-            imgElem = Micrograph(self._lastId, imgElem)
+            mic = Micrograph(self._lastId, mic)
 
-        self.images.append(imgElem)
-
-    def getImgCount(self):
-        """
-        :return: The image count
-        """
-        return len(self.images)
+        self._micrographs.append(mic)
 
     def getLabels(self):
         """
         :return:The labels for this PPSystem
         """
-        return self.labels
+        return self._labels
 
     def getLabel(self, labelName):
         """
@@ -153,7 +130,7 @@ class PickerDataModel:
         :param labelName: The label name
         :return: dict value
         """
-        return self.labels.get(labelName)
+        return self._labels.get(labelName)
 
     def _initLabels(self):
         """
@@ -162,14 +139,23 @@ class PickerDataModel:
         automatic = {}
         automatic["name"] = "Auto"
         automatic["color"] = "#FF0004"  # #AARRGGBB
-        self.labels["Auto"] = automatic
+        self._labels["Auto"] = automatic
 
         manual = {}
         manual["name"] = "Manual"
         manual["color"] = "#1500FF"  # #AARRGGBB
-        self.labels["Manual"] = manual
+        self._labels["Manual"] = manual
 
         default = {}
         default["name"] = "Default"
         default["color"] = "#74ea00"  # #AARRGGBB
-        self.labels["Default"] = default
+        self._labels["Default"] = default
+
+    def __len__(self):
+        """ The lenght of the model is the number of Micrographs. """
+        return len(self._micrographs)
+
+    def __iter__(self):
+        """ Iterate over all Micrographs in the model. """
+        return iter(self._micrographs)
+
