@@ -8,7 +8,7 @@ from model import PickerDataModel
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
+
 
     kwargs = {}
     if len(sys.argv) < 1:
@@ -37,6 +37,7 @@ if __name__ == '__main__':
 
     model.setBoxSize(int(kwargs.get('--boxsize', 100)))
 
+    app = QApplication(sys.argv)
     pickerWin = PickerWindow(model, **kwargs)
     pickerWin.show()
     sys.exit(app.exec_())

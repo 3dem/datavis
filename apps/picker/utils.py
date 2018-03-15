@@ -78,7 +78,7 @@ class ImageElemParser:
             coord = Coordinate(jsonC["x"].toInt(),
                                jsonC["y"].toInt(),
                                jsonC.get("label", "Manual"))
-            imgElem.addPPCoordinate(coord)
+            imgElem.addCoordinate(coord)
 
 
 def parseTextCoordinates(path):

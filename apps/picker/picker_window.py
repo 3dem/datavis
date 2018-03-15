@@ -36,8 +36,8 @@ class PickerWindow(QMainWindow):
         self.completer = QCompleter()
         self.lineEdit.setCompleter(self.completer)
         # self.completer.setFilterMode(Qt.MatchCaseSensitive)
-        self.completer.setModel(self.treeViewImages.model())
-        self.completer.activated[QModelIndex].connect(self.on_treeViewImages_clicked)
+        self.completer.setModel(self._tvImages.model())
+        # self.completer.activated[QModelIndex].connect(self.on_treeViewImages_clicked)
 
         # picking dim in pixels, respect to the image size
         self._currentMic = None
@@ -61,14 +61,14 @@ class PickerWindow(QMainWindow):
         self.spinBoxBoxSize.editingFinished.connect(self._boxSizeEditingFinished)
 
         # Load the input model and check there is at least one micrograph
-        if self._model.getImgCount() == 0:
+        if len(self._model) == 0:
             raise Exception("There are not micrographs in the current model.")
 
-        for mic in self._model.images:
+        for mic in self._model:
             self._addMicToTreeView(mic)
 
         # By default select the first micrograph in the list
-        self._changeTreeViewMic(lambda i: self.treeViewImages.model().index(0, 0))
+        self._changeTreeViewMic(lambda i: self._tvImages.model().index(0, 0))
         #self._showMicrograph(self._model.images[0])
 
     def showError(self, msg):
@@ -84,17 +84,17 @@ class PickerWindow(QMainWindow):
         when he wants to add an image or connect it to a signal that notifies
         the action of add an ImageElem.
         """
-        column1 = PPItem(mic, qta.icon("fa.file-o"))
+        column1 = MicrographItem(mic, qta.icon("fa.file-o"))
 
-        column2 = PPItem(mic)
+        column2 = MicrographItem(mic)
         column2.setText(os.path.basename(mic.getPath()))
 
-        column3 = PPItem(mic)
-        column3.setText("%i" % mic.getPickCount())
+        column3 = MicrographItem(mic)
+        column3.setText("%i" % len(mic))
 
-        self.model.appendRow([column1, column2, column3])
+        self._tvModel.appendRow([column1, column2, column3])
 
-        self.treeViewImages.resizeColumnToContents(0)
+        self._tvImages.resizeColumnToContents(0)
 
     @pyqtSlot()
     def on_actionOpenPick_triggered(self):
@@ -116,31 +116,25 @@ class PickerWindow(QMainWindow):
                 the current selected index. If None is returned, no
                 change will be done
         """
-        indexes = self.treeViewImages.selectedIndexes()
+        indexes = self._tvImages.selectedIndexes()
+        selectedIndex = indexes[0] if indexes else None
+        nextIndex = nextIndexFunc(selectedIndex)
 
-        if indexes:
-            selectedIndex = indexes[0]
-            nextIndex = nextIndexFunc(selectedIndex)
-            print("nextIndex:", nextIndex)
-
-            if nextIndex:
-                mode = QItemSelectionModel.Toggle | QItemSelectionModel.Rows
-                sModel = self.treeViewImages.selectionModel()
-                sModel.select(selectedIndex, mode)
-                sModel.select(nextIndex, mode)
-                self.on_treeViewImages_clicked(nextIndex)
+        if nextIndex:
+            mode = QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows
+            self._tvImages.selectionModel().select(nextIndex, mode)
 
     @pyqtSlot()
     def on_actionNextImage_triggered(self):
         """ Select the next node in the treeview. """
-        self._changeTreeViewMic(lambda i: self.treeViewImages.indexBelow(i) or
-                                          self.treeViewImages.model().index(0, 0))
+        self._changeTreeViewMic(lambda i: self._tvImages.indexBelow(i) or
+                                          self._tvImages.model().index(0, 0))
 
     @pyqtSlot()
     def on_actionPrevImage_triggered(self):
         """ Select the previous micrograph in the treeview. """
-        model = self.treeViewImages.model()
-        self._changeTreeViewMic(lambda i: self.treeViewImages.indexAbove(i) or
+        model = self._tvImages.model()
+        self._changeTreeViewMic(lambda i: self._tvImages.indexAbove(i) or
                                           model.index(model.rowCount()-1, 0))
 
     @pyqtSlot()
@@ -158,16 +152,12 @@ class PickerWindow(QMainWindow):
         self._shape = SHAPE_RECT
         self._updateROIs()
 
-    @pyqtSlot(QModelIndex)
-    def on_treeViewImages_clicked(self, index):
-        """
-        This slot is invoked when de user clicks one node in the treeview widget
-        :param index: Index for the selected node (or item)
-        :return:
-        """
-        item = self.model.itemFromIndex(index)
-        if item:
-            self._showMicrograph(item.getImageElem())
+    def _onTreeViewSeleccionChanged(self, newIndex, oldIndex=None):
+        """ This should be triggered when the selection changes in the TreeView. """
+        indexes = self._tvImages.selectedIndexes()
+        if indexes:
+            item = self._tvModel.itemFromIndex(indexes[0])
+            self._showMicrograph(item.getMicrograph())
 
     def _showMicrograph(self, mic):
         """
@@ -192,7 +182,7 @@ class PickerWindow(QMainWindow):
 
         # Create new ROIs and add to the list
         self._roiList = [self._createCoordROI(coord)
-                         for coord in self._currentMic.getCoordinates()]
+                         for coord in self._currentMic]
 
     def openImageFile(self, path):
         """
@@ -257,7 +247,7 @@ class PickerWindow(QMainWindow):
         self._currentMic.clear() # remove all coordinates
         for (x, y) in parserFunc(path):
             coord = Coordinate(x, y)
-            self._currentMic.addPPCoordinate(coord)
+            self._currentMic.addCoordinate(coord)
 
         self._showMicrograph(self._currentMic)
 
@@ -312,12 +302,14 @@ class PickerWindow(QMainWindow):
         """
         Setup the treeview
         """
-        self.model = QStandardItemModel()
-        self.model.setHorizontalHeaderLabels(["Id", "Micrograph",
-                                              "Coordinates"])
-        self.treeViewImages.setModel(self.model)
-        self.treeViewImages.setSelectionBehavior(
-            QAbstractItemView.SelectRows)
+        self._tvModel = QStandardItemModel()
+        self._tvModel.setHorizontalHeaderLabels(["Id",
+                                                 "Micrograph",
+                                                 "Coordinates"])
+        self._tvImages.setModel(self._tvModel)
+        self._tvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
+        sModel = self._tvImages.selectionModel()
+        sModel.selectionChanged.connect(self._onTreeViewSeleccionChanged)
 
     def __setupUi__(self):
         self.setObjectName("MainWindow")
@@ -335,9 +327,9 @@ class PickerWindow(QMainWindow):
         self.lineEdit = QtWidgets.QLineEdit(self.widget)
         self.lineEdit.setObjectName("lineEdit")
         self.verticalLayout.addWidget(self.lineEdit)
-        self.treeViewImages = QtWidgets.QTreeView(self.widget)
-        self.treeViewImages.setObjectName("treeViewImages")
-        self.verticalLayout.addWidget(self.treeViewImages)
+        self._tvImages = QtWidgets.QTreeView(self.widget)
+        self._tvImages.setObjectName("treeViewImages")
+        self.verticalLayout.addWidget(self._tvImages)
         self.imageView = pg.ImageView(self, view=pg.PlotItem())
         self.imageView.setObjectName("imageView")
         self.viewWidget = QtWidgets.QWidget(self)
@@ -461,11 +453,12 @@ class PickerWindow(QMainWindow):
         self.actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
         self.actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
 
-    def viewBoxMouseClickEvent(self, event):
+    def _handleViewBoxClick(self, event):
         """ Invoked when the user clicks on the ViewBox
         (ImageView contains a ViewBox).
         """
-        if not self._currentMic:
+        if self._currentMic is None:
+            print "not selected micrograph...."
             return
 
         if (event.button() == QtCore.Qt.LeftButton and
@@ -473,12 +466,11 @@ class PickerWindow(QMainWindow):
             pos = self._getViewBox().mapToView(event.pos())
             # Create coordinate with event click coordinates and add it
             coord = Coordinate(pos.x(), pos.y(), self.actualLabelName)
-            self._currentMic.addPPCoordinate(coord)
+            self._currentMic.addCoordinate(coord)
 
-            coordROI = self._createCoordROI(coord)
-            self.imageView.getView().addItem(coordROI.getROI())
-            item = self.model.itemFromIndex(self.treeViewImages.selectedIndexes()[2])
-            item.setText("%i" % self._currentMic.getPickCount())
+            self._createCoordROI(coord)
+            item = self._tvModel.itemFromIndex(self._tvImages.selectedIndexes()[2])
+            item.setText("%i" % len(self._currentMic))
 
     @pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
@@ -610,10 +602,10 @@ class PickerWindow(QMainWindow):
             self._destroyCoordROI(roi)
             self._roiList.remove(roi.parent)  # remove the coordROI
             self._currentMic.removeCoordinate(roi.coordinate)
-            item = self.model.itemFromIndex(self.treeViewImages.
-                                            selectedIndexes()[2])
+            item = self._tvModel.itemFromIndex(self._tvImages.
+                                               selectedIndexes()[2])
             if item:
-                item.setText("%i" % self._currentMic.getPickCount())
+                item.setText("%i" % len(self._currentMic))
 
     @pyqtSlot(object)
     def _roiMouseHover(self, roi):
@@ -635,32 +627,26 @@ class PickerWindow(QMainWindow):
 
         if v:
             v.invertY(False)
-            v.mouseClickEvent = self.viewBoxMouseClickEvent
+            v.mouseClickEvent = self._handleViewBoxClick
             scene = v.scene()
             if scene:
                 scene.sigMouseMoved.connect(self.viewBoxMouseMoved)
 
 
-class PPItem(QStandardItem):
+class MicrographItem(QStandardItem):
     """
-    The PPItem is the item that we use in the treeview
+    The MicrographItem is the item that we use in the TreeView
     where the images are displayed
     """
     def __init__(self, imgElem, icon=None):
-
-        super(PPItem, self).__init__("%i" % imgElem.getImageId())
-
-        self.imgElem = imgElem
-
+        super(MicrographItem, self).__init__("%i" % imgElem.getId())
+        self._micrograph = imgElem
         if icon:
             self.setIcon(icon)
 
-    def getImageElem(self):
-        """
-        :return: The image elem corresponding to this node (or item)
-        """
-        return self.imgElem
-
+    def getMicrograph(self):
+        """ Return the micrographs corresponding to this node (or item). """
+        return self._micrograph
 
 class CoordROI:
     """ Class to match between ROI objects and corresponding coordinate """
