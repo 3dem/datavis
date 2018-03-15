@@ -39,10 +39,9 @@ class PickerWindow(QMainWindow):
         self.completer.setModel(self.treeViewImages.model())
         self.completer.activated[QModelIndex].connect(self.on_treeViewImages_clicked)
 
-        # picking dim in pixels, respect to the image size
         self._currentMic = None
         self._roiList = []
-        self.actualLabelName = None
+        self.currentLabelName = None
         self.removeROIKeyModifier = QtCore.Qt.ControlModifier
 
         self.disableZoom = kwargs.get('--disable-zoom', False)
@@ -55,7 +54,12 @@ class PickerWindow(QMainWindow):
         self.disableXAxis = kwargs.get('--disable-x-axis', False)
         self.disableYAxis = kwargs.get('--disable-y-axis', False)
 
-        self._shape = kwargs.get('shape', SHAPE_RECT)
+        self._shape = kwargs.get('--shape', SHAPE_RECT)
+        if self._shape == SHAPE_RECT:
+            self.actionPickRect.setChecked(True)
+        else:
+            self.actionPickEllipse.setChecked(True)
+
         self._setupImageView()
         self.spinBoxBoxSize.setValue(self._model.getBoxSize())
         self.spinBoxBoxSize.editingFinished.connect(self._boxSizeEditingFinished)
@@ -174,25 +178,39 @@ class PickerWindow(QMainWindow):
         Show the an image in the ImageView
         :param mic: the ImageElem
         """
+        self._destroyROIs()
+        self.imageView.clear()
         self._currentMic = mic
         img = em.Image()
         loc2 = em.ImageLocation(mic.getPath())
         img.read(loc2)
         array = np.array(img, copy=False)
         self.imageView.setImage(array)
-        self._updateROIs()
+        self._createROIs()
+
+    def _destroyROIs(self):
+        """
+        Remove and destroy all ROIs from the imageView
+        """
+        for coordROI in self._roiList:
+            self._destroyCoordROI(coordROI.getROI())
+
+    def _createROIs(self):
+        """ Create the ROIs for current micrograph
+        """
+        # Create new ROIs and add to the list
+        self._roiList = [self._createCoordROI(coord)
+                         for coord in self._currentMic.getCoordinates()] \
+            if self._currentMic else []
 
     def _updateROIs(self):
         """ Update all ROIs that need to be shown in the current micrographs.
         Remove first the old ones and then create new ones.
         """
-        # Clear previous ROIs if exists
-        for coordROI in self._roiList:
-            self._destroyCoordROI(coordROI.getROI())
-
-        # Create new ROIs and add to the list
-        self._roiList = [self._createCoordROI(coord)
-                         for coord in self._currentMic.getCoordinates()]
+        # First destroy the ROIs
+        self._destroyROIs()
+        # then create new ones
+        self._createROIs()
 
     def openImageFile(self, path):
         """
@@ -203,7 +221,6 @@ class PickerWindow(QMainWindow):
             try:
                 imgElem = Micrograph(0,
                                      path,
-                                     PPBox(self.pickingW, self.pickingH),
                                      [])
                 imgElem.setId(self._model.getImgCount()+1)
                 self._model.addMicrograph(imgElem)
@@ -254,7 +271,7 @@ class PickerWindow(QMainWindow):
             parserFunc: function that will parse the file and yield
                 all coordinates.
         """
-        self._currentMic.clear() # remove all coordinates
+        self._currentMic.clear()  # remove all coordinates
         for (x, y) in parserFunc(path):
             coord = Coordinate(x, y)
             self._currentMic.addPPCoordinate(coord)
@@ -470,13 +487,12 @@ class PickerWindow(QMainWindow):
 
         if (event.button() == QtCore.Qt.LeftButton and
             not self.actionErasePickBox.isChecked()):
-            pos = self._getViewBox().mapToView(event.pos())
+            viewBox = self._getViewBox()
+            pos = viewBox.mapToView(event.pos())
             # Create coordinate with event click coordinates and add it
-            coord = Coordinate(pos.x(), pos.y(), self.actualLabelName)
+            coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
             self._currentMic.addPPCoordinate(coord)
-
-            coordROI = self._createCoordROI(coord)
-            self.imageView.getView().addItem(coordROI.getROI())
+            self._createCoordROI(coord)
             item = self.model.itemFromIndex(self.treeViewImages.selectedIndexes()[2])
             item.setText("%i" % self._currentMic.getPickCount())
 
@@ -533,7 +549,7 @@ class PickerWindow(QMainWindow):
         btn = self.buttonGroup.checkedButton()
 
         if checked and btn:
-            self.actualLabelName = btn.text()
+            self.currentLabelName = btn.text()
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """

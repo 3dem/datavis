@@ -36,8 +36,8 @@ class Coordinate:
 
 class Micrograph:
     """
-    ImageElem is the base element managed by the PPSystem class
-    (See PPSystem documentation).
+    Micrograph is the base element managed by the PickerDataModel class
+    (See PickerDataModel documentation).
     """
     def __init__(self, imgId, path, ppCoordList=None):
         self.imgId = imgId
@@ -129,7 +129,7 @@ class PickerDataModel:
         :param imgElem: The image
         :return:
         """
-        if isinstance(imgElem, basestring):
+        if isinstance(imgElem, str):
             self._lastId += 1
             imgElem = Micrograph(self._lastId, imgElem)
 
