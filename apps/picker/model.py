@@ -108,11 +108,7 @@ class PickerDataModel:
         Params:
             mic: could be Micrograph instance or a path.
         """
-<<<<<<< HEAD
-        if isinstance(imgElem, str):
-=======
-        if isinstance(mic, basestring):
->>>>>>> 973ed37938999a3113a152d7019d17f8e65894cd
+        if isinstance(mic, str):
             self._lastId += 1
             mic = Micrograph(self._lastId, mic)
 

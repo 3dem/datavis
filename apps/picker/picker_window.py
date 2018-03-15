@@ -190,9 +190,8 @@ class PickerWindow(QMainWindow):
         """
         # Create new ROIs and add to the list
         self._roiList = [self._createCoordROI(coord)
-<<<<<<< HEAD
-                         for coord in self._currentMic.getCoordinates()] \
-            if self._currentMic else []
+                         for coord in self._currentMic] if self._currentMic \
+            else []
 
     def _updateROIs(self):
         """ Update all ROIs that need to be shown in the current micrographs.
@@ -202,9 +201,6 @@ class PickerWindow(QMainWindow):
         self._destroyROIs()
         # then create new ones
         self._createROIs()
-=======
-                         for coord in self._currentMic]
->>>>>>> 973ed37938999a3113a152d7019d17f8e65894cd
 
     def openImageFile(self, path):
         """
@@ -479,28 +475,18 @@ class PickerWindow(QMainWindow):
         (ImageView contains a ViewBox).
         """
         if self._currentMic is None:
-            print "not selected micrograph...."
+            print ("not selected micrograph....")
             return
 
         if (event.button() == QtCore.Qt.LeftButton and
             not self.actionErasePickBox.isChecked()):
-            viewBox = self._getViewBox()
-            pos = viewBox.mapToView(event.pos())
+            pos = self._getViewBox().mapToView(event.pos())
             # Create coordinate with event click coordinates and add it
-<<<<<<< HEAD
             coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
-            self._currentMic.addPPCoordinate(coord)
-            self._createCoordROI(coord)
-            item = self.model.itemFromIndex(self.treeViewImages.selectedIndexes()[2])
-            item.setText("%i" % self._currentMic.getPickCount())
-=======
-            coord = Coordinate(pos.x(), pos.y(), self.actualLabelName)
             self._currentMic.addCoordinate(coord)
-
             self._createCoordROI(coord)
             item = self._tvModel.itemFromIndex(self._tvImages.selectedIndexes()[2])
             item.setText("%i" % len(self._currentMic))
->>>>>>> 973ed37938999a3113a152d7019d17f8e65894cd
 
     @pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
