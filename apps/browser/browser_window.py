@@ -10,10 +10,11 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QAction, QToolBar, QLabel, QPushButton, QRadioButton,
                              QSpacerItem, QCompleter, QGridLayout, QDialog,
                              QSlider, QSpinBox, QFormLayout, QComboBox,
-                             QTableWidget)
+                             QTableWidget, QItemDelegate, QTableView)
 from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
-                         QItemSelectionModel
-from PyQt5.QtGui import QImage
+                         QItemSelectionModel, QAbstractTableModel, QModelIndex,\
+                         QSize
+from PyQt5.QtGui import QImage, QPalette, QPainter, QPainterPath, QPen, QColor
 from emqt5.widgets.image import ImageBox
 
 import qtawesome as qta
@@ -89,6 +90,7 @@ class BrowserWindow(QMainWindow):
         if self.isEmImage(self.path):
             self.volumeSlice(self.path)
 
+
     def _onGalleryViewButtonClicked(self):
         """
         This Slot is executed when gallery view button was clicked.
@@ -152,6 +154,7 @@ class BrowserWindow(QMainWindow):
         self.sliceY = value
         self.topLabelValue.setText(str(value))
         self.topView.setImage(self.array3D[:, self.sliceY, :])
+        self.renderArea.setShiftY(40*value/self.dy)
 
     def _onFrontSliderChange(self, value):
         """
@@ -161,6 +164,7 @@ class BrowserWindow(QMainWindow):
         self.sliceZ = value
         self.frontLabelValue.setText(str(value))
         self.frontView.setImage(self.array3D[self.sliceZ:, :, :])
+        self.renderArea.setShiftZ(40*value/self.dz)
 
     def _onRightSliderChange(self, value):
         """
@@ -170,6 +174,7 @@ class BrowserWindow(QMainWindow):
         self.sliceX = value
         self.rightLabelValue.setText(str(value))
         self.rightView.setImage(self.array3D[:, :, self.sliceX])
+        self.renderArea.setShiftX(40*value/self.dx)
 
     def _onGalleryViewPlaneChanged(self, index):
         """
@@ -260,6 +265,66 @@ class BrowserWindow(QMainWindow):
         v.setImage(array)
 
         self.sliceViewDialog.show()
+
+    def _onTopLineVChange(self, pos):
+        """
+        This Slot is executed when the Horizontal Line in the Top View is moved.
+        Display a slices in the right plane
+        :param pos: new pos of the horizontal line
+        """
+        pos1 = pos.x()
+        self.rightSlider.setValue(pos1)
+        self._onRightSliderChange(int(pos1))
+
+    def _onTopLineHChange(self, pos):
+        """
+        This Slot is executed when the Horizontal Line in the Top View is moved.
+        Display a slices in the front plane
+        :param pos: new pos of the horizontal line
+        """
+        pos1 = pos.y()
+        self.frontSlider.setValue(pos1)
+        self._onFrontSliderChange(int(pos1))
+
+    def _onFrontLineHChange(self, pos):
+        """
+        This Slot is executed when the Horizontal Line in the Front View is moved.
+        Display a slices in the top plane
+        :param pos: new pos of the horizontal line
+        """
+        pos1 = pos.y()
+        self.topSlider.setValue(pos1)
+        self._onTopSliderChange(int(pos1))
+
+    def _onFrontLineVChange(self, pos):
+        """
+        This Slot is executed when the Vertical Line in the Front View is moved.
+        Display a slices in the right plane
+        :param pos: new pos of the vertical line
+        """
+        pos1 = pos.x()
+        self.rightSlider.setValue(pos1)
+        self._onRightSliderChange(int(pos1))
+
+    def _onRightLineHChange(self, pos):
+        """
+        This Slot is executed when the Horizontal Line in the Right View is moved.
+        Display a slices in the top plane
+        :param pos: new pos of the horizontal line
+        """
+        pos1 = pos.y()
+        self.topSlider.setValue(pos1)
+        self._onTopSliderChange(int(pos1))
+
+    def _onRightLineVChange(self, pos):
+        """
+        This Slot is executed when the Vertical Line in the Right View is moved.
+        Display a slices in the front plane
+        :param pos: new pos of the vertical line
+        """
+        pos1 = pos.x()
+        self.frontSlider.setValue(pos1)
+        self._onFrontSliderChange(int(pos1))
 
     def _initGUI(self):
 
@@ -529,7 +594,7 @@ class BrowserWindow(QMainWindow):
             self.dy = dim.y
             self.dz = dim.z
 
-            x1 = np.linspace(-30, 10, 128)[:, np.newaxis, np.newaxis]
+            """x1 = np.linspace(-30, 10, 128)[:, np.newaxis, np.newaxis]
             x2 = np.linspace(-20, 20, 128)[:, np.newaxis, np.newaxis]
             y = np.linspace(-30, 10, 128)[np.newaxis, :, np.newaxis]
             z = np.linspace(-20, 20, 128)[np.newaxis, np.newaxis, :]
@@ -541,14 +606,14 @@ class BrowserWindow(QMainWindow):
 
             self.dx = 128
             self.dy = 128
-            self.dz = 128
+            self.dz = 128"""
 
-            self.array3D = np.array(data, copy=False)
+            #self.array3D = np.array(data, copy=False)
 
             if self.dz > 1:  # The image has a volumes
 
                 # Create a numpy 3D array with the image values pixel
-                #array3D = np.array(img, copy=False)
+                self.array3D = np.array(img, copy=False)
 
                 self.sliceZ = int(self.dz / 2)
                 self.sliceY = int(self.dy / 2)
@@ -678,8 +743,18 @@ class BrowserWindow(QMainWindow):
         self.galleryViewVerticalLayout.addWidget(self.optionFrame)
 
         # Create a Table View
+
+        """self.tableWidget = QWidget()
+        self._tm = TableModel(self.tableWidget,
+                              50,
+                              50,
+                              150, 150)
+        self._tv = TableView(self.tableWidget)
+        self._tv.setModel(self._tm)"""
+
         self.tableSlices = QTableWidget()
         self.galleryViewVerticalLayout.addWidget(self.tableSlices)
+
         self.tableSlices.cellClicked.connect(self._onTableWidgetSliceClicked)
         self.tableSlices.cellDoubleClicked.connect(self.__onTableWidgetSliceDoubleClicked)
 
@@ -714,7 +789,9 @@ class BrowserWindow(QMainWindow):
             for sliceCount in range(0, self.dz):
 
                 sliceZ = self.array3D[sliceCount, :, :]
+
                 self.itemSlice = self.createNewItemSlice(sliceZ, sliceCount+1)
+
                 self.tableSlices.setCellWidget(row, col, self.itemSlice)
                 self.tableSlices.setRowHeight(row, 150)
                 self.tableSlices.setColumnWidth(col, 150)
@@ -773,9 +850,10 @@ class BrowserWindow(QMainWindow):
         imageItem = pg.ImageItem()
         plotArea.addItem(imageItem)
         imageItem.setImage(slice)
-        plotArea.setTitle('slice ' + str(sliceCount))
+        layout.addWidget(QLabel('slice '+ str(sliceCount)), 1, 0)
 
         return frame
+
 
     def createVolumeSliceDialog(self, x, y, z):
         """
@@ -785,7 +863,7 @@ class BrowserWindow(QMainWindow):
         :param y: number of slices in the top view
         :param z: number of slices in the front view
         """
-        self.volumeSliceDialog.setGeometry(80, 120, 1200, 500)
+        self.volumeSliceDialog.setGeometry(140, 120, 1000, 700)
         self.volumeSliceDialog.setWindowTitle('Volume Slicer')
         self.sliceWidget = QWidget(self.volumeSliceDialog)
         self.gridLayoutSlice = QGridLayout()
@@ -876,34 +954,127 @@ class BrowserWindow(QMainWindow):
         self.rightGridlayout.addWidget(self.rightSlider, 1, 0)
         self.rightGridlayout.setAlignment(Qt.AlignCenter)
 
-        # Create three ImageView widgets with central slice on each axis
+        # Create three ImageView widgets with central slice on each axis.
+        # We put inside a vertical and horizontal line to select the image slice
+        # in each view
+
+        # Top View Slices
+
         self.topView = pg.ImageView(self, view=pg.PlotItem())
+        self.topLineV = pg.InfiniteLine(angle=90, movable=True, pen='g',
+                                pos=[self.sliceX, self.sliceX])
+        self.topLineV.setBounds([0, self.sliceX*2-1])
+        self.topLineH = pg.InfiniteLine(angle=0, movable=True, pen='b',
+                                pos=[self.sliceX, self.sliceX])
+        self.topLineH.setBounds([0, self.sliceX*2-1])
+
+        self.topAxisV = pg.InfiniteLine(angle=90, pen='y', label='Z',
+                                        pos=[-10,0])
+        self.topAxisH = pg.InfiniteLine(angle=0, pen='y', label='X',
+                                        pos=[0, self.dx+5])
+
+        self.topView.getView().getViewBox().addItem(self.topLineV)
+        self.topView.getView().getViewBox().addItem(self.topLineH)
+        self.topView.getView().getViewBox().addItem(self.topAxisV)
+        self.topView.getView().getViewBox().addItem(self.topAxisH)
+
+        self.topLineV.sigDragged.connect(self._onTopLineVChange)
+        self.topLineH.sigDragged.connect(self._onTopLineHChange)
+
+
+        # Front View Slices
+
         self.frontView = pg.ImageView(self, view=pg.PlotItem())
+
+        self.frontView = pg.ImageView(self, view=pg.PlotItem())
+        self.frontLineV = pg.InfiniteLine(angle=90, movable=True, pen='g',
+                                        pos=[self.sliceX, self.sliceX])
+        self.frontLineV.setBounds([0, self.sliceX * 2 - 1])
+        self.frontLineH = pg.InfiniteLine(angle=0, movable=True, pen='r',
+                                        pos=[self.sliceX, self.sliceX])
+        self.frontLineH.setBounds([0, self.sliceX * 2 - 1])
+
+        self.frontAxisV = pg.InfiniteLine(angle=90, pen='y', label='Y',
+                                        pos=[-10, 0])
+        self.frontAxisH = pg.InfiniteLine(angle=0, pen='y', label='X',
+                                        pos=[0, self.dx + 5])
+
+        self.frontView.getView().getViewBox().addItem(self.frontLineV)
+        self.frontView.getView().getViewBox().addItem(self.frontLineH)
+        self.frontView.getView().getViewBox().addItem(self.frontAxisV)
+        self.frontView.getView().getViewBox().addItem(self.frontAxisH)
+
+        self.frontLineV.sigDragged.connect(self._onFrontLineVChange)
+        self.frontLineH.sigDragged.connect(self._onFrontLineHChange)
+
+        # Right View Slices
+
         self.rightView = pg.ImageView(self, view=pg.PlotItem())
 
-        self.gridLayoutSlice.addWidget(self.topView, 0, 0)
-        self.gridLayoutSlice.addWidget(self.topWidget, 1, 0)
+        self.rightView = pg.ImageView(self, view=pg.PlotItem())
+        self.rightLineV = pg.InfiniteLine(angle=90, movable=True, pen='b',
+                                          pos=[self.sliceX, self.sliceX])
+        self.rightLineV.setBounds([0, self.sliceX * 2 - 1])
+        self.rightLineH = pg.InfiniteLine(angle=0, movable=True, pen='r',
+                                          pos=[self.sliceX, self.sliceX])
+        self.rightLineH.setBounds([0, self.sliceX * 2 - 1])
 
-        self.gridLayoutSlice.addWidget(self.frontView, 0, 1)
-        self.gridLayoutSlice.addWidget(self.frontWidget, 1, 1)
+        self.rightAxisV = pg.InfiniteLine(angle=90, pen='y', label='Z',
+                                          pos=[-10, 0])
+        self.rightAxisH = pg.InfiniteLine(angle=0, pen='y', label='Y',
+                                          pos=[0, self.dx + 5])
 
-        self.gridLayoutSlice.addWidget(self.rightView, 0, 3)
-        self.gridLayoutSlice.addWidget(self.rightWidget, 1, 3)
+        self.rightView.getView().getViewBox().addItem(self.rightLineV)
+        self.rightView.getView().getViewBox().addItem(self.rightLineH)
+        self.rightView.getView().getViewBox().addItem(self.rightAxisV)
+        self.rightView.getView().getViewBox().addItem(self.rightAxisH)
 
+        self.rightLineV.sigDragged.connect(self._onRightLineVChange)
+        self.rightLineH.sigDragged.connect(self._onRightLineHChange)
+
+        # Create a 3D Graphic Planes
+        self.renderArea = RenderArea()
+
+        self.gridLayoutSlice.addWidget(self.renderArea, 0, 0)
+
+        self.gridLayoutSlice.addWidget(self.topView, 0, 1)
+        self.gridLayoutSlice.addWidget(self.topWidget, 1, 1)
+
+        self.gridLayoutSlice.addWidget(self.frontView, 2, 0)
+        self.gridLayoutSlice.addWidget(self.frontWidget, 3, 0)
+
+        self.gridLayoutSlice.addWidget(self.rightView, 2, 1)
+        self.gridLayoutSlice.addWidget(self.rightWidget, 3, 1)
+
+
+        # Disable all image operations
         self.topView.ui.menuBtn.hide()
         self.topView.ui.roiBtn.hide()
-        #self.topView.ui.histogram.hide()
+        self.topView.ui.histogram.hide()
         self.frontView.ui.menuBtn.hide()
         self.frontView.ui.roiBtn.hide()
-        #self.frontView.ui.histogram.hide()
+        self.frontView.ui.histogram.hide()
         self.rightView.ui.menuBtn.hide()
         self.rightView.ui.roiBtn.hide()
-        #self.rightView.ui.histogram.hide()
+        self.rightView.ui.histogram.hide()
+
+        plotTopView = self.topView.getView()
+        plotTopView.showAxis('bottom', False)
+        plotTopView.showAxis('left', False)
+
+        plotFrontView = self.frontView.getView()
+        plotFrontView.showAxis('bottom', False)
+        plotFrontView.showAxis('left', False)
+
+        plotRightView = self.rightView.getView()
+        plotRightView.showAxis('bottom', False)
+        plotRightView.showAxis('left', False)
+
 
         self.buttonHorizontalLayout = QHBoxLayout(self.volumeSliceDialog)
-        """self.buttonHorizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Maximum,
+        self.buttonHorizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Maximum,
                                              QSizePolicy.Maximum)
-        self.buttonHorizontalLayout.addItem(self.buttonHorizontalSpacer)"""
+        self.buttonHorizontalLayout.addItem(self.buttonHorizontalSpacer)
 
         # Create two Button
         self.galeryViewButton = QPushButton(self.volumeSliceDialog)
@@ -920,7 +1091,7 @@ class BrowserWindow(QMainWindow):
 
         self.buttonHorizontalLayout.addWidget(self.closeButton)
 
-        self.gridLayoutSlice.addLayout(self.buttonHorizontalLayout, 2, 3)
+        self.gridLayoutSlice.addLayout(self.buttonHorizontalLayout, 4, 1)
 
     @staticmethod
     def isEmImage(imagePath):
@@ -934,6 +1105,209 @@ class BrowserWindow(QMainWindow):
         """ Return True if imagePath has a standard image format. """
         _, ext = os.path.splitext(imagePath)
         return ext in ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+
+
+class TableModel(QAbstractTableModel):
+    """
+    A table model to use the imageView delegate
+    """
+
+    def __init__(self, parentWidget,
+                 rowsCount,
+                 colsCount,
+                 rowHeight,
+                 colWidth):
+        """
+        Constructor
+        :param rowsCount:
+        :param colsCount:
+        """
+        QAbstractTableModel.__init__(self, parentWidget)
+        self.rows = rowsCount
+        self.cols = colsCount
+        self.rowHeight = rowHeight
+        self.colWidth = colWidth
+
+    def rowCount(self, parent=QModelIndex()):
+        return self.rows
+
+    def columnCount(self, parent=QModelIndex()):
+        return self.cols
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return None
+        if not role == Qt.DisplayRole:
+            return None
+
+        # If the QModelIndex is valid and the data role is DisplayRole,
+        # i.e. text, then return a string of the cells position in the
+        # table in the form (row,col)
+        return "({0:02d},{1:02d})".format(index.row(), index.column())
+
+
+class ButtonDelegate(QItemDelegate):
+    """
+    A delegate that places a fully functioning imageView in every
+    cell of the table to which it's applied
+    """
+
+    def __init__(self, parent):
+        # The parent is not an optional argument for the delegate as
+        # we need to reference it in the paint method (see below)
+        QItemDelegate.__init__(self, parent)
+        self.v = pg.ImageView()
+        self.data = np.random.normal(size=(128, 128))
+
+
+    def paint(self, painter, option, index):
+        # This method will be called every time a particular cell is
+        # in view and that view is changed in some way. We ask the
+        # delegates parent (in this case a table view) if the index
+        # in question (the table cell) already has a widget associated
+        # with it. If not, create one with the text for this index and
+        # connect its clicked signal to a slot in the parent view so
+        # we are notified when its used and can do something.
+        if not self.parent().indexWidget(index):
+            self.v.setImage(self.data)
+            self.v.resize(50, 50)
+            self.v.ui.graphicsView.render(painter)
+
+class TableView(QTableView):
+    """
+    A simple table to demonstrate the button delegate.
+    """
+
+    def __init__(self, *args, **kwargs):
+        QTableView.__init__(self, *args, **kwargs)
+
+        # Set the delegate for column 0 of our table
+        self.setItemDelegateForColumn(0, ButtonDelegate(self))
+
+    def on_cellImageViewClicked(self):
+        # This slot will be called when our button is clicked.
+        # self.sender() returns a refence to the QPushButton created
+        # by the delegate, not the delegate itself.
+        print
+        "Cell Button Clicked", self.sender().text()
+
+
+class RenderArea(QWidget):
+    def __init__(self, parent=None):
+        super(RenderArea, self).__init__(parent)
+        self.shiftx = 0
+        self.widthx = 40
+        self.shifty = 0
+        self.widthy = 40
+        self.shiftz = 0
+        self.widthz = 20
+        self.boxaxis = 'z'
+
+        self.setBackgroundRole(QPalette.Base)
+
+    def minimumSizeHint(self):
+        return QSize(50, 50)
+
+    def sizeHint(self):
+        return QSize(200, 200)
+
+    def setShiftZ(self, value):
+        self.boxaxis = 'z'
+        self.shiftz = value
+        self.update()
+
+    def setShiftY(self, value):
+        self.boxaxis = 'y'
+        self.shifty = value
+        self.update()
+
+    def setShiftX(self, value):
+        self.boxaxis = 'x'
+        self.shiftx = value
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.scale(self.width() / 100.0, self.height() / 100.0)
+
+        ox = 50
+        oy = 50
+        wx = self.widthx
+        wy = self.widthy
+        wz = self.widthz
+
+        # Draw Y axis
+        ty = oy - wy
+        painter.setPen(QColor(200, 0, 0))
+        painter.drawLine(ox, oy, ox, ty)
+        painter.drawLine(ox, ty, ox - 1, ty + 1)
+        painter.drawLine(ox, ty, ox + 1, ty + 1)
+        painter.drawLine(ox + 1, ty + 1, ox - 1, ty + 1)
+
+        # Draw X axis
+        tx = ox + wx
+        painter.setPen(QColor(0, 0, 200))
+        painter.drawLine(ox, oy, tx, oy)
+        painter.drawLine(tx - 1, oy + 1, tx, oy)
+        painter.drawLine(tx - 1, oy - 1, tx, oy)
+        painter.drawLine(tx - 1, oy + 1, tx - 1, oy - 1)
+
+        # Draw Z axis
+        painter.setPen(QColor(0, 200, 0))
+        tzx = ox - wz
+        tzy = oy + wz
+        painter.drawLine(ox, oy, tzx, tzy)
+        painter.drawLine(tzx, tzy - 1, tzx, tzy)
+        painter.drawLine(tzx + 1, tzy, tzx, tzy)
+        painter.drawLine(tzx + 1, tzy, tzx, tzy - 1)
+        # painter.drawPath(self.path)
+
+        # Draw labels
+        painter.setPen(QColor(0, 0, 0))
+        painter.drawText(tx - 5, oy + 15, "x")
+        painter.drawText(ox - 15, ty + 15, "y")
+        painter.drawText(tzx + 5, tzy + 10, "z")
+
+        painter.setPen(QPen(QColor(50, 50, 50), 0.3))
+        painter.setBrush(QColor(220, 220, 220, 100))
+        rectPath = QPainterPath()
+
+        self.size = float(self.widthx)
+        bw = 30
+        bwz = float(wz) / wx * bw
+
+        if self.boxaxis == 'z':
+            shiftz = float(self.widthz) / self.size * self.shiftz
+            box = ox - shiftz
+            boy = oy + shiftz
+            rectPath.moveTo(box, boy)
+            rectPath.lineTo(box, boy - bw)
+            rectPath.lineTo(box + bw, boy - bw)
+            rectPath.lineTo(box + bw, boy)
+
+        elif self.boxaxis == 'y':
+            shifty = float(self.widthy) / self.size * self.shifty
+            box = ox
+            boy = oy - shifty
+            rectPath.moveTo(box, boy)
+            rectPath.lineTo(box + bw, boy)
+            rectPath.lineTo(box + bw - bwz, boy + bwz)
+            rectPath.lineTo(box - bwz, boy + bwz)
+
+        elif self.boxaxis == 'x':
+            shiftx = float(self.widthx) / self.size * self.shiftx
+            box = ox + shiftx
+            boy = oy
+            rectPath.moveTo(box, boy)
+            rectPath.lineTo(box, boy - bw)
+            rectPath.lineTo(box - bwz, boy - bw + bwz)
+            rectPath.lineTo(box - bwz, boy + bwz)
+
+        rectPath.closeSubpath()
+        painter.drawPath(rectPath)
+
+
 
 
 
