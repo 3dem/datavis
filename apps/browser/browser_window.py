@@ -15,7 +15,7 @@ from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
                          QItemSelectionModel
 from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
-
+git
 import qtawesome as qta
 import numpy as np
 import pyqtgraph as pg
