@@ -3,7 +3,7 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from browser_window import BrowserWindow
+from gallery_view import GalleryView
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -14,6 +14,6 @@ if __name__ == '__main__':
             kwargs[sys.argv[paramCount]] = True
             paramCount += 1
 
-    browserWin = BrowserWindow(**kwargs)
-    browserWin.show()
+    galleryView = GalleryView('em-image Path', **kwargs)
+    galleryView.show()
     sys.exit(app.exec_())

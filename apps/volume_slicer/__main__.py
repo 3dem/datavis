@@ -3,7 +3,8 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from browser_window import BrowserWindow
+from volume_slicer import VolumeSlice
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -14,6 +15,6 @@ if __name__ == '__main__':
             kwargs[sys.argv[paramCount]] = True
             paramCount += 1
 
-    browserWin = BrowserWindow(**kwargs)
-    browserWin.show()
+    volumeSlice = VolumeSlice('em-image Path', **kwargs)
+    volumeSlice.show()
     sys.exit(app.exec_())
