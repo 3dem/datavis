@@ -3,10 +3,10 @@
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import (QMainWindow, QStatusBar, QWidget, QVBoxLayout,
-                             QHBoxLayout, QLabel)
+                             QLabel)
 
-from table_view import TableView
-from model import TableDataModel
+from emqt5.widgets.table.table_view import TableView
+from emqt5.widgets.table.model import TableDataModel
 
 
 class TableViewWindow(QMainWindow):
@@ -20,18 +20,20 @@ class TableViewWindow(QMainWindow):
         @model input TableDataModel
         """
         QMainWindow.__init__(self, parent)
-        self.__setupUi__()
-        self.model = TableDataModel(kwargs['tableData'])
-        self.tableView.setModel(self.model)
+        self.__setupUi__(**kwargs)
+        self._model = TableDataModel(parent=self.tableView,
+                                     data=kwargs['tableData'],
+                                     columnProperties=kwargs['colProperties'])
+        self.tableView.setModel(self._model)
 
-    def __setupUi__(self):
+    def __setupUi__(self, **kwargs):
         self.resize(816, 517)
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.verticalLayout = QVBoxLayout(self.centralWidget)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setSpacing(0)
-        self.tableView = TableView(self.centralWidget)
+        self.tableView = TableView(parent=self.centralWidget, **kwargs)
         self.verticalLayout.addWidget(self.tableView)
 
         self.statusBar = QStatusBar(self)
