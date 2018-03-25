@@ -57,6 +57,7 @@ class TableView(QWidget):
         self._tableView = QTableView(self)
         self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
+        self._listView.setResizeMode(QListView.Adjust)
         self._verticalLayout.addWidget(self._tableView)
         self._verticalLayout.addWidget(self._listView)
         self._listView.setVisible(False)
@@ -183,6 +184,9 @@ class TableView(QWidget):
         """
         Configure current view mode: TABLE or GALLERY or ELEMENT
         """
+        if self._currentViewMode == ELEMENT_VIEW_MODE:
+            return  # not implemented yet
+
         showTable = self._currentViewMode == TABLE_VIEW_MODE
 
         if self._tableModel:

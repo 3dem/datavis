@@ -58,6 +58,9 @@ class TableDataModel(QStandardItemModel):
             if self._colProperties[qModelIndex.column()].getType() == 'Bool':
                 return Qt.Checked if item.data(Qt.UserRole) else Qt.Unchecked
 
+        if role == Qt.EditRole:
+            return item.data(Qt.UserRole)
+
         if role == Qt.SizeHintRole:
             if self._colProperties[qModelIndex.column()].isRenderable():
                 return self._iconSize

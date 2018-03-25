@@ -21,7 +21,7 @@ if __name__ == '__main__':
                                         prefix_chars='--')
     argParser.add_argument('files', type=str, nargs='+',
                            help=' list of image files')
-    argParser.add_argument('--cell-size', type=int, default=32,
+    argParser.add_argument('--cell-size', type=int, default=100,
                            required=False,
                            help=' an integer for default cell size')
     argParser.add_argument('--max-cell-size', type=int, default=512,
@@ -40,8 +40,6 @@ if __name__ == '__main__':
                                 ' not specified')
 
     args = argParser.parse_args()
-    print("Arguments: ")
-    print(args)
 
     data = []
     i = 1
@@ -55,7 +53,7 @@ if __name__ == '__main__':
 
     properties = [ColumnProperties('FileName', 'File Name', 'Str',
                                    **{'renderable': False,
-                                      'editable': False}),
+                                      'editable': True}),
                   ColumnProperties('Path', 'Icon', 'Image',
                                    **{'renderable':True,
                                       'editable': False}),
