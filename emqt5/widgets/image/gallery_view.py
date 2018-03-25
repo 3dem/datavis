@@ -4,8 +4,12 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QVBoxLayout, QLabel, QPushButton,
                              QSpacerItem, QGridLayout, QDialog,
                              QSpinBox, QFormLayout, QComboBox,
-                             QTableWidget, QItemDelegate, QTableView)
-from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex
+                             QTableWidget, QItemDelegate, QTableView, QListView,
+                             QStyledItemDelegate, QApplication, QStyle)
+from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex, QVariant, QSize,\
+                         QRectF
+from PyQt5.QtGui import QStandardItem, QStandardItemModel, QPalette, QPixmap,\
+                        QPen
 
 import qtawesome as qta
 import numpy as np
@@ -20,8 +24,13 @@ class GalleryView(QWidget):
     def __init__(self, imagePath, parent=None, **kwargs):
 
         super(GalleryView, self).__init__(parent)
-        self.imagePath = imagePath
-        self.galleryView()
+        self._image = None
+        self._iconWidth = kwargs.get('iconWidth')
+        self._iconHeight = kwargs.get('iconHeight')
+        self._itemDelegate = ImageItemDelegate(self)
+        if self.isEmImage(imagePath):
+            self._imagePath = imagePath
+            self.galleryView()
 
     def _onGalleryViewPlaneChanged(self, index):
         """
@@ -29,7 +38,7 @@ class GalleryView(QWidget):
         display a slices in the selected plane
         :param index: index of plane
         """
-        self.tableSlices.clearContents()
+        #self.tableSlices.clearContents()
         self.fillTableGalleryView(self.rowsSpinBox.value(),
                                     self.colsSpinBox.value(),
                                     index)
@@ -52,8 +61,8 @@ class GalleryView(QWidget):
         """
         # Calculate the row and col that represent the slice value
         row = int(value/self.colsSpinBox.value())
-        if int(value%self.colsSpinBox.value()) != 0:
-            col = int(value%self.colsSpinBox.value()-1)
+        if int(value % self.colsSpinBox.value()) != 0:
+            col = int(value % self.colsSpinBox.value()-1)
         else:
             row = row - 1
             col = self.colsSpinBox.value()-1
@@ -119,20 +128,20 @@ class GalleryView(QWidget):
         frames around the volume data in a table.
         """
 
-        if self.isEmImage(self.imagePath):
+        if self.isEmImage(self._imagePath):
 
             # Create an image from imagePath using em-bindings
-            self.image = em.Image()
-            loc2 = em.ImageLocation(self.imagePath)
-            self.image.read(loc2)
+            self._image = em.Image()
+            loc2 = em.ImageLocation(self._imagePath)
+            self._image.read(loc2)
             # Read the dimensions of the image
-            dim = self.image.getDim()
+            dim = self._image.getDim()
 
             self.dx = dim.x
             self.dy = dim.y
             self.dz = dim.z
 
-            """x1 = np.linspace(-30, 10, 128)[:, np.newaxis, np.newaxis]
+            """ x1 = np.linspace(-30, 10, 128)[:, np.newaxis, np.newaxis]
             x2 = np.linspace(-20, 20, 128)[:, np.newaxis, np.newaxis]
             y = np.linspace(-30, 10, 128)[np.newaxis, :, np.newaxis]
             z = np.linspace(-20, 20, 128)[np.newaxis, np.newaxis, :]
@@ -151,7 +160,7 @@ class GalleryView(QWidget):
             if self.dz > 1:  # The image has a volumes
 
                 # Create a numpy 3D array with the image values pixel
-                self.array3D = np.array(self.image, copy=False)
+                self.array3D = np.array(self._image, copy=False)
                 self.createGalleryViewTable()
 
     def createGalleryViewTable(self):
@@ -245,26 +254,32 @@ class GalleryView(QWidget):
 
         # Create a Table View
 
-        """self.tableWidget = QWidget()
-        self._tm = TableModel(self.tableWidget,
-                              50,
-                              50,
-                              150, 150)
-        self._tv = TableView(self.tableWidget)
-        self._tv.setModel(self._tm)"""
-
-        self.tableSlices = QTableWidget()
+        self.tableSlices = QListView(self)
         self.galleryViewVerticalLayout.addWidget(self.tableSlices)
+        self.tableSlices.setIconSize(QSize(self._iconWidth, self._iconHeight))
+        self.tableSlices.setViewMode(QListView.IconMode)
+        self.tableSlices.setResizeMode(QListView.Adjust)
 
-        self.tableSlices.cellClicked.connect(self._onTableWidgetSliceClicked)
+
+        """self.tableSlices.cellClicked.connect(self._onTableWidgetSliceClicked)
         self.tableSlices.cellDoubleClicked.connect(
-            self.__onTableWidgetSliceDoubleClicked)
+            self.__onTableWidgetSliceDoubleClicked)"""
 
         self.verticalLayout.addLayout(self.galleryViewVerticalLayout)
 
-        self.fillTableGalleryView(self.rowsSpinBox.value(),
-                                  self.colsSpinBox.value(),
+        self.fillTableGalleryView(self.dz,
+                                  1,
                                   self.resliceComboBox.currentIndex())
+
+    def setupProperties(self):
+        """
+        Setup all components
+        :return:
+        """
+        if self._image:
+            self._image = None
+            self.tableSlices.close()
+            self.close()
 
     def fillTableGalleryView(self, rowsCount, colsCount, plane):
         """
@@ -275,10 +290,10 @@ class GalleryView(QWidget):
         :param plane: dimension plane (x, y, z)
         :return:
         """
-        self.tableSlices.setColumnCount(colsCount)
-        self.tableSlices.setRowCount(rowsCount)
-        self.tableSlices.clearContents()
+
         self.gotoItemSpinBox.setValue(1)
+
+        model = GalleryDataModel(self, QSize(self._iconWidth, self._iconHeight))
         row = 0
         col = 0
 
@@ -289,15 +304,9 @@ class GalleryView(QWidget):
 
                 sliceZ = self.array3D[sliceCount, :, :]
 
-                self.itemSlice = self.createNewItemSlice(sliceZ, sliceCount+1)
-
-                self.tableSlices.setCellWidget(row, col, self.itemSlice)
-                self.tableSlices.setRowHeight(row, 150)
-                self.tableSlices.setColumnWidth(col, 150)
-                col = col + 1
-                if col == colsCount:
-                    col = 0
-                    row = row + 1
+                item = QStandardItem()
+                model.appendRow(item)
+                item.setData(sliceZ, Qt.UserRole)
 
         elif plane == 1:  # Display data slices on the Top View
 
@@ -305,14 +314,9 @@ class GalleryView(QWidget):
                 for sliceCount in range(0, self.dy):
 
                     sliceY = self.array3D[:, sliceCount, :]
-                    self.itemSlice = self.createNewItemSlice(sliceY, sliceCount+1)
-                    self.tableSlices.setCellWidget(row, col, self.itemSlice)
-                    self.tableSlices.setRowHeight(row, 150)
-                    self.tableSlices.setColumnWidth(col, 150)
-                    col = col + 1
-                    if col == colsCount:
-                        col = 0
-                        row = row + 1
+                    item = QStandardItem()
+                    model.appendRow(item)
+                    item.setData(sliceY, Qt.UserRole)
 
         else:  # Display the slices on the Right View
 
@@ -320,38 +324,13 @@ class GalleryView(QWidget):
             for sliceCount in range(0, self.dx):
 
                 sliceX = self.array3D[:, :, sliceCount]
-                self.itemSlice = self.createNewItemSlice(sliceX, sliceCount+1)
-                self.tableSlices.setCellWidget(row, col, self.itemSlice)
-                self.tableSlices.setRowHeight(row, 150)
-                self.tableSlices.setColumnWidth(col, 150)
-                col = col + 1
-                if col == colsCount:
-                    col = 0
-                    row = row + 1
+                item = QStandardItem()
+                model.appendRow(item)
+                item.setData(sliceX, Qt.UserRole)
 
-        self.tableSlices.setCurrentCell(0, 0)
-
-    def createNewItemSlice(self, slice, sliceCount):
-        """
-        Create a new item taking into account a 2D array(slice) and put this
-        into the Table Widget
-        return: new item-slice
-        """
-        frame = QFrame()
-        frame.setEnabled(False)
-        widget = pg.GraphicsLayoutWidget()
-        layout = QGridLayout(frame)
-        frame.setLayout(layout.layout())
-        layout.addWidget(widget, 0, 0)
-        plotArea = widget.addPlot()
-        plotArea.showAxis('bottom', False)
-        plotArea.showAxis('left', False)
-        imageItem = pg.ImageItem()
-        plotArea.addItem(imageItem)
-        imageItem.setImage(slice)
-        layout.addWidget(QLabel('slice '+ str(sliceCount)), 1, 0)
-
-        return frame
+        self.tableSlices.setModel(model)
+        self.tableSlices.setModelColumn(0)
+        self.tableSlices.setItemDelegate(self._itemDelegate)
 
     @staticmethod
     def isEmImage(imagePath):
@@ -361,88 +340,139 @@ class GalleryView(QWidget):
         return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map']
 
 
-class TableModel(QAbstractTableModel):
+class ImageItemDelegate(QStyledItemDelegate):
     """
-    A table model to use the imageView delegate
+    ImageItemDelegate class provides display and editing facilities for
+    image data items from a model.
     """
+    def __init__(self, parent=None):
+        QStyledItemDelegate.__init__(self, parent)
+        self._imageView = pg.ImageView()
 
-    def __init__(self, parentWidget,
-                 rowsCount,
-                 colsCount,
-                 rowHeight,
-                 colWidth):
+
+
+    def createEditor(self, parent, option, index):
         """
-        Constructor
-        :param rowsCount:
-        :param colsCount:
+        Otherwise an editor is created if the user clicks in this cell.
         """
-        QAbstractTableModel.__init__(self, parentWidget)
-        self.rows = rowsCount
-        self.cols = colsCount
-        self.rowHeight = rowHeight
-        self.colWidth = colWidth
-
-    def rowCount(self, parent=QModelIndex()):
-        return self.rows
-
-    def columnCount(self, parent=QModelIndex()):
-        return self.cols
-
-    def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid():
-            return None
-        if not role == Qt.DisplayRole:
-            return None
-
-        # If the QModelIndex is valid and the data role is DisplayRole,
-        # i.e. text, then return a string of the cells position in the
-        # table in the form (row,col)
-        return "({0:02d},{1:02d})".format(index.row(), index.column())
-
-
-class ButtonDelegate(QItemDelegate):
-    """
-    A delegate that places a fully functioning imageView in every
-    cell of the table to which it's applied
-    """
-
-    def __init__(self, parent):
-        # The parent is not an optional argument for the delegate as
-        # we need to reference it in the paint method (see below)
-        QItemDelegate.__init__(self, parent)
-        self.v = pg.ImageView()
-        self.data = np.random.normal(size=(128, 128))
-
+        return None
 
     def paint(self, painter, option, index):
-        # This method will be called every time a particular cell is
-        # in view and that view is changed in some way. We ask the
-        # delegates parent (in this case a table view) if the index
-        # in question (the table cell) already has a widget associated
-        # with it. If not, create one with the text for this index and
-        # connect its clicked signal to a slot in the parent view so
-        # we are notified when its used and can do something.
-        if not self.parent().indexWidget(index):
-            self.v.setImage(self.data)
-            self.v.resize(50, 50)
-            self.v.ui.graphicsView.render(painter)
+        """
+        Reimplemented from QStyledItemDelegate
+        """
+        if index.isValid():
+            self._setupImageView(index)
+
+            if option.state & QStyle.State_Selected:
+                if option.state & QStyle.State_HasFocus or \
+                     option.state & QStyle.State_Active:
+                    colorGroup = QPalette.Active
+                else:
+                    colorGroup = QPalette.Inactive
+
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.Highlight))
+
+            self._imageView.ui.graphicsView.scene().render(painter,
+                                                           QRectF(option.rect))
+
+            if option.state & QStyle.State_HasFocus:
+                pen = QPen(Qt.DashDotDotLine)
+                pen.setColor(Qt.gray)
+                painter.setPen(pen)
+                painter.drawRect(option.rect.x(), option.rect.y(),
+                                 option.rect.width()-1, option.rect.height()-1)
+
+    def _setupImageView(self, index, width=100, height=100):
+        """
+        If the thumbnail stored in Qt.UserRole is None then create a
+        thumbnail by scaling the original image according to its height and
+        store the new thumbnail in Qt.DecorationRole
+        :param item: the item
+        :param height: height to scale the image
+        :param width: width to scale the image
+        """
+        array = index.model().data(index, Qt.UserRole)
+        size = index.model().data(index, Qt.SizeHintRole)
+        self._imageView.getView().setGeometry(0, 0, size.width(),
+                                    size.height())
+        self._imageView.getView().resizeEvent(None)
+        self._imageView.setImage(array)
 
 
-class TableView(QTableView):
+class GalleryDataModel(QStandardItemModel):
     """
-    A simple table to demonstrate the button delegate.
+    Model for Gallery View
     """
+    def __init__(self, parent=None, iconSize=QSize(100,100)):
+        """
+        Constructs an GalleryDataModel with the given parent.
+        :param parent: The parent
+        :param iconSize: size of the image.
+        """
+        QStandardItemModel.__init__(self, parent)
+        self._iconSize = iconSize
 
-    def __init__(self, *args, **kwargs):
-        QTableView.__init__(self, *args, **kwargs)
+    def data(self, qModelIndex, role=Qt.UserRole):
+        """
+        This is an reimplemented function from QStandardItemModel.
+        Reimplemented to hide the 'True' text in columns with boolean value.
+        We use Qt.UserRole for store table data.
+        :param qModelIndex:
+        :param role:
+        :return: QVariant
+        """
+        if not qModelIndex.isValid():
+            return None
+        item = self.itemFromIndex(qModelIndex)
 
-        # Set the delegate for column 0 of our table
-        self.setItemDelegateForColumn(0, ButtonDelegate(self))
+        if role == Qt.DisplayRole:
+            if self._colProperties[qModelIndex.column()].getType() == 'Bool':
+                return QVariant  # hide 'True' or 'False' text
 
-    def on_cellImageViewClicked(self):
-        # This slot will be called when our button is clicked.
-        # self.sender() returns a refence to the QPushButton created
-        # by the delegate, not the delegate itself.
-        print
-        "Cell Button Clicked", self.sender().text()
+            return item.data(Qt.UserRole)  # we use Qt.UserRole for store data
+
+        if role == Qt.SizeHintRole:
+            return self._iconSize
+
+        return QStandardItemModel.data(self, qModelIndex, role)
+
+    def setData(self, qModelIndex, value, role=None):
+        """
+        Set data in the model. We use Qt.UserRole for store data
+        :param qModelIndex:
+        :param value:
+        :param role:
+        :return:
+        """
+        if not self.flags(qModelIndex) & Qt.ItemIsEditable:
+            return False
+
+        if role == Qt.CheckStateRole:
+            return QStandardItemModel.setData(self, qModelIndex,
+                                                  value, Qt.UserRole)
+
+        if role == Qt.EditRole:
+            QStandardItemModel.setData(self, qModelIndex,
+                                       value, Qt.UserRole)
+
+        return QStandardItemModel.setData(self, qModelIndex, value, role)
+
+    def flags(self, qModelIndex):
+        """
+        Reimplemented from QStandardItemModel
+        :param qModelIndex: index in the model
+        :return: The flags for the item. See :  Qt.ItemDataRole
+        """
+        return QStandardItemModel.flags(self, qModelIndex) & ~Qt.ItemIsEditable
+
+
+    def setIconSize(self, size):
+        """
+        Sets the size for renderable items
+        :param size: QSize
+        """
+        self._iconSize = size
 

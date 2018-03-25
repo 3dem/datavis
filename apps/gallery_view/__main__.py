@@ -3,7 +3,7 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from gallery_view import GalleryView
+from emqt5.widgets.image.gallery_view import GalleryView
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -14,6 +14,10 @@ if __name__ == '__main__':
             kwargs[sys.argv[paramCount]] = True
             paramCount += 1
 
-    galleryView = GalleryView('em-image Path', **kwargs)
+    kwargs['iconWidth'] = 150
+    kwargs['iconHeight'] = 150
+
+    galleryView = GalleryView('/home/yunior/ScipionUserData/image-single.mrc',
+                              **kwargs)
     galleryView.show()
     sys.exit(app.exec_())

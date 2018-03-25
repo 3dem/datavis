@@ -3,8 +3,7 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from volume_slicer import VolumeSlice
-
+from emqt5.widgets.image.volume_slicer import VolumeSlice
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -15,6 +14,8 @@ if __name__ == '__main__':
             kwargs[sys.argv[paramCount]] = True
             paramCount += 1
 
-    volumeSlice = VolumeSlice('em-image Path', **kwargs)
+    volumeSlice = VolumeSlice('/home/yunior/ScipionUserData/image-single.mrc',
+                              **kwargs)
     volumeSlice.show()
     sys.exit(app.exec_())
+

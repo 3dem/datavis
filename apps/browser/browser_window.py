@@ -16,7 +16,8 @@ from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
                          QSize
 from PyQt5.QtGui import QImage, QPalette, QPainter, QPainterPath, QPen, QColor
 from emqt5.widgets.image import ImageBox
-from apps.volume_slicer.volume_slicer import VolumeSlice
+from emqt5.widgets.image import VolumeSlice
+from emqt5.widgets.image import GalleryView
 
 import qtawesome as qta
 import numpy as np
@@ -39,12 +40,13 @@ class BrowserWindow(QMainWindow):
         self.disableMenu = kwargs.get('--disable-menu', False)
         self.enableAxis = kwargs.get('--enable-axis', False)
 
-        self.image = pg.ImageView(view=pg.PlotItem())
-        plotItem = self.image.getView()
-        plotItem.showAxis('bottom', False)
-        plotItem.showAxis('left', False)
-        self.imageBox = ImageBox()
-        self.volumeSlice = VolumeSlice('', **kwargs)
+        self._imagePath = None
+        self._image = None
+        self._image2D = None
+        self._image2DView = pg.ImageView(view=pg.PlotItem())
+        self._imageBox = ImageBox()
+        self._volumeSlice = VolumeSlice('', **kwargs)
+        self._galleryView = GalleryView('', **kwargs)
         self._initGUI()
 
     def _onPathDoubleClick(self, signal):
@@ -60,9 +62,9 @@ class BrowserWindow(QMainWindow):
         """
         This slot is executed when the Return or Enter key is pressed
         """
-        self.path = self.lineCompleter.text()
-        self.setLineCompleter(self.path)
-        self.imagePlot(self.path)
+        self._imagePath = self.lineCompleter.text()
+        self.setLineCompleter(self._imagePath)
+        self.imagePlot(self._imagePath)
 
     def _onPathClick(self, signal):
         """
@@ -71,9 +73,9 @@ class BrowserWindow(QMainWindow):
         :param signal: clicked signal
         """
         file_path = self.model.filePath(signal)
-        self.path = file_path
-        self.setLineCompleter(file_path)
-        self.imagePlot(file_path)
+        self._imagePath = file_path
+        self.setLineCompleter(self._imagePath)
+        self.imagePlot(self._imagePath)
 
     def _onCloseButtonClicked(self):
         """
@@ -88,22 +90,22 @@ class BrowserWindow(QMainWindow):
         This Slot is executed when select button signal was clicked.
         Select an em-image to realize a simple data-slicing
         """
-        if self.isEmImage(self.path):
-            self.volumeSliceView = VolumeSlice(self.path, QWidget())
+        if self.isEmImage(self._imagePath):
+            self.volumeSliceView = VolumeSlice(self._imagePath, QWidget())
 
     def _onHomeActionClicked(self):
         """
         This Slot lead the TreeView to the user home directory
         """
-        self.path = QDir.homePath()
-        self.setLineCompleter(self.path)
+        self._imagePath = QDir.homePath()
+        self.setLineCompleter(self._imagePath)
 
     def _onRefreshActionClicked(self):
         """
         Refreshes the directory information
         :return:
         """
-        dir = QDir(self.path)
+        dir = QDir(self._imagePath)
         canUp = dir.cdUp()
         if canUp:
            dir.refresh()
@@ -113,18 +115,18 @@ class BrowserWindow(QMainWindow):
         Changes directory by moving one directory up from the QDir's current
         directory
         """
-        dir = QDir(self.path)
+        dir = QDir(self._imagePath)
         canUp = dir.cdUp()
         if canUp:
-            self.path = dir.path()
-            self.setLineCompleter(self.path)
-            index = self.model.index(QDir.toNativeSeparators(self.path))
+            self._imagePath = dir.path()
+            self.setLineCompleter(self._imagePath)
+            index = self.model.index(QDir.toNativeSeparators(self._imagePath))
             self.treeView.collapse(index)
 
     def _onExpandTreeView(self):
 
-         self.path = self.lineCompleter.text()
-         index = self.model.index(QDir.toNativeSeparators(self.path))
+         self._imagePath = self.lineCompleter.text()
+         index = self.model.index(QDir.toNativeSeparators(self._imagePath))
          self.treeView.selectionModel().select(index,
                                                QItemSelectionModel.ClearAndSelect |
                                                QItemSelectionModel.Rows)
@@ -139,6 +141,27 @@ class BrowserWindow(QMainWindow):
         else:
             print('Izquierda')
 
+    def _onVolumeSliceButtonClicked(self):
+        """
+        This Slot is executed when volume slice button was clicked.
+        Select an em-image to display the slice views
+        """
+        self._galleryView.setupProperties()
+        self._volumeSlice = VolumeSlice(self._imagePath)
+        self.imageLayout.addWidget(self._volumeSlice)
+        self.galeryViewButton.setEnabled(True)
+        self.volumeSliceButton.setEnabled(False)
+
+    def _onGalleryViewButtonClicked(self):
+        """
+        This Slot is executed when gallery view button was clicked.
+        Select an em-image to display as gallery view
+        """
+        self._volumeSlice.setupProperties()
+        self._galleryView = GalleryView(self._imagePath)
+        self.imageLayout.addWidget(self._galleryView)
+        self.galeryViewButton.setEnabled(False)
+        self.volumeSliceButton.setEnabled(True)
 
     def _initGUI(self):
 
@@ -206,6 +229,7 @@ class BrowserWindow(QMainWindow):
                                  QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(100)
         sizePolicy.setVerticalStretch(100)
+
         sizePolicy.setHeightForWidth(self.frame.sizePolicy().hasHeightForWidth())
         self.frame.setSizePolicy(sizePolicy)
         self.frame.setFrameShape(QFrame.Box)
@@ -213,7 +237,37 @@ class BrowserWindow(QMainWindow):
         self.labelImage = QLabel(self.frame)
 
         self.imageLayout = QHBoxLayout(self.frame)
+
         self.listWidget = QListWidget(self.imageSplitter)
+
+
+        # Create Gallery View and Vlolume Slice Buttons
+        self.changeViewFrame = QFrame()
+        self.gridLayoutViews = QHBoxLayout()
+        self.changeViewFrame.setLayout(self.gridLayoutViews.layout())
+
+        self.galeryViewButton = QPushButton(self)
+        self.galeryViewButton.setIcon(qta.icon('fa.th'))
+        self.galeryViewButton.setMaximumSize(25, 25)
+        self.galeryViewButton.setEnabled(True)
+        #self.galeryViewButton.clicked.connect(self._onGalleryViewButtonClicked)
+
+        self.volumeSliceButton = QPushButton(self)
+        self.volumeSliceButton.setIcon(qta.icon('fa.sliders'))
+        self.volumeSliceButton.setMaximumSize(25, 25)
+        self.volumeSliceButton.setEnabled(False)
+        self.volumeSliceButton.clicked.connect(self._onVolumeSliceButtonClicked)
+
+        self.buttonsSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding,
+                                       QSizePolicy.Minimum)
+
+        self.gridLayoutViews.addItem(self.buttonsSpacer)
+
+        self.gridLayoutViews.addWidget(self.volumeSliceButton)
+        self.gridLayoutViews.addWidget(self.galeryViewButton)
+
+        self.imageVerticalLayout.addWidget(self.changeViewFrame)
+        self.changeViewFrame.setVisible(False)
 
         self.imageVerticalLayout.addWidget(self.imageSplitter)
 
@@ -247,11 +301,11 @@ class BrowserWindow(QMainWindow):
         # self.model.setNameFilters(filters)
         # self.model.setNameFilterDisables(False)
 
-        self.path = QDir.separator()
-        self.lineCompleter.setText(self.path)
-        self.model.setRootPath(self.path)
+        self._imagePath = QDir.separator()
+        self.lineCompleter.setText(self._imagePath)
+        self.model.setRootPath(self._imagePath)
         self.treeView.setModel(self.model)
-        self.treeView.setRootIndex(self.model.index(self.path))
+        self.treeView.setRootIndex(self.model.index(self._imagePath))
         self.treeView.setSortingEnabled(True)
         self.treeView.resize(640, 380)
 
@@ -267,10 +321,9 @@ class BrowserWindow(QMainWindow):
         self.retranslateUi(self)
         QMetaObject.connectSlotsByName(self)
 
-        # Show the Main Window
+        # Configure the Main Window
         self.setGeometry(200, 100, 900, 600)
         self.setWindowTitle('EM-Browser')
-        self.show()
 
     def retranslateUi(self, MainWindow):
         _translate = QCoreApplication.translate
@@ -288,8 +341,8 @@ class BrowserWindow(QMainWindow):
         :param imagePath: new path
         :return:
         """
-        self.path = newPath
-        self.lineCompleter.setText(newPath)
+        self._imagePath = newPath
+        self.lineCompleter.setText(self._imagePath)
 
     def imagePlot(self, imagePath):
         """
@@ -306,78 +359,89 @@ class BrowserWindow(QMainWindow):
         if not (self.imageLayout.isEmpty()):
             item = self.imageLayout.takeAt(0)
             self.imageLayout.removeItem(item)
-            self.image.clear()
-            self.image.close()
-
-            self.image = pg.ImageView(view=pg.PlotItem())
-            plotItem = self.image.getView()
+            self.imageLayout.removeItem(item)
+            self._image2DView.close()
+            self._image2DView = pg.ImageView(view=pg.PlotItem())
+            plotItem = self._image2DView.getView()
             plotItem.showAxis('bottom', False)
             plotItem.showAxis('left', False)
-            self.imageBox.setupProperties()
-            self.volumeSlice.setupProperties()
+            self._imageBox.setupProperties()
+            self._volumeSlice.setupProperties()
+            self._galleryView.setupProperties()
 
         if self.isEmImage(imagePath):
 
             self.frame.setEnabled(True)
 
             # Create an image from imagePath using em-bindings
-            img = em.Image()
+            self._image = em.Image()
             loc2 = em.ImageLocation(imagePath)
-            img.read(loc2)
+            self._image.read(loc2)
 
             # Determinate the image dimension
-            z = img.getDim().z
+            z = self._image.getDim().z
 
             if z == 1:  # The data is a 2D numpy array
 
-                array = np.array(img, copy=False)
+                self._image2D = np.array(self._image, copy=False)
 
                 # A plot area (ViewBox + axes) for displaying the image
-                self.imageLayout.addWidget(self.image)
-                self.image.setImage(array)
+                self.imageLayout.addWidget(self._image2DView)
+                self._image2DView.setImage(self._image2D)
 
                 # Disable image operations
                 if self.disableHistogram:
-                    self.image.ui.histogram.hide()
+                    self.imageView.ui.histogram.hide()
                 if self.disableMenu:
-                    self.image.ui.menuBtn.hide()
+                    self.imageView.ui.menuBtn.hide()
                 if self.disableROI:
-                    self.image.ui.roiBtn.hide()
+                    self.imageView.ui.roiBtn.hide()
                 if self.disableZoom:
-                    self.image.getView().setMouseEnabled(False, False)
+                    self.imageView.getView().setMouseEnabled(False, False)
 
                 if self.enableAxis:
-                    plotItem = self.image.getView()
+                    plotItem = self.imageView.getView()
                     plotItem.showAxis('bottom', True)
                     plotItem.showAxis('left', True)
 
                 # Show the image dimension and type
                 self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " + str(img.getDim()))
-                self.listWidget.addItem("Type: " + str(img.getType()))
+                self.listWidget.addItem("Dimension: " + str(self._image.getDim()))
+                self.listWidget.addItem("Type: " + str(self._image.getType()))
+
+                # Hide Volume Slice and Gallery View Buttons
+                self.changeViewFrame.setVisible(False)
 
             else:  # The image has a volume. The data is a numpy 3D array. In
                 # this case, display the Top, Front and the Right View planes
 
-                self.volumeSlice = VolumeSlice(imagePath)
-                self.imageLayout.addWidget(self.volumeSlice)
+                if self.galeryViewButton.isEnabled():
+                    self._galleryView.setupProperties()
+                    self._volumeSlice = VolumeSlice(self._imagePath)
+                    self.imageLayout.addWidget(self._volumeSlice)
+                    self.changeViewFrame.setVisible(True)
+                else:
+                    self._volumeSlice.setupProperties()
+                    self._galleryView = GalleryView(imagePath)
+                    self.imageLayout.addWidget(self._galleryView)
+                    self.changeViewFrame.setVisible(True)
 
                 # Show the image dimension and type
                 self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " + str(img.getDim()))
-                self.listWidget.addItem("Type: " + str(img.getType()))
+                self.listWidget.addItem("Dimension: " + str(self._image.getDim()))
+                self.listWidget.addItem("Type: " + str(self._image.getType()))
 
         elif self.isImage(imagePath):
 
                 self.frame.setEnabled(False)
 
                 # Create and display a standard image using ImageBox class
-                self.imageBox = ImageBox()
-                self.imageLayout.addWidget(self.imageBox)
+                self._imageBox = ImageBox()
+                self.imageLayout.addWidget(self._imageBox)
                 image = QImage(imagePath)
-                self.imageBox.setImage(image)
-                self.imageBox.update()
-                self.imageBox.fitToWindow()
+                self._imageBox.setImage(image)
+                self._imageBox.update()
+                self._imageBox.fitToWindow()
 
                 width = image.width()
                 height = image.height()
@@ -388,10 +452,15 @@ class BrowserWindow(QMainWindow):
                 self.listWidget.addItem("Dimension: " + str(width) + " x "
                                         + str(height))
         else:
-            self.imageBox.setupProperties()
-            self.imageBox.update()
-            self.volumeSlice.setupProperties()
+            self._imageBox.setupProperties()
+            self._imageBox.update()
             self.listWidget.clear()
+            self._volumeSlice.setupProperties()
+            self._galleryView.setupProperties()
+
+            # Hide Volume Slice and Gallery View Buttons
+            self.changeViewFrame.setVisible(False)
+
             self.listWidget.addItem("NO IMAGE FORMAT")
 
     @staticmethod
