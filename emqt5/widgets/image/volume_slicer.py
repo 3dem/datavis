@@ -28,6 +28,7 @@ class VolumeSlice(QWidget):
         if self.isEmImage(self._imagePath):
             self.setMinimumWidth(300)
             self.setMinimumHeight(400)
+
             self._initComponents()
             self.volumeSlice()
 
