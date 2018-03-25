@@ -1,16 +1,19 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QEvent, QPoint, QRect,
-                          QItemSelection)
-from PyQt5.QtWidgets import (QWidget, QStyledItemDelegate, QVBoxLayout,
+
+from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize)
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
-                             QStyledItemDelegate, QStyleOptionButton, QStyle,
-                             QApplication, QAbstractItemView, QHeaderView,
+                             QStyledItemDelegate, QStyle,
+                             QApplication, QHeaderView,
                              QLineEdit, QActionGroup, QListView)
-from PyQt5.QtGui import QPixmap, QPen, QIcon, QMouseEvent, QPalette
+from PyQt5.QtGui import QPixmap, QPen, QIcon, QPalette
 import qtawesome as qta
+
+TABLE_VIEW_MODE = 'TABLE'
+GALLERY_VIEW_MODE = 'GALLERY'
+ELEMENT_VIEW_MODE = 'ELEMENT'
 
 
 class TableView(QWidget):
@@ -22,42 +25,45 @@ class TableView(QWidget):
         QWidget.__init__(self, kwargs.get("parent", None))
         self._defaultRowHeight = kwargs.get("defaultRowHeight", 32)
         self._maxRowHeight = kwargs.get("maxRowHeight", 512)
-        self._defaultView = kwargs.get("defaultView", "TABLE")
-        self._views = kwargs.get("views", ["TABLE", "GALLERY", "ELEMENT"])
-        self._viewActionIcons = {"TABLE": "fa.table",
-                                 "GALLERY": "fa.image",
-                                 "ELEMENT": "fa.file-image-o"}
+        self._defaultView = kwargs.get("defaultView", TABLE_VIEW_MODE)
+        self._views = kwargs.get("views", [TABLE_VIEW_MODE,
+                                           GALLERY_VIEW_MODE,
+                                           ELEMENT_VIEW_MODE])
+        self._viewActionIcons = {TABLE_VIEW_MODE: "fa.table",
+                                 GALLERY_VIEW_MODE: "fa.image",
+                                 ELEMENT_VIEW_MODE: "fa.file-image-o"}
         self._viewActions = []
         self._tableModel = None
+        self._currentColumn = 0  # for GALLERY mode
+        self._currentRow = 0  # selected table row
+        self._currentViewMode = self._defaultView
         self.__setupUi__()
+        self._setupCurrentViewMode()
 
     def setModel(self, model):
         """
         Set the table model
         :param model: the model
         """
+        self._disconnectSelectionSlots()
         self._tableModel = model
-        self._tableModel.setParent(self._tableView)
-        self._tableView.setModel(model)
-        self._tableView.selectionModel().selectionChanged.connect(
-            self._tableSelectionChanged)
-
-        self._tableView.setItemDelegateForColumn(
-            1, ImageItemDelegate(self._tableView))
-        self._tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._showTableDims()
-        self._setupSpinBoxGoToCell()
-        self._spinBoxGoToCell.setValue(1)
+        self._setupAllWidgets()
+        self._connectSelectionSlots()
 
     def __setupUi__(self):
         self._verticalLayout = QVBoxLayout(self)
         self._toolBar = QToolBar(self)
         self._verticalLayout.addWidget(self._toolBar)
         self._tableView = QTableView(self)
+        self._listView = QListView(self)
+        self._listView.setViewMode(QListView.IconMode)
         self._verticalLayout.addWidget(self._tableView)
+        self._verticalLayout.addWidget(self._listView)
+        self._listView.setVisible(False)
         self._actionGroupViews = QActionGroup(self._toolBar)
         self._actionGroupViews.setExclusive(True)
         for view in self._views:
+            #  create action with name=view
             a = self._createNewAction(self._toolBar, view, view,
                                       self._viewActionIcons.get(
                                           view,
@@ -82,19 +88,20 @@ class TableView(QWidget):
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
         verticalHeader = self._tableView.verticalHeader()
         verticalHeader.setSectionResizeMode(QHeaderView.Fixed)
-        verticalHeader.setDefaultSectionSize(self._defaultRowHeight)
+
         self._spinBoxRowHeight.valueChanged.connect(self._changeCellSize)
+        self._changeCellSize(self._defaultRowHeight)
         self._toolBar.addWidget(self._spinBoxRowHeight)
         self._toolBar.addSeparator()
 
         # cell navigator
-        self._labelGoToCell = QLabel(self._toolBar)
-        self._labelGoToCell.setPixmap(qta.icon(
+        self._labelCurrentRow = QLabel(self._toolBar)
+        self._labelCurrentRow.setPixmap(qta.icon(
             'fa.level-down').pixmap(28, QIcon.Normal, QIcon.On))
-        self._spinBoxGoToCell = QSpinBox(self._toolBar)
-        self._spinBoxGoToCell.valueChanged[int].connect(self._selectCell)
-        self._toolBar.addWidget(self._labelGoToCell)
-        self._toolBar.addWidget(self._spinBoxGoToCell)
+        self._spinBoxCurrentRow = QSpinBox(self._toolBar)
+        self._spinBoxCurrentRow.valueChanged[int].connect(self._selectRow)
+        self._toolBar.addWidget(self._labelCurrentRow)
+        self._toolBar.addWidget(self._spinBoxCurrentRow)
         self._toolBar.addSeparator()
 
         # table rows and columns
@@ -114,6 +121,76 @@ class TableView(QWidget):
         self._toolBar.addWidget(self._lineEditCols)
         self._toolBar.addSeparator()
 
+    def _setupDelegatesForColumns(self):
+        """
+        Sets the corresponding Delegate for all columns
+        """
+        # we have defined one delegate for the moment: ImageItemDelegate
+        if self._tableModel:
+            for i, prop in enumerate(self._tableModel.getColumnProperties()):
+                if prop.isRenderable():
+                    self._tableView.setItemDelegateForColumn(
+                        i, ImageItemDelegate(self._tableView))
+                    self._listView.setItemDelegateForColumn(
+                        i, ImageItemDelegate(self._listView))
+
+    def _setupAllWidgets(self):
+        """
+        Configure all widgets:
+           * set ImageDelegates for renderable columns
+           * configure the value range for all spinboxs
+           * configure the icon size for the model
+           * show table dims
+
+        Invoke this function when you needs to initialize all widgets.
+        Example: when setting new model in the table view
+        """
+        if self._tableModel:
+            # table
+            self._tableView.setModel(self._tableModel)
+            # list view
+            self._listView.setModel(self._tableModel)
+
+            self._showTableDims()
+            self._setupDelegatesForColumns()
+            self._changeCellSize(self._spinBoxRowHeight.value())
+            self._setupSpinBoxCurrentRow()
+            self._spinBoxCurrentRow.setValue(1)
+
+    def _connectSelectionSlots(self):
+        """
+        Connects all used selection signals to corresponding slots.
+        """
+        sModel = self._tableView.selectionModel()
+        if sModel:
+            sModel.selectionChanged.connect(self._tableSelectionChanged)
+        sModel = self._listView.selectionModel()
+        if sModel:
+            sModel.selectionChanged.connect(self._tableSelectionChanged)
+
+    def _disconnectSelectionSlots(self):
+        """
+        Disconnect all slots connected in _connectSelectionSlots
+        """
+        sModel = self._tableView.selectionModel()
+        if sModel:
+            sModel.selectionChanged.disconnect(self._tableSelectionChanged)
+        sModel = self._listView.selectionModel()
+        if sModel:
+            sModel.selectionChanged.disconnect(self._tableSelectionChanged)
+
+    def _setupCurrentViewMode(self):
+        """
+        Configure current view mode: TABLE or GALLERY or ELEMENT
+        """
+        showTable = self._currentViewMode == TABLE_VIEW_MODE
+
+        if self._tableModel:
+            self._listView.setModelColumn(self._currentColumn)
+            self._selectRow(self._spinBoxCurrentRow.value())
+
+        self._listView.setVisible(not showTable)
+        self._tableView.setVisible(showTable)
 
     @pyqtSlot(int)
     def _changeCellSize(self, size):
@@ -122,6 +199,10 @@ class TableView(QWidget):
         TODO:[developers]Review implementation. Change row height for the moment
         """
         self._tableView.verticalHeader().setDefaultSectionSize(size)
+        if self._tableModel:
+            self._tableModel.setIconSize(QSize(size, size))
+
+        self._listView.setIconSize(QSize(size, size))
 
     @pyqtSlot()
     def _showTableDims(self):
@@ -133,17 +214,17 @@ class TableView(QWidget):
             self._lineEditCols.setText("%i" % self._tableModel.columnCount())
 
     @pyqtSlot(int)
-    def _selectCell(self, cell):
+    def _selectRow(self, row):
         """
         If TABLE mode is selected then select the row corresponding to cell-1.
-        If GALLRY mode is selected then set cell as selected
-        :param cell: the cell
+        If GALLERY mode is selected then set cell as selected
+        :param row: the row
         """
         if self._tableModel:
-            mode = self._getSelectedMode()
-            if mode == 'TABLE':
-                if cell >0 and cell <= self._tableModel.rowCount():
-                    self._tableView.selectRow(cell-1)
+            if row in range(1, self._tableModel.rowCount()+1):
+                self._tableView.selectRow(row-1)
+                self._listView.setCurrentIndex(
+                    self._tableModel.index(row-1, self._currentColumn))
 
     @pyqtSlot(QItemSelection, QItemSelection)
     def _tableSelectionChanged(self, selected, deselected):
@@ -153,16 +234,37 @@ class TableView(QWidget):
         :param selected: QItemSelection
         :param deselected: QItemSelection
         """
-        self._spinBoxGoToCell.setValue(selected.indexes()[0].row()+1)
+        print("_tableSelectionChanged")
+        index = selected.indexes()
+        # change currentColumn when... only one
+        index = index[0] if index and len(index) == 1 else None
+
+        if index:
+            self._currentColumn = index.column()
+        elif self._currentViewMode == TABLE_VIEW_MODE:
+            index = self._tableView.currentIndex()
+        elif self._currentViewMode == GALLERY_VIEW_MODE:
+            index = self._listView.currentIndex()
+        else:
+            return
+
+        self._currentRow = index.row()
+        print("Row: %i" % self._currentRow)
+        print("Column: %i" % self._currentColumn)
+        self._spinBoxCurrentRow.setValue(self._currentRow + 1)
 
     @pyqtSlot(bool)
     def _changeViewTriggered(self, checked):
         """
         This slot is invoked when a view action is triggered
         """
-        if checked:
-            if self._actionGroupViews.checkedAction().objectName() == 'GALLERY':
-                print("GALLERY ACTIVATED")
+        a = self._actionGroupViews.checkedAction()
+
+        if a and checked:
+            mode = a.objectName()
+            if not self._currentViewMode == mode:
+                self._currentViewMode = mode
+                self._setupCurrentViewMode()
 
     def _getSelectedMode(self):
         """
@@ -172,14 +274,14 @@ class TableView(QWidget):
 
         return a.objectName() if a else None
 
-    def _setupSpinBoxGoToCell(self):
+    def _setupSpinBoxCurrentRow(self):
         """
         Configure the spinBox range consulting table mode and table dims
         """
         if self._tableModel:
             mode = self._getSelectedMode()
-            if mode == 'TABLE':
-                self._spinBoxGoToCell.setRange(1, self._tableModel.rowCount())
+            if mode == TABLE_VIEW_MODE or GALLERY_VIEW_MODE:
+                self._spinBoxCurrentRow.setRange(1, self._tableModel.rowCount())
 
     def _createNewAction(self, parent, actionName, text="", faIconName=None,
                          checkable=False, slot=None):
@@ -205,93 +307,6 @@ class TableView(QWidget):
         return a
 
 
-class CheckBoxDelegate(QStyledItemDelegate):
-    """
-    Delegate that places a fully functioning QCheckBox in every
-    cell of the column to which it's applied
-    """
-    def __init__(self, parent):
-        QStyledItemDelegate.__init__(self, parent)
-
-    def createEditor(self, parent, option, index):
-        """
-        Otherwise an editor is created if the user clicks in this cell.
-        """
-        return None
-
-    def paint(self, painter, option, index):
-        """
-        Paint a checkbox without the label.
-        """
-        checked = index.data(Qt.UserRole)
-
-        if option.state & QStyle.State_Selected:
-            painter.fillRect(option.rect,
-                             option.palette.color(QPalette.Highlight))
-
-        cbStyleOpt = QStyleOptionButton()
-
-        cbStyleOpt.state |= QStyle.State_Enabled \
-            if index.flags() & Qt.ItemIsEditable else QStyle.State_ReadOnly
-
-        cbStyleOpt.state |= QStyle.State_On if checked else QStyle.State_Off
-
-        cbStyleOpt.rect = self._getCheckBoxRect(option)
-
-        QApplication.style().drawControl(QStyle.CE_CheckBox,
-                                         cbStyleOpt, painter)
-
-    def editorEvent(self, event, model, option, index):
-        """
-        Change the data in the model and the state of the checkbox
-        if the user presses the left mouse button """
-        print(event)
-        if isinstance(event, QMouseEvent):
-            evType = event.type()
-            # print only for debug. Will disappear in the future
-            print('Check Box editor Event detected : ')
-            print(evType)
-            if not (index.flags() & Qt.ItemIsEditable):
-                return False
-
-            if evType == QEvent.MouseButtonPress or evType == QEvent.MouseMove:
-                return False
-            if evType == QEvent.MouseButtonRelease or \
-                    evType == QEvent.MouseButtonDblClick:
-                if event.button() != Qt.LeftButton or \
-                        not self._getCheckBoxRect(option).contains(event.pos()):
-                    return False
-                if event.type() == QEvent.MouseButtonDblClick:
-                    self.setModelData(None, model, index)
-                    return True
-
-            # Change the checkbox-state
-            self.setModelData(None, model, index)
-            return True
-
-        return False
-
-    def setModelData(self, editor, model, index):
-        """
-        The user wanted to change the old state in the opposite.
-        """
-        print('SetModelData')  # only for debug. Will disappear in the future
-        model.setData(index, not index.data(Qt.UserRole), Qt.UserRole)
-
-    def _getCheckBoxRect(self, option):
-        check_box_style_option = QStyleOptionButton()
-        check_box_rect = QApplication.style().\
-            subElementRect(QStyle.SE_CheckBoxIndicator,
-                           check_box_style_option, None)
-        check_box_point = QPoint(option.rect.x() +
-                                 option.rect.width() / 2 -
-                                 check_box_rect.width() / 2,
-                                 option.rect.y() +
-                                 option.rect.height() / 2 -
-                                 check_box_rect.height() / 2)
-        return QRect(check_box_point, check_box_rect.size())
-
-
 class ImageItemDelegate(QStyledItemDelegate):
     """
     ImageItemDelegate class provides display and editing facilities for
@@ -314,10 +329,16 @@ class ImageItemDelegate(QStyledItemDelegate):
             pixmap = self._getThumb(index.model().itemFromIndex(index))
 
             if option.state & QStyle.State_Selected:
-                painter.fillRect(option.rect,
-                                 option.palette.color(QPalette.Highlight))
+                if option.state & QStyle.State_HasFocus or \
+                     option.state & QStyle.State_Active:
+                    colorGroup = QPalette.Active
+                else:
+                    colorGroup = QPalette.Inactive
 
-            painter.setBrush(option.backgroundBrush)
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.Highlight))
+
             QApplication.style().drawItemPixmap(painter,
                                                 option.rect,
                                                 option.displayAlignment |
@@ -327,18 +348,17 @@ class ImageItemDelegate(QStyledItemDelegate):
                                                     option.rect.height(),
                                                     Qt.KeepAspectRatio))
             if option.state & QStyle.State_HasFocus:
-                pen = QPen(Qt.SolidLine)
-                pen.setColor(Qt.blue)
+                pen = QPen(Qt.DashDotDotLine)
+                pen.setColor(Qt.gray)
                 painter.setPen(pen)
                 painter.drawRect(option.rect.x(), option.rect.y(),
                                  option.rect.width()-1, option.rect.height()-1)
 
     def _getThumb(self, item, height=100):
         """
-        If thumbnail is stored in Qt.DecorationRole then create another
-        thumbnail by scaling the original image according to its height.
-        Then store the new thumbnail in the to height. Store the
-        thumbnail in the Qt.DecorationRole
+        If the thumbnail stored in Qt.DecorationRole is None then create a
+        thumbnail by scaling the original image according to its height and
+        store the new thumbnail in Qt.DecorationRole
         :param item: the item
         :param height: height to scale the image
         :return: scaled QPixmap

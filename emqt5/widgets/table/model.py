@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
-from PyQt5.QtCore import Qt, QVariant
+from PyQt5.QtCore import Qt, QVariant, QSize
 
 
 class TableDataModel(QStandardItemModel):
@@ -18,6 +18,7 @@ class TableDataModel(QStandardItemModel):
         """
         QStandardItemModel.__init__(self, parent)
         self._colProperties = columnProperties
+        self._iconSize = QSize(32, 32)
 
         for row in data:
             colums = []
@@ -57,6 +58,10 @@ class TableDataModel(QStandardItemModel):
             if self._colProperties[qModelIndex.column()].getType() == 'Bool':
                 return Qt.Checked if item.data(Qt.UserRole) else Qt.Unchecked
 
+        if role == Qt.SizeHintRole:
+            if self._colProperties[qModelIndex.column()].isRenderable():
+                return self._iconSize
+
         return QStandardItemModel.data(self, qModelIndex, role)
 
     def setData(self, qModelIndex, value, role=None):
@@ -95,3 +100,25 @@ class TableDataModel(QStandardItemModel):
                 fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
+
+    def getColumnProperties(self, column=-1):
+        """
+        Return column properties for the given column index
+        :param column: column index, first column is 0.
+                       column <0 return entire list
+        :return: ColumnProperties.
+        """
+        if column < 0 or not self._colProperties:
+            return self._colProperties
+
+        if column < len(self._colProperties):
+            return self._colProperties[column]
+
+        return None
+
+    def setIconSize(self, size):
+        """
+        Sets the size for renderable items
+        :param size: QSize
+        """
+        self._iconSize = size
