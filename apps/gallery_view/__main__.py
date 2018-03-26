@@ -9,15 +9,15 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     kwargs = {}
     paramCount = 0
-    if len(sys.argv) > 1:
-        for argv in sys.argv:
-            kwargs[sys.argv[paramCount]] = True
-            paramCount += 1
+    # if len(sys.argv) > 1:
+    #     for argv in sys.argv:
+    #         kwargs[sys.argv[paramCount]] = True
+    #         paramCount += 1
 
     kwargs['iconWidth'] = 150
     kwargs['iconHeight'] = 150
 
-    galleryView = GalleryView('/home/yunior/ScipionUserData/image-single.mrc',
-                              **kwargs)
+    fn = sys.argv[1]
+    galleryView = GalleryView(fn, **kwargs)
     galleryView.show()
     sys.exit(app.exec_())
