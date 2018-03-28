@@ -6,9 +6,10 @@ from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle,
-                             QApplication, QHeaderView,
+                             QApplication, QHeaderView, QComboBox,
                              QLineEdit, QActionGroup, QListView)
-from PyQt5.QtGui import QPixmap, QPen, QIcon, QPalette
+from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
+                         QStandardItem)
 import qtawesome as qta
 
 TABLE_VIEW_MODE = 'TABLE'
@@ -23,8 +24,9 @@ class TableView(QWidget):
 
     def __init__(self, **kwargs):
         QWidget.__init__(self, kwargs.get("parent", None))
-        self._defaultRowHeight = kwargs.get("defaultRowHeight", 32)
-        self._maxRowHeight = kwargs.get("maxRowHeight", 512)
+        self._defaultRowHeight = kwargs.get("defaultRowHeight", 20)
+        self._maxRowHeight = kwargs.get("maxRowHeight", 250)
+        self._minRowHeight = kwargs.get("minRowHeight", 5)
         self._defaultView = kwargs.get("defaultView", TABLE_VIEW_MODE)
         self._views = kwargs.get("views", [TABLE_VIEW_MODE,
                                            GALLERY_VIEW_MODE,
@@ -48,6 +50,7 @@ class TableView(QWidget):
         self._disconnectSelectionSlots()
         self._tableModel = model
         self._setupAllWidgets()
+        self._initCurrentColumn()
         self._connectSelectionSlots()
 
     def __setupUi__(self):
@@ -58,6 +61,8 @@ class TableView(QWidget):
         self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
+        self._listView.setSpacing(5)
+        self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._verticalLayout.addWidget(self._tableView)
         self._verticalLayout.addWidget(self._listView)
         self._listView.setVisible(False)
@@ -84,7 +89,7 @@ class TableView(QWidget):
                                                                QIcon.On))
         self._toolBar.addWidget(self._labelLupe)
         self._spinBoxRowHeight = QSpinBox(self._toolBar)
-        self._spinBoxRowHeight.setRange(self._defaultRowHeight,
+        self._spinBoxRowHeight.setRange(self._minRowHeight,
                                         self._maxRowHeight)
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
         verticalHeader = self._tableView.verticalHeader()
@@ -122,6 +127,14 @@ class TableView(QWidget):
         self._toolBar.addWidget(self._lineEditCols)
         self._toolBar.addSeparator()
 
+        #gallery view
+        self._labelCurrentColumn = QLabel(parent=self._toolBar,
+                                          text="Show Column ")
+        self._toolBar.addWidget(self._labelCurrentColumn)
+        self._comboBoxCurrentColumn = QComboBox(self._toolBar)
+        self._toolBar.addWidget(self._comboBoxCurrentColumn)
+        self._comboBoxCurrentColumn.currentIndexChanged.connect(self._galleryViewColumnChanged)
+
     def _setupDelegatesForColumns(self):
         """
         Sets the corresponding Delegate for all columns
@@ -138,6 +151,7 @@ class TableView(QWidget):
     def _setupAllWidgets(self):
         """
         Configure all widgets:
+           * set model for qtableview and qlistview widgets
            * set ImageDelegates for renderable columns
            * configure the value range for all spinboxs
            * configure the icon size for the model
@@ -157,6 +171,28 @@ class TableView(QWidget):
             self._changeCellSize(self._spinBoxRowHeight.value())
             self._setupSpinBoxCurrentRow()
             self._spinBoxCurrentRow.setValue(1)
+            self._setupComboBoxCurrentColumn()
+
+    def _setupComboBoxCurrentColumn(self):
+        """
+        Configure the elements in combobox currentColumn for gallery vew mode
+        """
+        blocked = self._comboBoxCurrentColumn.blockSignals(True)
+        model = self._comboBoxCurrentColumn.model()
+        if not model:
+            model = QStandardItemModel(self._comboBoxCurrentColumn)
+        model.clear()
+
+        if self._tableModel:
+            for index, columnProp in \
+                    enumerate(self._tableModel.getColumnProperties()):
+                if columnProp.isRenderable():
+                    item = QStandardItem(columnProp.getLabel())
+                    item.setData(index, Qt.UserRole)  # use UserRole for store
+                    model.appendRow([item])           # columnIndex
+        self._comboBoxCurrentColumn.setModel(model)
+        self._comboBoxCurrentColumn.blockSignals(blocked)
+
 
     def _connectSelectionSlots(self):
         """
@@ -183,6 +219,7 @@ class TableView(QWidget):
     def _setupCurrentViewMode(self):
         """
         Configure current view mode: TABLE or GALLERY or ELEMENT
+        TODO: ELEMENT VIEW MODE
         """
         if self._currentViewMode == ELEMENT_VIEW_MODE:
             return  # not implemented yet
@@ -195,6 +232,17 @@ class TableView(QWidget):
 
         self._listView.setVisible(not showTable)
         self._tableView.setVisible(showTable)
+
+    @pyqtSlot(int)
+    def _galleryViewColumnChanged(self, index):
+        """
+         Invoked when user change the view column in gallery mode
+         :param index: index in the combobox model
+         """
+        self._currentColumn = self._comboBoxCurrentColumn.\
+            currentData(Qt.UserRole)
+        self._listView.setModelColumn(self._currentColumn)
+        self._selectRow(self._spinBoxCurrentRow.value())
 
     @pyqtSlot(int)
     def _changeCellSize(self, size):
@@ -250,7 +298,13 @@ class TableView(QWidget):
         elif self._currentViewMode == GALLERY_VIEW_MODE:
             index = self._listView.currentIndex()
         else:
-            return
+            return  #element mode not implemented yet
+
+        columnProp = self._tableModel.getColumnProperties(self._currentColumn)
+        if columnProp and columnProp.isRenderable():
+            blocked = self._comboBoxCurrentColumn.blockSignals(True)
+            self._comboBoxCurrentColumn.setCurrentText(columnProp.getLabel())
+            self._comboBoxCurrentColumn.blockSignals(blocked)
 
         self._currentRow = index.row()
         print("Row: %i" % self._currentRow)
@@ -286,6 +340,21 @@ class TableView(QWidget):
             mode = self._getSelectedMode()
             if mode == TABLE_VIEW_MODE or GALLERY_VIEW_MODE:
                 self._spinBoxCurrentRow.setRange(1, self._tableModel.rowCount())
+
+    def _initCurrentColumn(self):
+        """
+        Set the currentColumn as the first renderable column in the model
+        If there are no renderable columns or no model, the current column is
+        the first: index 0
+        """
+        self._currentColumn = 0
+
+        if self._tableModel:
+            for index, columnProp in \
+                    enumerate(self._tableModel.getColumnProperties()):
+                if columnProp.isRenderable():
+                    self._currentColumn = index
+                    return
 
     def _createNewAction(self, parent, actionName, text="", faIconName=None,
                          checkable=False, slot=None):
@@ -342,21 +411,23 @@ class ImageItemDelegate(QStyledItemDelegate):
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
+            rect = QStyle.alignedRect(option.direction,
+                                      option.displayAlignment | Qt.AlignHCenter,
+                                      pixmap.size().scaled(option.rect.width(),
+                                                           option.rect.height(),
+                                                           Qt.KeepAspectRatio),
+                                      option.rect)
+            painter.drawPixmap(rect, pixmap)
 
-            QApplication.style().drawItemPixmap(painter,
-                                                option.rect,
-                                                option.displayAlignment |
-                                                Qt.AlignHCenter,
-                                                pixmap.scaled(
-                                                    option.rect.width(),
-                                                    option.rect.height(),
-                                                    Qt.KeepAspectRatio))
             if option.state & QStyle.State_HasFocus:
-                pen = QPen(Qt.DashDotDotLine)
+                """pen = QPen(Qt.DashLine)
                 pen.setColor(Qt.gray)
                 painter.setPen(pen)
                 painter.drawRect(option.rect.x(), option.rect.y(),
-                                 option.rect.width()-1, option.rect.height()-1)
+                                 option.rect.width()-1, option.rect.height()-1)"""
+                QApplication.style().drawPrimitive(
+                    QStyle.PE_FrameFocusRect, option, painter)
+
 
     def _getThumb(self, item, height=100):
         """

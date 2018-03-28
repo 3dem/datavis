@@ -21,12 +21,15 @@ if __name__ == '__main__':
                                         prefix_chars='--')
     argParser.add_argument('files', type=str, nargs='+',
                            help=' list of image files')
-    argParser.add_argument('--cell-size', type=int, default=100,
+    argParser.add_argument('--cell-size', type=int, default=20,
                            required=False,
-                           help=' an integer for default cell size')
-    argParser.add_argument('--max-cell-size', type=int, default=512,
+                           help=' an integer for default cell size in %')
+    argParser.add_argument('--max-cell-size', type=int, default=250,
                            required=False,
-                           help=' an integer for max cell size')
+                           help=' an integer for max cell size in %')
+    argParser.add_argument('--min-cell-size', type=int, default=5,
+                           required=False,
+                           help=' an integer for min cell size in %')
     argParser.add_argument('--default-view', type=str, default='TABLE',
                            required=False,
                            choices=['GALLERY', 'TABLE', 'ELEMENT'],
@@ -43,19 +46,23 @@ if __name__ == '__main__':
 
     data = []
     i = 1
-
+    lastPath = args.files[0]
     for index in range(0, 250):
         for path in args.files:
             _, ext = os.path.splitext(path)
-            data.append([os.path.basename(path), path, ext,
+            data.append([os.path.basename(path), path, lastPath, ext,
                          True if i % 2 else False, i])
             i = i+1
+            lastPath = path
 
     properties = [ColumnProperties('FileName', 'File Name', 'Str',
                                    **{'renderable': False,
                                       'editable': True}),
                   ColumnProperties('Path', 'Icon', 'Image',
                                    **{'renderable':True,
+                                      'editable': False}),
+                  ColumnProperties('Path', 'Real Image', 'Image',
+                                   **{'renderable': True,
                                       'editable': False}),
                   ColumnProperties('Ext', 'Ext', 'Str',
                                    **{'renderable': False,
@@ -71,6 +78,7 @@ if __name__ == '__main__':
     kwargs['colProperties'] = properties
     kwargs['defaultRowHeight'] = args.cell_size
     kwargs['maxRowHeight'] = args.max_cell_size
+    kwargs['minRowHeight'] = args.max_cell_size
     kwargs['defaultView'] = args.default_view
     kwargs['views'] = args.views
 
