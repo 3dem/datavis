@@ -45,8 +45,9 @@ class BrowserWindow(QMainWindow):
         self._image2D = None
         self._image2DView = pg.ImageView(view=pg.PlotItem())
         self._imageBox = ImageBox()
-        self._volumeSlice = VolumeSlice('', **kwargs)
-        self._galleryView = GalleryView('', **kwargs)
+        self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
+        self._galleryView = GalleryView(imagePath=self._imagePath,
+                                        iconWidth=150, iconHeight=150)
         self._initGUI()
 
     def _onPathDoubleClick(self, signal):
@@ -91,7 +92,7 @@ class BrowserWindow(QMainWindow):
         Select an em-image to realize a simple data-slicing
         """
         if self.isEmImage(self._imagePath):
-            self.volumeSliceView = VolumeSlice(self._imagePath, QWidget())
+            self.volumeSliceView = VolumeSlice(imagePath=self._imagePath)
 
     def _onHomeActionClicked(self):
         """
@@ -147,7 +148,7 @@ class BrowserWindow(QMainWindow):
         Select an em-image to display the slice views
         """
         self._galleryView.setupProperties()
-        self._volumeSlice = VolumeSlice(self._imagePath)
+        self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
         self.imageLayout.addWidget(self._volumeSlice)
         self.galeryViewButton.setEnabled(True)
         self.volumeSliceButton.setEnabled(False)
@@ -158,7 +159,8 @@ class BrowserWindow(QMainWindow):
         Select an em-image to display as gallery view
         """
         self._volumeSlice.setupProperties()
-        self._galleryView = GalleryView(self._imagePath)
+        self._galleryView = GalleryView(imagePath=self._imagePath, iconWidth=150,
+                                        iconHeight=150)
         self.imageLayout.addWidget(self._galleryView)
         self.galeryViewButton.setEnabled(False)
         self.volumeSliceButton.setEnabled(True)
@@ -217,6 +219,7 @@ class BrowserWindow(QMainWindow):
 
         # Create right Panel
         self.rightWidget = QWidget(self.splitter)
+
         self.widgetsVerticalLayout = QVBoxLayout(self.rightWidget)
         self.imageVerticalLayout = QVBoxLayout()
 
@@ -225,6 +228,7 @@ class BrowserWindow(QMainWindow):
 
 
         self.frame = QFrame(self.imageSplitter)
+
         sizePolicy = QSizePolicy(QSizePolicy.Maximum,
                                  QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(100)
@@ -234,14 +238,14 @@ class BrowserWindow(QMainWindow):
         self.frame.setSizePolicy(sizePolicy)
         self.frame.setFrameShape(QFrame.Box)
         self.frame.setFrameShadow(QFrame.Raised)
+
         self.labelImage = QLabel(self.frame)
 
         self.imageLayout = QHBoxLayout(self.frame)
 
         self.listWidget = QListWidget(self.imageSplitter)
 
-
-        # Create Gallery View and Vlolume Slice Buttons
+        # Create Gallery View and Volume Slice Buttons
         self.changeViewFrame = QFrame()
         self.gridLayoutViews = QHBoxLayout()
         self.changeViewFrame.setLayout(self.gridLayoutViews.layout())
@@ -250,7 +254,7 @@ class BrowserWindow(QMainWindow):
         self.galeryViewButton.setIcon(qta.icon('fa.th'))
         self.galeryViewButton.setMaximumSize(25, 25)
         self.galeryViewButton.setEnabled(True)
-        #self.galeryViewButton.clicked.connect(self._onGalleryViewButtonClicked)
+        self.galeryViewButton.clicked.connect(self._onGalleryViewButtonClicked)
 
         self.volumeSliceButton = QPushButton(self)
         self.volumeSliceButton.setIcon(qta.icon('fa.sliders'))
@@ -417,12 +421,14 @@ class BrowserWindow(QMainWindow):
 
                 if self.galeryViewButton.isEnabled():
                     self._galleryView.setupProperties()
-                    self._volumeSlice = VolumeSlice(self._imagePath)
+                    self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
                     self.imageLayout.addWidget(self._volumeSlice)
                     self.changeViewFrame.setVisible(True)
                 else:
                     self._volumeSlice.setupProperties()
-                    self._galleryView = GalleryView(imagePath)
+                    self._galleryView = GalleryView(imagePath=self._imagePath,
+                                                    iconWidth=150,
+                                                    iconHeight=150)
                     self.imageLayout.addWidget(self._galleryView)
                     self.changeViewFrame.setVisible(True)
 

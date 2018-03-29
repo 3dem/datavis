@@ -1,13 +1,11 @@
 
 import os
 
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy, QLabel,
-                             QGridLayout, QSlider, QPushButton, QSpacerItem)
+from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
+                             QGridLayout, QSlider)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
-from emqt5.widgets.image import GalleryView
 
-import qtawesome as qta
 import numpy as np
 import pyqtgraph as pg
 import em
@@ -17,20 +15,20 @@ class VolumeSlice(QWidget):
     """
     Declaration of Volume Slice class
     """
-    def __init__(self, imagePath, parent=None, **kwargs):
+    def __init__(self, parent=None, **kwargs):
 
         super(VolumeSlice, self).__init__(parent)
 
-        self._imagePath = imagePath
+        self._imagePath = kwargs.get('imagePath')
         self._image = None
         self.enableSlicesLine = kwargs.get('--enable-slicesLines', False)
         self.enableAxis = kwargs.get('--enable-axis', False)
-        if self.isEmImage(self._imagePath):
-            self.setMinimumWidth(300)
-            self.setMinimumHeight(400)
-
-            self._initComponents()
-            self.volumeSlice()
+        if self._imagePath:
+            if self.isEmImage(self._imagePath):
+                self.setMinimumWidth(300)
+                self.setMinimumHeight(400)
+                self._initComponents()
+                self.volumeSlice()
 
     def _onTopSliderChange(self, value):
         """
@@ -39,7 +37,7 @@ class VolumeSlice(QWidget):
         """
         self.sliceY = value
         self.topLabelValue.setText(str(value))
-        self.topView.setImage(self.array3D[:, self.sliceY, :])
+        self.topView.setImage(self._array3D[:, self.sliceY, :])
         self.renderArea.setShiftY(40*value/self.dy)
 
     def _onFrontSliderChange(self, value):
@@ -49,7 +47,7 @@ class VolumeSlice(QWidget):
         """
         self.sliceZ = value
         self.frontLabelValue.setText(str(value))
-        self.frontView.setImage(self.array3D[self.sliceZ, :, :])
+        self.frontView.setImage(self._array3D[self.sliceZ, :, :])
         self.renderArea.setShiftZ(40*value/self.dz)
 
     def _onRightSliderChange(self, value):
@@ -59,7 +57,7 @@ class VolumeSlice(QWidget):
         """
         self.sliceX = value
         self.rightLabelValue.setText(str(value))
-        self.rightView.setImage(self.array3D[:, :, self.sliceX])
+        self.rightView.setImage(self._array3D[:, :, self.sliceX])
         self.renderArea.setShiftX(40*value/self.dx)
 
     def _onTopLineVChange(self, pos):
@@ -128,9 +126,16 @@ class VolumeSlice(QWidget):
         :return:
         """
         self._image = None
-        self.topView = pg.ImageView(self, view=pg.PlotItem())
-        self.frontView = pg.ImageView(self, view=pg.PlotItem())
-        self.rightView = pg.ImageView(self, view=pg.PlotItem())
+        self.topView = pg.ImageView(self, view=pg.ViewBox())
+        self.topView.getView().setBackgroundColor(self.palette().color(QPalette.
+                                                                       Window))
+        self.frontView = pg.ImageView(self, view=pg.ViewBox())
+        self.frontView.getView().setBackgroundColor(self.palette().color(
+            QPalette.Window))
+
+        self.rightView = pg.ImageView(self, view=pg.ViewBox())
+        self.rightView.getView().setBackgroundColor(self.palette().color(
+            QPalette.Window))
         self.renderArea = RenderArea()
 
     def getImage(self):
@@ -180,26 +185,10 @@ class VolumeSlice(QWidget):
             self.dy = dim.y
             self.dz = dim.z
 
-            """x1 = np.linspace(-30, 10, 128)[:, np.newaxis, np.newaxis]
-            x2 = np.linspace(-20, 20, 128)[:, np.newaxis, np.newaxis]
-            y = np.linspace(-30, 10, 128)[np.newaxis, :, np.newaxis]
-            z = np.linspace(-20, 20, 128)[np.newaxis, np.newaxis, :]
-            d1 = np.sqrt(x1 ** 2 + y ** 2 + z ** 2)
-            d2 = 2 * np.sqrt(x1[::-1] ** 2 + y ** 2 + z ** 2)
-            d3 = 4 * np.sqrt(x2 ** 2 + y[:, ::-1] ** 2 + z ** 2)
-            data = (np.sin(d1) / d1 ** 2) + (np.sin(d2) / d2 ** 2) + (
-                    np.sin(d3) / d3 ** 2)
-
-            self.dx = 128
-            self.dy = 128
-            self.dz = 128
-
-            self.array3D = np.array(data, copy=False)"""
-
             if self.dz > 1:  # The image has a volumes
 
                 # Create a numpy 3D array with the image values pixel
-                self.array3D = np.array(self._image, copy=False)
+                self._array3D = np.array(self._image, copy=False)
 
                 self.sliceZ = int(self.dz / 2)
                 self.sliceY = int(self.dy / 2)
@@ -210,16 +199,16 @@ class VolumeSlice(QWidget):
                 self.createVolumeSliceDialog(self.dx, self.dy, self.dz)
 
                 # Display the data on the Top View
-                self.topView.setImage(self.array3D[:, self.sliceY, :])
-                self.topView.getView().setAspectLocked(False)
+                self.topView.setImage(self._array3D[:, self.sliceY, :])
+                self.topView.getView().setAspectLocked(True)
 
                 # Display the data on the Front View
-                self.frontView.setImage(self.array3D[self.sliceZ, :, :])
-                self.frontView.getView().setAspectLocked(False)
+                self.frontView.setImage(self._array3D[self.sliceZ, :, :])
+                self.frontView.getView().setAspectLocked(True)
 
                 # Display the data on the Right View
-                self.rightView.setImage(self.array3D[:, :, self.sliceX])
-                self.rightView.getView().setAspectLocked(False)
+                self.rightView.setImage(self._array3D[:, :, self.sliceX])
+                self.rightView.getView().setAspectLocked(True)
 
     def createVolumeSliceDialog(self, x, y, z):
         """
@@ -389,8 +378,7 @@ class VolumeSlice(QWidget):
             self.rightLineV.sigDragged.connect(self._onRightLineVChange)
             self.rightLineH.sigDragged.connect(self._onRightLineHChange)
 
-
-        # Put in the Grid all components
+        # Put into the Grid all components
         self.gridLayoutSlice.addWidget(self.topView, 0, 0)
         self.gridLayoutSlice.addWidget(self.renderArea, 0, 1)
         self.gridLayoutSlice.addWidget(self.topWidget, 1, 0)
@@ -416,7 +404,7 @@ class VolumeSlice(QWidget):
         self.rightView.ui.roiBtn.hide()
         self.rightView.ui.histogram.hide()
 
-        plotTopView = self.topView.getView()
+        """ plotTopView = self.topView.getView()
         plotTopView.showAxis('bottom', False)
         plotTopView.showAxis('left', False)
 
@@ -426,7 +414,7 @@ class VolumeSlice(QWidget):
 
         plotRightView = self.rightView.getView()
         plotRightView.showAxis('bottom', False)
-        plotRightView.showAxis('left', False)
+        plotRightView.showAxis('left', False)"""
 
 
     @staticmethod

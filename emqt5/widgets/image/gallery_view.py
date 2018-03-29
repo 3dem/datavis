@@ -1,15 +1,12 @@
 import os
 
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
-                             QVBoxLayout, QLabel, QPushButton,
+                             QVBoxLayout, QLabel, QApplication,
                              QSpacerItem, QGridLayout, QDialog,
-                             QSpinBox, QFormLayout, QComboBox,
-                             QTableWidget, QItemDelegate, QTableView, QListView,
-                             QStyledItemDelegate, QApplication, QStyle)
-from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex, QVariant, QSize,\
-                         QRectF, QRect
-from PyQt5.QtGui import QStandardItem, QStandardItemModel, QPalette, QPixmap,\
-                        QPen, QColor, QIcon
+                             QSpinBox, QFormLayout, QComboBox, QListView,
+                             QStyledItemDelegate, QStyle)
+from PyQt5.QtCore import Qt, QVariant, QSize, QRectF
+from PyQt5.QtGui import QStandardItem, QStandardItemModel, QPalette, QPen, QIcon
 
 import qtawesome as qta
 import numpy as np
@@ -21,18 +18,22 @@ class GalleryView(QWidget):
     """
     Declaration of Volume Slice class
     """
-    def __init__(self, imagePath, parent=None, **kwargs):
+    def __init__(self, parent=None, **kwargs):
 
         super(GalleryView, self).__init__(parent)
         self._image = None
-        self._iconWidth = kwargs.get('iconWidth')
-        self._iconHeight = kwargs.get('iconHeight')
+        self._imagePath = kwargs.get('imagePath')
+        self._iconWidth = kwargs.get('--iconWidth')
+        self._iconHeight = kwargs.get('--iconHeight')
+        if not self._iconWidth and not self._iconHeight:
+            self._iconWidth = kwargs.get('iconWidth')
+            self._iconHeight = kwargs.get('iconHeight')
         self._currentRow = 0
         self._itemDelegate = ImageItemDelegate(self, self._iconWidth,
                                                self._iconHeight)
-        if self.isEmImage(imagePath):
-            self._imagePath = imagePath
-            self.galleryView()
+        if self._imagePath:
+            if self.isEmImage(self._imagePath):
+                self.galleryView()
 
     def _onGalleryViewPlaneChanged(self, index):
         """
@@ -75,29 +76,31 @@ class GalleryView(QWidget):
 
     def _onIconSizeChange(self):
         """
-
-        :return:
+        Calculate the number of columns and rows
         """
-        cols = int((self.width() / (self._iconWidth + 10)))
-        if self.dz % cols == 0:
-            rows = self.dz / cols
+        if self.resliceComboBox.currentIndex() == 0: # Front View Slices(Z axis)
+            sliceCount = self.dz
+        elif self.resliceComboBox.currentIndex() == 1: # Top View Slices(Y axis)
+            sliceCount = self.dy
         else:
-            rows = self.dz / cols + 1
+            sliceCount = self.dx  # Right View Slices(X axis)
+
+        cols = int((self.width() / (self._iconWidth + 8)))
+        if sliceCount % cols == 0:
+            rows = sliceCount / cols
+        else:
+            rows = sliceCount / cols + 1
         self.colsSpinBox.setValue(cols)
         self.rowsSpinBox.setValue(rows)
 
     def resizeEvent(self, event):
         """
+        This event handler can be reimplemented in a subclass to receive widget
+        resize events which are passed in the event parameter. When this method
+        is called, the widget already has its new geometry.
         :param event:
-        :return:
         """
-        cols = int((self.width() / (self._iconWidth+10)))
-        if self.dz % cols == 0:
-            rows = self.dz / cols
-        else:
-            rows = self.dz / cols + 1
-        self.colsSpinBox.setValue(cols)
-        self.rowsSpinBox.setValue(rows)
+        self._onIconSizeChange()
 
     def __onTableWidgetSliceDoubleClicked(self, index):
         """
@@ -106,7 +109,6 @@ class GalleryView(QWidget):
         This methods display the slice that was selected
         :param index: slice index
         """
-
         # Calculate the slice selected number
         slice = index.row()
 
@@ -134,7 +136,7 @@ class GalleryView(QWidget):
         self.sliceViewDialog.setWindowTitle(self.resliceComboBox.currentText() +
                                             ': Slice ' + str(slice + 1))
 
-        # Contruct an ImageView with the slice selected
+        # Construct an ImageView with the slice selected
         v = pg.ImageView(view=pg.PlotItem())
         self.sliceVerticalLayout.addWidget(v, 0, 0)
         v.setImage(array)
@@ -160,26 +162,9 @@ class GalleryView(QWidget):
             self.dy = dim.y
             self.dz = dim.z
 
-            x1 = np.linspace(-30, 10, 128)[:, np.newaxis, np.newaxis]
-            x2 = np.linspace(-20, 20, 128)[:, np.newaxis, np.newaxis]
-            y = np.linspace(-30, 10, 128)[np.newaxis, :, np.newaxis]
-            z = np.linspace(-20, 20, 128)[np.newaxis, np.newaxis, :]
-            d1 = np.sqrt(x1 ** 2 + y ** 2 + z ** 2)
-            d2 = 2 * np.sqrt(x1[::-1] ** 2 + y ** 2 + z ** 2)
-            d3 = 4 * np.sqrt(x2 ** 2 + y[:, ::-1] ** 2 + z ** 2)
-            data = (np.sin(d1) / d1 ** 2) + (np.sin(d2) / d2 ** 2) + (
-                    np.sin(d3) / d3 ** 2)
-
-            self.dx = 128
-            self.dy = 128
-            self.dz = 128
-
-            self._array3D = np.array(data, copy=False)
-
             if self.dz > 1:  # The image has a volumes
-
                 # Create a numpy 3D array with the image values pixel
-                #self._array3D = np.array(self._image, copy=False)
+                self._array3D = np.array(self._image, copy=False)
                 self.createGalleryViewTable()
 
     def createGalleryViewTable(self):
@@ -208,7 +193,7 @@ class GalleryView(QWidget):
         self.zoomSpinBox = QSpinBox(self.optionFrame)
         self.zoomSpinBox.setMaximumHeight(400)
         self.zoomSpinBox.setMinimum(50)
-        self.zoomSpinBox.setMaximum(150)
+        self.zoomSpinBox.setMaximum(200)
         self.zoomSpinBox.setValue(100)
         self.zoomSpinBox.setSingleStep(1)
         self.horizontalLayout.addWidget(self.zoomSpinBox)
@@ -235,7 +220,7 @@ class GalleryView(QWidget):
 
         self.colsSpinBox = QSpinBox(self.optionFrame)
         self.colsSpinBox.setEnabled(False)
-        self.colsSpinBox.setMinimum(3)
+        self.colsSpinBox.setMinimum(1)
         self.colsSpinBox.setValue(int(self.width() / (self._iconWidth+10)))
         self.colsFormLayout.setWidget(0, QFormLayout.FieldRole,
                                       self.colsSpinBox)
@@ -349,7 +334,8 @@ class GalleryView(QWidget):
         self.tableSlices.setModel(self._model)
         self.tableSlices.setModelColumn(0)
         self.tableSlices.setItemDelegate(self._itemDelegate)
-        self.tableSlices.setCurrentIndex(self._model.index(0, 0))
+        #self.tableSlices.setCurrentIndex(self._model.index(0, 0))
+
 
     @staticmethod
     def isEmImage(imagePath):
@@ -366,7 +352,7 @@ class ImageItemDelegate(QStyledItemDelegate):
     """
     def __init__(self, parent=None, iconWidth=150, iconHeight=150):
         QStyledItemDelegate.__init__(self, parent)
-        self._imageView = pg.ImageView()
+        self._imageView = pg.ImageView(view=pg.ViewBox())
         self._iconWidth = iconWidth
         self._iconHeight = iconHeight
 
@@ -397,14 +383,16 @@ class ImageItemDelegate(QStyledItemDelegate):
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
             self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(0, 0, option.rect.width(), option.rect.height()))
+                QRectF(8, 8, option.rect.width()-16, option.rect.height()-16))
 
             if option.state & QStyle.State_HasFocus:
                 pen = QPen(Qt.DashDotDotLine)
-                pen.setColor(Qt.gray)
+                pen.setColor(Qt.red)
                 painter.setPen(pen)
                 painter.drawRect(option.rect.x(), option.rect.y(),
                                  option.rect.width()-1, option.rect.height()-1)
+            QApplication.style().drawPrimitive(
+                QStyle.PE_FrameFocusRect, option, painter)
 
     def _setupImageView(self, index):
         """
@@ -427,7 +415,7 @@ class GalleryDataModel(QStandardItemModel):
     """
     Model for Gallery View
     """
-    def __init__(self, parent=None, iconSize=QSize(100,100)):
+    def __init__(self, parent=None, iconSize=QSize(150, 150)):
         """
         Constructs an GalleryDataModel with the given parent.
         :param parent: The parent
@@ -487,7 +475,10 @@ class GalleryDataModel(QStandardItemModel):
         :param qModelIndex: index in the model
         :return: The flags for the item. See :  Qt.ItemDataRole
         """
-        return QStandardItemModel.flags(self, qModelIndex) & ~Qt.ItemIsEditable
+        fl = Qt.ItemIsDragEnabled
+
+        return QStandardItemModel.flags(self, qModelIndex) & ~Qt.ItemIsEditable \
+               & ~fl
 
     def setIconSize(self, size):
         """
