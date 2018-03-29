@@ -29,7 +29,6 @@ if __name__ == '__main__':
     kwargs['imagePath'] = args.imagePath
     kwargs['--iconWidth'] = args.iconWidth
     kwargs['--iconHeight'] = args.iconHeight
-
     galleryView = GalleryView(**kwargs)
     galleryView.show()
     sys.exit(app.exec_())
