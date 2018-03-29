@@ -7,7 +7,7 @@ import os
 from PyQt5.QtWidgets import QApplication
 
 from table_view_window import TableViewWindow
-from emqt5.widgets.table import ColumnProperties
+from emqt5.widgets.table import ColumnProperties, PERCENT_UNITS, PIXEL_UNITS
 import argparse
 
 
@@ -21,15 +21,20 @@ if __name__ == '__main__':
                                         prefix_chars='--')
     argParser.add_argument('files', type=str, nargs='+',
                            help=' list of image files')
-    argParser.add_argument('--cell-size', type=int, default=20,
+    argParser.add_argument('--cell-size', type=int, default=100,
                            required=False,
-                           help=' an integer for default cell size in %')
+                           help=' an integer for default cell size')
     argParser.add_argument('--max-cell-size', type=int, default=250,
                            required=False,
-                           help=' an integer for max cell size in %')
-    argParser.add_argument('--min-cell-size', type=int, default=5,
+                           help=' an integer for max cell size')
+    argParser.add_argument('--min-cell-size', type=int, default=10,
                            required=False,
-                           help=' an integer for min cell size in %')
+                           help=' an integer for min cell size')
+    argParser.add_argument('--zoom-units', type=str, default='px',
+                           required=False,
+                           choices=['%', 'px'],
+                           help=' units in which the rescaling will be done: '
+                                '%(for percent) or px(for pixels) ')
     argParser.add_argument('--default-view', type=str, default='TABLE',
                            required=False,
                            choices=['GALLERY', 'TABLE', 'ELEMENT'],
@@ -78,7 +83,9 @@ if __name__ == '__main__':
     kwargs['colProperties'] = properties
     kwargs['defaultRowHeight'] = args.cell_size
     kwargs['maxRowHeight'] = args.max_cell_size
-    kwargs['minRowHeight'] = args.max_cell_size
+    kwargs['minRowHeight'] = args.min_cell_size
+    kwargs['zoomUnits'] = PERCENT_UNITS if args.zoom_units == '%' \
+        else PIXEL_UNITS
     kwargs['defaultView'] = args.default_view
     kwargs['views'] = args.views
 
