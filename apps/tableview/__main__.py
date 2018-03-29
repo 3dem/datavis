@@ -24,7 +24,7 @@ if __name__ == '__main__':
     argParser.add_argument('--cell-size', type=int, default=100,
                            required=False,
                            help=' an integer for default cell size')
-    argParser.add_argument('--max-cell-size', type=int, default=250,
+    argParser.add_argument('--max-cell-size', type=int, default=300,
                            required=False,
                            help=' an integer for max cell size')
     argParser.add_argument('--min-cell-size', type=int, default=10,

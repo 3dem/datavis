@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize)
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout,
+from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize,
+                          QSortFilterProxyModel)
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QAbstractItemView,
                              QApplication, QHeaderView, QComboBox,
@@ -40,6 +41,8 @@ class TableView(QWidget):
                                  ELEMENT_VIEW_MODE: "fa.file-image-o"}
         self._viewActions = []
         self._tableModel = None
+        self._sortProxyModel = QSortFilterProxyModel(self)
+        self._sortProxyModel.setSortRole(Qt.UserRole)  # Qt.UserRole by default
         self._currentRenderableColumn = 0  # for GALLERY mode
         self._currentRow = 0  # selected table row
         self._currentViewMode = self._defaultView
@@ -53,9 +56,24 @@ class TableView(QWidget):
         """
         self._disconnectSelectionSlots()
         self._tableModel = model
+        self._sortProxyModel.setSourceModel(self._tableModel)
         self._setupAllWidgets()
         self._initCurrentRenderableColumn()
         self._connectSelectionSlots()
+
+    def setSortRole(self, role):
+        """
+        Set the item role that is used to query the source model's data
+        when sorting items
+        :param role:
+                    Qt.DisplayRole
+                    Qt.DecorationRole
+                    Qt.EditRole
+                    Qt.ToolTipRole
+                    Qt.StatusTipRole
+                    Qt.WhatsThisRole
+                    Qt.SizeHintRole
+        """
 
     def __setupUi__(self):
         self._verticalLayout = QVBoxLayout(self)
@@ -63,6 +81,7 @@ class TableView(QWidget):
         self._verticalLayout.addWidget(self._toolBar)
         self._tableView = QTableView(self)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
+        self._tableView.verticalHeader().hide()
         self._tableView.setSortingEnabled(True)
         self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
@@ -149,9 +168,9 @@ class TableView(QWidget):
             for i, prop in enumerate(self._tableModel.getColumnProperties()):
                 if prop.isRenderable():
                     self._tableView.setItemDelegateForColumn(
-                        i, ImageItemDelegate(self._tableView))
+                        i, _ImageItemDelegate(self._tableView))
                     self._listView.setItemDelegateForColumn(
-                        i, ImageItemDelegate(self._listView))
+                        i, _ImageItemDelegate(self._listView, QPen(Qt.blue)))
 
     def _setupAllWidgets(self):
         """
@@ -167,9 +186,9 @@ class TableView(QWidget):
         """
         if self._tableModel:
             # table
-            self._tableView.setModel(self._tableModel)
+            self._tableView.setModel(self._sortProxyModel)
             # list view
-            self._listView.setModel(self._tableModel)
+            self._listView.setModel(self._sortProxyModel)
 
             self._showTableDims()
             self._setupDelegatesForColumns()
@@ -281,7 +300,8 @@ class TableView(QWidget):
             if row in range(1, self._tableModel.rowCount()+1):
                 self._tableView.selectRow(row-1)
                 self._listView.setCurrentIndex(
-                    self._tableModel.index(row - 1, self._currentRenderableColumn))
+                    self._sortProxyModel.index(row - 1,
+                                           self._currentRenderableColumn))
 
     @pyqtSlot(QItemSelection, QItemSelection)
     def _tableSelectionChanged(self, selected, deselected):
@@ -380,13 +400,22 @@ class TableView(QWidget):
         return a
 
 
-class ImageItemDelegate(QStyledItemDelegate):
+class _ImageItemDelegate(QStyledItemDelegate):
     """
-    ImageItemDelegate class provides display and editing facilities for
-    image data items from a model.
+    _ImageItemDelegate class provides visualization and editing functions
+    of image data for widgets of the TableView class
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, selectedStatePen=None):
+        """
+        If selectedStatePen is None then the border will not be painted when
+        the item is selected.
+        If selectedStatePen has a QPen value then a border will be painted when
+        the item is selected
+        :param parent: the parent qt object
+        :param selectedStatePen: QPen object
+        """
         QStyledItemDelegate.__init__(self, parent)
+        self._selectedStatePen = selectedStatePen
 
     def createEditor(self, parent, option, index):
         """
@@ -402,8 +431,7 @@ class ImageItemDelegate(QStyledItemDelegate):
             pixmap = self._getThumb(index)
 
             if option.state & QStyle.State_Selected:
-                if option.state & QStyle.State_HasFocus or \
-                     option.state & QStyle.State_Active:
+                if option.state & QStyle.State_Active:
                     colorGroup = QPalette.Active
                 else:
                     colorGroup = QPalette.Inactive
@@ -419,29 +447,27 @@ class ImageItemDelegate(QStyledItemDelegate):
                                       option.rect)
             painter.drawPixmap(rect, pixmap)
 
-            if option.state & QStyle.State_HasFocus:
-                """pen = QPen(Qt.DashLine)
-                pen.setColor(Qt.gray)
-                painter.setPen(pen)
+            if self._selectedStatePen and option.state & QStyle.State_Selected:
+                painter.setPen(self._selectedStatePen)
                 painter.drawRect(option.rect.x(), option.rect.y(),
-                                 option.rect.width()-1, option.rect.height()-1)"""
-                QApplication.style().drawPrimitive(
-                    QStyle.PE_FrameFocusRect, option, painter)
+                                 option.rect.width() - 1,
+                                 option.rect.height() - 1)
 
     def _getThumb(self, index, height=100):
         """
-        If the thumbnail stored in Qt.DecorationRole is None then create a
+        If the thumbnail stored in Qt.UserRole + 1 is None then create a
         thumbnail by scaling the original image according to its height and
         store the new thumbnail in Qt.DecorationRole
         :param index: the item
         :param height: height to scale the image
         :return: scaled QPixmap
         """
-        pixmap = index.data(Qt.DecorationRole)
+        pixmap = index.data(Qt.UserRole + 1)
 
         if not pixmap:
-            #  create one and store in Qt.DecorationRole
+            #  create one and store in Qt.UserRole + 1
             pixmap = QPixmap(index.data(Qt.UserRole)).scaledToHeight(height)
-            index.model().setData(index, pixmap, Qt.DecorationRole)
+            index.model().setData(index, pixmap, Qt.DecorationRole + 1)
 
         return pixmap
+

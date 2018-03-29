@@ -45,10 +45,12 @@ class TableDataModel(QStandardItemModel):
         """
         if not qModelIndex.isValid():
             return None
-
+        if role == Qt.DecorationRole:
+            return QVariant
         if role == Qt.DisplayRole:
-            if self._colProperties[qModelIndex.column()].getType() == 'Bool':
-                return QVariant  # hide 'True' or 'False' text
+            t = self._colProperties[qModelIndex.column()].getType()
+            if t == 'Bool' or t == 'Image':
+                return QVariant  # hide 'True' or 'False', path in Image type
             # we use Qt.UserRole for store data
             return QStandardItemModel.data(self, qModelIndex, Qt.UserRole)
         if role == Qt.CheckStateRole:
@@ -73,15 +75,15 @@ class TableDataModel(QStandardItemModel):
         :param role:
         :return:
         """
-        #we use Qt.DecorationRole for store renderable data like icons (QPixmap)
+        #we use ICON_ROLE for store renderable data like icons (QPixmap)
         #not check Qt.ItemIsEditable flag
-        if role == Qt.DecorationRole:
+        if role == Qt.UserRole + 1:
             return QStandardItemModel.setData(self, qModelIndex, value, role)
 
         if not self.flags(qModelIndex) & Qt.ItemIsEditable:
             return False
 
-        if role == Qt.CheckStateRole:
+        if role == Qt.CheckStateRole:  # use CheckStateRole for boolean data
             return QStandardItemModel.setData(self, qModelIndex,
                                               value == Qt.Checked,
                                               Qt.UserRole)
