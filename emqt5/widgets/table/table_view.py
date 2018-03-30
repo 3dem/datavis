@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QAbstractItemView,
                              QApplication, QHeaderView, QComboBox,
-                             QLineEdit, QActionGroup, QListView)
+                             QStackedLayout,QLineEdit, QActionGroup, QListView)
 from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
                          QStandardItem)
 import qtawesome as qta
@@ -79,6 +79,7 @@ class TableView(QWidget):
         self._verticalLayout = QVBoxLayout(self)
         self._toolBar = QToolBar(self)
         self._verticalLayout.addWidget(self._toolBar)
+        self._stackedLayoud = QStackedLayout(self._verticalLayout)
         self._tableView = QTableView(self)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
         self._tableView.verticalHeader().hide()
@@ -88,8 +89,8 @@ class TableView(QWidget):
         self._listView.setResizeMode(QListView.Adjust)
         self._listView.setSpacing(5)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._verticalLayout.addWidget(self._tableView)
-        self._verticalLayout.addWidget(self._listView)
+        self._stackedLayoud.addWidget(self._tableView)
+        self._stackedLayoud.addWidget(self._listView)
         self._listView.setVisible(False)
         self._actionGroupViews = QActionGroup(self._toolBar)
         self._actionGroupViews.setExclusive(True)
@@ -166,11 +167,20 @@ class TableView(QWidget):
         # we have defined one delegate for the moment: ImageItemDelegate
         if self._tableModel:
             for i, prop in enumerate(self._tableModel.getColumnProperties()):
-                if prop.isRenderable():
+                if prop.isRenderable() and prop.isAllowSetVisible() and \
+                        prop.isVisible():
                     self._tableView.setItemDelegateForColumn(
                         i, _ImageItemDelegate(self._tableView))
                     self._listView.setItemDelegateForColumn(
                         i, _ImageItemDelegate(self._listView, QPen(Qt.blue)))
+
+    def _setupVisibleColumns(self):
+        """
+        Hide the columns with visible property=True or allowSetVisible=False
+        """
+        for i, prop in enumerate(self._tableModel.getColumnProperties()):
+            if not prop.isAllowSetVisible() or not prop.isVisible():
+                self._tableView.hideColumn(i)
 
     def _setupAllWidgets(self):
         """
@@ -191,6 +201,7 @@ class TableView(QWidget):
             self._listView.setModel(self._sortProxyModel)
 
             self._showTableDims()
+            self._setupVisibleColumns()
             self._setupDelegatesForColumns()
             self._changeCellSize(self._spinBoxRowHeight.value())
             self._setupSpinBoxCurrentRow()
@@ -210,7 +221,8 @@ class TableView(QWidget):
         if self._tableModel:
             for index, columnProp in \
                     enumerate(self._tableModel.getColumnProperties()):
-                if columnProp.isRenderable():
+                if columnProp.isRenderable() and columnProp.isAllowSetVisible()\
+                         and columnProp.isVisible():
                     item = QStandardItem(columnProp.getLabel())
                     item.setData(index, Qt.UserRole)  # use UserRole for store
                     model.appendRow([item])           # columnIndex
@@ -248,14 +260,14 @@ class TableView(QWidget):
         if self._currentViewMode == ELEMENT_VIEW_MODE:
             return  # not implemented yet
 
-        showTable = self._currentViewMode == TABLE_VIEW_MODE
-
         if self._tableModel:
             self._listView.setModelColumn(self._currentRenderableColumn)
             self._selectRow(self._spinBoxCurrentRow.value())
 
-        self._listView.setVisible(not showTable)
-        self._tableView.setVisible(showTable)
+        if self._currentViewMode == TABLE_VIEW_MODE:
+            self._stackedLayoud.setCurrentWidget(self._tableView)
+        elif self._currentViewMode == GALLERY_VIEW_MODE:
+            self._stackedLayoud.setCurrentWidget(self._listView)
 
     @pyqtSlot(int)
     def _galleryViewColumnChanged(self, index):
@@ -311,7 +323,6 @@ class TableView(QWidget):
         :param selected: QItemSelection
         :param deselected: QItemSelection
         """
-        print("_tableSelectionChanged")
         index = selected.indexes()
         # change currentColumn when... only one
         index = index[0] if index else None
@@ -327,8 +338,6 @@ class TableView(QWidget):
                 self._currentRenderableColumn = column
 
             self._currentRow = index.row()
-            print("Row: %i" % self._currentRow)
-            print("Column: %i" % self._currentRenderableColumn)
             self._spinBoxCurrentRow.setValue(self._currentRow + 1)
 
     @pyqtSlot(bool)
@@ -340,9 +349,33 @@ class TableView(QWidget):
 
         if a and checked:
             mode = a.objectName()
-            if not self._currentViewMode == mode:
+            if self._canChangeToMode(mode):
                 self._currentViewMode = mode
                 self._setupCurrentViewMode()
+            else:
+                a.setChecked(False)
+
+    def _canChangeToMode(self, mode):
+        """
+        Return True if mode can be changed, False if not.
+        If mode == currentMode then return False
+        :param mode: Possible values are: TABLE, GALLERY, ELEMENT
+        """
+        if self._currentViewMode == TABLE_VIEW_MODE:
+            if mode == TABLE_VIEW_MODE:
+                return False
+            elif mode == GALLERY_VIEW_MODE:
+                if self._tableView:
+                    for colProp in self._tableModel.getColumnProperties():
+                        if colProp.isRenderable() and \
+                                colProp.isAllowSetVisible() and \
+                                colProp.isVisible():
+                            return True
+                return False
+        elif self._currentViewMode == GALLERY_VIEW_MODE:
+            if mode == TABLE_VIEW_MODE:
+                return True
+        return False
 
     def _getSelectedMode(self):
         """
@@ -445,7 +478,13 @@ class _ImageItemDelegate(QStyledItemDelegate):
                                                            option.rect.height(),
                                                            Qt.KeepAspectRatio),
                                       option.rect)
-            painter.drawPixmap(rect, pixmap)
+            painter.save()
+            painter.translate(rect.topLeft())
+            painter.scale(rect.width()/pixmap.size().width(),
+                          rect.width()/pixmap.size().width())
+            painter.drawPixmap(0, 0, pixmap)
+            painter.restore()
+            #painter.drawPixmap(rect, pixmap)
 
             if self._selectedStatePen and option.state & QStyle.State_Selected:
                 painter.setPen(self._selectedStatePen)
@@ -457,7 +496,7 @@ class _ImageItemDelegate(QStyledItemDelegate):
         """
         If the thumbnail stored in Qt.UserRole + 1 is None then create a
         thumbnail by scaling the original image according to its height and
-        store the new thumbnail in Qt.DecorationRole
+        store the new thumbnail in Qt.UserRole + 1
         :param index: the item
         :param height: height to scale the image
         :return: scaled QPixmap
