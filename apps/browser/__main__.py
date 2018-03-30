@@ -13,11 +13,6 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         raise Exception("Specify input volume path.")
 
-    # if len(sys.argv) > 1:
-    #     for argv in sys.argv:
-    #         kwargs[sys.argv[paramCount]] = True
-    #         paramCount += 1
-
     browserWin = BrowserWindow(**kwargs)
     browserWin.show()
     sys.exit(app.exec_())

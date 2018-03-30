@@ -42,6 +42,7 @@ class GalleryView(QWidget):
         :param index: index of plane
         """
         self.fillTableGalleryView(index)
+        self._onIconSizeChange()
 
     def _onSliceZoom(self, value):
         """
