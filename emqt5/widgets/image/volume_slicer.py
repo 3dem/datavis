@@ -422,7 +422,7 @@ class VolumeSlice(QWidget):
         """ Return True if imagePath has an extension recognized as supported
             EM-image """
         _, ext = os.path.splitext(imagePath)
-        return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map']
+        return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map', '.vol']
 
 
 class RenderArea(QWidget):
