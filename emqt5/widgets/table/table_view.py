@@ -3,14 +3,18 @@
 
 
 from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize,
-                          QSortFilterProxyModel)
+                          QSortFilterProxyModel, QEvent, QObject, QPoint,
+                          QItemSelectionModel, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QAbstractItemView,
-                             QApplication, QHeaderView, QComboBox,
-                             QStackedLayout,QLineEdit, QActionGroup, QListView)
+                             QApplication, QHeaderView, QComboBox, QHBoxLayout,
+                             QStackedLayout, QLineEdit, QActionGroup, QListView,
+                             QSizePolicy, QSpacerItem, QPushButton)
 from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
-                         QStandardItem)
+                         QStandardItem, QResizeEvent)
+from PyQt5 import QtCore
+
 import qtawesome as qta
 
 TABLE_VIEW_MODE = 'TABLE'
@@ -46,6 +50,12 @@ class TableView(QWidget):
         self._currentRenderableColumn = 0  # for GALLERY mode
         self._currentRow = 0  # selected table row
         self._currentViewMode = self._defaultView
+        self._currentGalleryPage = 0
+        self._itemsXGalleryPage = 0
+        self._galleryPages = 0
+        self._currentPage = 0
+        self._pageRows = 0
+        self._pageColumns = 0
         self.__setupUi__()
         self._setupCurrentViewMode()
 
@@ -74,6 +84,15 @@ class TableView(QWidget):
                     Qt.WhatsThisRole
                     Qt.SizeHintRole
         """
+    def eventFilter(self, obj, evt):
+        """
+        Reimplemented from QObject
+        """
+        if evt.type() == QEvent.Resize:
+            #self._calcGalleryPage()
+            pass
+
+        return QObject.eventFilter(self, obj, evt)
 
     def __setupUi__(self):
         self._verticalLayout = QVBoxLayout(self)
@@ -84,14 +103,46 @@ class TableView(QWidget):
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
         self._tableView.verticalHeader().hide()
         self._tableView.setSortingEnabled(True)
-        self._listView = QListView(self)
+        self._listViewContainer = QWidget(self)
+        self._listView = GalleryView(self._listViewContainer)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
         self._listView.setSpacing(5)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._listView.setLayoutMode(QListView.Batched)
+        self._listView.setBatchSize(500)
+        self._listView.installEventFilter(self)
+
+        self._verticalLayout_2 = QVBoxLayout(self._listViewContainer)
+        self._verticalLayout = QVBoxLayout()
+        self._verticalLayout.addWidget(self._listView)
+        self._horizontalLayout = QHBoxLayout()
+        spacerItem = QSpacerItem(40, 20, QSizePolicy.Expanding,
+                                 QSizePolicy.Minimum)
+        self._horizontalLayout.addItem(spacerItem)
+        self._pushButtonPrevPage = QPushButton(self._listViewContainer)
+        self._horizontalLayout.addWidget(self._pushButtonPrevPage)
+        self._pushButtonPrevPage.setIcon(qta.icon('fa.angle-left'))
+        self._pushButtonPrevPage.clicked.connect(self._listPrevPage)
+        self._lineEditCurrentPage = QLineEdit(self._listViewContainer)
+        self._lineEditCurrentPage.setMaximumSize(50, 25)
+        self._lineEditCurrentPage.setMinimumSize(50, 25)
+        self._horizontalLayout.addWidget(self._lineEditCurrentPage)
+        self._labelPageCount = QLabel(self._listViewContainer)
+        self._horizontalLayout.addWidget(self._labelPageCount)
+        self._pushButtonNextPage = QPushButton(self._listViewContainer)
+        self._pushButtonNextPage.setIcon(qta.icon('fa.angle-right'))
+        self._pushButtonNextPage.clicked.connect(self._listNextPage)
+        self._horizontalLayout.addWidget(self._pushButtonNextPage)
+        spacerItem1 = QSpacerItem(40, 20, QSizePolicy.Expanding,
+                                  QSizePolicy.Minimum)
+        self._horizontalLayout.addItem(spacerItem1)
+        self._verticalLayout.addLayout(self._horizontalLayout)
+        self._verticalLayout_2.addLayout(self._verticalLayout)
+
         self._stackedLayoud.addWidget(self._tableView)
-        self._stackedLayoud.addWidget(self._listView)
-        self._listView.setVisible(False)
+        self._stackedLayoud.addWidget(self._listViewContainer)
+        self._listView.sigSizeChanged.connect(self._calcGalleryPage)
         self._actionGroupViews = QActionGroup(self._toolBar)
         self._actionGroupViews.setExclusive(True)
         for view in self._views:
@@ -122,8 +173,9 @@ class TableView(QWidget):
         verticalHeader = self._tableView.verticalHeader()
         verticalHeader.setSectionResizeMode(QHeaderView.Fixed)
 
-        self._spinBoxRowHeight.valueChanged.connect(self._changeCellSize)
-        self._changeCellSize(self._defaultRowHeight)
+        self._spinBoxRowHeight.editingFinished.connect(self._changeCellSize)
+        self._spinBoxRowHeight.editingFinished.connect(self._calcGalleryPage)
+        self._spinBoxRowHeight.setValue(self._defaultRowHeight)
         self._toolBar.addWidget(self._spinBoxRowHeight)
         self._toolBar.addSeparator()
         # cell navigator
@@ -159,6 +211,46 @@ class TableView(QWidget):
         self._toolBar.addWidget(self._comboBoxCurrentColumn)
         self._comboBoxCurrentColumn.currentIndexChanged.\
             connect(self._galleryViewColumnChanged)
+        self._comboBoxCurrentColumn.currentIndexChanged.\
+            connect(self._calcGalleryPage)
+
+    @pyqtSlot()
+    def _calcGalleryPage(self):
+        """
+        Update currentPage and pageCount in gallery view
+        """
+        self._galleryPages = 0
+        self._itemsXGalleryPage = 0
+        self._currentGalleryPage = 0
+
+        if self._tableModel:
+            gallerySize = self._listView.size()
+            iconSize = self._listView.iconSize()
+
+            if iconSize.width() > 0 and iconSize.height() > 0:
+                pCols = int((gallerySize.width() - 2 * self._listView.spacing())
+                            / (iconSize.width() + self._listView.spacing()))
+                pRows = int((gallerySize.height() - self._listView.spacing()) /
+                            (iconSize.height() + self._listView.spacing()))
+                pTotal = self._listView.model().rowCount() / (pCols * pRows)
+
+                self._pageRows = pRows
+                self._pageColumns = pCols
+                self._galleryPages = int(pTotal)
+                self._galleryPages += 1 if pTotal - int(pTotal) > 0 else 0
+                self._itemsXGalleryPage = pRows * pCols
+
+            index = self._listView.indexAt(
+                QPoint(self._listView.spacing(),
+                       self._listView.spacing()))
+
+            if index.isValid():
+                self._updateCurrentPage(index)
+            else:
+                print("Invalid Index")
+
+        self._showNumberOfGalleryPage()
+        self._showCurrentPapeNumber()
 
     def _setupDelegatesForColumns(self):
         """
@@ -203,7 +295,7 @@ class TableView(QWidget):
             self._showTableDims()
             self._setupVisibleColumns()
             self._setupDelegatesForColumns()
-            self._changeCellSize(self._spinBoxRowHeight.value())
+            self._changeCellSize()
             self._setupSpinBoxCurrentRow()
             self._spinBoxCurrentRow.setValue(1)
             self._setupComboBoxCurrentColumn()
@@ -267,7 +359,7 @@ class TableView(QWidget):
         if self._currentViewMode == TABLE_VIEW_MODE:
             self._stackedLayoud.setCurrentWidget(self._tableView)
         elif self._currentViewMode == GALLERY_VIEW_MODE:
-            self._stackedLayoud.setCurrentWidget(self._listView)
+            self._stackedLayoud.setCurrentWidget(self._listViewContainer)
 
     @pyqtSlot(int)
     def _galleryViewColumnChanged(self, index):
@@ -280,12 +372,14 @@ class TableView(QWidget):
         self._listView.setModelColumn(self._currentRenderableColumn)
         self._selectRow(self._spinBoxCurrentRow.value())
 
-    @pyqtSlot(int)
-    def _changeCellSize(self, size):
+    @pyqtSlot()
+    def _changeCellSize(self):
         """
         This slot is invoked when the cell size need to be rearranged
         TODO:[developers]Review implementation. Change row height for the moment
         """
+        size = self._spinBoxRowHeight.value()
+
         self._tableView.verticalHeader().setDefaultSectionSize(size)
         if self._tableModel:
             self._tableModel.setIconSize(QSize(size, size))
@@ -337,6 +431,7 @@ class TableView(QWidget):
                 self._comboBoxCurrentColumn.blockSignals(blocked)
                 self._currentRenderableColumn = column
 
+            self._updateCurrentPage(index)
             self._currentRow = index.row()
             self._spinBoxCurrentRow.setValue(self._currentRow + 1)
 
@@ -354,6 +449,78 @@ class TableView(QWidget):
                 self._setupCurrentViewMode()
             else:
                 a.setChecked(False)
+
+    @pyqtSlot(bool)
+    def _listNextPage(self, checked):
+        """
+        This slot is invoked when the user clicks next page in gallery view
+        """
+        print("Next Page")
+        if self._currentGalleryPage < self._galleryPages - 1:
+            index = self._getFirstIndex(self._currentGalleryPage + 1)
+            if index.isValid():
+                self._currentGalleryPage += 1
+                self._listView.scrollTo(index, QAbstractItemView.PositionAtTop)
+                print("Scrolling to ")
+                print(index.row())
+                print(index.column())
+                self._updateCurrentPage(index)
+            else:
+                print("invalid index")
+
+    @pyqtSlot(bool)
+    def _listPrevPage(self, checked):
+        """
+        This slot is invoked when the user clicks prev page in gallery view
+        """
+        print("Prev Page")
+        if self._currentGalleryPage > 0:
+            index = self._getFirstIndex(self._currentGalleryPage - 1)
+            if index.isValid():
+                self._currentGalleryPage -= 1
+                self._listView.scrollTo(index, QAbstractItemView.PositionAtTop)
+                print("Scrolling to ")
+                print(index.row())
+                print(index.column())
+                self._updateCurrentPage(index)
+            else:
+                print("invalid index")
+
+    @pyqtSlot()
+    def _showCurrentPapeNumber(self):
+        """
+        Show the currentPage number in the corresponding widget.
+        Now: self._lineEditCurrentPage
+        """
+        self._lineEditCurrentPage.setText("%i" % (self._currentGalleryPage + 1))
+
+    @pyqtSlot()
+    def _showNumberOfGalleryPage(self):
+        """
+        Show the number of gallery page in the corresponding widget.
+        Now: _labelPageCount
+        """
+        self._labelPageCount.setText("of %i" % self._galleryPages)
+
+    def _getFirstIndex(self, page):
+        """
+        Return the first QModelIndex for the page index in GalleryView
+        :param page: int page index (0 is first)
+        """
+        if self._tableModel:
+            return self._listView.model().index(page * self._itemsXGalleryPage,
+                                                self._listView.modelColumn())
+
+        return QModelIndex()
+
+    def _updateCurrentPage(self, index):
+        """
+        Update currentPage in Gallery View
+        """
+        if index.isValid() and self._itemsXGalleryPage > 0:
+            self._currentGalleryPage = int(index.row() /
+                                           self._itemsXGalleryPage)
+            self._showCurrentPapeNumber()
 
     def _canChangeToMode(self, mode):
         """
@@ -462,7 +629,6 @@ class _ImageItemDelegate(QStyledItemDelegate):
         """
         if index.isValid():
             pixmap = self._getThumb(index)
-
             if option.state & QStyle.State_Selected:
                 if option.state & QStyle.State_Active:
                     colorGroup = QPalette.Active
@@ -472,19 +638,19 @@ class _ImageItemDelegate(QStyledItemDelegate):
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
-            rect = QStyle.alignedRect(option.direction,
-                                      option.displayAlignment | Qt.AlignHCenter,
-                                      pixmap.size().scaled(option.rect.width(),
-                                                           option.rect.height(),
-                                                           Qt.KeepAspectRatio),
-                                      option.rect)
-            painter.save()
-            painter.translate(rect.topLeft())
-            painter.scale(rect.width()/pixmap.size().width(),
-                          rect.width()/pixmap.size().width())
-            painter.drawPixmap(0, 0, pixmap)
-            painter.restore()
-            #painter.drawPixmap(rect, pixmap)
+            if pixmap:
+                rect = QStyle.alignedRect(option.direction,
+                                          option.displayAlignment |
+                                          Qt.AlignHCenter,
+                                          pixmap.size().scaled(option.rect.width(),
+                                                               option.rect.height(),
+                                                               Qt.KeepAspectRatio),
+                                          option.rect)
+                painter.drawPixmap(rect, pixmap)
+            else:
+                painter.drawRect(option.rect.x(), option.rect.y(),
+                                 option.rect.width() - 1,
+                                 option.rect.height() - 1)
 
             if self._selectedStatePen and option.state & QStyle.State_Selected:
                 painter.setPen(self._selectedStatePen)
@@ -506,7 +672,24 @@ class _ImageItemDelegate(QStyledItemDelegate):
         if not pixmap:
             #  create one and store in Qt.UserRole + 1
             pixmap = QPixmap(index.data(Qt.UserRole)).scaledToHeight(height)
-            index.model().setData(index, pixmap, Qt.DecorationRole + 1)
+            index.model().setData(index, pixmap, Qt.UserRole + 1)
 
         return pixmap
 
+
+class GalleryView(QListView):
+    """
+    The GalleryView class provides some functionality for show large numbers of
+    items with simple paginate elements.
+    """
+    sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
+
+    def __init__(self, parent=None):
+        QListView.__init__(self, parent)
+
+    def resizeEvent(self, evt):
+        """
+        Reimplemented from QListView
+        """
+        QListView.resizeEvent(self, evt)
+        self.sigSizeChanged.emit()
