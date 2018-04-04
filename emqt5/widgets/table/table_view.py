@@ -447,8 +447,6 @@ class TableView(QWidget):
             if self._canChangeToMode(mode):
                 self._currentViewMode = mode
                 self._setupCurrentViewMode()
-            else:
-                a.setChecked(False)
 
     @pyqtSlot(bool)
     def _listNextPage(self, checked):
