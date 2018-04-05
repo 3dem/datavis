@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QVBoxLayout, QLabel, QApplication,
                              QSpacerItem, QGridLayout, QDialog,
                              QSpinBox, QFormLayout, QComboBox, QListView,
-                             QStyledItemDelegate, QStyle)
+                             QStyledItemDelegate, QStyle, QMessageBox)
 from PyQt5.QtCore import Qt, QVariant, QSize, QRectF
 from PyQt5.QtGui import QStandardItem, QStandardItemModel, QPalette, QPen, QIcon
 
@@ -101,7 +101,8 @@ class GalleryView(QWidget):
         is called, the widget already has its new geometry.
         :param event:
         """
-        self._onIconSizeChange()
+        if self._image:
+            self._onIconSizeChange()
 
     def __onTableWidgetSliceDoubleClicked(self, index):
         """
@@ -167,6 +168,20 @@ class GalleryView(QWidget):
                 # Create a numpy 3D array with the image values pixel
                 self._array3D = np.array(self._image, copy=False)
                 self.createGalleryViewTable()
+            else:
+                self.createErrorTextLoadingImage()
+                self._image = None
+
+
+    def createErrorTextLoadingImage(self):
+        """
+        Create an Error Text because the image do not has a volume
+        """
+        self.setGeometry(400, 200, 430, 100)
+
+        label = QLabel(self)
+        label.setText(' ERROR: A valid 3D image format are required. See the '
+                      'image path.')
 
     def createGalleryViewTable(self):
         """
@@ -174,6 +189,8 @@ class GalleryView(QWidget):
         """
         # Create a main window
         self.setGeometry(300, 150, 700, 550)
+        self.setMinimumWidth(515)
+        self.setMinimumHeight(400)
         self.verticalLayout = QVBoxLayout(self)
         self.setLayout(self.verticalLayout.layout())
 

@@ -2,7 +2,8 @@
 import os
 
 from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
-                             QGridLayout, QSlider)
+                             QGridLayout, QSlider, QVBoxLayout, QHBoxLayout,
+                             QSpacerItem)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
@@ -25,7 +26,7 @@ class VolumeSlice(QWidget):
         self.enableAxis = kwargs.get('--enable-axis', False)
         if self._imagePath:
             if self.isEmImage(self._imagePath):
-                self.setMinimumWidth(300)
+                self.setMinimumWidth(400)
                 self.setMinimumHeight(400)
                 self._initComponents()
                 self.volumeSlice()
@@ -66,9 +67,9 @@ class VolumeSlice(QWidget):
         Display a slices in the right plane
         :param pos: new pos of the horizontal line
         """
-        pos1 = pos.x()
-        self.rightSlider.setValue(pos1)
-        self._onRightSliderChange(int(pos1))
+        posX = pos.x()
+        self.rightSlider.setValue(posX)
+        self._onRightSliderChange(int(posX))
 
     def _onTopLineHChange(self, pos):
         """
@@ -76,9 +77,9 @@ class VolumeSlice(QWidget):
         Display a slices in the front plane
         :param pos: new pos of the horizontal line
         """
-        pos1 = pos.y()
-        self.frontSlider.setValue(pos1)
-        self._onFrontSliderChange(int(pos1))
+        posY = pos.y()
+        self.frontSlider.setValue(posY)
+        self._onFrontSliderChange(int(posY))
 
     def _onFrontLineHChange(self, pos):
         """
@@ -86,9 +87,9 @@ class VolumeSlice(QWidget):
         Display a slices in the top plane
         :param pos: new pos of the horizontal line
         """
-        pos1 = pos.y()
-        self.topSlider.setValue(pos1)
-        self._onTopSliderChange(int(pos1))
+        posZ = pos.y()
+        self.topSlider.setValue(posZ)
+        self._onTopSliderChange(int(posZ))
 
     def _onFrontLineVChange(self, pos):
         """
@@ -129,13 +130,18 @@ class VolumeSlice(QWidget):
         self.topView = pg.ImageView(self, view=pg.ViewBox())
         self.topView.getView().setBackgroundColor(self.palette().color(QPalette.
                                                                        Window))
+        self.topWidget = QFrame(self)
+
         self.frontView = pg.ImageView(self, view=pg.ViewBox())
         self.frontView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
+        self.frontWidget = QFrame(self)
 
         self.rightView = pg.ImageView(self, view=pg.ViewBox())
         self.rightView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
+        self.rightWidget = QFrame(self)
+
         self.renderArea = RenderArea()
 
     def getImage(self):
@@ -209,6 +215,19 @@ class VolumeSlice(QWidget):
                 # Display the data on the Right View
                 self.rightView.setImage(self._array3D[:, :, self.sliceX])
                 self.rightView.getView().setAspectLocked(True)
+            else:
+                self.createErrorTextLoadingImage()
+                self.setupProperties()
+
+
+    def createErrorTextLoadingImage(self):
+        """
+        Create an Error Text because the image do not has a volume
+        """
+        self.setGeometry(500, 150, 430, 400)
+        label = QLabel(self)
+        label.setText(' ERROR: A valid 3D image format are required. See the '
+                      'image path.')
 
     def createVolumeSliceDialog(self, x, y, z):
         """
@@ -223,7 +242,6 @@ class VolumeSlice(QWidget):
         self.setLayout(self.gridLayoutSlice.layout())
 
         # Create a Top View Slice (widgets)
-        self.topWidget = QFrame(self)
         self.toplayout = QGridLayout()
         self.topWidget.setLayout(self.toplayout.layout())
         self.topSlider = QSlider(self)
@@ -250,7 +268,6 @@ class VolumeSlice(QWidget):
         self.toplayout.setAlignment(Qt.AlignCenter)
 
         # Create a Front View Slice (widgets)
-        self.frontWidget = QFrame(self)
         self.frontlayout = QGridLayout()
         self.frontWidget.setLayout(self.frontlayout.layout())
         self.frontSlider = QSlider(self)
@@ -278,7 +295,6 @@ class VolumeSlice(QWidget):
         self.frontlayout.setAlignment(Qt.AlignCenter)
 
         # Create a Right View Slice (widgets)
-        self.rightWidget = QFrame(self)
         self.rightlayout = QGridLayout()
         self.rightWidget.setLayout(self.rightlayout.layout())
         self.rightSlider = QSlider(self)
@@ -305,80 +321,8 @@ class VolumeSlice(QWidget):
         self.rightlayout.addWidget(self.rightSlider, 0, 1)
         self.rightlayout.setAlignment(Qt.AlignCenter)
 
-        # Create three ImageView widgets with central slice on each axis.
-        # We put inside a vertical and horizontal line to select the image slice
-        # in each view
-
-        if self.enableAxis:
-            # Top View Axis
-            self.topAxisV = pg.InfiniteLine(angle=90, pen='y', label='Z',
-                                            pos=[-10, 0])
-            self.topAxisH = pg.InfiniteLine(angle=0, pen='y', label='X',
-                                            pos=[0, self.dx + 5])
-            self.topView.getView().getViewBox().addItem(self.topAxisV)
-            self.topView.getView().getViewBox().addItem(self.topAxisH)
-
-            # Front View Axis
-            self.frontAxisV = pg.InfiniteLine(angle=90, pen='y', label='Y',
-                                              pos=[-10, 0])
-            self.frontAxisH = pg.InfiniteLine(angle=0, pen='y', label='X',
-                                              pos=[0, self.dx + 5])
-            self.frontView.getView().getViewBox().addItem(self.frontAxisV)
-            self.frontView.getView().getViewBox().addItem(self.frontAxisH)
-
-            # Right View Axis
-            self.rightAxisV = pg.InfiniteLine(angle=90, pen='y', label='Z',
-                                              pos=[-10, 0])
-            self.rightAxisH = pg.InfiniteLine(angle=0, pen='y', label='Y',
-                                              pos=[0, self.dx + 5])
-            self.rightView.getView().getViewBox().addItem(self.rightAxisV)
-            self.rightView.getView().getViewBox().addItem(self.rightAxisH)
-
-        if self.enableSlicesLine:  #  Put into the Slices an horizontal and
-                                   #  vertical lines
-            # Top View Lines
-            self.topLineV = pg.InfiniteLine(angle=90, movable=True, pen='g',
-                                    pos=[self.sliceX, self.sliceX])
-            self.topLineV.setBounds([0, self.sliceX*2-1])
-            self.topLineH = pg.InfiniteLine(angle=0, movable=True, pen='b',
-                                    pos=[self.sliceX, self.sliceX])
-            self.topLineH.setBounds([0, self.sliceX*2-1])
-
-            self.topView.getView().getViewBox().addItem(self.topLineV)
-            self.topView.getView().getViewBox().addItem(self.topLineH)
-
-            self.topLineV.sigDragged.connect(self._onTopLineVChange)
-            self.topLineH.sigDragged.connect(self._onTopLineHChange)
-
-            # Front View Lines
-            self.frontLineV = pg.InfiniteLine(angle=90, movable=True, pen='g',
-                                            pos=[self.sliceX, self.sliceX])
-            self.frontLineV.setBounds([0, self.sliceX * 2 - 1])
-            self.frontLineH = pg.InfiniteLine(angle=0, movable=True, pen='r',
-                                            pos=[self.sliceX, self.sliceX])
-            self.frontLineH.setBounds([0, self.sliceX * 2 - 1])
-
-            self.frontView.getView().getViewBox().addItem(self.frontLineV)
-            self.frontView.getView().getViewBox().addItem(self.frontLineH)
-
-            self.frontLineV.sigDragged.connect(self._onFrontLineVChange)
-            self.frontLineH.sigDragged.connect(self._onFrontLineHChange)
-
-            # Right View Lines
-            self.rightLineV = pg.InfiniteLine(angle=90, movable=True, pen='b',
-                                              pos=[self.sliceX, self.sliceX])
-            self.rightLineV.setBounds([0, self.sliceX * 2 - 1])
-            self.rightLineH = pg.InfiniteLine(angle=0, movable=True, pen='r',
-                                              pos=[self.sliceX, self.sliceX])
-            self.rightLineH.setBounds([0, self.sliceX * 2 - 1])
-
-            self.rightView.getView().getViewBox().addItem(self.rightLineV)
-            self.rightView.getView().getViewBox().addItem(self.rightLineH)
-
-            self.rightLineV.sigDragged.connect(self._onRightLineVChange)
-            self.rightLineH.sigDragged.connect(self._onRightLineHChange)
-
         # Put into the Grid all components
+
         self.gridLayoutSlice.addWidget(self.topView, 0, 0)
         self.gridLayoutSlice.addWidget(self.renderArea, 0, 1)
         self.gridLayoutSlice.addWidget(self.topWidget, 1, 0)
@@ -394,11 +338,9 @@ class VolumeSlice(QWidget):
         self.topView.ui.roiBtn.hide()
         self.topView.ui.histogram.hide()
 
-
         self.frontView.ui.menuBtn.hide()
         self.frontView.ui.roiBtn.hide()
         self.frontView.ui.histogram.hide()
-
 
         self.rightView.ui.menuBtn.hide()
         self.rightView.ui.roiBtn.hide()
@@ -415,7 +357,6 @@ class VolumeSlice(QWidget):
         plotRightView = self.rightView.getView()
         plotRightView.showAxis('bottom', False)
         plotRightView.showAxis('left', False)"""
-
 
     @staticmethod
     def isEmImage(imagePath):
@@ -435,6 +376,7 @@ class RenderArea(QWidget):
         self.shiftz = 0
         self.widthz = 20
         self.boxaxis = 'z'
+        self.oldPosX = 60
 
         self.setBackgroundRole(QPalette.Base)
 
@@ -462,10 +404,10 @@ class RenderArea(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.scale(self.width() / 110.0, self.height() / 110.0)
+        painter.scale(self.height()/100.0, self.height()/100.0)
 
-        ox = 50
-        oy = 50
+        ox = 20 + self.width()/8
+        oy = 60
         wx = self.widthx
         wy = self.widthy
         wz = self.widthz
