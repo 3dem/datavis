@@ -84,15 +84,7 @@ class TableView(QWidget):
                     Qt.WhatsThisRole
                     Qt.SizeHintRole
         """
-    def eventFilter(self, obj, evt):
-        """
-        Reimplemented from QObject
-        """
-        if evt.type() == QEvent.Resize:
-            #self._calcGalleryPage()
-            pass
-
-        return QObject.eventFilter(self, obj, evt)
+        self._sortProxyModel.setSortRole(role)
 
     def __setupUi__(self):
         self._verticalLayout = QVBoxLayout(self)
@@ -103,15 +95,20 @@ class TableView(QWidget):
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
         self._tableView.verticalHeader().hide()
         self._tableView.setSortingEnabled(True)
+
         self._listViewContainer = QWidget(self)
         self._listView = GalleryView(self._listViewContainer)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
         self._listView.setSpacing(5)
+        self._listView.setWrapping(True)
+        self._listView.setUniformItemSizes(True)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._listView.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
+        self._listView.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
+        self._listView.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._listView.setLayoutMode(QListView.Batched)
         self._listView.setBatchSize(500)
-        self._listView.installEventFilter(self)
 
         self._verticalLayout_2 = QVBoxLayout(self._listViewContainer)
         self._verticalLayout = QVBoxLayout()
@@ -219,19 +216,25 @@ class TableView(QWidget):
         """
         Update currentPage and pageCount in gallery view
         """
-        self._galleryPages = 0
-        self._itemsXGalleryPage = 0
-        self._currentGalleryPage = 0
-
-        if self._tableModel:
-            gallerySize = self._listView.size()
+        if self._tableModel and self._listView.isVisible():
+            self._galleryPages = 0
+            self._itemsXGalleryPage = 0
+            self._currentGalleryPage = 0
+            gallerySize = self._listView.viewport().size()
             iconSize = self._listView.iconSize()
+            spacing = self._listView.spacing()
 
             if iconSize.width() > 0 and iconSize.height() > 0:
-                pCols = int((gallerySize.width() - 2 * self._listView.spacing())
-                            / (iconSize.width() + self._listView.spacing()))
-                pRows = int((gallerySize.height() - self._listView.spacing()) /
-                            (iconSize.height() + self._listView.spacing()))
+                pCols = int((gallerySize.width() - spacing - 1)
+                            / (iconSize.width() + spacing))
+                pRows = int((gallerySize.height() - spacing - 1) /
+                            (iconSize.height() + spacing))
+                # if gallerySize.width() < iconSize.width() pRows may be 0
+                if pRows == 0:
+                    pRows = 1
+                if pCols == 0:
+                    pCols = 1
+
                 pTotal = self._listView.model().rowCount() / (pCols * pRows)
 
                 self._pageRows = pRows
@@ -244,10 +247,13 @@ class TableView(QWidget):
                 QPoint(self._listView.spacing(),
                        self._listView.spacing()))
 
-            if index.isValid():
-                self._updateCurrentPage(index)
-            else:
-                print("Invalid Index")
+            gridSize = QSize(int((gallerySize.width() - spacing - 1) / pCols),
+                             int((gallerySize.height() + spacing) /
+                                 pRows))
+
+            self._updateCurrentPage(index)
+            self._scrollToPage(self._currentGalleryPage)
+            self._listView.setGridSize(gridSize)
 
         self._showNumberOfGalleryPage()
         self._showCurrentPapeNumber()
@@ -432,6 +438,7 @@ class TableView(QWidget):
                 self._currentRenderableColumn = column
 
             self._updateCurrentPage(index)
+
             self._currentRow = index.row()
             self._spinBoxCurrentRow.setValue(self._currentRow + 1)
 
@@ -453,36 +460,16 @@ class TableView(QWidget):
         """
         This slot is invoked when the user clicks next page in gallery view
         """
-        print("Next Page")
         if self._currentGalleryPage < self._galleryPages - 1:
-            index = self._getFirstIndex(self._currentGalleryPage + 1)
-            if index.isValid():
-                self._currentGalleryPage += 1
-                self._listView.scrollTo(index, QAbstractItemView.PositionAtTop)
-                print("Scrolling to ")
-                print(index.row())
-                print(index.column())
-                self._updateCurrentPage(index)
-            else:
-                print("invalid index")
+            self._scrollToPage(self._currentGalleryPage + 1)
 
     @pyqtSlot(bool)
     def _listPrevPage(self, checked):
         """
         This slot is invoked when the user clicks prev page in gallery view
         """
-        print("Prev Page")
         if self._currentGalleryPage > 0:
-            index = self._getFirstIndex(self._currentGalleryPage - 1)
-            if index.isValid():
-                self._currentGalleryPage -= 1
-                self._listView.scrollTo(index, QAbstractItemView.PositionAtTop)
-                print("Scrolling to ")
-                print(index.row())
-                print(index.column())
-                self._updateCurrentPage(index)
-            else:
-                print("invalid index")
+            self._scrollToPage(self._currentGalleryPage - 1)
 
     @pyqtSlot()
     def _showCurrentPapeNumber(self):
@@ -499,6 +486,18 @@ class TableView(QWidget):
         Now: _labelPageCount
         """
         self._labelPageCount.setText("of %i" % self._galleryPages)
+
+    def _scrollToPage(self, page):
+        """
+        Scroll the view to the page index
+        :param page: (int) page index. First index is 0
+        """
+        index = self._getFirstIndex(page)
+
+        if index.isValid():
+            self._listView.scrollTo(index, QAbstractItemView.PositionAtTop)
+            self._currentGalleryPage = page
+            self._updateCurrentPage(index)
 
     def _getFirstIndex(self, page):
         """
@@ -639,10 +638,11 @@ class _ImageItemDelegate(QStyledItemDelegate):
             if pixmap:
                 rect = QStyle.alignedRect(option.direction,
                                           option.displayAlignment |
-                                          Qt.AlignHCenter,
-                                          pixmap.size().scaled(option.rect.width(),
-                                                               option.rect.height(),
-                                                               Qt.KeepAspectRatio),
+                                          Qt.AlignHCenter | Qt.AlignVCenter,
+                                          pixmap.size().
+                                          scaled(option.rect.width(),
+                                                 option.rect.height(),
+                                                 Qt.KeepAspectRatio),
                                           option.rect)
                 painter.drawPixmap(rect, pixmap)
             else:
