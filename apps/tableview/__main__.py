@@ -33,8 +33,8 @@ if __name__ == '__main__':
     argParser.add_argument('--zoom-units', type=str, default='px',
                            required=False,
                            choices=['%', 'px'],
-                           help=' units in which the rescaling will be done: '
-                                '%(for percent) or px(for pixels) ')
+                           help=' units in which the rescaling  will be done: '
+                                ' percent or pixels ')
     argParser.add_argument('--default-view', type=str, default='TABLE',
                            required=False,
                            choices=['GALLERY', 'TABLE', 'ELEMENT'],
