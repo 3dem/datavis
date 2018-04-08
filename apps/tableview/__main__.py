@@ -3,12 +3,13 @@
 
 import sys
 import os
+import argparse
 
 from PyQt5.QtWidgets import QApplication
 
-from table_view_window import TableViewWindow
 from emqt5.widgets.table import ColumnProperties, PERCENT_UNITS, PIXEL_UNITS
-import argparse
+
+from table_view_window import TableViewWindow
 
 
 if __name__ == '__main__':

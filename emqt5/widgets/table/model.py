@@ -27,9 +27,9 @@ class TableDataModel(QStandardItemModel):
                     item.setData(d, Qt.UserRole)  # Store the data
                     colums.append(item)
                 self.appendRow(colums)
-
-        for i, prop in enumerate(columnProperties):
-            self.setHorizontalHeaderItem(i, QStandardItem(prop.getLabel()))
+        if columnProperties:
+            for i, prop in enumerate(columnProperties):
+                self.setHorizontalHeaderItem(i, QStandardItem(prop.getLabel()))
 
     def data(self, qModelIndex, role=Qt.UserRole):
         """
@@ -48,13 +48,16 @@ class TableDataModel(QStandardItemModel):
         if role == Qt.DecorationRole:
             return QVariant
         if role == Qt.DisplayRole:
-            t = self._colProperties[qModelIndex.column()].getType()
+            t = self._colProperties[qModelIndex.column()].getType() \
+                if self._colProperties else ""
             if t == 'Bool' or t == 'Image':
                 return QVariant  # hide 'True' or 'False', path in Image type
             # we use Qt.UserRole for store data
             return QStandardItemModel.data(self, qModelIndex, Qt.UserRole)
         if role == Qt.CheckStateRole:
-            if self._colProperties[qModelIndex.column()].getType() == 'Bool':
+            if self._colProperties and \
+                    self._colProperties[qModelIndex.column()].getType() \
+                    == 'Bool':
                 return Qt.Checked \
                     if QStandardItemModel.data(self, qModelIndex,
                                                Qt.UserRole) else Qt.Unchecked
@@ -62,7 +65,8 @@ class TableDataModel(QStandardItemModel):
             return QStandardItemModel.data(self, qModelIndex, Qt.UserRole)
 
         if role == Qt.SizeHintRole:
-            if self._colProperties[qModelIndex.column()].isRenderable():
+            if self._colProperties and \
+                    self._colProperties[qModelIndex.column()].isRenderable():
                 return self._iconSize
 
         return QStandardItemModel.data(self, qModelIndex, role)
@@ -101,12 +105,19 @@ class TableDataModel(QStandardItemModel):
         fl = Qt.NoItemFlags
         col = qModelIndex.column()
         if qModelIndex.isValid():
-            if self._colProperties[col].isEditable():
-                fl |= Qt.ItemIsEditable
-            if self._colProperties[col].getType() == 'Bool':
-                fl |= Qt.ItemIsUserCheckable
+            if self._colProperties:
+                if self._colProperties[col].isEditable():
+                    fl |= Qt.ItemIsEditable
+                if self._colProperties[col].getType() == 'Bool':
+                    fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
+
+    def setColumnProperties(self, properties):
+        """
+        Set the column properties for the model
+        """
+        self._colProperties = properties
 
     def getColumnProperties(self, column=-1):
         """
