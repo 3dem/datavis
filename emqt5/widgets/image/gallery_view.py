@@ -53,16 +53,16 @@ class GalleryView(QWidget):
             self._model.setIconSize(QSize(value+50, value+50))
         self._iconWidth = value+50
         self._iconHeight = value + 50
-        self.tableSlices.setIconSize(QSize(value+50, value+50))
+        self._tableSlices.setIconSize(QSize(value+50, value+50))
 
     def _onGotoItem(self, index):
         """
         The cell in the given index is selected
         :param row: the row
         """
-        if self.tableSlices:
+        if self._tableSlices:
             if index in range(1, self._model.rowCount()+1):
-                self.tableSlices.setCurrentIndex(
+                self._tableSlices.setCurrentIndex(
                     self._model.index(index-1, 0))
             self._currentRow = index
 
@@ -73,26 +73,26 @@ class GalleryView(QWidget):
         :param index: slice index
         """
         slice = index.row() + 1
-        self.gotoItemSpinBox.setValue(slice)
+        self._gotoItemSpinBox.setValue(slice)
 
     def _onIconSizeChange(self):
         """
         Calculate the number of columns and rows
         """
-        if self.resliceComboBox.currentIndex() == 0: # Front View Slices(Z axis)
-            sliceCount = self.dz
-        elif self.resliceComboBox.currentIndex() == 1: # Top View Slices(Y axis)
-            sliceCount = self.dy
+        if self._resliceComboBox.currentIndex() == 0: # Front View Slices(Z axis)
+            sliceCount = self._dz
+        elif self._resliceComboBox.currentIndex() == 1: # Top View Slices(Y axis)
+            sliceCount = self._dy
         else:
-            sliceCount = self.dx  # Right View Slices(X axis)
+            sliceCount = self._dx  # Right View Slices(X axis)
 
         cols = int((self.width() / (self._iconWidth + 8)))
         if sliceCount % cols == 0:
             rows = sliceCount / cols
         else:
             rows = sliceCount / cols + 1
-        self.colsSpinBox.setValue(cols)
-        self.rowsSpinBox.setValue(rows)
+        self._colsSpinBox.setValue(cols)
+        self._rowsSpinBox.setValue(rows)
 
     def resizeEvent(self, event):
         """
@@ -104,7 +104,7 @@ class GalleryView(QWidget):
         if self._image:
             self._onIconSizeChange()
 
-    def __onTableWidgetSliceDoubleClicked(self, index):
+    def _onTableWidgetSliceDoubleClicked(self, index):
         """
         This methods is executes whenever a cell in the table is double clicked.
         The index specified is the slice that was clicked.
@@ -115,17 +115,17 @@ class GalleryView(QWidget):
         slice = index.row()
 
         # Create a new Window to display the slice
-        self.sliceViewDialog = QDialog()
-        self.sliceViewDialog.setModal(True)
+        self._sliceViewDialog = QDialog()
+        self._sliceViewDialog.setModal(True)
 
-        self.sliceViewDialog.setGeometry(380, 100, 550, 550)
-        self.sliceViewWidget = QWidget(self.sliceViewDialog)
+        self._sliceViewDialog.setGeometry(380, 100, 550, 550)
+        self._sliceViewWidget = QWidget(self._sliceViewDialog)
 
-        self.sliceVerticalLayout = QGridLayout(self.sliceViewWidget)
-        self.sliceViewDialog.setLayout(self.sliceVerticalLayout.layout())
+        self._sliceVerticalLayout = QGridLayout(self._sliceViewWidget)
+        self._sliceViewDialog.setLayout(self._sliceVerticalLayout.layout())
 
         # Select the plane slice
-        plane = self.resliceComboBox.currentIndex()
+        plane = self._resliceComboBox.currentIndex()
 
         # Select the slice in plane
         if plane == 0:
@@ -135,15 +135,15 @@ class GalleryView(QWidget):
         else:
             array = np.array(self._array3D[:, :, slice])
 
-        self.sliceViewDialog.setWindowTitle(self.resliceComboBox.currentText() +
-                                            ': Slice ' + str(slice + 1))
+        self._sliceViewDialog.setWindowTitle(self._resliceComboBox.currentText()
+                                             + ': Slice ' + str(slice + 1))
 
         # Construct an ImageView with the slice selected
-        v = pg.ImageView(view=pg.PlotItem())
-        self.sliceVerticalLayout.addWidget(v, 0, 0)
-        v.setImage(array)
+        sliceSelected = pg.ImageView(view=pg.PlotItem())
+        self._sliceVerticalLayout.addWidget(sliceSelected, 0, 0)
+        sliceSelected.setImage(array)
 
-        self.sliceViewDialog.show()
+        self._sliceViewDialog.show()
 
     def galleryView(self):
         """
@@ -160,18 +160,17 @@ class GalleryView(QWidget):
             # Read the dimensions of the image
             dim = self._image.getDim()
 
-            self.dx = dim.x
-            self.dy = dim.y
-            self.dz = dim.z
+            self._dx = dim.x
+            self._dy = dim.y
+            self._dz = dim.z
 
-            if self.dz > 1:  # The image has a volumes
+            if self._dz > 1:  # The image has a volumes
                 # Create a numpy 3D array with the image values pixel
                 self._array3D = np.array(self._image, copy=False)
                 self.createGalleryViewTable()
             else:
                 self.createErrorTextLoadingImage()
                 self._image = None
-
 
     def createErrorTextLoadingImage(self):
         """
@@ -187,123 +186,121 @@ class GalleryView(QWidget):
         """
         Create a main windows with the Gallery View Table
         """
+        self.setWindowTitle('Gallery-View')
         # Create a main window
         self.setGeometry(300, 150, 700, 550)
         self.setMinimumWidth(515)
         self.setMinimumHeight(400)
-        self.verticalLayout = QVBoxLayout(self)
-        self.setLayout(self.verticalLayout.layout())
+        self._verticalLayout = QVBoxLayout(self)
+        self.setLayout(self._verticalLayout.layout())
 
         # Create a tool bar
-        self.galleryViewVerticalLayout = QVBoxLayout()
+        self._galleryViewVerticalLayout = QVBoxLayout()
 
-        self.optionFrame = QFrame(self)
-        self.optionFrame.setFrameShape(QFrame.StyledPanel)
-        self.optionFrame.setFrameShadow(QFrame.Raised)
+        self._optionFrame = QFrame(self)
+        self._optionFrame.setFrameShape(QFrame.StyledPanel)
+        self._optionFrame.setFrameShadow(QFrame.Raised)
 
-        self.horizontalLayout = QHBoxLayout(self.optionFrame)
+        self._horizontalLayout = QHBoxLayout(self._optionFrame)
 
-        self.zoomLabel = QLabel(self.optionFrame)
-        self.zoomLabel.setPixmap(qta.icon('fa.search').pixmap(20, QIcon.Normal,
+        self._zoomLabel = QLabel(self._optionFrame)
+        self._zoomLabel.setPixmap(qta.icon('fa.search').pixmap(20, QIcon.Normal,
                                                                QIcon.On))
-        self.horizontalLayout.addWidget(self.zoomLabel)
+        self._horizontalLayout.addWidget(self._zoomLabel)
 
-        self.zoomSpinBox = QSpinBox(self.optionFrame)
-        self.zoomSpinBox.setMaximumHeight(400)
-        self.zoomSpinBox.setMinimum(50)
-        self.zoomSpinBox.setMaximum(200)
-        self.zoomSpinBox.setValue(100)
-        self.zoomSpinBox.setSingleStep(1)
-        self.horizontalLayout.addWidget(self.zoomSpinBox)
-        self.zoomSpinBox.valueChanged.connect(self._onSliceZoom)
+        self._zoomSpinBox = QSpinBox(self._optionFrame)
+        self._zoomSpinBox.setMaximumHeight(400)
+        self._zoomSpinBox.setMinimum(50)
+        self._zoomSpinBox.setMaximum(200)
+        self._zoomSpinBox.setValue(100)
+        self._zoomSpinBox.setSingleStep(1)
+        self._horizontalLayout.addWidget(self._zoomSpinBox)
+        self._zoomSpinBox.valueChanged.connect(self._onSliceZoom)
 
-        self.goToItemLabel = QLabel(self.optionFrame)
-        self.goToItemLabel.setPixmap(qta.icon('fa.long-arrow-down').pixmap(20,
-                                                               QIcon.Normal,
-                                                               QIcon.On))
+        self._goToItemLabel = QLabel(self._optionFrame)
+        self._goToItemLabel.setPixmap(qta.icon('fa.long-arrow-down').
+                                      pixmap(20, QIcon.Normal, QIcon.On))
 
-        self.horizontalLayout.addWidget(self.goToItemLabel)
+        self._horizontalLayout.addWidget(self._goToItemLabel)
 
-        self.gotoItemSpinBox = QSpinBox(self.optionFrame)
-        self.gotoItemSpinBox.setMinimum(1)
-        self.gotoItemSpinBox.valueChanged.connect(self._onGotoItem)
+        self._gotoItemSpinBox = QSpinBox(self._optionFrame)
+        self._gotoItemSpinBox.setMinimum(1)
+        self._gotoItemSpinBox.valueChanged.connect(self._onGotoItem)
 
-        self.horizontalLayout.addWidget(self.gotoItemSpinBox)
+        self._horizontalLayout.addWidget(self._gotoItemSpinBox)
 
-        self.colsFormLayout = QFormLayout()
-        self.colsLabel = QLabel(self.optionFrame)
-        self.colsLabel.setText('Cols')
+        self._colsFormLayout = QFormLayout()
+        self._colsLabel = QLabel(self._optionFrame)
+        self._colsLabel.setText('Cols')
+        self._colsFormLayout.setWidget(0, QFormLayout.LabelRole, self._colsLabel)
 
-        self.colsFormLayout.setWidget(0, QFormLayout.LabelRole, self.colsLabel)
+        self._colsSpinBox = QSpinBox(self._optionFrame)
+        self._colsSpinBox.setEnabled(False)
+        self._colsSpinBox.setMinimum(1)
+        self._colsSpinBox.setValue(int(self.width() / (self._iconWidth + 10)))
+        self._colsFormLayout.setWidget(0, QFormLayout.FieldRole,
+                                       self._colsSpinBox)
 
-        self.colsSpinBox = QSpinBox(self.optionFrame)
-        self.colsSpinBox.setEnabled(False)
-        self.colsSpinBox.setMinimum(1)
-        self.colsSpinBox.setValue(int(self.width() / (self._iconWidth+10)))
-        self.colsFormLayout.setWidget(0, QFormLayout.FieldRole,
-                                      self.colsSpinBox)
+        self._horizontalLayout.addLayout(self._colsFormLayout)
 
-        self.horizontalLayout.addLayout(self.colsFormLayout)
+        self._rowsFormLayout = QFormLayout()
+        self._rowsLabel = QLabel(self._optionFrame)
+        self._rowsLabel.setText('Rows')
 
-        self.rowsFormLayout = QFormLayout()
-        self.rowsLabel = QLabel(self.optionFrame)
-        self.rowsLabel.setText('Rows')
+        self._rowsFormLayout.setWidget(0, QFormLayout.LabelRole, self._rowsLabel)
 
-        self.rowsFormLayout.setWidget(0, QFormLayout.LabelRole, self.rowsLabel)
+        self._rowsSpinBox = QSpinBox(self._optionFrame)
+        self._rowsSpinBox.setEnabled(False)
+        self._rowsSpinBox.setValue(int(self._dz / int(self.width() /
+                                                      (self._iconWidth+10))))
+        self._rowsSpinBox.setMinimum(1)
+        self._rowsFormLayout.setWidget(0, QFormLayout.FieldRole,
+                                       self._rowsSpinBox)
 
-        self.rowsSpinBox = QSpinBox(self.optionFrame)
-        self.rowsSpinBox.setEnabled(False)
-        self.rowsSpinBox.setValue(int(self.dz / int(self.width() /
-                                                    (self._iconWidth+10))))
-        self.rowsSpinBox.setMinimum(1)
-        self.rowsFormLayout.setWidget(0, QFormLayout.FieldRole,
-                                      self.rowsSpinBox)
+        self._horizontalLayout.addLayout(self._rowsFormLayout)
 
-        self.horizontalLayout.addLayout(self.rowsFormLayout)
-
-        self.resliceComboBox = QComboBox(self.optionFrame)
-        self.resliceComboBox.insertItem(0, 'Z Axis (Front View)')
-        self.resliceComboBox.insertItem(1, 'Y Axis (Top View)')
-        self.resliceComboBox.insertItem(2, 'X Axis (Right View)')
-        self.resliceComboBox.currentIndexChanged.connect(
+        self._resliceComboBox = QComboBox(self._optionFrame)
+        self._resliceComboBox.insertItem(0, 'Z Axis (Front View)')
+        self._resliceComboBox.insertItem(1, 'Y Axis (Top View)')
+        self._resliceComboBox.insertItem(2, 'X Axis (Right View)')
+        self._resliceComboBox.currentIndexChanged.connect(
             self._onGalleryViewPlaneChanged)
 
-        self.horizontalLayout.addWidget(self.resliceComboBox)
+        self._horizontalLayout.addWidget(self._resliceComboBox)
 
         self.optionsHorizontalSpacer = QSpacerItem(40, 20,
                                                    QSizePolicy.Expanding,
                                                    QSizePolicy.Minimum)
 
-        self.horizontalLayout.addItem(self.optionsHorizontalSpacer)
+        self._horizontalLayout.addItem(self.optionsHorizontalSpacer)
 
-        self.galleryViewVerticalLayout.addWidget(self.optionFrame)
+        self._galleryViewVerticalLayout.addWidget(self._optionFrame)
 
         # Create a Table View
 
-        self.tableSlices = QListView(self)
-        self.galleryViewVerticalLayout.addWidget(self.tableSlices)
-        self.tableSlices.setIconSize(QSize(self._iconWidth, self._iconHeight))
-        self.tableSlices.setViewMode(QListView.IconMode)
-        self.tableSlices.setResizeMode(QListView.Adjust)
+        self._tableSlices = QListView(self)
+        self._galleryViewVerticalLayout.addWidget(self._tableSlices)
+        self._tableSlices.setIconSize(QSize(self._iconWidth, self._iconHeight))
+        self._tableSlices.setViewMode(QListView.IconMode)
+        self._tableSlices.setResizeMode(QListView.Adjust)
+        self._tableSlices.setSpacing(1)
 
-        self.tableSlices.clicked.connect(self._onTableWidgetSliceClicked)
-        self.tableSlices.doubleClicked.connect(
-            self.__onTableWidgetSliceDoubleClicked)
-        self.tableSlices.iconSizeChanged.connect(self._onIconSizeChange)
+        self._tableSlices.clicked.connect(self._onTableWidgetSliceClicked)
+        self._tableSlices.doubleClicked.connect(
+            self._onTableWidgetSliceDoubleClicked)
+        self._tableSlices.iconSizeChanged.connect(self._onIconSizeChange)
 
+        self._verticalLayout.addLayout(self._galleryViewVerticalLayout)
 
-        self.verticalLayout.addLayout(self.galleryViewVerticalLayout)
-
-        self.fillTableGalleryView(self.resliceComboBox.currentIndex())
+        self.fillTableGalleryView(self._resliceComboBox.currentIndex())
 
     def setupProperties(self):
         """
         Setup all components
-        :return:
         """
         if self._image:
             self._image = None
-            self.tableSlices.close()
+            self._tableSlices.close()
             self.close()
 
     def fillTableGalleryView(self, plane):
@@ -313,15 +310,15 @@ class GalleryView(QWidget):
         :param plane: dimension plane (x, y, z)
         """
 
-        self.gotoItemSpinBox.setValue(1)
+        self._gotoItemSpinBox.setValue(1)
 
         self._model = GalleryDataModel(self, QSize(self._iconWidth,
                                                    self._iconHeight))
 
         if plane == 0:  # Display the slices on the Front View
 
-            self.gotoItemSpinBox.setMaximum(self.dz)
-            for sliceCount in range(0, self.dz):
+            self._gotoItemSpinBox.setMaximum(self._dz)
+            for sliceCount in range(0, self._dz):
 
                 sliceZ = self._array3D[sliceCount, :, :]
 
@@ -331,8 +328,8 @@ class GalleryView(QWidget):
 
         elif plane == 1:  # Display data slices on the Top View
 
-                self.gotoItemSpinBox.setMaximum(self.dy)
-                for sliceCount in range(0, self.dy):
+                self._gotoItemSpinBox.setMaximum(self._dy)
+                for sliceCount in range(0, self._dy):
 
                     sliceY = self._array3D[:, sliceCount, :]
                     item = QStandardItem()
@@ -341,19 +338,18 @@ class GalleryView(QWidget):
 
         else:  # Display the slices on the Right View
 
-            self.gotoItemSpinBox.setMaximum(self.dx)
-            for sliceCount in range(0, self.dx):
+            self._gotoItemSpinBox.setMaximum(self._dx)
+            for sliceCount in range(0, self._dx):
 
                 sliceX = self._array3D[:, :, sliceCount]
                 item = QStandardItem()
                 self._model.appendRow(item)
                 item.setData(sliceX, Qt.UserRole)
 
-        self.tableSlices.setModel(self._model)
-        self.tableSlices.setModelColumn(0)
-        self.tableSlices.setItemDelegate(self._itemDelegate)
-        #self.tableSlices.setCurrentIndex(self._model.index(0, 0))
-
+        self._tableSlices.setModel(self._model)
+        self._tableSlices.setModelColumn(0)
+        self._tableSlices.setItemDelegate(self._itemDelegate)
+        #self._tableSlices.setCurrentIndex(self._model.index(0, 0))
 
     @staticmethod
     def isEmImage(imagePath):
@@ -373,12 +369,6 @@ class ImageItemDelegate(QStyledItemDelegate):
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._iconWidth = iconWidth
         self._iconHeight = iconHeight
-
-    def createEditor(self, parent, option, index):
-        """
-        Otherwise an editor is created if the user clicks in this cell.
-        """
-        return None
 
     def paint(self, painter, option, index):
         """
@@ -401,7 +391,7 @@ class ImageItemDelegate(QStyledItemDelegate):
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
             self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(8, 8, option.rect.width()-16, option.rect.height()-16))
+                QRectF(9, 9, option.rect.width()-17, option.rect.height()-17))
 
             if option.state & QStyle.State_HasFocus:
                 pen = QPen(Qt.DashDotDotLine)
@@ -487,6 +477,13 @@ class GalleryDataModel(QStandardItemModel):
 
         return QStandardItemModel.setData(self, qModelIndex, value, role)
 
+    def setIconSize(self, size):
+        """
+        Sets the size for renderable items
+        :param size: QSize
+        """
+        self._iconSize = size
+
     def flags(self, qModelIndex):
         """
         Reimplemented from QStandardItemModel
@@ -498,10 +495,5 @@ class GalleryDataModel(QStandardItemModel):
         return QStandardItemModel.flags(self, qModelIndex) & ~Qt.ItemIsEditable \
                & ~fl
 
-    def setIconSize(self, size):
-        """
-        Sets the size for renderable items
-        :param size: QSize
-        """
-        self._iconSize = size
+
 

@@ -287,7 +287,7 @@ class ImageBox(QWidget):
             origW = self.image.width()
             origH = self.image.height()
             
-            if compW<=0 or compH<=0:
+            if compW <= 0 or compH <= 0 or origW <= 0 or origH <= 0:
                return None
         
             rw = compW/(origW*1.0)        

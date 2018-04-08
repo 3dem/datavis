@@ -22,13 +22,13 @@ class VolumeSlice(QWidget):
 
         self._imagePath = kwargs.get('imagePath')
         self._image = None
-        self.enableSlicesLine = kwargs.get('--enable-slicesLines', False)
-        self.enableAxis = kwargs.get('--enable-axis', False)
+        self._enableSlicesLine = kwargs.get('--enable-slicesLines', False)
+        self._enableAxis = kwargs.get('--enable-axis', False)
         if self._imagePath:
             if self.isEmImage(self._imagePath):
                 self.setMinimumWidth(400)
                 self.setMinimumHeight(400)
-                self._initComponents()
+                self.__initComponents__()
                 self.volumeSlice()
 
     def _onTopSliderChange(self, value):
@@ -36,30 +36,30 @@ class VolumeSlice(QWidget):
         Display a Top View Slice in a specific value
         :param value: value of Slide
         """
-        self.sliceY = value
-        self.topLabelValue.setText(str(value))
-        self.topView.setImage(self._array3D[:, self.sliceY, :])
-        self.renderArea.setShiftY(40*value/self.dy)
+        self._sliceY = value
+        self._topLabelValue.setText(str(value))
+        self._topView.setImage(self._array3D[:, self._sliceY, :])
+        self._renderArea.setShiftY(40 * value / self._dy)
 
     def _onFrontSliderChange(self, value):
         """
          Display a Front View Slice in a specific value
         :param value: value of Slide
         """
-        self.sliceZ = value
-        self.frontLabelValue.setText(str(value))
-        self.frontView.setImage(self._array3D[self.sliceZ, :, :])
-        self.renderArea.setShiftZ(40*value/self.dz)
+        self._sliceZ = value
+        self._frontLabelValue.setText(str(value))
+        self._frontView.setImage(self._array3D[self._sliceZ, :, :])
+        self._renderArea.setShiftZ(40 * value / self._dz)
 
     def _onRightSliderChange(self, value):
         """
         Display a Front View Slice in a specific value
         :param value: value of Slide
         """
-        self.sliceX = value
-        self.rightLabelValue.setText(str(value))
-        self.rightView.setImage(self._array3D[:, :, self.sliceX])
-        self.renderArea.setShiftX(40*value/self.dx)
+        self._sliceX = value
+        self._rightLabelValue.setText(str(value))
+        self._rightView.setImage(self._array3D[:, :, self._sliceX])
+        self._renderArea.setShiftX(40 * value / self._dx)
 
     def _onTopLineVChange(self, pos):
         """
@@ -68,7 +68,7 @@ class VolumeSlice(QWidget):
         :param pos: new pos of the horizontal line
         """
         posX = pos.x()
-        self.rightSlider.setValue(posX)
+        self._rightSlider.setValue(posX)
         self._onRightSliderChange(int(posX))
 
     def _onTopLineHChange(self, pos):
@@ -78,17 +78,18 @@ class VolumeSlice(QWidget):
         :param pos: new pos of the horizontal line
         """
         posY = pos.y()
-        self.frontSlider.setValue(posY)
+        self._frontSlider.setValue(posY)
         self._onFrontSliderChange(int(posY))
 
     def _onFrontLineHChange(self, pos):
         """
-        This Slot is executed when the Horizontal Line in the Front View is moved.
+        This Slot is executed when the Horizontal Line in the Front View is
+        moved.
         Display a slices in the top plane
         :param pos: new pos of the horizontal line
         """
         posZ = pos.y()
-        self.topSlider.setValue(posZ)
+        self._topSlider.setValue(posZ)
         self._onTopSliderChange(int(posZ))
 
     def _onFrontLineVChange(self, pos):
@@ -98,17 +99,18 @@ class VolumeSlice(QWidget):
         :param pos: new pos of the vertical line
         """
         pos1 = pos.x()
-        self.rightSlider.setValue(pos1)
+        self._rightSlider.setValue(pos1)
         self._onRightSliderChange(int(pos1))
 
     def _onRightLineHChange(self, pos):
         """
-        This Slot is executed when the Horizontal Line in the Right View is moved.
+        This Slot is executed when the Horizontal Line in the Right View is
+        moved.
         Display a slices in the top plane
         :param pos: new pos of the horizontal line
         """
         pos1 = pos.y()
-        self.topSlider.setValue(pos1)
+        self._topSlider.setValue(pos1)
         self._onTopSliderChange(int(pos1))
 
     def _onRightLineVChange(self, pos):
@@ -118,31 +120,31 @@ class VolumeSlice(QWidget):
         :param pos: new pos of the vertical line
         """
         pos1 = pos.x()
-        self.frontSlider.setValue(pos1)
+        self._frontSlider.setValue(pos1)
         self._onFrontSliderChange(int(pos1))
 
-    def _initComponents(self):
+    def __initComponents__(self):
         """
         Init all Volume Slice Components
         :return:
         """
         self._image = None
-        self.topView = pg.ImageView(self, view=pg.ViewBox())
-        self.topView.getView().setBackgroundColor(self.palette().color(QPalette.
-                                                                       Window))
-        self.topWidget = QFrame(self)
+        self._topView = pg.ImageView(self, view=pg.ViewBox())
+        self._topView.getView().setBackgroundColor(self.palette().color(QPalette.
+                                                                        Window))
+        self._topWidget = QFrame(self)
 
-        self.frontView = pg.ImageView(self, view=pg.ViewBox())
-        self.frontView.getView().setBackgroundColor(self.palette().color(
+        self._frontView = pg.ImageView(self, view=pg.ViewBox())
+        self._frontView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
-        self.frontWidget = QFrame(self)
+        self._frontWidget = QFrame(self)
 
-        self.rightView = pg.ImageView(self, view=pg.ViewBox())
-        self.rightView.getView().setBackgroundColor(self.palette().color(
+        self._rightView = pg.ImageView(self, view=pg.ViewBox())
+        self._rightView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
-        self.rightWidget = QFrame(self)
+        self._rightWidget = QFrame(self)
 
-        self.renderArea = RenderArea()
+        self._renderArea = RenderArea()
 
     def getImage(self):
         """
@@ -164,13 +166,13 @@ class VolumeSlice(QWidget):
         """
         if self._image:
             self._image = None
-            self.topView.close()
-            self.frontView.close()
-            self.rightView.close()
-            self.topWidget.close()
-            self.rightWidget.close()
-            self.frontWidget.close()
-            self.renderArea.close()
+            self._topView.close()
+            self._frontView.close()
+            self._rightView.close()
+            self._topWidget.close()
+            self._rightWidget.close()
+            self._frontWidget.close()
+            self._renderArea.close()
             self.close()
 
     def volumeSlice(self):
@@ -187,34 +189,34 @@ class VolumeSlice(QWidget):
             # Read the dimensions of the image
             dim = self._image.getDim()
 
-            self.dx = dim.x
-            self.dy = dim.y
-            self.dz = dim.z
+            self._dx = dim.x
+            self._dy = dim.y
+            self._dz = dim.z
 
-            if self.dz > 1:  # The image has a volumes
+            if self._dz > 1:  # The image has a volumes
 
                 # Create a numpy 3D array with the image values pixel
                 self._array3D = np.array(self._image, copy=False)
 
-                self.sliceZ = int(self.dz / 2)
-                self.sliceY = int(self.dy / 2)
-                self.sliceX = int(self.dx / 2)
+                self._sliceZ = int(self._dz / 2)
+                self._sliceY = int(self._dy / 2)
+                self._sliceX = int(self._dx / 2)
 
                 # Create a window with three ImageView widgets with
                 # central slice on each axis
-                self.createVolumeSliceDialog(self.dx, self.dy, self.dz)
+                self.createVolumeSliceDialog(self._dx, self._dy, self._dz)
 
                 # Display the data on the Top View
-                self.topView.setImage(self._array3D[:, self.sliceY, :])
-                self.topView.getView().setAspectLocked(True)
+                self._topView.setImage(self._array3D[:, self._sliceY, :])
+                self._topView.getView().setAspectLocked(True)
 
                 # Display the data on the Front View
-                self.frontView.setImage(self._array3D[self.sliceZ, :, :])
-                self.frontView.getView().setAspectLocked(True)
+                self._frontView.setImage(self._array3D[self._sliceZ, :, :])
+                self._frontView.getView().setAspectLocked(True)
 
                 # Display the data on the Right View
-                self.rightView.setImage(self._array3D[:, :, self.sliceX])
-                self.rightView.getView().setAspectLocked(True)
+                self._rightView.setImage(self._array3D[:, :, self._sliceX])
+                self._rightView.getView().setAspectLocked(True)
             else:
                 self.createErrorTextLoadingImage()
                 self.setupProperties()
@@ -237,114 +239,115 @@ class VolumeSlice(QWidget):
         :param y: number of slices in the top view
         :param z: number of slices in the front view
         """
+        self.setWindowTitle('Volume-Slicer')
         # Create a main widgets
-        self.gridLayoutSlice = QGridLayout(self)
-        self.setLayout(self.gridLayoutSlice.layout())
+        self._gridLayoutSlice = QGridLayout(self)
+        self.setLayout(self._gridLayoutSlice.layout())
 
         # Create a Top View Slice (widgets)
-        self.toplayout = QGridLayout()
-        self.topWidget.setLayout(self.toplayout.layout())
-        self.topSlider = QSlider(self)
-        self.topSlider.setMinimum(0)
-        self.topSlider.setMaximum(y-1)
-        self.topSlider.setValue(int(y / 2))
+        self._toplayout = QGridLayout()
+        self._topWidget.setLayout(self._toplayout.layout())
+        self._topSlider = QSlider(self)
+        self._topSlider.setMinimum(0)
+        self._topSlider.setMaximum(y - 1)
+        self._topSlider.setValue(int(y / 2))
 
-        self.topLabelValue = QLabel(self)
-        self.topLabelValue.setText(str(self.topSlider.value()))
-        self.topLabelValue.setAlignment(Qt.AlignCenter)
+        self._topLabelValue = QLabel(self)
+        self._topLabelValue.setText(str(self._topSlider.value()))
+        self._topLabelValue.setAlignment(Qt.AlignCenter)
 
-        self.topSlider.valueChanged.connect(self._onTopSliderChange)
+        self._topSlider.valueChanged.connect(self._onTopSliderChange)
         sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(
-            self.topSlider.sizePolicy().hasHeightForWidth())
-        self.topSlider.setSizePolicy(sizePolicy)
-        self.topSlider.setOrientation(Qt.Horizontal)
+            self._topSlider.sizePolicy().hasHeightForWidth())
+        self._topSlider.setSizePolicy(sizePolicy)
+        self._topSlider.setOrientation(Qt.Horizontal)
 
-        self.toplayout.addWidget(self.topLabelValue, 0, 2)
-        self.toplayout.addWidget(QLabel('Top View'), 0, 0)
-        self.toplayout.addWidget(self.topSlider, 0, 1)
-        self.toplayout.setAlignment(Qt.AlignCenter)
+        self._toplayout.addWidget(self._topLabelValue, 0, 2)
+        self._toplayout.addWidget(QLabel('Top View'), 0, 0)
+        self._toplayout.addWidget(self._topSlider, 0, 1)
+        self._toplayout.setAlignment(Qt.AlignCenter)
 
         # Create a Front View Slice (widgets)
-        self.frontlayout = QGridLayout()
-        self.frontWidget.setLayout(self.frontlayout.layout())
-        self.frontSlider = QSlider(self)
-        self.frontSlider.setMinimum(0)
-        self.frontSlider.setMaximum(z-1)
-        self.frontSlider.setValue(int(z/2))
+        self._frontlayout = QGridLayout()
+        self._frontWidget.setLayout(self._frontlayout.layout())
+        self._frontSlider = QSlider(self)
+        self._frontSlider.setMinimum(0)
+        self._frontSlider.setMaximum(z - 1)
+        self._frontSlider.setValue(int(z / 2))
 
-        self.frontLabelValue = QLabel(self)
-        self.frontLabelValue.setText(str(self.frontSlider.value()))
-        self.frontLabelValue.setAlignment(Qt.AlignCenter)
+        self._frontLabelValue = QLabel(self)
+        self._frontLabelValue.setText(str(self._frontSlider.value()))
+        self._frontLabelValue.setAlignment(Qt.AlignCenter)
 
-        self.frontSlider.valueChanged.connect(self._onFrontSliderChange)
+        self._frontSlider.valueChanged.connect(self._onFrontSliderChange)
         sizePolicy = QSizePolicy(QSizePolicy.Minimum,
                                  QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(
-            self.frontSlider.sizePolicy().hasHeightForWidth())
-        self.frontSlider.setSizePolicy(sizePolicy)
-        self.frontSlider.setOrientation(Qt.Horizontal)
+            self._frontSlider.sizePolicy().hasHeightForWidth())
+        self._frontSlider.setSizePolicy(sizePolicy)
+        self._frontSlider.setOrientation(Qt.Horizontal)
 
-        self.frontlayout.addWidget(self.frontLabelValue, 0, 2)
-        self.frontlayout.addWidget(QLabel('Front View'), 0, 0)
-        self.frontlayout.addWidget(self.frontSlider, 0, 1)
-        self.frontlayout.setAlignment(Qt.AlignCenter)
+        self._frontlayout.addWidget(self._frontLabelValue, 0, 2)
+        self._frontlayout.addWidget(QLabel('Front View'), 0, 0)
+        self._frontlayout.addWidget(self._frontSlider, 0, 1)
+        self._frontlayout.setAlignment(Qt.AlignCenter)
 
         # Create a Right View Slice (widgets)
-        self.rightlayout = QGridLayout()
-        self.rightWidget.setLayout(self.rightlayout.layout())
-        self.rightSlider = QSlider(self)
-        self.rightSlider.setMinimum(0)
-        self.rightSlider.setMaximum(x-1)
-        self.rightSlider.setValue(int(x / 2))
+        self._rightlayout = QGridLayout()
+        self._rightWidget.setLayout(self._rightlayout.layout())
+        self._rightSlider = QSlider(self)
+        self._rightSlider.setMinimum(0)
+        self._rightSlider.setMaximum(x - 1)
+        self._rightSlider.setValue(int(x / 2))
 
-        self.rightLabelValue = QLabel(self)
-        self.rightLabelValue.setText(str(self.rightSlider.value()))
-        self.rightLabelValue.setAlignment(Qt.AlignCenter)
+        self._rightLabelValue = QLabel(self)
+        self._rightLabelValue.setText(str(self._rightSlider.value()))
+        self._rightLabelValue.setAlignment(Qt.AlignCenter)
 
-        self.rightSlider.valueChanged.connect(self._onRightSliderChange)
+        self._rightSlider.valueChanged.connect(self._onRightSliderChange)
         sizePolicy = QSizePolicy(QSizePolicy.Minimum,
                                  QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(
-            self.rightSlider.sizePolicy().hasHeightForWidth())
-        self.rightSlider.setSizePolicy(sizePolicy)
-        self.rightSlider.setOrientation(Qt.Horizontal)
+            self._rightSlider.sizePolicy().hasHeightForWidth())
+        self._rightSlider.setSizePolicy(sizePolicy)
+        self._rightSlider.setOrientation(Qt.Horizontal)
 
-        self.rightlayout.addWidget(self.rightLabelValue, 0, 2)
-        self.rightlayout.addWidget(QLabel('Right View'), 0, 0)
-        self.rightlayout.addWidget(self.rightSlider, 0, 1)
-        self.rightlayout.setAlignment(Qt.AlignCenter)
+        self._rightlayout.addWidget(self._rightLabelValue, 0, 2)
+        self._rightlayout.addWidget(QLabel('Right View'), 0, 0)
+        self._rightlayout.addWidget(self._rightSlider, 0, 1)
+        self._rightlayout.setAlignment(Qt.AlignCenter)
 
         # Put into the Grid all components
 
-        self.gridLayoutSlice.addWidget(self.topView, 0, 0)
-        self.gridLayoutSlice.addWidget(self.renderArea, 0, 1)
-        self.gridLayoutSlice.addWidget(self.topWidget, 1, 0)
+        self._gridLayoutSlice.addWidget(self._topView, 0, 0)
+        self._gridLayoutSlice.addWidget(self._renderArea, 0, 1)
+        self._gridLayoutSlice.addWidget(self._topWidget, 1, 0)
 
-        self.gridLayoutSlice.addWidget(self.frontView, 2, 0)
-        self.gridLayoutSlice.addWidget(self.frontWidget, 3, 0)
+        self._gridLayoutSlice.addWidget(self._frontView, 2, 0)
+        self._gridLayoutSlice.addWidget(self._frontWidget, 3, 0)
 
-        self.gridLayoutSlice.addWidget(self.rightView, 2, 1)
-        self.gridLayoutSlice.addWidget(self.rightWidget, 3, 1)
+        self._gridLayoutSlice.addWidget(self._rightView, 2, 1)
+        self._gridLayoutSlice.addWidget(self._rightWidget, 3, 1)
 
         # Disable all image operations
-        self.topView.ui.menuBtn.hide()
-        self.topView.ui.roiBtn.hide()
-        self.topView.ui.histogram.hide()
+        self._topView.ui.menuBtn.hide()
+        self._topView.ui.roiBtn.hide()
+        self._topView.ui.histogram.hide()
 
-        self.frontView.ui.menuBtn.hide()
-        self.frontView.ui.roiBtn.hide()
-        self.frontView.ui.histogram.hide()
+        self._frontView.ui.menuBtn.hide()
+        self._frontView.ui.roiBtn.hide()
+        self._frontView.ui.histogram.hide()
 
-        self.rightView.ui.menuBtn.hide()
-        self.rightView.ui.roiBtn.hide()
-        self.rightView.ui.histogram.hide()
+        self._rightView.ui.menuBtn.hide()
+        self._rightView.ui.roiBtn.hide()
+        self._rightView.ui.histogram.hide()
 
         """ plotTopView = self.topView.getView()
         plotTopView.showAxis('bottom', False)
@@ -369,37 +372,16 @@ class VolumeSlice(QWidget):
 class RenderArea(QWidget):
     def __init__(self, parent=None):
         super(RenderArea, self).__init__(parent)
-        self.shiftx = 0
-        self.widthx = 40
-        self.shifty = 0
-        self.widthy = 40
-        self.shiftz = 0
-        self.widthz = 20
-        self.boxaxis = 'z'
-        self.oldPosX = 60
+        self._shiftx = 0
+        self._widthx = 40
+        self._shifty = 0
+        self._widthy = 40
+        self._shiftz = 0
+        self._widthz = 20
+        self._boxaxis = 'z'
+        self._oldPosX = 60
 
         self.setBackgroundRole(QPalette.Base)
-
-    def minimumSizeHint(self):
-        return QSize(30, 30)
-
-    def sizeHint(self):
-        return QSize(80, 80)
-
-    def setShiftZ(self, value):
-        self.boxaxis = 'z'
-        self.shiftz = value
-        self.update()
-
-    def setShiftY(self, value):
-        self.boxaxis = 'y'
-        self.shifty = value
-        self.update()
-
-    def setShiftX(self, value):
-        self.boxaxis = 'x'
-        self.shiftx = value
-        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -408,9 +390,9 @@ class RenderArea(QWidget):
 
         ox = 20 + self.width()/8
         oy = 60
-        wx = self.widthx
-        wy = self.widthy
-        wz = self.widthz
+        wx = self._widthx
+        wy = self._widthy
+        wz = self._widthz
 
         # Draw Y axis
         ty = oy - wy
@@ -448,12 +430,12 @@ class RenderArea(QWidget):
         painter.setBrush(QColor(220, 220, 220, 100))
         rectPath = QPainterPath()
 
-        self.size = float(self.widthx)
+        self.size = float(self._widthx)
         bw = 30
         bwz = float(wz) / wx * bw
 
-        if self.boxaxis == 'z':
-            shiftz = float(self.widthz) / self.size * self.shiftz
+        if self._boxaxis == 'z':
+            shiftz = float(self._widthz) / self.size * self._shiftz
             box = ox - shiftz
             boy = oy + shiftz
             rectPath.moveTo(box, boy)
@@ -461,8 +443,8 @@ class RenderArea(QWidget):
             rectPath.lineTo(box + bw, boy - bw)
             rectPath.lineTo(box + bw, boy)
 
-        elif self.boxaxis == 'y':
-            shifty = float(self.widthy) / self.size * self.shifty
+        elif self._boxaxis == 'y':
+            shifty = float(self._widthy) / self.size * self._shifty
             box = ox
             boy = oy - shifty
             rectPath.moveTo(box, boy)
@@ -470,8 +452,8 @@ class RenderArea(QWidget):
             rectPath.lineTo(box + bw - bwz, boy + bwz)
             rectPath.lineTo(box - bwz, boy + bwz)
 
-        elif self.boxaxis == 'x':
-            shiftx = float(self.widthx) / self.size * self.shiftx
+        elif self._boxaxis == 'x':
+            shiftx = float(self._widthx) / self.size * self._shiftx
             box = ox + shiftx
             boy = oy
             rectPath.moveTo(box, boy)
@@ -481,3 +463,25 @@ class RenderArea(QWidget):
 
         rectPath.closeSubpath()
         painter.drawPath(rectPath)
+
+    def setShiftZ(self, value):
+        self._boxaxis = 'z'
+        self._shiftz = value
+        self.update()
+
+    def setShiftY(self, value):
+        self._boxaxis = 'y'
+        self._shifty = value
+        self.update()
+
+    def setShiftX(self, value):
+        self._boxaxis = 'x'
+        self._shiftx = value
+        self.update()
+
+    def minimumSizeHint(self):
+        return QSize(30, 30)
+
+    def sizeHint(self):
+        return QSize(80, 80)
+

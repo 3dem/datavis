@@ -3,7 +3,9 @@
 
 import os
 import sys
-from PyQt5.QtWidgets import QApplication, QFileSystemModel, QDialog, QLabel
+from PyQt5.QtWidgets import QApplication, QFileSystemModel, QDialog, QLabel, \
+    QMessageBox
+
 from PyQt5.QtCore import QDir
 import em
 from emqt5.widgets.image.browser_window import BrowserWindow
@@ -26,12 +28,12 @@ if __name__ == '__main__':
                                         argument_default=None)
 
     # GLOBAL PARAMETERS
-    argParser.add_argument('--path', type=str, default=None, required=False,
-                           help='3D image path or a specific directory')
-    argParser.add_argument('--slices', type=str, default=['GALLERY', 'AXIS'],
-                           nargs='+', required=False, choices=['GALLERY', 'AXIS'],
+    argParser.add_argument('path', type=str, nargs='?', default=[],
+                            help='3D image path or a specific '
+                                                'directory')
+    argParser.add_argument('--slices', type=str, default=['gallery', 'axis'],
+                           nargs='+', required=False, choices=['gallery', 'axis'],
                            help=' list of accessible')
-
 
     # EM-BROWSER PARAMETERS
     argParser.add_argument('--disable-zoom', default=False,
@@ -69,9 +71,9 @@ if __name__ == '__main__':
     args = argParser.parse_args()
 
     # GENERAL ARGS
-    kwargs['--path'] = args.path
+    kwargs['path'] = QDir.toNativeSeparators(args.path) if len(args.path) else \
+        QDir.currentPath()
     kwargs['--slices'] = args.slices
-
 
     # EM-BROWSER ARGS
     kwargs['--disable-zoom'] = args.disable_zoom
@@ -88,16 +90,12 @@ if __name__ == '__main__':
     kwargs['--iconWidth'] = args.iconWidth
     kwargs['--iconHeight'] = args.iconHeight
 
-    errorDialog = QDialog()
-    errorDialog.setModal(True)
-    errorLabel = QLabel(errorDialog)
-
     if not args.path:  # Display the EM-BROWSER component
 
         kwargs['--path'] = QDir.currentPath()
         browserWin = BrowserWindow(**kwargs)
         browserWin.show()
-    else: # We parse the path
+    else:  # We parse the path
 
         isDir = QDir(args.path)
 
@@ -110,9 +108,9 @@ if __name__ == '__main__':
         else:  # The path constitute a file. In this case we parse this file
 
             directory = QDir(args.path)
-            isExistFile = directory.exists(args.path)
+            isFileExist = directory.exists(args.path)
 
-            if isExistFile:  # The file exist
+            if isFileExist:  # The file exist
 
                 def isEmImage(imagePath):
                     """ Return True if imagePath has an extension recognized as
@@ -133,42 +131,37 @@ if __name__ == '__main__':
                     # Determinate the image dimension
                     z = image.getDim().z
 
-                    if z == 1: # Display the EM-BROWSER component
+                    if z == 1:  # Display the EM-BROWSER component
                         kwargs['--path'] = args.path
                         browserWin = BrowserWindow(**kwargs)
                         browserWin.show()
 
                     else:  # The image has a Volume
                         if len(args.slices) == 1:
-                            if args.slices[0] == 'AXIS':  # Display the Volume Slicer app
+                            if args.slices[0] == 'axis':  # Display the Volume
+                                                          # Slicer app
                                 kwargs['imagePath'] = args.path
                                 volumeSlice = VolumeSlice(**kwargs)
                                 volumeSlice.show()
-                            elif args.slices[0] == 'GALLERY':
+                            elif args.slices[0] == 'gallery':
                                     kwargs['imagePath'] = args.path
                                     galleryView = GalleryView(**kwargs)
                                     galleryView.show()
                             else:
-                                errorDialog.setGeometry(450, 200, 340, 100)
-                                errorLabel.setText(
-                                    '   ERROR: A way to display the image are '
-                                    'required')
-                                errorDialog.show()
-                        else:
-                            errorDialog.setGeometry(450, 200, 340, 100)
-                            errorLabel.setText(
-                                '   ERROR: A way to display the image are '
-                                'required')
-                            errorDialog.show()
-                else: # Display the EM-BROWSER component
+                                QMessageBox.critical(app.parent(), 'ERROR',
+                                                     'A valid way to display '
+                                                     'the image are required')
+                        else:  # Display the EM-BROWSER component
+                            kwargs['--path'] = args.path
+                            browserWin = BrowserWindow(**kwargs)
+                            browserWin.show()
+
+                else:  # Display the EM-BROWSER component
                     kwargs['--path'] = args.path
                     browserWin = BrowserWindow(**kwargs)
                     browserWin.show()
 
             else:  # The file don't exist
-                errorDialog.setGeometry(450, 200, 240, 100)
-                errorLabel.setText(
-                    '   ERROR: A file do not exist.')
-                errorDialog.show()
-
+                QMessageBox.critical(app.parent(), 'ERROR',
+                                     'A file do not exist')
     sys.exit(app.exec_())
