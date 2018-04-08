@@ -508,8 +508,9 @@ class TableView(QWidget):
                 elif self._currentViewMode == GALLERY_VIEW_MODE:
                     galleryRow = (row - 1) % self._itemsXGalleryPage
                     page = self.__getGalleryPage__(row - 1)
-                    self._currentGalleryPage = page
-                    self.__loadCurrentGalleryPage__()
+                    if not page == self._currentGalleryPage:
+                        self._currentGalleryPage = page
+                        self.__loadCurrentGalleryPage__()
                     index = self._listView.model().createIndex(galleryRow, 0)
                     if index.isValid():
                         self._listView.setCurrentIndex(index)
