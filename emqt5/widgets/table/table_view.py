@@ -106,10 +106,13 @@ class TableView(QWidget):
         self._horizontalLayout.addWidget(self._pushButtonPrevPage)
         self._pushButtonPrevPage.setIcon(qta.icon('fa.angle-left'))
         self._pushButtonPrevPage.clicked.connect(self._onListPrevPage)
-        self._lineEditCurrentPage = QLineEdit(self._listViewContainer)
-        self._lineEditCurrentPage.setMaximumSize(50, 25)
-        self._lineEditCurrentPage.setMinimumSize(50, 25)
-        self._horizontalLayout.addWidget(self._lineEditCurrentPage)
+        self._spinBoxCurrentPage = QSpinBox(self._listViewContainer)
+        self._spinBoxCurrentPage.setButtonSymbols(QSpinBox.NoButtons)
+        self._spinBoxCurrentPage.editingFinished.connect(
+            self._onSpinBoxCurrentPageEditingFinished)
+        self._spinBoxCurrentPage.setMaximumSize(50, 25)
+        self._spinBoxCurrentPage.setMinimumSize(50, 25)
+        self._horizontalLayout.addWidget(self._spinBoxCurrentPage)
         self._labelPageCount = QLabel(self._listViewContainer)
         self._horizontalLayout.addWidget(self._labelPageCount)
         self._pushButtonNextPage = QPushButton(self._listViewContainer)
@@ -343,13 +346,12 @@ class TableView(QWidget):
         if self._currentViewMode == ELEMENT_VIEW_MODE:
             return  # not implemented yet
 
-        if self._tableModel:
-            if self._currentViewMode == TABLE_VIEW_MODE:
-                self._stackedLayoud.setCurrentWidget(self._tableView)
-            elif self._currentViewMode == GALLERY_VIEW_MODE:
-                self._stackedLayoud.setCurrentWidget(self._listViewContainer)
+        if self._currentViewMode == TABLE_VIEW_MODE:
+            self._stackedLayoud.setCurrentWidget(self._tableView)
+        elif self._currentViewMode == GALLERY_VIEW_MODE:
+            self._stackedLayoud.setCurrentWidget(self._listViewContainer)
 
-            self._selectRow(self._currentRow + 1)
+        self._selectRow(self._currentRow + 1)
 
     def __setupSpinBoxCurrentRow__(self):
         """
@@ -442,6 +444,7 @@ class TableView(QWidget):
             self._galleryPageCount = int(pTotal)
             self._galleryPageCount += 1 if pTotal - int(pTotal) > 0 else 0
             self._itemsXGalleryPage = pRows * pCols
+            self._spinBoxCurrentPage.setRange(1, self._galleryPageCount)
 
         self._showNumberOfGalleryPage()
 
@@ -562,6 +565,18 @@ class TableView(QWidget):
             self.__loadCurrentGalleryPage__()
             self._showCurrentPapeNumber()
 
+    @pyqtSlot()
+    def _onSpinBoxCurrentPageEditingFinished(self):
+        """
+        Invoked when editing is finished. This happens when the spinbox loses
+        focus and when enter is pressed.
+        """
+        page = self._spinBoxCurrentPage.value()
+        if not self._currentGalleryPage == page - 1 and \
+                page in range(1, self._galleryPageCount + 1):
+            self._currentGalleryPage = page - 1
+            self.__loadCurrentGalleryPage__()
+
     @pyqtSlot(bool)
     def _onListPrevPage(self, checked=True):
         """
@@ -577,7 +592,7 @@ class TableView(QWidget):
         Show the currentPage number in the corresponding widget.
         Now: self._lineEditCurrentPage
         """
-        self._lineEditCurrentPage.setText("%i" % (self._currentGalleryPage + 1))
+        self._spinBoxCurrentPage.setValue(self._currentGalleryPage + 1)
 
     @pyqtSlot()
     def _showNumberOfGalleryPage(self):
