@@ -7,11 +7,11 @@ import os
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QSplitter, QApplication, QTreeView,
                              QFileSystemModel, QLineEdit, QVBoxLayout,
-                             QListWidget, QMainWindow,
+                             QListWidget, QMainWindow, QAbstractItemView,
                              QAction, QToolBar, QLabel, QPushButton,
                              QSpacerItem, QCompleter)
 from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
-                         QItemSelectionModel
+                         QItemSelectionModel, QEvent
 
 from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
@@ -48,14 +48,6 @@ class BrowserWindow(QMainWindow):
                                         iconWidth=150, iconHeight=150)
         self.__initGUI__()
 
-    def _onPathDoubleClick(self, signal):
-        """
-        This slot is executed when the action "double click"  inside the tree
-        view is realized. The tree view path change
-        :param signal: double clicked signal
-        """
-        file_path = self._model.filePath(signal)
-        self.browser.setLineCompleter(self, file_path)
 
     def _onPathEntered(self):
         """
@@ -102,7 +94,6 @@ class BrowserWindow(QMainWindow):
     def _onRefreshActionClicked(self):
         """
         Refreshes the directory information
-        :return:
         """
         dir = QDir(self._imagePath)
         canUp = dir.cdUp()
@@ -123,16 +114,17 @@ class BrowserWindow(QMainWindow):
             self._treeView.collapse(index)
 
     def _onExpandTreeView(self):
-
-         self._imagePath = self._lineCompleter.text()
-         index = self._model.index(QDir.toNativeSeparators(self._imagePath))
-         self._treeView.selectionModel().select(index,
+        """
+        Expand the Tree View item specified by the path
+        """
+        self._imagePath = self._lineCompleter.text()
+        index = self._model.index(QDir.toNativeSeparators(self._imagePath))
+        self._treeView.selectionModel().select(index,
                                                 QItemSelectionModel.ClearAndSelect |
                                                 QItemSelectionModel.Rows)
-
-         self._treeView.expand(index)
-         self._treeView.scrollTo(index)
-         self._treeView.resizeColumnToContents(index.column())
+        self._treeView.expand(index)
+        self._treeView.scrollTo(index)
+        self._treeView.resizeColumnToContents(index.column())
 
     def _onVolumeSliceButtonClicked(self):
         """
@@ -156,6 +148,20 @@ class BrowserWindow(QMainWindow):
         self._imageLayout.addWidget(self._galleryView)
         self._galeryViewButton.setEnabled(False)
         self._volumeSliceButton.setEnabled(True)
+
+    def eventFilter(self, obj, event):
+        """
+        Filters events if this object has been installed as an event filter for
+        the watched object
+        :param obj: watched object
+        :param event: event
+        :return: True if this object has been installed, False i.o.c
+        """
+        if event.type() == QEvent.Resize:
+            ret = QMainWindow.eventFilter(self, obj, event)
+            self._onExpandTreeView()
+            return ret
+        return QMainWindow.eventFilter(self, obj, event)
 
     def __initGUI__(self):
 
@@ -181,6 +187,7 @@ class BrowserWindow(QMainWindow):
 
         # Create a Tree View
         self._treeView = QTreeView(self._widget)
+        self._treeView.installEventFilter(self)
         self._verticalLayout.addWidget(self._treeView)
         self._treeView.clicked.connect(self._onPathClick)
 
@@ -223,8 +230,8 @@ class BrowserWindow(QMainWindow):
                                  QSizePolicy.Maximum)
         sizePolicy.setHorizontalStretch(100)
         sizePolicy.setVerticalStretch(100)
-        self._frame.setMinimumHeight(440)
-        self._frame.setMinimumWidth(440)
+        self._frame.setMinimumHeight(500)
+        self._frame.setMinimumWidth(480)
 
         sizePolicy.setHeightForWidth(self._frame.sizePolicy().hasHeightForWidth())
         self._frame.setSizePolicy(sizePolicy)
@@ -297,26 +304,26 @@ class BrowserWindow(QMainWindow):
         # self.model.setNameFilters(filters)
         # self.model.setNameFilterDisables(False)
 
-        self._lineCompleter.setText(QDir.separator())
+        #  self._lineCompleter.setText(QDir.separator())
         self._model.setRootPath(QDir.separator())
         self._treeView.setModel(self._model)
         self._treeView.setRootIndex(self._model.index(QDir.separator()))
         self._treeView.setSortingEnabled(True)
         self._treeView.resize(640, 380)
 
+        # Config the treeview completer
+        self._completer = QCompleter()
+        self._lineCompleter.setCompleter(self._completer)
+        self._completer.setModel(self._treeView.model())
+        self._treeView.setModel(self._completer.model())
+
         if not self._imagePath:
             self._imagePath = QDir.separator()
         else:
             self._lineCompleter.setText(self._imagePath)
-            self._onExpandTreeView()
             self._onPathEntered()
+            self._onExpandTreeView()
 
-        # Config the treeview completer
-        self._completer = QCompleter()
-        self._lineCompleter.setCompleter(self._completer)
-        #self._completer.setFilterMode(Qt.MatchCaseSensitive)
-        self._completer.setModel(self._treeView.model())
-        self._treeView.setModel(self._completer.model())
         self._lineCompleter.textChanged.connect(self._onExpandTreeView)
         self._lineCompleter.returnPressed.connect(self._onPathEntered)
 
@@ -324,7 +331,7 @@ class BrowserWindow(QMainWindow):
         QMetaObject.connectSlotsByName(self)
 
         # Configure the Main Window
-        self.setGeometry(200, 100, 900, 600)
+        self.setGeometry(150, 100, 1000, 600)
         self.setWindowTitle('EM-Browser')
 
     def retranslateUi(self, MainWindow):

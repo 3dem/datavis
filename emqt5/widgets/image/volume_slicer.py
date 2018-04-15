@@ -3,12 +3,13 @@ import os
 
 from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
                              QGridLayout, QSlider, QVBoxLayout, QHBoxLayout,
-                             QSpacerItem)
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
-
+                             QSpacerItem, QPushButton)
+from PyQt5.QtCore import Qt, QSize, QEvent, QPointF, QRectF
+from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor, QIcon
 import numpy as np
 import pyqtgraph as pg
+import qtawesome as qta
+
 import em
 
 
@@ -26,8 +27,8 @@ class VolumeSlice(QWidget):
         self._enableAxis = kwargs.get('--enable-axis', False)
         if self._imagePath:
             if self.isEmImage(self._imagePath):
-                self.setMinimumWidth(400)
-                self.setMinimumHeight(400)
+                self.setMinimumWidth(500)
+                self.setMinimumHeight(500)
                 self.__initComponents__()
                 self.volumeSlice()
 
@@ -38,8 +39,22 @@ class VolumeSlice(QWidget):
         """
         self._sliceY = value
         self._topLabelValue.setText(str(value))
+
         self._topView.setImage(self._array3D[:, self._sliceY, :])
-        self._renderArea.setShiftY(40 * value / self._dy)
+
+        if self._topViewScale:
+            self._topView.getView().setRange(rect=self._topViewScale,
+                                             padding=0.0)
+
+        self._renderArea.setShiftY(40 * value / self._dy-1)
+
+        if value > 0 and value < self._dy:
+            self._topBackwardButton.setEnabled(True)
+            self._topForwardButton.setEnabled(True)
+        if value == 0:
+            self._topBackwardButton.setEnabled(False)
+        if value == self._dy-1:
+            self._topForwardButton.setEnabled(False)
 
     def _onFrontSliderChange(self, value):
         """
@@ -49,7 +64,20 @@ class VolumeSlice(QWidget):
         self._sliceZ = value
         self._frontLabelValue.setText(str(value))
         self._frontView.setImage(self._array3D[self._sliceZ, :, :])
-        self._renderArea.setShiftZ(40 * value / self._dz)
+
+        if self._frontViewScale:
+            self._frontView.getView().setRange(rect=self._frontViewScale,
+                                             padding=0.0)
+
+        self._renderArea.setShiftZ(40 * value / self._dz-1)
+
+        if value > 0 and value < self._dy:
+            self._frontBackwardButton.setEnabled(True)
+            self._frontForwardButton.setEnabled(True)
+        if value == 0:
+            self._frontBackwardButton.setEnabled(False)
+        if value == self._dy-1:
+            self._frontForwardButton.setEnabled(False)
 
     def _onRightSliderChange(self, value):
         """
@@ -59,7 +87,20 @@ class VolumeSlice(QWidget):
         self._sliceX = value
         self._rightLabelValue.setText(str(value))
         self._rightView.setImage(self._array3D[:, :, self._sliceX])
-        self._renderArea.setShiftX(40 * value / self._dx)
+
+        if self._rightViewScale:
+            self._rightView.getView().setRange(rect=self._rightViewScale,
+                                             padding=0.0)
+
+        self._renderArea.setShiftX(40 * value / self._dx-1)
+
+        if value > 0 and value < self._dy:
+            self._rightBackwardButton.setEnabled(True)
+            self._rightForwardButton.setEnabled(True)
+        if value == 0:
+            self._rightBackwardButton.setEnabled(False)
+        if value == self._dy-1:
+            self._rightForwardButton.setEnabled(False)
 
     def _onTopLineVChange(self, pos):
         """
@@ -123,23 +164,119 @@ class VolumeSlice(QWidget):
         self._frontSlider.setValue(pos1)
         self._onFrontSliderChange(int(pos1))
 
+    def eventFilter(self, obj, event):
+        """
+        Filters events if this object has been installed as an event filter for
+        the obj object.
+        In our reimplementation of this function, we always filter the event.
+        In this case, the function return true.
+        :param obj: object
+        :param event: event
+        :return: True
+        """
+        if event.type() == QEvent.Wheel:
+
+            if obj.name == 'TopView':  # Calculate a Top View scale
+                self._topViewScale = self._topView.getView().viewRect()
+
+            elif obj.name == 'FrontView':  # Calculate a Front View scale
+                self._frontViewScale = self._frontView.getView().viewRect()
+
+            else:  # Calculate a Right View scale
+                self._rightViewScale = self._rightView.getView().viewRect()
+
+        return True
+
+    def _onTopBackwardButtonClicked(self):
+        """
+        Decrease the Top Slider value in one
+        Display a Top View Slice in a specific value
+        :return:
+        """
+        self._topSlider.setValue(self._topSlider.value()-1)
+        self._onTopSliderChange(self._topSlider.value())
+        if self._topSlider.value() == 0:
+            self._topBackwardButton.setEnabled(False)
+
+    def _onTopForwardButtonClicked(self):
+        """
+        Increment the Top Slider value in one
+        Display a Top View Slice in a specific value
+        :return:
+        """
+        self._topSlider.setValue(self._topSlider.value()+1)
+        self._onTopSliderChange(self._topSlider.value())
+        if self._topSlider.value() == self._dy:
+            self._topForwardButton.setEnabled(False)
+
+    def _onFrontBackwardButtonClicked(self):
+        """
+        Decrease the Front Slider value in one
+        Display a Front View Slice in a specific value
+        :return:
+        """
+        self._frontSlider.setValue(self._frontSlider.value()-1)
+        self._onFrontSliderChange(self._frontSlider.value())
+        if self._frontSlider.value() == 0:
+            self._frontBackwardButton.setEnabled(False)
+
+    def _onFrontForwardButtonClicked(self):
+        """
+        Increment the Front Slider value in one
+        Display a Front View Slice in a specific value
+        :return:
+        """
+        self._frontSlider.setValue(self._frontSlider.value()+1)
+        self._onFrontSliderChange(self._frontSlider.value())
+        if self._frontSlider.value() == self._dy:
+            self._frontForwardButton.setEnabled(False)
+
+    def _onRightBackwardButtonClicked(self):
+        """
+        Decrease the Right Slider value in one
+        Display a Right View Slice in a specific value
+        :return:
+        """
+        self._rightSlider.setValue(self._rightSlider.value()-1)
+        self._onRightSliderChange(self._rightSlider.value())
+        if self._rightSlider.value() == 0:
+            self._rightBackwardButton.setEnabled(False)
+
+    def _onRightForwardButtonClicked(self):
+        """
+        Increment the Right Slider value in one
+        Display a Right View Slice in a specific value
+        :return:
+        """
+        self._rightSlider.setValue(self._rightSlider.value()+1)
+        self._onRightSliderChange(self._rightSlider.value())
+        if self._rightSlider.value() == self._dy:
+            self._rightForwardButton.setEnabled(False)
+
     def __initComponents__(self):
         """
         Init all Volume Slice Components
         :return:
         """
         self._image = None
-        self._topView = pg.ImageView(self, view=pg.ViewBox())
-        self._topView.getView().setBackgroundColor(self.palette().color(QPalette.
-                                                                        Window))
+
+        self._topView = pg.ImageView(self, view=pg.ViewBox(), name='TopView')
+        self._topViewScale = None
+        self._topView.installEventFilter(self)
+        self._topView.getView().setBackgroundColor(self.palette().color(
+            QPalette.Window))
         self._topWidget = QFrame(self)
 
-        self._frontView = pg.ImageView(self, view=pg.ViewBox())
+        self._frontView = pg.ImageView(self, view=pg.ViewBox(), name='FrontView')
+        self._frontViewScale = None
+        self._frontView.installEventFilter(self)
         self._frontView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
         self._frontWidget = QFrame(self)
 
-        self._rightView = pg.ImageView(self, view=pg.ViewBox())
+        self._rightView = pg.ImageView(self, view=pg.ViewBox(), name='RightView')
+        self._rightViewScale = None
+        self._rightView.installEventFilter(self)
         self._rightView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
         self._rightWidget = QFrame(self)
@@ -221,7 +358,6 @@ class VolumeSlice(QWidget):
                 self.createErrorTextLoadingImage()
                 self.setupProperties()
 
-
     def createErrorTextLoadingImage(self):
         """
         Create an Error Text because the image do not has a volume
@@ -247,12 +383,12 @@ class VolumeSlice(QWidget):
         # Create a Top View Slice (widgets)
         self._toplayout = QGridLayout()
         self._topWidget.setLayout(self._toplayout.layout())
-        self._topSlider = QSlider(self)
+        self._topSlider = QSlider()
         self._topSlider.setMinimum(0)
         self._topSlider.setMaximum(y - 1)
         self._topSlider.setValue(int(y / 2))
 
-        self._topLabelValue = QLabel(self)
+        self._topLabelValue = QLabel()
         self._topLabelValue.setText(str(self._topSlider.value()))
         self._topLabelValue.setAlignment(Qt.AlignCenter)
 
@@ -265,20 +401,35 @@ class VolumeSlice(QWidget):
         self._topSlider.setSizePolicy(sizePolicy)
         self._topSlider.setOrientation(Qt.Horizontal)
 
-        self._toplayout.addWidget(self._topLabelValue, 0, 2)
+        self._topBackwardButton = QPushButton()
+        self._topBackwardButton.setIcon(qta.icon('fa.fast-backward'))
+        self._topBackwardButton.setMaximumSize(30,15)
+        self._topBackwardButton.clicked.connect(
+            self._onTopBackwardButtonClicked)
+
+        self._topForwardButton = QPushButton()
+        self._topForwardButton.setIcon(qta.icon('fa.fast-forward'))
+        self._topForwardButton.setMaximumSize(30, 15)
+        self._topForwardButton.clicked.connect(
+            self._onTopForwardButtonClicked)
+
         self._toplayout.addWidget(QLabel('Top View'), 0, 0)
-        self._toplayout.addWidget(self._topSlider, 0, 1)
+        self._toplayout.addWidget(self._topBackwardButton, 0, 1)
+        self._toplayout.addWidget(self._topSlider, 0, 2)
+        self._toplayout.addWidget(self._topForwardButton, 0, 3)
+        self._toplayout.addWidget(self._topLabelValue, 0, 4)
+
         self._toplayout.setAlignment(Qt.AlignCenter)
 
         # Create a Front View Slice (widgets)
         self._frontlayout = QGridLayout()
         self._frontWidget.setLayout(self._frontlayout.layout())
-        self._frontSlider = QSlider(self)
+        self._frontSlider = QSlider()
         self._frontSlider.setMinimum(0)
         self._frontSlider.setMaximum(z - 1)
         self._frontSlider.setValue(int(z / 2))
 
-        self._frontLabelValue = QLabel(self)
+        self._frontLabelValue = QLabel()
         self._frontLabelValue.setText(str(self._frontSlider.value()))
         self._frontLabelValue.setAlignment(Qt.AlignCenter)
 
@@ -292,20 +443,34 @@ class VolumeSlice(QWidget):
         self._frontSlider.setSizePolicy(sizePolicy)
         self._frontSlider.setOrientation(Qt.Horizontal)
 
-        self._frontlayout.addWidget(self._frontLabelValue, 0, 2)
+        self._frontBackwardButton = QPushButton()
+        self._frontBackwardButton.setIcon(qta.icon('fa.fast-backward'))
+        self._frontBackwardButton.setMaximumSize(30, 15)
+        self._frontBackwardButton.clicked.connect(
+            self._onFrontBackwardButtonClicked)
+
+        self._frontForwardButton = QPushButton()
+        self._frontForwardButton.setIcon(qta.icon('fa.fast-forward'))
+        self._frontForwardButton.setMaximumSize(30, 15)
+        self._frontForwardButton.clicked.connect(
+            self._onFrontForwardButtonClicked)
+
         self._frontlayout.addWidget(QLabel('Front View'), 0, 0)
-        self._frontlayout.addWidget(self._frontSlider, 0, 1)
+        self._frontlayout.addWidget(self._frontBackwardButton, 0, 1)
+        self._frontlayout.addWidget(self._frontSlider, 0, 2)
+        self._frontlayout.addWidget(self._frontForwardButton, 0, 3)
+        self._frontlayout.addWidget(self._frontLabelValue, 0, 4)
         self._frontlayout.setAlignment(Qt.AlignCenter)
 
         # Create a Right View Slice (widgets)
         self._rightlayout = QGridLayout()
         self._rightWidget.setLayout(self._rightlayout.layout())
-        self._rightSlider = QSlider(self)
+        self._rightSlider = QSlider()
         self._rightSlider.setMinimum(0)
         self._rightSlider.setMaximum(x - 1)
         self._rightSlider.setValue(int(x / 2))
 
-        self._rightLabelValue = QLabel(self)
+        self._rightLabelValue = QLabel()
         self._rightLabelValue.setText(str(self._rightSlider.value()))
         self._rightLabelValue.setAlignment(Qt.AlignCenter)
 
@@ -319,9 +484,23 @@ class VolumeSlice(QWidget):
         self._rightSlider.setSizePolicy(sizePolicy)
         self._rightSlider.setOrientation(Qt.Horizontal)
 
-        self._rightlayout.addWidget(self._rightLabelValue, 0, 2)
+        self._rightBackwardButton = QPushButton()
+        self._rightBackwardButton.setIcon(qta.icon('fa.fast-backward'))
+        self._rightBackwardButton.setMaximumSize(30, 15)
+        self._rightBackwardButton.clicked.connect(
+            self._onRightBackwardButtonClicked)
+
+        self._rightForwardButton = QPushButton()
+        self._rightForwardButton.setIcon(qta.icon('fa.fast-forward'))
+        self._rightForwardButton.setMaximumSize(30, 15)
+        self._rightForwardButton.clicked.connect(
+            self._onRightForwardButtonClicked)
+
         self._rightlayout.addWidget(QLabel('Right View'), 0, 0)
-        self._rightlayout.addWidget(self._rightSlider, 0, 1)
+        self._rightlayout.addWidget(self._rightBackwardButton, 0, 1)
+        self._rightlayout.addWidget(self._rightSlider, 0, 2)
+        self._rightlayout.addWidget(self._rightForwardButton, 0, 3)
+        self._rightlayout.addWidget(self._rightLabelValue, 0, 4)
         self._rightlayout.setAlignment(Qt.AlignCenter)
 
         # Put into the Grid all components
@@ -335,6 +514,10 @@ class VolumeSlice(QWidget):
 
         self._gridLayoutSlice.addWidget(self._rightView, 2, 1)
         self._gridLayoutSlice.addWidget(self._rightWidget, 3, 1)
+
+        # Set the focus to the Top View
+        self._topSlider.setFocus()
+        self._onTopSliderChange(self._topSlider.value())
 
         # Disable all image operations
         self._topView.ui.menuBtn.hide()
