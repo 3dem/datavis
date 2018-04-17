@@ -716,7 +716,8 @@ class TableView(QWidget):
                 elif self._currentViewMode == ELEMENT_VIEW_MODE:
                     self.__loadElementData__(row - 1,
                                              self._currentRenderableColumn)
-                    self._spinBoxCurrentPage.setValue(row + 1)
+                    self._currentElementPage = row - 1
+                    self._showCurrentPageNumber()
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def _onCurrentTableViewItemChanged(self, current, previous):
