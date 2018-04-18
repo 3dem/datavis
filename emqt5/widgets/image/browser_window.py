@@ -231,7 +231,7 @@ class BrowserWindow(QMainWindow):
         sizePolicy.setHorizontalStretch(100)
         sizePolicy.setVerticalStretch(100)
         self._frame.setMinimumHeight(500)
-        self._frame.setMinimumWidth(480)
+        self._frame.setMinimumWidth(505)
 
         sizePolicy.setHeightForWidth(self._frame.sizePolicy().hasHeightForWidth())
         self._frame.setSizePolicy(sizePolicy)
