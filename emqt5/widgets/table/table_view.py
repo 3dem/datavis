@@ -526,6 +526,8 @@ class TableView(QWidget):
             reload = reload or not page == self._currentElementPage
             if reload and page in range(0, self._tableModel.rowCount()):
                 self._currentElementPage = page
+                self.__loadElementData__(page,
+                                         self._currentRenderableColumn)
                 self._spinBoxCurrentRow.setValue(self._currentElementPage + 1)
 
     @pyqtSlot()
@@ -727,9 +729,7 @@ class TableView(QWidget):
                     if index.isValid():
                         self._listView.setCurrentIndex(index)
                 elif self._currentViewMode == ELEMENT_VIEW_MODE:
-                    self.__loadElementData__(row - 1,
-                                             self._currentRenderableColumn)
-                    self._currentElementPage = row - 1
+                    self.__goToPage__(row - 1, True)
                     self._showCurrentPageNumber()
 
     @pyqtSlot(QModelIndex, QModelIndex)
