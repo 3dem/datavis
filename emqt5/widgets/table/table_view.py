@@ -49,6 +49,9 @@ class TableView(QWidget):
         self._disableHistogram = kwargs.get("disableHistogram", True)
         self._disableMenu = kwargs.get("disableMenu", True)
         self._disableROI = kwargs.get("disableROI", True)
+        self._disablePopupMenu = kwargs.get("disablePopupMenu", True)
+        self._disableFitToSize = kwargs.get("disableFitToSize", True)
+
         self._viewActionIcons = {TABLE_VIEW_MODE: "fa.table",
                                  GALLERY_VIEW_MODE: "fa.image",
                                  ELEMENT_VIEW_MODE: "fa.file-image-o"}
@@ -122,6 +125,9 @@ class TableView(QWidget):
             self._imageView.ui.menuBtn.hide()
         if self._disableROI:
             self._imageView.ui.roiBtn.hide()
+        if self._disablePopupMenu:
+            self._imageView.getView().setMenuEnabled(False)
+
         self._pixMapElem = QPixmap()
         self._elemViewTable = QTableView(self._elemViewContainer)
         self._elemViewTable.setModel(QStandardItemModel(self._elemViewTable))
@@ -284,6 +290,8 @@ class TableView(QWidget):
                     v = self._imageView.getView()
                     v.clear()
                     v.addItem(pixmapItem)
+                    if not self._disableFitToSize:
+                        v.autoRange()
                 model.appendRow([item])
                 hItem = self._tableModel.horizontalHeaderItem(
                     sourceIndex.column())
@@ -446,7 +454,8 @@ class TableView(QWidget):
         """
         if self._tableModel:
             mode = self.getSelectedViewMode()
-            if mode == TABLE_VIEW_MODE or GALLERY_VIEW_MODE:
+            if mode == TABLE_VIEW_MODE or mode == GALLERY_VIEW_MODE \
+                    or mode == ELEMENT_VIEW_MODE:
                 self._spinBoxCurrentRow.setRange(1, self._tableModel.rowCount())
 
     def __initCurrentRenderableColumn__(self):
@@ -580,7 +589,8 @@ class TableView(QWidget):
     @pyqtSlot()
     def __calcElementPageProperties__(self):
         """
-        Calculates the element view page properties
+        Calculates the element view page properties. In ELEMENT view mode,
+        the number of pages is the table row count
         """
         if self._tableModel and self._currentViewMode == ELEMENT_VIEW_MODE:
             self._spinBoxCurrentPage.setRange(1, self._tableModel.rowCount())
@@ -694,7 +704,10 @@ class TableView(QWidget):
     @pyqtSlot(int)
     def _selectRow(self, row):
         """
-        If GALLERY mode is selected and row > itemsXPage then load the new page
+        This slot is invoked when the value of the current spinbox changes.
+        If GALLERY mode is selected and row > itemsXPage then load the new page.
+        If TABLE mode is selected, the table is scrolled to the page
+        corresponding to current row
         :param row: the row, 1 is the first
         """
         if self._tableModel:
