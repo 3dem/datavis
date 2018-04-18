@@ -47,6 +47,26 @@ if __name__ == '__main__':
                            help=' list of accessible '
                                 'views.[\'GALLERY\', \'TABLE\', \'ELEMENT\'] if'
                                 ' not specified')
+    argParser.add_argument('--disable-histogram', default=False,
+                           required=False, action='store_true',
+                           help=' hide the histogram widget in the view image '
+                                'widget for ELEMENT view mode')
+    argParser.add_argument('--disable-menu', default=False,
+                           required=False, action='store_true',
+                           help=' hide the menu button in the view image widget'
+                                ' for ELEMENT view ')
+    argParser.add_argument('--disable-roi', default=False,
+                           required=False, action='store_true',
+                           help=' hide the roi button in the view image widget'
+                                ' for ELEMENT view ')
+    argParser.add_argument('--disable-popup-menu', default=False,
+                           required=False, action='store_true',
+                           help=' disable the popup menu in the view image '
+                                'widget for ELEMENT view ')
+    argParser.add_argument('--disable-fit-to-size', default=False,
+                           required=False, action='store_true',
+                           help=' the image is not rescaled to the size of view'
+                                ' image widget for ELEMENT view ')
 
     args = argParser.parse_args()
 
@@ -92,6 +112,11 @@ if __name__ == '__main__':
         else PIXEL_UNITS
     kwargs['defaultView'] = args.default_view
     kwargs['views'] = args.views
+    kwargs['disableHistogram'] = args.disable_histogram
+    kwargs['disableMenu'] = args.disable_menu
+    kwargs['disableROI'] = args.disable_roi
+    kwargs['disablePopupMenu'] = args.disable_popup_menu
+    kwargs['disableFitToSize'] = args.disable_fit_to_size
 
     app = QApplication(sys.argv)
     tableWin = TableViewWindow(**kwargs)
