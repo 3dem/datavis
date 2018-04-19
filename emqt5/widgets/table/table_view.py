@@ -129,8 +129,10 @@ class TableView(QWidget):
             self._imageView.getView().setMenuEnabled(False)
 
         self._pixMapElem = QPixmap()
-        self._elemViewTable = QTableView(self._elemViewContainer)
+        self._elemViewTable = TableWidget(self._elemViewContainer)
         self._elemViewTable.setModel(QStandardItemModel(self._elemViewTable))
+        self._elemViewTable.sigSizeChanged.connect(self._elemViewTable.
+                                                   resizeColumnsToContents)
         # pagination
         self._pagingLayout = QHBoxLayout()
         self._pagingLayout.addItem(QSpacerItem(40,
@@ -541,6 +543,13 @@ class TableView(QWidget):
         if self._currentViewMode == GALLERY_VIEW_MODE:
             self.__goToPage__(self._currentGalleryPage, True)
             self._selectRow(self._currentRow + 1)
+
+    @pyqtSlot()
+    def __elementTableResized__(self):
+        """
+        Invoked when element table is resized
+        """
+        self._elemViewTable.resizeColumnsToContents()
 
     @pyqtSlot()
     def __tableResized__(self):
