@@ -313,15 +313,10 @@ class TableView(QWidget):
                 last = first + self._itemsXGalleryPage
 
             for i in range(first, last):
-                sourceIndex = self._sortProxyModel.mapToSource(
-                    self._sortProxyModel.index(i,
-                                               self._currentRenderableColumn))
+                sItem = self._tableModel.item(i, self._currentRenderableColumn)
                 item = QStandardItem()
-                item.setData(self._tableModel.data(sourceIndex, Qt.UserRole),
-                             Qt.UserRole)
-                item.setData(self._tableModel.data(sourceIndex,
-                                                   Qt.UserRole + 1),
-                             Qt.UserRole + 1)
+                item.setData(sItem.data(Qt.UserRole), Qt.UserRole)
+                item.setData(sItem.data(Qt.UserRole + 1), Qt.UserRole + 1)
                 self._galleryModel.appendRow([item])
             self._listView.setModelColumn(0)
         self._showCurrentPageNumber()
