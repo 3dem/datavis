@@ -510,12 +510,10 @@ class TableView(QWidget):
             reload = reload or not page == self._currentTablePage
             if reload and page in range(0, self._tablePageCount):
                 self._currentTablePage = page
-                firstPageRow = self._currentRow + self._currentTablePage * \
-                               self._itemsXTablePage
+                firstPageRow = self._currentTablePage * self._itemsXTablePage
                 lastPageRow = firstPageRow + self._itemsXTablePage - 1
                 self._sortProxyModel.setShowRange(firstPageRow, lastPageRow)
                 self._sortProxyModel.invalidateFilter()
-                #self.__scrollTableToPage__(page)
         elif self._currentViewMode == GALLERY_VIEW_MODE:
             reload = reload or not page == self._currentGalleryPage
             if reload and page in range(0, self._galleryPageCount):
@@ -725,7 +723,9 @@ class TableView(QWidget):
                     page = self.__getTablePage__(row - 1)
                     if not page == self._currentTablePage:
                         self.__goToPage__(page)
-                    self._tableView.selectRow(row-1)
+                    if self._itemsXTablePage:
+                        self._tableView.selectRow(
+                            int(self._currentRow % self._itemsXTablePage))
                 elif self._currentViewMode == GALLERY_VIEW_MODE:
                     galleryRow = (row - 1) % self._itemsXGalleryPage
                     page = self.__getGalleryPage__(row - 1)
@@ -744,7 +744,7 @@ class TableView(QWidget):
         This slot is invoked when the current table item change
         """
         if current.isValid():
-            row = current.row()
+            row = current.row() + self._currentTablePage * self._itemsXTablePage
             if not row == self._currentRow:
                 self._currentRow = row
                 if not self._spinBoxCurrentRow.value() == row + 1:
@@ -1034,8 +1034,4 @@ class PageModel(QSortFilterProxyModel):
         """
         Reimplemented from QSortFilterProxyModel
         """
-        print("Source row = ", source_row)
-        ret = source_row in range(self._firstRow, self._lastRow + 1)
-        print("filterAcceptsRow, ret=", ret)
-
-        return ret
+        return source_row in range(self._firstRow, self._lastRow + 1)
