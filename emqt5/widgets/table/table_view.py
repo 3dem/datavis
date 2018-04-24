@@ -131,8 +131,6 @@ class TableView(QWidget):
         self._pixMapElem = QPixmap()
         self._elemViewTable = TableWidget(self._elemViewContainer)
         self._elemViewTable.setModel(QStandardItemModel(self._elemViewTable))
-        self._elemViewTable.sigSizeChanged.connect(self._elemViewTable.
-                                                   resizeColumnsToContents)
         # pagination
         self._pagingLayout = QHBoxLayout()
         self._pagingLayout.addItem(QSpacerItem(40,
@@ -298,6 +296,7 @@ class TableView(QWidget):
                     vLabels.append(hItem.data(Qt.DisplayRole))
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
+            self._elemViewTable.horizontalHeader().setStretchLastSection(True)
 
     def __loadCurrentGalleryPage__(self):
         """
