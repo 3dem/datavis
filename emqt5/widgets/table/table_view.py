@@ -58,7 +58,7 @@ class TableView(QWidget):
         self._viewActions = []
         self._tableModel = None
         self._galleryModel = TableDataModel(self)
-        self._sortProxyModel = QSortFilterProxyModel(self)
+        self._sortProxyModel = PageModel(self)
         self._sortProxyModel.setSortRole(Qt.UserRole)  # Qt.UserRole by default
         self._tableViewSelectionModel = QItemSelectionModel(None, self)
         self._galleryViewSelectionModel = QItemSelectionModel(None, self)
@@ -131,8 +131,6 @@ class TableView(QWidget):
         self._pixMapElem = QPixmap()
         self._elemViewTable = TableWidget(self._elemViewContainer)
         self._elemViewTable.setModel(QStandardItemModel(self._elemViewTable))
-        self._elemViewTable.sigSizeChanged.connect(self._elemViewTable.
-                                                   resizeColumnsToContents)
         # pagination
         self._pagingLayout = QHBoxLayout()
         self._pagingLayout.addItem(QSpacerItem(40,
@@ -279,9 +277,7 @@ class TableView(QWidget):
             model.clear()
             vLabels = []
             for i in range(0, self._tableModel.columnCount()):
-                sourceIndex = self._sortProxyModel.mapToSource(
-                    self._sortProxyModel.index(row, i))
-                sourceItem = self._tableModel.itemFromIndex(sourceIndex)
+                sourceItem = self._tableModel.item(row, i)
                 item = QStandardItem()
                 item.setData(sourceItem.data(Qt.UserRole),
                              Qt.DisplayRole)
@@ -295,12 +291,12 @@ class TableView(QWidget):
                     if not self._disableFitToSize:
                         v.autoRange()
                 model.appendRow([item])
-                hItem = self._tableModel.horizontalHeaderItem(
-                    sourceIndex.column())
+                hItem = self._tableModel.horizontalHeaderItem(i)
                 if hItem:
                     vLabels.append(hItem.data(Qt.DisplayRole))
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
+            self._elemViewTable.horizontalHeader().setStretchLastSection(True)
 
     def __loadCurrentGalleryPage__(self):
         """
@@ -316,15 +312,10 @@ class TableView(QWidget):
                 last = first + self._itemsXGalleryPage
 
             for i in range(first, last):
-                sourceIndex = self._sortProxyModel.mapToSource(
-                    self._sortProxyModel.index(i,
-                                               self._currentRenderableColumn))
+                sItem = self._tableModel.item(i, self._currentRenderableColumn)
                 item = QStandardItem()
-                item.setData(self._tableModel.data(sourceIndex, Qt.UserRole),
-                             Qt.UserRole)
-                item.setData(self._tableModel.data(sourceIndex,
-                                                   Qt.UserRole + 1),
-                             Qt.UserRole + 1)
+                item.setData(sItem.data(Qt.UserRole), Qt.UserRole)
+                item.setData(sItem.data(Qt.UserRole + 1), Qt.UserRole + 1)
                 self._galleryModel.appendRow([item])
             self._listView.setModelColumn(0)
         self._showCurrentPageNumber()
@@ -518,7 +509,10 @@ class TableView(QWidget):
             reload = reload or not page == self._currentTablePage
             if reload and page in range(0, self._tablePageCount):
                 self._currentTablePage = page
-                self.__scrollTableToPage__(page)
+                firstPageRow = self._currentTablePage * self._itemsXTablePage
+                lastPageRow = firstPageRow + self._itemsXTablePage - 1
+                self._sortProxyModel.setShowRange(firstPageRow, lastPageRow)
+                self._sortProxyModel.invalidateFilter()
         elif self._currentViewMode == GALLERY_VIEW_MODE:
             reload = reload or not page == self._currentGalleryPage
             if reload and page in range(0, self._galleryPageCount):
@@ -728,7 +722,9 @@ class TableView(QWidget):
                     page = self.__getTablePage__(row - 1)
                     if not page == self._currentTablePage:
                         self.__goToPage__(page)
-                    self._tableView.selectRow(row-1)
+                    if self._itemsXTablePage:
+                        self._tableView.selectRow(
+                            int(self._currentRow % self._itemsXTablePage))
                 elif self._currentViewMode == GALLERY_VIEW_MODE:
                     galleryRow = (row - 1) % self._itemsXGalleryPage
                     page = self.__getGalleryPage__(row - 1)
@@ -747,7 +743,7 @@ class TableView(QWidget):
         This slot is invoked when the current table item change
         """
         if current.isValid():
-            row = current.row()
+            row = current.row() + self._currentTablePage * self._itemsXTablePage
             if not row == self._currentRow:
                 self._currentRow = row
                 if not self._spinBoxCurrentRow.value() == row + 1:
@@ -1017,3 +1013,24 @@ class TableWidget(QTableView):
         """
         QTableView.resizeEvent(self, evt)
         self.sigSizeChanged.emit()
+
+
+class PageModel(QSortFilterProxyModel):
+    """
+    The PageModel class provides support for sorting and paging the data of
+    another modelmodel
+    """
+    def __init__(self, parent=None):
+        QSortFilterProxyModel.__init__(self, parent)
+        self._firstRow = 0
+        self._lastRow = 0
+
+    def setShowRange(self, firstRow, lastRow):
+        self._firstRow = firstRow
+        self._lastRow = lastRow
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        """
+        Reimplemented from QSortFilterProxyModel
+        """
+        return source_row in range(self._firstRow, self._lastRow + 1)
