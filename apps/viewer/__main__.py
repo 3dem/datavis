@@ -151,10 +151,11 @@ if __name__ == '__main__':
                                 QMessageBox.critical(app.parent(), 'ERROR',
                                                      'A valid way to display '
                                                      'the image are required')
-                        else:  # Display the EM-BROWSER component
-                            kwargs['--path'] = args.path
-                            browserWin = BrowserWindow(**kwargs)
-                            browserWin.show()
+                        else:  # Display the image by the default component:
+                               # Volume-Slicer
+                            kwargs['imagePath'] = args.path
+                            volumeSlice = VolumeSlice(**kwargs)
+                            volumeSlice.show()
 
                 else:  # Display the EM-BROWSER component
                     kwargs['--path'] = args.path
