@@ -17,6 +17,7 @@ from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
 from emqt5.widgets.image import VolumeSlice
 from emqt5.widgets.image import GalleryView
+import emqt5.utils.functions as utils
 
 import qtawesome as qta
 import numpy as np
@@ -81,7 +82,7 @@ class BrowserWindow(QMainWindow):
         This Slot is executed when select button signal was clicked.
         Select an em-image to realize a simple data-slicing
         """
-        if self.isEmImage(self._imagePath):
+        if utils.isEmImage(self._imagePath):
             self.volumeSliceView = VolumeSlice(imagePath=self._imagePath)
 
     def _onHomeActionClicked(self):
@@ -378,7 +379,7 @@ class BrowserWindow(QMainWindow):
             self._volumeSlice.setupProperties()
             self._galleryView.setupProperties()
 
-        if self.isEmImage(imagePath):
+        if utils.isEmImage(imagePath):
 
             self._frame.setEnabled(True)
 
@@ -442,7 +443,7 @@ class BrowserWindow(QMainWindow):
                 self.listWidget.addItem("Dimension: " + str(self._image.getDim()))
                 self.listWidget.addItem("Type: " + str(self._image.getType()))
 
-        elif self.isImage(imagePath):
+        elif utils.isImage(imagePath):
 
                 self._frame.setEnabled(False)
 
@@ -474,18 +475,6 @@ class BrowserWindow(QMainWindow):
 
             self.listWidget.addItem("NO IMAGE FORMAT")
 
-    @staticmethod
-    def isEmImage(imagePath):
-        """ Return True if imagePath has an extension recognized as supported
-            EM-image """
-        _, ext = os.path.splitext(imagePath)
-        return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map', '.vol']
-
-    @staticmethod
-    def isImage(imagePath):
-        """ Return True if imagePath has a standard image format. """
-        _, ext = os.path.splitext(imagePath)
-        return ext in ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
 
 
 

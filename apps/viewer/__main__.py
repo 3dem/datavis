@@ -11,6 +11,8 @@ import em
 from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
 from emqt5.widgets.image.gallery_view import GalleryView
+import emqt5.utils.functions as utils
+
 
 import argparse
 
@@ -112,14 +114,7 @@ if __name__ == '__main__':
 
             if isFileExist:  # The file exist
 
-                def isEmImage(imagePath):
-                    """ Return True if imagePath has an extension recognized as
-                        supported EM-image """
-                    _, ext = os.path.splitext(imagePath)
-                    return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map',
-                                   '.vol']
-
-                if isEmImage(args.path):  # The file constitute an em-image.
+                if utils.isEmImage(args.path):  # The file constitute an em-image.
                                           # In this case we determined if the
                                           # image has a volume or not
 
