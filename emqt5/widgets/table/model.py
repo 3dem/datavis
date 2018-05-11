@@ -296,6 +296,22 @@ class DataModel(QAbstractItemModel):
         self._itemsXPage = itemsXPage
         self.__setupModel__()
 
+    def setupPage(self, itemsXPage, currentPage):
+        """
+        Configure paging properties. Load the model data for the specified page
+        :param itemsXPage:
+        :param currentPage:
+        :return:
+        """
+        if itemsXPage <= 0:
+            itemsXPage = 1
+
+        self._itemsXPage = itemsXPage
+        self._currentPage = currentPage
+
+        self.__setupModel__()
+        self.loadPage()
+
     def flags(self, qModelIndex):
         """
         Reimplemented from QStandardItemModel
@@ -354,7 +370,6 @@ class DataModel(QAbstractItemModel):
             self._pageCount = int(s / self._itemsXPage) + s % self._itemsXPage
 
         self._currentPage = int(offset / self._itemsXPage)
-        self.loadPage()
 
     def __getItems__(self, offset, itemsXPage):
         """
