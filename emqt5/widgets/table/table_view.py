@@ -57,7 +57,6 @@ class TableView(QWidget):
                                  ELEMENT_VIEW_MODE: "fa.file-image-o"}
         self._viewActions = []
         self._tableModel = None
-        self._galleryModel = TableDataModel(self)
         self._tableViewSelectionModel = QItemSelectionModel(None, self)
         self._galleryViewSelectionModel = QItemSelectionModel(None, self)
         self._currentRenderableColumn = 0  # for GALLERY mode
@@ -104,7 +103,6 @@ class TableView(QWidget):
         self._listView.setLayoutMode(QListView.Batched)
         self._listView.setBatchSize(500)
         self._listView.setMovement(QListView.Static)
-        self._listView.setModel(self._galleryModel)
         sModel = self._listView.selectionModel()
         if sModel:
             sModel.currentChanged.connect(self._onCurrentGalleryItemChanged)
@@ -236,7 +234,6 @@ class TableView(QWidget):
         galleryPageCount
         itemsXGalleryPage
         """
-        self._galleryModel.clear()
         self._galleryPageCount = 0
         self._currentGalleryPage = 0
         self._itemsXGalleryPage = 0
@@ -274,12 +271,11 @@ class TableView(QWidget):
             model.clear()
             vLabels = []
             for i in range(0, self._tableModel.columnCount()):
-                sourceItem = self._tableModel.item(row, i)
                 item = QStandardItem()
-                item.setData(sourceItem.data(Qt.UserRole),
+                item.setData(self._tableModel.getData(row, i),
                              Qt.DisplayRole)
                 if i == imgColumn:
-                    imgPath = sourceItem.data(Qt.UserRole)
+                    imgPath = self._tableModel.getData(row, i)
                     self._pixMapElem.load(imgPath)
                     pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
                     v = self._imageView.getView()
@@ -288,9 +284,9 @@ class TableView(QWidget):
                     if not self._disableFitToSize:
                         v.autoRange()
                 model.appendRow([item])
-                hItem = self._tableModel.horizontalHeaderItem(i)
-                if hItem:
-                    vLabels.append(hItem.data(Qt.DisplayRole))
+                label = self._tableModel.headerData(i, Qt.Horizontal)
+                if label:
+                    vLabels.append(label)
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._elemViewTable.horizontalHeader().setStretchLastSection(True)
@@ -300,22 +296,20 @@ class TableView(QWidget):
         Load the gallery page in the gallery view
         """
         if self._tableModel and self._galleryPageCount:
-            self._galleryModel.clear()
-            first = self._currentGalleryPage * self._itemsXGalleryPage
+            self._currentTablePage = self.__getGalleryPage__(
+                self._currentRow - 1)
+            self._tableModel.setupPage(self._itemsXGalleryPage,
+                                       self._currentGalleryPage)
+        self._showCurrentPageNumber()
 
-            if self._currentGalleryPage == self._galleryPageCount - 1:
-                last = self._tableModel.totalRowCount()
-            else:
-                last = first + self._itemsXGalleryPage
-
-            for i in range(first, last):
-                index = self._tableModel.createIndex(
-                    i, self._currentRenderableColumn)
-                item = QStandardItem()
-                item.setData(self._tableModel.data(
-                    i, self._currentRenderableColumn))
-                self._galleryModel.appendRow([item])
-            self._listView.setModelColumn(0)
+    def __loadCurrentTablePage__(self):
+        """
+        Load the table page in the table view
+        """
+        if self._tableModel and self._tablePageCount:
+            self._currentTablePage = self.__getTablePage__(self._currentRow - 1)
+            self._tableModel.setupPage(self._itemsXTablePage,
+                                       self._currentTablePage)
         self._showCurrentPageNumber()
 
     def __canChangeToMode__(self, mode):
@@ -381,15 +375,13 @@ class TableView(QWidget):
         Example: when setting new model in the table view
         """
         self._tableView.setModel(self._tableModel)
+        self._listView.setModel(self._tableModel)
         if self._tableModel:
             # table
-            self._tableModel.setItemsXPage(self._itemsXTablePage)
-            #gallery
-            self._galleryModel.clear()
-            self._galleryModel.setColumnProperties(None)
-
             self._tableView.selectionModel().currentChanged.connect(
                 self._onCurrentTableViewItemChanged)
+            self._listView.selectionModel().currentChanged.connect(
+                self._onCurrentGalleryItemChanged)
             self._showTableDims()
             self.__setupVisibleColumns__()
             self.__setupDelegatesForColumns__()
@@ -428,13 +420,19 @@ class TableView(QWidget):
         TODO: ELEMENT VIEW MODE
         """
         if self._currentViewMode == TABLE_VIEW_MODE:
+            blocked = self._tableView.selectionModel().blockSignals(True)
             self._stackedLayoud.setCurrentWidget(self._tableViewContainer)
+            self._tableView.selectionModel().blockSignals(blocked)
             if self.__calcTablePageProperties:
                 self.__calcTablePageProperties__()
+            self.__loadCurrentTablePage__()
         elif self._currentViewMode == GALLERY_VIEW_MODE:
+            blocked = self._listView.selectionModel().blockSignals(True)
             self._stackedLayoud.setCurrentWidget(self._listViewContainer)
+            self._listView.selectionModel().blockSignals(blocked)
             if self.__calcGalleryPageProperties:
                 self.__calcGalleryPageProperties__()
+            self.__loadCurrentGalleryPage__()
         elif self._currentViewMode == ELEMENT_VIEW_MODE:
             self._stackedLayoud.setCurrentWidget(self._elemViewContainer)
             self.__calcElementPageProperties__()
@@ -587,9 +585,8 @@ class TableView(QWidget):
                 if self._tableModel.totalRowCount() % pRows:
                     self._tablePageCount += 1
 
-                self._tableModel.setItemsXPage(self._itemsXTablePage)
-
             if self._currentViewMode == TABLE_VIEW_MODE:
+                self.__loadCurrentTablePage__()
                 self._spinBoxCurrentPage.setRange(1, self._tablePageCount)
                 self._showNumberOfPages()
             self.__calcTablePageProperties = False
@@ -640,7 +637,8 @@ class TableView(QWidget):
             self._galleryPageCount = int(pTotal)
             self._galleryPageCount += 1 if pTotal - int(pTotal) > 0 else 0
             self._itemsXGalleryPage = pRows * pCols
-            if self._currentViewMode == TABLE_VIEW_MODE:
+            if self._currentViewMode == GALLERY_VIEW_MODE:
+                self.__loadCurrentGalleryPage__()
                 self._spinBoxCurrentPage.setRange(1, self._galleryPageCount)
                 self._showNumberOfPages()
             self.__calcGalleryPageProperties = False
@@ -655,15 +653,12 @@ class TableView(QWidget):
             currentData(Qt.UserRole)
 
         if self._tableModel:
-            cp = self._tableModel.getColumnProperties(
-                self._currentRenderableColumn)
-            if cp:
-                self._galleryModel.setColumnProperties([cp])
-                if self._currentViewMode == GALLERY_VIEW_MODE:
-                    self.__loadCurrentGalleryPage__()
-                    self._selectRow(self._currentRow + 1)
-                elif self._currentViewMode == ELEMENT_VIEW_MODE:
-                    self._selectRow(self._currentRow + 1)
+            self._listView.setModelColumn(self._currentRenderableColumn)
+            if self._currentViewMode == GALLERY_VIEW_MODE:
+                self.__loadCurrentGalleryPage__()
+                self._selectRow(self._currentRow + 1)
+            elif self._currentViewMode == ELEMENT_VIEW_MODE:
+                self._selectRow(self._currentRow + 1)
 
     @pyqtSlot()
     def _onChangeCellSize(self):
@@ -684,7 +679,6 @@ class TableView(QWidget):
                         self._tableView.setColumnWidth(i, size)
 
         self._listView.setIconSize(qsize)
-        self._galleryModel.setIconSize(qsize)
 
         if self._currentViewMode == GALLERY_VIEW_MODE:
             self.__calcGalleryPageProperties__()
@@ -734,7 +728,8 @@ class TableView(QWidget):
                     page = self.__getGalleryPage__(row - 1)
                     if not page == self._currentGalleryPage:
                         self.__goToPage__(page)
-                    index = self._listView.model().createIndex(galleryRow, 0)
+                    index = self._listView.model().\
+                        createIndex(galleryRow, self._currentRenderableColumn)
                     if index.isValid():
                         self._listView.setCurrentIndex(index)
                 elif self._currentViewMode == ELEMENT_VIEW_MODE:
@@ -872,6 +867,7 @@ class TableView(QWidget):
         """
         self._tableModel = model
         self.__setupAllWidgets__()
+        self.__setupCurrentViewMode__()
 
     def getModel(self):
         """
@@ -978,7 +974,7 @@ class _ImageItemDelegate(QStyledItemDelegate):
 
         if not pixmap:
             #  create one and store in imgCache
-            pixmap = self._imgCache.addImage(index.row() + 1, imgPath)
+            pixmap = self._imgCache.addImage(imgPath, imgPath)
 
         return pixmap
 

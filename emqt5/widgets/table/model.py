@@ -146,7 +146,7 @@ class DataModel(QAbstractItemModel):
     """
     Model for EM Data
     """
-    def __init__(self, parent=None, data=[], columnProperties=None,
+    def __init__(self, parent=None, emTable=None, columnProperties=None,
                  itemsXPage=10):
         """
         Constructs an DataModel with the given parent.
@@ -157,7 +157,7 @@ class DataModel(QAbstractItemModel):
         QAbstractItemModel.__init__(self, parent)
         self._colProperties = columnProperties
         self._iconSize = QSize(32, 32)
-        self._data = data
+        self._emTable = emTable
         self._itemsXPage = itemsXPage
         self._currentPage = 0
         self._pageCount = 0
@@ -175,38 +175,37 @@ class DataModel(QAbstractItemModel):
         """
         if not qModelIndex.isValid():
             return None
+        row = qModelIndex.row() + self._currentPage * self._itemsXPage
+        col = qModelIndex.column()
 
         if role == Qt.DecorationRole:
             return QVariant()
         if role == Qt.DisplayRole:
-            t = self._colProperties[qModelIndex.column()].getType() \
+            t = self._colProperties[col].getType() \
                 if self._colProperties else ""
             if t == 'Bool' or t == 'Image':
                 return QVariant()  # hide 'True' or 'False', path in Image type
             # we use Qt.UserRole for store data
-            return QVariant(self._items[qModelIndex.row()][qModelIndex.column()])
+            return QVariant(self.getData(row, col))
         if role == Qt.CheckStateRole:
             if self._colProperties and \
-                    self._colProperties[qModelIndex.column()].getType() \
-                    == 'Bool':
+                    self._colProperties[col].getType() == 'Bool':
                 return Qt.Checked \
-                    if self._items[qModelIndex.row()][qModelIndex.column()] \
-                    else Qt.Unchecked
+                    if self.getData(row, col) else Qt.Unchecked
             return QVariant()
 
         if role == Qt.EditRole:
-            return QVariant(
-                self._items[qModelIndex.row()][qModelIndex.column()])
+            return QVariant(self.getData(row, col))
 
         if role == Qt.SizeHintRole:
             if self._colProperties and \
-                    self._colProperties[qModelIndex.column()].isRenderable():
+                    self._colProperties[col].isRenderable():
                 return self._iconSize
 
         if role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
 
-        return QVariant(self._items[qModelIndex.row()][qModelIndex.column()])
+        return QVariant(self.getData(row, col))
 
     def columnCount(self, index=QModelIndex()):
         """
@@ -220,7 +219,8 @@ class DataModel(QAbstractItemModel):
         Reimplemented from QAbstractItemModel.
         Return the items per page.
         """
-        return len(self._items)
+        return self._itemsXPage if self._itemsXPage <= self._emTable.getSize() \
+            else self._emTable.getSize()
 
     def index(self, row, column, parent=QModelIndex()):
         """
@@ -242,16 +242,31 @@ class DataModel(QAbstractItemModel):
         """
         Return the row count for the entire model
         """
-        if self._data:
-            return len(self._data)
+        if self._emTable:
+            return self._emTable.getSize()
 
         return 0
 
     def getData(self, row, col):
         """
-        Return the data for specificied column and row
+        Return the data for specified column and row
         """
-        return self._data[row][col]
+        if self._emTable and row in range(0, self._emTable.getSize())\
+            and col in range(0, self._emTable.getColumnsSize()):
+            emRow = self._emTable[row]
+            emCol = self._emTable.getColumnByIndex(col)
+            t = self._colProperties[col].getType()
+
+            if t == 'Str' or t == 'Image':
+                return emRow[emCol.getId()].toString()
+            elif t == 'Bool':
+                return bool(int(emRow[emCol.getId()]))
+            elif t == 'Int':
+                return int(emRow[emCol.getId()])
+
+            return emRow[emCol.getId()]
+
+        return None
 
     def loadPage(self, pageIndex=-1):
         """
@@ -259,16 +274,9 @@ class DataModel(QAbstractItemModel):
         the page range then load the current page.
         """
         self.beginResetModel()
-        self._items = []
-        self.endResetModel()
-
         if pageIndex in range(0, self._pageCount):
             self._currentPage = pageIndex
-
-        self.beginInsertRows(QModelIndex(), 0, self._itemsXPage)
-        self._items = self.__getItems__(self._currentPage * self._itemsXPage,
-                                        self._itemsXPage)
-        self.endInsertRows()
+        self.endResetModel()
 
     def prevPage(self):
         self._currentPage = self._currentPage - 1 \
@@ -277,7 +285,7 @@ class DataModel(QAbstractItemModel):
 
     def nextPage(self):
         self._currentPage = self._currentPage + 1 \
-            if (self._currentPage + 1) * self._itemsXPage <= len(self._data) \
+            if (self._currentPage + 1) * self._itemsXPage <= len(self._emTable) \
             else self._currentPage
         self.loadPage()
 
@@ -361,7 +369,7 @@ class DataModel(QAbstractItemModel):
         """
         Configure the model according to the itemsXPage and current page values
         """
-        s = len(self._data)
+        s = self._emTable.getSize()
         offset = self._currentPage * self._itemsXPage
 
         if s < self._itemsXPage:
@@ -370,12 +378,6 @@ class DataModel(QAbstractItemModel):
             self._pageCount = int(s / self._itemsXPage) + s % self._itemsXPage
 
         self._currentPage = int(offset / self._itemsXPage)
-
-    def __getItems__(self, offset, itemsXPage):
-        """
-        Retrieve the items from the initial position with the specified length
-        """
-        return self._data[offset:offset + itemsXPage]
 
 
 class ImageCache:

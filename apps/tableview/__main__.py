@@ -5,12 +5,16 @@ import sys
 import os
 import argparse
 
+import em
+
 from PyQt5.QtWidgets import QApplication
 
 from emqt5.widgets.table import ColumnProperties, PERCENT_UNITS, PIXEL_UNITS
 
 from table_view_window import TableViewWindow
 
+Column = em.Table.Column
+Row = em.Table.Row
 
 if __name__ == '__main__':
 
@@ -70,14 +74,26 @@ if __name__ == '__main__':
 
     args = argParser.parse_args()
 
-    data = []
+    table = em.Table([Column(1, "FileName", em.typeString, "File Name"),
+                      Column(2, "Path", em.typeString, "Icon"),
+                      Column(3, "RealImage", em.typeString, "Image"),
+                      Column(4, "Ext", em.typeString, "Ext"),
+                      Column(5, "Check", em.typeBool, "Checked"),
+                      Column(6, "Count", em.typeInt32, "Count")])
     i = 1
     lastPath = args.files[0]
     for index in range(0, 250):
         for path in args.files:
             _, ext = os.path.splitext(path)
-            data.append([os.path.basename(path), path, lastPath, ext,
-                         True if i % 2 else False, i])
+            row = table.createRow()
+            row["FileName"] = os.path.basename(path)
+            row["Path"] = path
+            row["RealImage"] = lastPath
+            row["Ext"] = ext
+            row["Check"] = True if i % 2 else False
+            row["Count"] = i
+            table.addRow(row)
+
             i = i+1
             lastPath = path
 
@@ -85,7 +101,7 @@ if __name__ == '__main__':
                                    **{'renderable': False,
                                       'editable': True}),
                   ColumnProperties('Path', 'Icon', 'Image',
-                                   **{'renderable':True,
+                                   **{'renderable': True,
                                       'editable': False,
                                       'allowSetVisible': True}),
                   ColumnProperties('Path', 'Real Image', 'Image',
@@ -103,7 +119,7 @@ if __name__ == '__main__':
                                    **{'renderable': False,
                                       'editable': True})]
 
-    kwargs['tableData'] = data
+    kwargs['tableData'] = table
     kwargs['colProperties'] = properties
     kwargs['defaultRowHeight'] = args.cell_size
     kwargs['maxRowHeight'] = args.max_cell_size
