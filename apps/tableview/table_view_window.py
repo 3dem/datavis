@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QMainWindow, QStatusBar, QWidget, QVBoxLayout,
                              QLabel)
 
 from emqt5.widgets.table.table_view import TableView
-from emqt5.widgets.table.model import DataModel
+from emqt5.widgets.table.model import TableDataModel
 
 
 class TableViewWindow(QMainWindow):
@@ -21,9 +21,9 @@ class TableViewWindow(QMainWindow):
         """
         QMainWindow.__init__(self, parent)
         self.__setupUi__(**kwargs)
-        self._model = DataModel(parent=self.tableView,
-                                emTable=kwargs['tableData'],
-                                columnProperties=kwargs['colProperties'])
+        self._model = TableDataModel(parent=self.tableView,
+                                     emTable=kwargs['tableData'],
+                                     columnProperties=kwargs['colProperties'])
         self.tableView.setModel(self._model)
 
     def __setupUi__(self, **kwargs):

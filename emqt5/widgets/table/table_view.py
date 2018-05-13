@@ -709,8 +709,8 @@ class TableView(QWidget):
         """
         This slot is invoked when the value of the current spinbox changes.
         If GALLERY mode is selected and row > itemsXPage then load the new page.
-        If TABLE mode is selected, the table is scrolled to the page
-        corresponding to current row
+        If TABLE mode is selected, and row > itemsXPagethe then load
+        the new page.
         :param row: the row, 1 is the first
         """
         if self._tableModel:
