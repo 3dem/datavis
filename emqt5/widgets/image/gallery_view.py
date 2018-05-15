@@ -234,7 +234,8 @@ class GalleryView(QWidget):
         self._colsFormLayout = QFormLayout()
         self._colsLabel = QLabel(self._optionFrame)
         self._colsLabel.setText('Cols')
-        self._colsFormLayout.setWidget(0, QFormLayout.LabelRole, self._colsLabel)
+        self._colsFormLayout.setWidget(0, QFormLayout.LabelRole,
+                                       self._colsLabel)
 
         self._colsSpinBox = QSpinBox(self._optionFrame)
         self._colsSpinBox.setEnabled(False)
@@ -249,7 +250,8 @@ class GalleryView(QWidget):
         self._rowsLabel = QLabel(self._optionFrame)
         self._rowsLabel.setText('Rows')
 
-        self._rowsFormLayout.setWidget(0, QFormLayout.LabelRole, self._rowsLabel)
+        self._rowsFormLayout.setWidget(0, QFormLayout.LabelRole,
+                                       self._rowsLabel)
 
         self._rowsSpinBox = QSpinBox(self._optionFrame)
         self._rowsSpinBox.setEnabled(False)
@@ -487,8 +489,8 @@ class GalleryDataModel(QStandardItemModel):
         """
         fl = Qt.ItemIsDragEnabled
 
-        return QStandardItemModel.flags(self, qModelIndex) & ~Qt.ItemIsEditable \
-               & ~fl
+        return QStandardItemModel.flags(self, qModelIndex) & \
+               ~Qt.ItemIsEditable & ~fl
 
 
 

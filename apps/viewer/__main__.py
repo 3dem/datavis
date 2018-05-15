@@ -34,7 +34,8 @@ if __name__ == '__main__':
                             help='3D image path or a specific '
                                                 'directory')
     argParser.add_argument('--slices', type=str, default=['gallery', 'axis'],
-                           nargs='+', required=False, choices=['gallery', 'axis'],
+                           nargs='+', required=False, choices=['gallery',
+                                                               'axis'],
                            help=' list of accessible')
 
     # EM-BROWSER PARAMETERS
@@ -114,7 +115,8 @@ if __name__ == '__main__':
 
             if isFileExist:  # The file exist
 
-                if utils.isEmImage(args.path):  # The file constitute an em-image.
+                if utils.isEmImage(args.path):  # The file constitute an
+                                                # em-image.
                                           # In this case we determined if the
                                           # image has a volume or not
 

@@ -204,14 +204,16 @@ class VolumeSlice(QWidget):
             QPalette.Window))
         self._topWidget = QFrame(self)
 
-        self._frontView = pg.ImageView(self, view=pg.ViewBox(), name='FrontView')
+        self._frontView = pg.ImageView(self, view=pg.ViewBox(),
+                                       name='FrontView')
         self._frontViewScale = None
         self._frontView.installEventFilter(self)
         self._frontView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
         self._frontWidget = QFrame(self)
 
-        self._rightView = pg.ImageView(self, view=pg.ViewBox(), name='RightView')
+        self._rightView = pg.ImageView(self, view=pg.ViewBox(),
+                                       name='RightView')
         self._rightViewScale = None
         self._rightView.installEventFilter(self)
         self._rightView.getView().setBackgroundColor(self.palette().color(
