@@ -11,6 +11,8 @@ import em
 from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
 from emqt5.widgets.image.gallery_view import GalleryView
+import emqt5.utils.functions as utils
+
 
 import argparse
 
@@ -32,7 +34,8 @@ if __name__ == '__main__':
                             help='3D image path or a specific '
                                                 'directory')
     argParser.add_argument('--slices', type=str, default=['gallery', 'axis'],
-                           nargs='+', required=False, choices=['gallery', 'axis'],
+                           nargs='+', required=False, choices=['gallery',
+                                                               'axis'],
                            help=' list of accessible')
 
     # EM-BROWSER PARAMETERS
@@ -112,14 +115,8 @@ if __name__ == '__main__':
 
             if isFileExist:  # The file exist
 
-                def isEmImage(imagePath):
-                    """ Return True if imagePath has an extension recognized as
-                        supported EM-image """
-                    _, ext = os.path.splitext(imagePath)
-                    return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map',
-                                   '.vol']
-
-                if isEmImage(args.path):  # The file constitute an em-image.
+                if utils.isEmImage(args.path):  # The file constitute an
+                                                # em-image.
                                           # In this case we determined if the
                                           # image has a volume or not
 
@@ -151,10 +148,11 @@ if __name__ == '__main__':
                                 QMessageBox.critical(app.parent(), 'ERROR',
                                                      'A valid way to display '
                                                      'the image are required')
-                        else:  # Display the EM-BROWSER component
-                            kwargs['--path'] = args.path
-                            browserWin = BrowserWindow(**kwargs)
-                            browserWin.show()
+                        else:  # Display the image by the default component:
+                               # Volume-Slicer
+                            kwargs['imagePath'] = args.path
+                            volumeSlice = VolumeSlice(**kwargs)
+                            volumeSlice.show()
 
                 else:  # Display the EM-BROWSER component
                     kwargs['--path'] = args.path

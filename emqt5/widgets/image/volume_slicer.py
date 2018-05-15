@@ -6,6 +6,9 @@ from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
                              QSpacerItem, QPushButton, QSpinBox)
 from PyQt5.QtCore import Qt, QSize, QEvent, QPointF, QRectF
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor, QIcon
+
+import emqt5.utils.functions as utils
+
 import numpy as np
 import pyqtgraph as pg
 import qtawesome as qta
@@ -26,7 +29,7 @@ class VolumeSlice(QWidget):
         self._enableSlicesLine = kwargs.get('--enable-slicesLines', False)
         self._enableAxis = kwargs.get('--enable-axis', False)
         if self._imagePath:
-            if self.isEmImage(self._imagePath):
+            if utils.isEmImage(self._imagePath):
                 self.setMinimumWidth(500)
                 self.setMinimumHeight(500)
                 self.__initComponents__()
@@ -201,14 +204,16 @@ class VolumeSlice(QWidget):
             QPalette.Window))
         self._topWidget = QFrame(self)
 
-        self._frontView = pg.ImageView(self, view=pg.ViewBox(), name='FrontView')
+        self._frontView = pg.ImageView(self, view=pg.ViewBox(),
+                                       name='FrontView')
         self._frontViewScale = None
         self._frontView.installEventFilter(self)
         self._frontView.getView().setBackgroundColor(self.palette().color(
             QPalette.Window))
         self._frontWidget = QFrame(self)
 
-        self._rightView = pg.ImageView(self, view=pg.ViewBox(), name='RightView')
+        self._rightView = pg.ImageView(self, view=pg.ViewBox(),
+                                       name='RightView')
         self._rightViewScale = None
         self._rightView.installEventFilter(self)
         self._rightView.getView().setBackgroundColor(self.palette().color(
@@ -251,7 +256,7 @@ class VolumeSlice(QWidget):
         Given 3D data, select a 2D plane and interpolate data along that plane
         to generate a slice image.
         """
-        if self.isEmImage(self._imagePath):
+        if utils.isEmImage(self._imagePath):
 
             # Create an image from imagePath using em-bindings
             self._image = em.Image()
@@ -441,14 +446,6 @@ class VolumeSlice(QWidget):
         plotRightView = self.rightView.getView()
         plotRightView.showAxis('bottom', False)
         plotRightView.showAxis('left', False)"""
-
-    @staticmethod
-    def isEmImage(imagePath):
-        """ Return True if imagePath has an extension recognized as supported
-            EM-image """
-        _, ext = os.path.splitext(imagePath)
-        return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map', '.vol']
-
 
 class RenderArea(QWidget):
     def __init__(self, parent=None):

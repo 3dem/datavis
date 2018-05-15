@@ -8,6 +8,8 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
 from PyQt5.QtCore import Qt, QVariant, QSize, QRectF
 from PyQt5.QtGui import QStandardItem, QStandardItemModel, QPalette, QPen, QIcon
 
+import emqt5.utils.functions as utils
+
 import qtawesome as qta
 import numpy as np
 import pyqtgraph as pg
@@ -32,7 +34,7 @@ class GalleryView(QWidget):
         self._itemDelegate = ImageItemDelegate(self, self._iconWidth,
                                                self._iconHeight)
         if self._imagePath:
-            if self.isEmImage(self._imagePath):
+            if utils.isEmImage(self._imagePath):
                 self.galleryView()
 
     def _onGalleryViewPlaneChanged(self, index):
@@ -151,7 +153,7 @@ class GalleryView(QWidget):
         frames around the volume data in a table.
         """
 
-        if self.isEmImage(self._imagePath):
+        if utils.isEmImage(self._imagePath):
 
             # Create an image from imagePath using em-bindings
             self._image = em.Image()
@@ -232,7 +234,8 @@ class GalleryView(QWidget):
         self._colsFormLayout = QFormLayout()
         self._colsLabel = QLabel(self._optionFrame)
         self._colsLabel.setText('Cols')
-        self._colsFormLayout.setWidget(0, QFormLayout.LabelRole, self._colsLabel)
+        self._colsFormLayout.setWidget(0, QFormLayout.LabelRole,
+                                       self._colsLabel)
 
         self._colsSpinBox = QSpinBox(self._optionFrame)
         self._colsSpinBox.setEnabled(False)
@@ -247,7 +250,8 @@ class GalleryView(QWidget):
         self._rowsLabel = QLabel(self._optionFrame)
         self._rowsLabel.setText('Rows')
 
-        self._rowsFormLayout.setWidget(0, QFormLayout.LabelRole, self._rowsLabel)
+        self._rowsFormLayout.setWidget(0, QFormLayout.LabelRole,
+                                       self._rowsLabel)
 
         self._rowsSpinBox = QSpinBox(self._optionFrame)
         self._rowsSpinBox.setEnabled(False)
@@ -350,13 +354,6 @@ class GalleryView(QWidget):
         self._tableSlices.setModelColumn(0)
         self._tableSlices.setItemDelegate(self._itemDelegate)
         #self._tableSlices.setCurrentIndex(self._model.index(0, 0))
-
-    @staticmethod
-    def isEmImage(imagePath):
-        """ Return True if imagePath has an extension recognized as supported
-            EM-image """
-        _, ext = os.path.splitext(imagePath)
-        return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map', '.vol']
 
 
 class ImageItemDelegate(QStyledItemDelegate):
@@ -492,8 +489,8 @@ class GalleryDataModel(QStandardItemModel):
         """
         fl = Qt.ItemIsDragEnabled
 
-        return QStandardItemModel.flags(self, qModelIndex) & ~Qt.ItemIsEditable \
-               & ~fl
+        return QStandardItemModel.flags(self, qModelIndex) & \
+               ~Qt.ItemIsEditable & ~fl
 
 
 

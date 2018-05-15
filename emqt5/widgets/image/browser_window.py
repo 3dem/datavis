@@ -17,6 +17,7 @@ from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
 from emqt5.widgets.image import VolumeSlice
 from emqt5.widgets.image import GalleryView
+import emqt5.utils.functions as utils
 
 import qtawesome as qta
 import numpy as np
@@ -81,7 +82,7 @@ class BrowserWindow(QMainWindow):
         This Slot is executed when select button signal was clicked.
         Select an em-image to realize a simple data-slicing
         """
-        if self.isEmImage(self._imagePath):
+        if utils.isEmImage(self._imagePath):
             self.volumeSliceView = VolumeSlice(imagePath=self._imagePath)
 
     def _onHomeActionClicked(self):
@@ -120,8 +121,8 @@ class BrowserWindow(QMainWindow):
         self._imagePath = self._lineCompleter.text()
         index = self._model.index(QDir.toNativeSeparators(self._imagePath))
         self._treeView.selectionModel().select(index,
-                                                QItemSelectionModel.ClearAndSelect |
-                                                QItemSelectionModel.Rows)
+                                            QItemSelectionModel.ClearAndSelect |
+                                            QItemSelectionModel.Rows)
         self._treeView.expand(index)
         self._treeView.scrollTo(index)
         self._treeView.resizeColumnToContents(index.column())
@@ -143,7 +144,8 @@ class BrowserWindow(QMainWindow):
         Select an em-image to display as gallery view
         """
         self._volumeSlice.setupProperties()
-        self._galleryView = GalleryView(imagePath=self._imagePath, iconWidth=150,
+        self._galleryView = GalleryView(imagePath=self._imagePath,
+                                        iconWidth=150,
                                         iconHeight=150)
         self._imageLayout.addWidget(self._galleryView)
         self._galeryViewButton.setEnabled(False)
@@ -233,7 +235,8 @@ class BrowserWindow(QMainWindow):
         self._frame.setMinimumHeight(500)
         self._frame.setMinimumWidth(505)
 
-        sizePolicy.setHeightForWidth(self._frame.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(self._frame.sizePolicy().
+                                     hasHeightForWidth())
         self._frame.setSizePolicy(sizePolicy)
         self._frame.setFrameShape(QFrame.Box)
         self._frame.setFrameShadow(QFrame.Raised)
@@ -339,9 +342,11 @@ class BrowserWindow(QMainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "Browser"))
         self._homeAction.setText(_translate("MainWindow", "Home"))
         self._refreshAction.setText(_translate("MainWindow", "Refresh"))
-        self._folderUpAction.setText(_translate("MainWindow", "Parent Directory"))
+        self._folderUpAction.setText(_translate("MainWindow",
+                                                "Parent Directory"))
         self._label.setText(_translate("MainWindow", "Path"))
-        self._selectButton.setText(QApplication.translate("MainWindow", "Select"))
+        self._selectButton.setText(QApplication.translate("MainWindow",
+                                                          "Select"))
         self._closeButton.setText(QApplication.translate("MainWindow", "Close"))
 
     def setLineCompleter(self, newPath):
@@ -355,13 +360,18 @@ class BrowserWindow(QMainWindow):
 
     def imagePlot(self, imagePath):
         """
-        This method display an image using of pyqtgraph ImageView.
+        This method display an image using of pyqtgraph ImageView, a volume
+        using the VOLUME-SLICER or GALLERY-VIEW components, a image stack or
+        a Table characteristics.
+
         imageView provides:
 
         1. A zoomable region for displaying the image
         2. A combination histogram and gradient editor (HistogramLUTItem) for
            controlling the visual appearance of the image
-        3. Tools for very basic analysis of image data (see ROI and Norm buttons)
+        3. Tools for very basic analysis of image data (see ROI and Norm
+           buttons)
+
         :param imagePath: the image path
         """
 
@@ -378,7 +388,7 @@ class BrowserWindow(QMainWindow):
             self._volumeSlice.setupProperties()
             self._galleryView.setupProperties()
 
-        if self.isEmImage(imagePath):
+        if utils.isEmImage(imagePath):  # EM-Image
 
             self._frame.setEnabled(True)
 
@@ -415,7 +425,8 @@ class BrowserWindow(QMainWindow):
 
                 # Show the image dimension and type
                 self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " + str(self._image.getDim()))
+                self.listWidget.addItem("Dimension: " +
+                                        str(self._image.getDim()))
                 self.listWidget.addItem("Type: " + str(self._image.getType()))
 
                 # Hide Volume Slice and Gallery View Buttons
@@ -439,10 +450,11 @@ class BrowserWindow(QMainWindow):
 
                 # Show the image dimension and type
                 self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " + str(self._image.getDim()))
+                self.listWidget.addItem("Dimension: " +
+                                        str(self._image.getDim()))
                 self.listWidget.addItem("Type: " + str(self._image.getType()))
 
-        elif self.isImage(imagePath):
+        elif utils.isImage(imagePath):  # The image is a standard image
 
                 self._frame.setEnabled(False)
 
@@ -462,7 +474,37 @@ class BrowserWindow(QMainWindow):
                 self.listWidget.clear()
                 self.listWidget.addItem("Dimension: " + str(width) + " x "
                                         + str(height))
-        else:
+
+        elif utils.isEMTable(imagePath):  # The data constitute a Table
+
+            self._tableIO = em.TableIO()
+            self._table = em.Table()
+            self._table.clear()
+
+            self._tableIO.open(imagePath)
+            self._tableIO.read('', self._table)
+            self._tableIO.close()
+
+            # Show the Table dimension
+            self.listWidget.clear()
+            self.listWidget.addItem("Type: EM-Table ")
+            self.listWidget.addItem("Dimensions (Rows x Columns): " +
+                                    str(self._table.getSize()) + ' x ' +
+                                    str(self._table.getColumnsSize()))
+
+        elif utils.isEMImageStack(imagePath):  # The image constitute an image
+                                               # stack
+            self._imageStack = em.ImageIO()
+            loc2 = em.ImageLocation(imagePath)
+            self._imageStack.open(loc2.path, 0)
+
+            # Show the image dimension and type
+            self.listWidget.clear()
+            self.listWidget.addItem("Dimension: " +
+                                    str(self._imageStack.getDim()))
+            self.listWidget.addItem("Type: Images Stack")
+
+        else:  # No image format
             self._imageBox.setupProperties()
             self._imageBox.update()
             self.listWidget.clear()
@@ -474,18 +516,6 @@ class BrowserWindow(QMainWindow):
 
             self.listWidget.addItem("NO IMAGE FORMAT")
 
-    @staticmethod
-    def isEmImage(imagePath):
-        """ Return True if imagePath has an extension recognized as supported
-            EM-image """
-        _, ext = os.path.splitext(imagePath)
-        return ext in ['.mrc', '.mrcs', '.spi', '.stk', '.map', '.vol']
-
-    @staticmethod
-    def isImage(imagePath):
-        """ Return True if imagePath has a standard image format. """
-        _, ext = os.path.splitext(imagePath)
-        return ext in ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
 
 
 
