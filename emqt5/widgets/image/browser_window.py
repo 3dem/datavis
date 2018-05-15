@@ -492,7 +492,19 @@ class BrowserWindow(QMainWindow):
                                     str(self._table.getSize()) + ' x ' +
                                     str(self._table.getColumnsSize()))
 
-        else:
+        elif utils.isEMImageStack(imagePath):  # The image constitute an image
+                                               # stack
+            self._imageStack = em.ImageIO()
+            loc2 = em.ImageLocation(imagePath)
+            self._imageStack.open(loc2.path, 0)
+
+            # Show the image dimension and type
+            self.listWidget.clear()
+            self.listWidget.addItem("Dimension: " +
+                                    str(self._imageStack.getDim()))
+            self.listWidget.addItem("Type: Images Stack")
+
+        else:  # No image format
             self._imageBox.setupProperties()
             self._imageBox.update()
             self.listWidget.clear()
