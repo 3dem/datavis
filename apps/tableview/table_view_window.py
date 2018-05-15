@@ -22,7 +22,7 @@ class TableViewWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         self.__setupUi__(**kwargs)
         self._model = TableDataModel(parent=self.tableView,
-                                     data=kwargs['tableData'],
+                                     emTable=kwargs['tableData'],
                                      columnProperties=kwargs['colProperties'])
         self.tableView.setModel(self._model)
 
