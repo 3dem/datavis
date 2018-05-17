@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize,
-                          QSortFilterProxyModel, QEvent, QObject, QPoint,
+from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize,
                           QItemSelectionModel, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
@@ -33,6 +32,15 @@ class TableView(QWidget):
     """
     Widget used for display table contend
     """
+
+    """ This signal is emitted when the current item change in TABLE mode """
+    sigCurrentTableItemChanged = pyqtSignal(int, int)
+
+    """ This signal is emitted when the current item change in GALLERY mode """
+    sigCurrentGalleryItemChanged = pyqtSignal(int, int)
+
+    """ This signal is emitted when the current item change in GALLERY mode """
+    sigCurrentElementItemChanged = pyqtSignal(int, int)
 
     def __init__(self, **kwargs):
         QWidget.__init__(self, kwargs.get("parent", None))
@@ -262,7 +270,7 @@ class TableView(QWidget):
         """
         Load the element data in the view element table for the specific row
         First row is 0.
-        row: row in self._sortProxyModel
+        row: row in TableModel
         imgColumn: selected image column
         """
         if self._tableModel and row in range(0,
@@ -272,10 +280,10 @@ class TableView(QWidget):
             vLabels = []
             for i in range(0, self._tableModel.columnCount()):
                 item = QStandardItem()
-                item.setData(self._tableModel.getData(row, i),
+                item.setData(self._tableModel.getTableData(row, i),
                              Qt.DisplayRole)
                 if i == imgColumn:
-                    imgPath = self._tableModel.getData(row, i)
+                    imgPath = self._tableModel.getTableData(row, i)
                     self._pixMapElem.load(imgPath)
                     pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
                     v = self._imageView.getView()
@@ -290,6 +298,7 @@ class TableView(QWidget):
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._elemViewTable.horizontalHeader().setStretchLastSection(True)
+            self.sigCurrentElementItemChanged.emit(row, imgColumn)
 
     def __loadCurrentGalleryPage__(self):
         """
@@ -741,25 +750,34 @@ class TableView(QWidget):
         """
         This slot is invoked when the current table item change
         """
+        col = row = -1
         if current.isValid():
             row = current.row() + self._currentTablePage * self._itemsXTablePage
+            col = current.column()
             if not row == self._currentRow:
                 self._currentRow = row
                 if not self._spinBoxCurrentRow.value() == row + 1:
                     self._spinBoxCurrentRow.setValue(self._currentRow + 1)
             self._showCurrentPageNumber()
 
+        self.sigCurrentTableItemChanged.emit(row, col)
+
+
     @pyqtSlot(QModelIndex, QModelIndex)
     def _onCurrentGalleryItemChanged(self, current, previous):
         """
         This slot is invoked when the current gallery item change.
         """
+        col = row = -1
         if current.isValid():
             row = current.row()
+            col = current.column()
             self._currentRow = \
                 row + self._currentGalleryPage * self._itemsXGalleryPage
             if not self._spinBoxCurrentRow.value() == self._currentRow + 1:
                 self._spinBoxCurrentRow.setValue(self._currentRow + 1)
+
+        self.sigCurrentGalleryItemChanged.emit(row, col)
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -890,6 +908,17 @@ class TableView(QWidget):
         """
         self._sortRole = role
 
+    def setItemDelegateForColumn(self, column, delegate):
+        """
+        Sets the given item delegate used by this table view and model
+        for the given column. All items on column will be drawn and managed
+        by delegate instead of using the default delegate. Any existing column
+        delegate for column will be removed, but not deleted. TableView does not
+        take ownership of delegate.
+        First column index is 0.
+        """
+        self._tableView.setItemDelegateForColumn(column, delegate)
+
 
 class _ImageItemDelegate(QStyledItemDelegate):
     """
@@ -1013,24 +1042,3 @@ class TableWidget(QTableView):
         """
         QTableView.resizeEvent(self, evt)
         self.sigSizeChanged.emit()
-
-
-class PageModel(QSortFilterProxyModel):
-    """
-    The PageModel class provides support for sorting and paging the data of
-    another modelmodel
-    """
-    def __init__(self, parent=None):
-        QSortFilterProxyModel.__init__(self, parent)
-        self._firstRow = 0
-        self._lastRow = 0
-
-    def setShowRange(self, firstRow, lastRow):
-        self._firstRow = firstRow
-        self._lastRow = lastRow
-
-    def filterAcceptsRow(self, source_row, source_parent):
-        """
-        Reimplemented from QSortFilterProxyModel
-        """
-        return source_row in range(self._firstRow, self._lastRow + 1)

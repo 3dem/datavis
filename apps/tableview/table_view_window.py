@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5 import QtCore, QtGui
+from PyQt5.QtCore import (pyqtSlot, pyqtSignal)
 from PyQt5.QtWidgets import (QMainWindow, QStatusBar, QWidget, QVBoxLayout,
                              QLabel)
 
@@ -34,6 +34,12 @@ class TableViewWindow(QMainWindow):
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setSpacing(0)
         self.tableView = TableView(parent=self.centralWidget, **kwargs)
+        self.tableView.sigCurrentTableItemChanged.connect(
+            self.__tableItemChanged)
+        self.tableView.sigCurrentGalleryItemChanged.connect(
+            self.__galleryItemChanged)
+        self.tableView.sigCurrentElementItemChanged.connect(
+            self.__elementItemChanged)
         self.verticalLayout.addWidget(self.tableView)
 
         self.statusBar = QStatusBar(self)
@@ -42,3 +48,26 @@ class TableViewWindow(QMainWindow):
                                  text="Some information about...")
         self.statusBar.addWidget(self._labelInfo)
 
+    @pyqtSlot(int, int)
+    def __tableItemChanged(self, row, col):
+        print("-------------------")
+        print("tableItemChanged")
+        print("currentRow: ", row)
+        print("currentCol: ", col)
+        print("-------------------")
+
+    @pyqtSlot(int, int)
+    def __galleryItemChanged(self, row, col):
+        print("-------------------")
+        print("__galleryItemChanged")
+        print("currentRow: ", row)
+        print("currentCol: ", col)
+        print("-------------------")
+
+    @pyqtSlot(int, int)
+    def __elementItemChanged(self, row, col):
+        print("-------------------")
+        print("__elementItemChanged")
+        print("currentRow: ", row)
+        print("currentCol: ", col)
+        print("-------------------")
