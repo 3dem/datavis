@@ -662,7 +662,8 @@ class TableView(QWidget):
             currentData(Qt.UserRole)
 
         if self._tableModel:
-            self._listView.setModelColumn(self._currentRenderableColumn)
+            if self._comboBoxCurrentColumn.model().rowCount():
+                self._listView.setModelColumn(self._currentRenderableColumn)
             if self._currentViewMode == GALLERY_VIEW_MODE:
                 self.__loadCurrentGalleryPage__()
                 self._selectRow(self._currentRow + 1)

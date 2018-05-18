@@ -152,6 +152,8 @@ class TableDataModel(QAbstractItemModel):
                 return bool(int(emRow[emCol.getId()]))
             elif t == 'Int':
                 return int(emRow[emCol.getId()])
+            elif t == 'Real':
+                return float(emRow[emCol.getId()])
 
             return emRow[emCol.getId()]
 
