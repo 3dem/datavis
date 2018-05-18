@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize,
+from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QRectF,
                           QItemSelectionModel, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
@@ -18,7 +18,8 @@ from PyQt5 import QtCore
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.widgets.table.model import TableDataModel, ImageCache
+from emqt5.widgets.table.model import ImageCache
+import emqt5.utils.functions as em_utils
 
 TABLE_VIEW_MODE = 'TABLE'
 GALLERY_VIEW_MODE = 'GALLERY'
@@ -79,6 +80,7 @@ class TableView(QWidget):
         self._itemsXTablePage = 0
         self._currentTablePage = 0
         self._currentElementPage = 0
+        self._imageCache = ImageCache(50, 50)
         self.__setupUi__()
         self.__setupCurrentViewMode__()
 
@@ -131,6 +133,8 @@ class TableView(QWidget):
             self._imageView.getView().setMenuEnabled(False)
 
         self._pixMapElem = QPixmap()
+        self._pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
+        self._imageView.getView().addItem(self._pixmapItem)
         self._elemViewTable = TableWidget(self._elemViewContainer)
         self._elemViewTable.setModel(QStandardItemModel(self._elemViewTable))
         # pagination
@@ -284,13 +288,22 @@ class TableView(QWidget):
                              Qt.DisplayRole)
                 if i == imgColumn:
                     imgPath = self._tableModel.getTableData(row, i)
-                    self._pixMapElem.load(imgPath)
-                    pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
-                    v = self._imageView.getView()
-                    v.clear()
-                    v.addItem(pixmapItem)
-                    if not self._disableFitToSize:
-                        v.autoRange()
+                    if em_utils.isImage(imgPath):
+                        self._pixMapElem.load(imgPath)
+                        self._pixmapItem.setPixmap(self._pixMapElem)
+                        self._pixmapItem.setVisible(True)
+                        v = self._imageView.getView()
+                        if not self._disableFitToSize:
+                            v.autoRange()
+                    elif em_utils.isEmImage(imgPath) \
+                            or em_utils.isEMImageStack(imgPath):
+                        if self._pixmapItem:
+                            self._pixmapItem.setVisible(False)
+                        self._imageView.setImage(
+                            self._imageCache.addImage(imgPath, imgPath))
+                    else:
+                        self._imageView.clear()
+
                 model.appendRow([item])
                 label = self._tableModel.headerData(i, Qt.Horizontal)
                 if label:
@@ -356,12 +369,14 @@ class TableView(QWidget):
             for i, prop in enumerate(self._tableModel.getColumnProperties()):
                 if prop.isRenderable() and prop.isAllowSetVisible() and \
                         prop.isVisible():
-                    self._tableView.setItemDelegateForColumn(
-                        i, _ImageItemDelegate(self._tableView))
+                    delegate = EMImageItemDelegate(self._tableView)
+                    delegate.setImageCache(self._imageCache)
+                    self._tableView.setItemDelegateForColumn(i, delegate)
 
-        self._listView.setItemDelegate(
-            _ImageItemDelegate(parent=self._listView,
-                               selectedStatePen=QPen(Qt.red)))
+        delegate =EMImageItemDelegate(parent=self._listView,
+                                      selectedStatePen=QPen(Qt.red))
+        delegate.setImageCache(self._imageCache)
+        self._listView.setItemDelegate(delegate)
 
     def __setupVisibleColumns__(self):
         """
@@ -1007,6 +1022,119 @@ class _ImageItemDelegate(QStyledItemDelegate):
             pixmap = self._imgCache.addImage(imgPath, imgPath)
 
         return pixmap
+
+
+class EMImageItemDelegate(QStyledItemDelegate):
+    """
+    ImageItemDelegate class provides display and editing facilities for
+    em image data items from a model.
+    """
+    def __init__(self, parent=None,
+                 selectedStatePen=None,
+                 borderPen=None,
+                 iconWidth=150,
+                 iconHeight=150):
+        """
+        If selectedStatePen is None then the border will not be painted when
+        the item is selected.
+        If selectedStatePen has a QPen value then a border will be painted when
+        the item is selected
+        :param parent: the parent qt object
+        :param selectedStatePen: QPen object
+        """
+        QStyledItemDelegate.__init__(self, parent)
+        self._selectedStatePen = selectedStatePen
+        self._borderPen = borderPen
+        self._imgCache = ImageCache(50, 50)
+        self._imageView = pg.ImageView(view=pg.ViewBox())
+        self._iconWidth = iconWidth
+        self._iconHeight = iconHeight
+        self._disableFitToSize = True
+        self._pixmapItem = None
+
+    def paint(self, painter, option, index):
+        """
+        Reimplemented from QStyledItemDelegate
+        """
+        if index.isValid():
+            self._setupView(index)
+
+            if option.state & QStyle.State_Selected:
+                if option.state & QStyle.State_HasFocus or \
+                     option.state & QStyle.State_Active:
+                    colorGroup = QPalette.Active
+                else:
+                    colorGroup = QPalette.Inactive
+
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.Highlight))
+
+            self._imageView.ui.graphicsView.scene().render(painter,
+                                                           QRectF(option.rect))
+            self._imageView.ui.graphicsView.scene().setSceneRect(
+                QRectF(9, 9, option.rect.width()-17, option.rect.height()-17))
+
+            if option.state & QStyle.State_HasFocus:
+                pen = QPen(Qt.DashDotDotLine)
+                pen.setColor(Qt.red)
+                painter.setPen(pen)
+                painter.drawRect(option.rect.x(), option.rect.y(),
+                                 option.rect.width()-1, option.rect.height()-1)
+            QApplication.style().drawPrimitive(
+                QStyle.PE_FrameFocusRect, option, painter)
+
+    def _setupView(self, index):
+        """
+        Configure the widget used as view to shoe the image
+        """
+        imgData = self._getThumb(index)
+
+        if imgData is None:
+            return
+        size = index.data(Qt.SizeHintRole)
+        v = self._imageView.getView()
+
+        if not isinstance(imgData, QPixmap):  # QPixmap or np.array
+            if self._pixmapItem:
+                self._pixmapItem.setVisible(False)
+            v.setGeometry(0, 0, size.width(), size.height())
+            v.resizeEvent(None)
+            self._imageView.setImage(imgData)
+        else:
+            if not self._pixmapItem:
+                self._pixmapItem = QGraphicsPixmapItem(imgData)
+                v.addItem(self._pixmapItem)
+            else:
+                self._pixmapItem.setPixmap(imgData)
+            self._pixmapItem.setVisible(True)
+            v.autoRange()
+
+    def _getThumb(self, index, height=100):
+        """
+        If the thumbnail stored in Image Cache
+        :param index: QModelIndex
+        :param height: height to scale the image
+        """
+        imgPath = index.data(Qt.UserRole)
+        imgData = self._imgCache.getImage(imgPath)
+
+        if imgData is None:
+            #  create one and store in imgCache
+            imgData = self._imgCache.addImage(imgPath, imgPath)
+
+        return imgData
+
+    def setImageCache(self, imgCache):
+        """
+        Set the ImageCache object to be use for this ImageDelegate
+        :param imgCache: ImageCache
+        """
+        self._imgCache = imgCache
+
+    def getImageCache(self):
+        """ Getter for imageCache """
+        return self._imgCache
 
 
 class GalleryViewWidget(QListView):
