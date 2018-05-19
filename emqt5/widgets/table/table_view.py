@@ -43,6 +43,10 @@ class TableView(QWidget):
     """ This signal is emitted when the current item change in GALLERY mode """
     sigCurrentElementItemChanged = pyqtSignal(int, int)
 
+    """ This signal is emitted when a mouse button is double-clicked 
+        in GALLERY mode """
+    sigGalleryItemDoubleClicked = pyqtSignal(int, int)
+
     def __init__(self, **kwargs):
         QWidget.__init__(self, kwargs.get("parent", None))
         self.__calcTablePageProperties = True
@@ -113,6 +117,8 @@ class TableView(QWidget):
         self._listView.setLayoutMode(QListView.Batched)
         self._listView.setBatchSize(500)
         self._listView.setMovement(QListView.Static)
+        self._listView.doubleClicked.connect(
+            self._onGalleryViewItemDoubleClicked)
         sModel = self._listView.selectionModel()
         if sModel:
             sModel.currentChanged.connect(self._onCurrentGalleryItemChanged)
@@ -667,6 +673,14 @@ class TableView(QWidget):
                 self._showNumberOfPages()
             self.__calcGalleryPageProperties = False
 
+    def _onGalleryViewItemDoubleClicked(self, qModelIndex):
+        """
+        Invoked when a mouse button is double-clicked over a item
+        :param qModelIndex:
+        """
+        self.sigGalleryItemDoubleClicked.emit(self._currentRow,
+                                              qModelIndex.column())
+
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
         """
@@ -715,6 +729,9 @@ class TableView(QWidget):
             page = self.__getTablePage__(self._currentRow)
             self.__goToPage__(page, True)
             self.__calcGalleryPageProperties = True
+        elif self._currentViewMode == ELEMENT_VIEW_MODE:
+            self.__calcGalleryPageProperties = True
+            self.__calcTablePageProperties = True
 
         self._selectRow(self._currentRow + 1)
         self._showNumberOfPages()
@@ -1092,14 +1109,16 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
         if imgData is None:
             return
+
         size = index.data(Qt.SizeHintRole)
         v = self._imageView.getView()
+        v.setGeometry(0, 0, size.width(), size.height())
+        v.resizeEvent(None)
 
         if not isinstance(imgData, QPixmap):  # QPixmap or np.array
             if self._pixmapItem:
                 self._pixmapItem.setVisible(False)
-            v.setGeometry(0, 0, size.width(), size.height())
-            v.resizeEvent(None)
+
             self._imageView.setImage(imgData)
         else:
             if not self._pixmapItem:

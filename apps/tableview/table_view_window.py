@@ -38,6 +38,8 @@ class TableViewWindow(QMainWindow):
             self.__tableItemChanged)
         self.tableView.sigCurrentGalleryItemChanged.connect(
             self.__galleryItemChanged)
+        self.tableView.sigGalleryItemDoubleClicked.connect(
+            self.__galleryItemDoubleClicked)
         self.tableView.sigCurrentElementItemChanged.connect(
             self.__elementItemChanged)
         self.verticalLayout.addWidget(self.tableView)
@@ -47,6 +49,14 @@ class TableViewWindow(QMainWindow):
         self._labelInfo = QLabel(parent=self.statusBar,
                                  text="Some information about...")
         self.statusBar.addWidget(self._labelInfo)
+
+    @pyqtSlot(int, int)
+    def __galleryItemDoubleClicked(self, row, col):
+        print("-------------------")
+        print("galleryItemDoubleClicked")
+        print("currentRow: ", row)
+        print("currentCol: ", col)
+        print("-------------------")
 
     @pyqtSlot(int, int)
     def __tableItemChanged(self, row, col):
