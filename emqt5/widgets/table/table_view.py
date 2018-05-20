@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import (Qt, QVariant, pyqtSlot, QItemSelection, QSize,
-                          QSortFilterProxyModel, QEvent, QObject, QPoint,
+from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QRectF,
                           QItemSelectionModel, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
                              QToolBar, QAction, QTableView, QSpinBox, QLabel,
@@ -19,7 +18,8 @@ from PyQt5 import QtCore
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.widgets.table.model import TableDataModel, ImageCache
+from emqt5.widgets.table.model import ImageCache
+import emqt5.utils.functions as em_utils
 
 TABLE_VIEW_MODE = 'TABLE'
 GALLERY_VIEW_MODE = 'GALLERY'
@@ -33,6 +33,19 @@ class TableView(QWidget):
     """
     Widget used for display table contend
     """
+
+    """ This signal is emitted when the current item change in TABLE mode """
+    sigCurrentTableItemChanged = pyqtSignal(int, int)
+
+    """ This signal is emitted when the current item change in GALLERY mode """
+    sigCurrentGalleryItemChanged = pyqtSignal(int, int)
+
+    """ This signal is emitted when the current item change in GALLERY mode """
+    sigCurrentElementItemChanged = pyqtSignal(int, int)
+
+    """ This signal is emitted when a mouse button is double-clicked 
+        in GALLERY mode """
+    sigGalleryItemDoubleClicked = pyqtSignal(int, int)
 
     def __init__(self, **kwargs):
         QWidget.__init__(self, kwargs.get("parent", None))
@@ -71,6 +84,7 @@ class TableView(QWidget):
         self._itemsXTablePage = 0
         self._currentTablePage = 0
         self._currentElementPage = 0
+        self._imageCache = ImageCache(50, 50)
         self.__setupUi__()
         self.__setupCurrentViewMode__()
 
@@ -103,6 +117,8 @@ class TableView(QWidget):
         self._listView.setLayoutMode(QListView.Batched)
         self._listView.setBatchSize(500)
         self._listView.setMovement(QListView.Static)
+        self._listView.doubleClicked.connect(
+            self._onGalleryViewItemDoubleClicked)
         sModel = self._listView.selectionModel()
         if sModel:
             sModel.currentChanged.connect(self._onCurrentGalleryItemChanged)
@@ -123,6 +139,8 @@ class TableView(QWidget):
             self._imageView.getView().setMenuEnabled(False)
 
         self._pixMapElem = QPixmap()
+        self._pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
+        self._imageView.getView().addItem(self._pixmapItem)
         self._elemViewTable = TableWidget(self._elemViewContainer)
         self._elemViewTable.setModel(QStandardItemModel(self._elemViewTable))
         # pagination
@@ -262,7 +280,7 @@ class TableView(QWidget):
         """
         Load the element data in the view element table for the specific row
         First row is 0.
-        row: row in self._sortProxyModel
+        row: row in TableModel
         imgColumn: selected image column
         """
         if self._tableModel and row in range(0,
@@ -272,17 +290,26 @@ class TableView(QWidget):
             vLabels = []
             for i in range(0, self._tableModel.columnCount()):
                 item = QStandardItem()
-                item.setData(self._tableModel.getData(row, i),
+                item.setData(self._tableModel.getTableData(row, i),
                              Qt.DisplayRole)
                 if i == imgColumn:
-                    imgPath = self._tableModel.getData(row, i)
-                    self._pixMapElem.load(imgPath)
-                    pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
-                    v = self._imageView.getView()
-                    v.clear()
-                    v.addItem(pixmapItem)
-                    if not self._disableFitToSize:
-                        v.autoRange()
+                    imgPath = self._tableModel.getTableData(row, i)
+                    if em_utils.isImage(imgPath):
+                        self._pixMapElem.load(imgPath)
+                        self._pixmapItem.setPixmap(self._pixMapElem)
+                        self._pixmapItem.setVisible(True)
+                        v = self._imageView.getView()
+                        if not self._disableFitToSize:
+                            v.autoRange()
+                    elif em_utils.isEmImage(imgPath) \
+                            or em_utils.isEMImageStack(imgPath):
+                        if self._pixmapItem:
+                            self._pixmapItem.setVisible(False)
+                        self._imageView.setImage(
+                            self._imageCache.addImage(imgPath, imgPath))
+                    else:
+                        self._imageView.clear()
+
                 model.appendRow([item])
                 label = self._tableModel.headerData(i, Qt.Horizontal)
                 if label:
@@ -290,6 +317,7 @@ class TableView(QWidget):
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._elemViewTable.horizontalHeader().setStretchLastSection(True)
+            self.sigCurrentElementItemChanged.emit(row, imgColumn)
 
     def __loadCurrentGalleryPage__(self):
         """
@@ -347,12 +375,14 @@ class TableView(QWidget):
             for i, prop in enumerate(self._tableModel.getColumnProperties()):
                 if prop.isRenderable() and prop.isAllowSetVisible() and \
                         prop.isVisible():
-                    self._tableView.setItemDelegateForColumn(
-                        i, _ImageItemDelegate(self._tableView))
+                    delegate = EMImageItemDelegate(self._tableView)
+                    delegate.setImageCache(self._imageCache)
+                    self._tableView.setItemDelegateForColumn(i, delegate)
 
-        self._listView.setItemDelegate(
-            _ImageItemDelegate(parent=self._listView,
-                               selectedStatePen=QPen(Qt.red)))
+        delegate =EMImageItemDelegate(parent=self._listView,
+                                      selectedStatePen=QPen(Qt.red))
+        delegate.setImageCache(self._imageCache)
+        self._listView.setItemDelegate(delegate)
 
     def __setupVisibleColumns__(self):
         """
@@ -643,6 +673,14 @@ class TableView(QWidget):
                 self._showNumberOfPages()
             self.__calcGalleryPageProperties = False
 
+    def _onGalleryViewItemDoubleClicked(self, qModelIndex):
+        """
+        Invoked when a mouse button is double-clicked over a item
+        :param qModelIndex:
+        """
+        self.sigGalleryItemDoubleClicked.emit(self._currentRow,
+                                              qModelIndex.column())
+
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
         """
@@ -653,7 +691,8 @@ class TableView(QWidget):
             currentData(Qt.UserRole)
 
         if self._tableModel:
-            self._listView.setModelColumn(self._currentRenderableColumn)
+            if self._comboBoxCurrentColumn.model().rowCount():
+                self._listView.setModelColumn(self._currentRenderableColumn)
             if self._currentViewMode == GALLERY_VIEW_MODE:
                 self.__loadCurrentGalleryPage__()
                 self._selectRow(self._currentRow + 1)
@@ -690,6 +729,9 @@ class TableView(QWidget):
             page = self.__getTablePage__(self._currentRow)
             self.__goToPage__(page, True)
             self.__calcGalleryPageProperties = True
+        elif self._currentViewMode == ELEMENT_VIEW_MODE:
+            self.__calcGalleryPageProperties = True
+            self.__calcTablePageProperties = True
 
         self._selectRow(self._currentRow + 1)
         self._showNumberOfPages()
@@ -741,25 +783,34 @@ class TableView(QWidget):
         """
         This slot is invoked when the current table item change
         """
+        col = row = -1
         if current.isValid():
             row = current.row() + self._currentTablePage * self._itemsXTablePage
+            col = current.column()
             if not row == self._currentRow:
                 self._currentRow = row
                 if not self._spinBoxCurrentRow.value() == row + 1:
                     self._spinBoxCurrentRow.setValue(self._currentRow + 1)
             self._showCurrentPageNumber()
 
+        self.sigCurrentTableItemChanged.emit(row, col)
+
+
     @pyqtSlot(QModelIndex, QModelIndex)
     def _onCurrentGalleryItemChanged(self, current, previous):
         """
         This slot is invoked when the current gallery item change.
         """
+        col = row = -1
         if current.isValid():
             row = current.row()
+            col = current.column()
             self._currentRow = \
                 row + self._currentGalleryPage * self._itemsXGalleryPage
             if not self._spinBoxCurrentRow.value() == self._currentRow + 1:
                 self._spinBoxCurrentRow.setValue(self._currentRow + 1)
+
+        self.sigCurrentGalleryItemChanged.emit(row, col)
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -890,6 +941,17 @@ class TableView(QWidget):
         """
         self._sortRole = role
 
+    def setItemDelegateForColumn(self, column, delegate):
+        """
+        Sets the given item delegate used by this table view and model
+        for the given column. All items on column will be drawn and managed
+        by delegate instead of using the default delegate. Any existing column
+        delegate for column will be removed, but not deleted. TableView does not
+        take ownership of delegate.
+        First column index is 0.
+        """
+        self._tableView.setItemDelegateForColumn(column, delegate)
+
 
 class _ImageItemDelegate(QStyledItemDelegate):
     """
@@ -979,6 +1041,121 @@ class _ImageItemDelegate(QStyledItemDelegate):
         return pixmap
 
 
+class EMImageItemDelegate(QStyledItemDelegate):
+    """
+    ImageItemDelegate class provides display and editing facilities for
+    em image data items from a model.
+    """
+    def __init__(self, parent=None,
+                 selectedStatePen=None,
+                 borderPen=None,
+                 iconWidth=150,
+                 iconHeight=150):
+        """
+        If selectedStatePen is None then the border will not be painted when
+        the item is selected.
+        If selectedStatePen has a QPen value then a border will be painted when
+        the item is selected
+        :param parent: the parent qt object
+        :param selectedStatePen: QPen object
+        """
+        QStyledItemDelegate.__init__(self, parent)
+        self._selectedStatePen = selectedStatePen
+        self._borderPen = borderPen
+        self._imgCache = ImageCache(50, 50)
+        self._imageView = pg.ImageView(view=pg.ViewBox())
+        self._iconWidth = iconWidth
+        self._iconHeight = iconHeight
+        self._disableFitToSize = True
+        self._pixmapItem = None
+
+    def paint(self, painter, option, index):
+        """
+        Reimplemented from QStyledItemDelegate
+        """
+        if index.isValid():
+            self._setupView(index)
+
+            if option.state & QStyle.State_Selected:
+                if option.state & QStyle.State_HasFocus or \
+                     option.state & QStyle.State_Active:
+                    colorGroup = QPalette.Active
+                else:
+                    colorGroup = QPalette.Inactive
+
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.Highlight))
+
+            self._imageView.ui.graphicsView.scene().render(painter,
+                                                           QRectF(option.rect))
+            self._imageView.ui.graphicsView.scene().setSceneRect(
+                QRectF(9, 9, option.rect.width()-17, option.rect.height()-17))
+
+            if option.state & QStyle.State_HasFocus:
+                pen = QPen(Qt.DashDotDotLine)
+                pen.setColor(Qt.red)
+                painter.setPen(pen)
+                painter.drawRect(option.rect.x(), option.rect.y(),
+                                 option.rect.width()-1, option.rect.height()-1)
+            QApplication.style().drawPrimitive(
+                QStyle.PE_FrameFocusRect, option, painter)
+
+    def _setupView(self, index):
+        """
+        Configure the widget used as view to shoe the image
+        """
+        imgData = self._getThumb(index)
+
+        if imgData is None:
+            return
+
+        size = index.data(Qt.SizeHintRole)
+        v = self._imageView.getView()
+        v.setGeometry(0, 0, size.width(), size.height())
+        v.resizeEvent(None)
+
+        if not isinstance(imgData, QPixmap):  # QPixmap or np.array
+            if self._pixmapItem:
+                self._pixmapItem.setVisible(False)
+
+            self._imageView.setImage(imgData)
+        else:
+            if not self._pixmapItem:
+                self._pixmapItem = QGraphicsPixmapItem(imgData)
+                v.addItem(self._pixmapItem)
+            else:
+                self._pixmapItem.setPixmap(imgData)
+            self._pixmapItem.setVisible(True)
+            v.autoRange()
+
+    def _getThumb(self, index, height=100):
+        """
+        If the thumbnail stored in Image Cache
+        :param index: QModelIndex
+        :param height: height to scale the image
+        """
+        imgPath = index.data(Qt.UserRole)
+        imgData = self._imgCache.getImage(imgPath)
+
+        if imgData is None:
+            #  create one and store in imgCache
+            imgData = self._imgCache.addImage(imgPath, imgPath)
+
+        return imgData
+
+    def setImageCache(self, imgCache):
+        """
+        Set the ImageCache object to be use for this ImageDelegate
+        :param imgCache: ImageCache
+        """
+        self._imgCache = imgCache
+
+    def getImageCache(self):
+        """ Getter for imageCache """
+        return self._imgCache
+
+
 class GalleryViewWidget(QListView):
     """
     The GalleryView class provides some functionality for show large numbers of
@@ -1013,24 +1190,3 @@ class TableWidget(QTableView):
         """
         QTableView.resizeEvent(self, evt)
         self.sigSizeChanged.emit()
-
-
-class PageModel(QSortFilterProxyModel):
-    """
-    The PageModel class provides support for sorting and paging the data of
-    another modelmodel
-    """
-    def __init__(self, parent=None):
-        QSortFilterProxyModel.__init__(self, parent)
-        self._firstRow = 0
-        self._lastRow = 0
-
-    def setShowRange(self, firstRow, lastRow):
-        self._firstRow = firstRow
-        self._lastRow = lastRow
-
-    def filterAcceptsRow(self, source_row, source_parent):
-        """
-        Reimplemented from QSortFilterProxyModel
-        """
-        return source_row in range(self._firstRow, self._lastRow + 1)
