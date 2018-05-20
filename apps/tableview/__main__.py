@@ -10,6 +10,7 @@ import em
 from PyQt5.QtWidgets import QApplication
 
 from emqt5.widgets.table import ColumnProperties, PERCENT_UNITS, PIXEL_UNITS
+import emqt5.utils.functions as em_utils
 
 from table_view_window import TableViewWindow
 
@@ -80,44 +81,84 @@ if __name__ == '__main__':
                       Column(4, "Ext", em.typeString, "Ext"),
                       Column(5, "Check", em.typeBool, "Checked"),
                       Column(6, "Count", em.typeInt32, "Count")])
-    i = 1
-    lastPath = args.files[0]
-    for index in range(0, 250):
-        for path in args.files:
-            _, ext = os.path.splitext(path)
-            row = table.createRow()
-            row["FileName"] = os.path.basename(path)
-            row["Path"] = path
-            row["RealImage"] = lastPath
-            row["Ext"] = ext
-            row["Check"] = True if i % 2 else False
-            row["Count"] = i
-            table.addRow(row)
+    emFile = args.files[0]
+    if len(args.files) == 1 and em_utils.isEMTable(emFile):
+        _, ext = os.path.splitext(emFile)
+        if True:  # em.TableIO.hasImpl(ext):
+            table = em.Table()
+            tableIO = em.TableIO()
+            tableIO.open(emFile)
+            tableIO.read('', table)
+            tableIO.close()
+            print("Table: ", table)
+            properties = []
+            colTypes = {}
+            colTypes[em.typeBool.getName()] = 'Bool'
+            colTypes[em.typeCDouble.getName()] = 'Real'
+            colTypes[em.typeCFloat.getName()] = 'Real'
+            colTypes[em.typeFloat.getName()] = 'Real'
+            colTypes[em.typeInt16.getName()] = 'Int'
+            colTypes[em.typeInt32.getName()] = 'Int'
+            colTypes[em.typeInt64.getName()] = 'Int'
+            colTypes[em.typeInt8.getName()] = 'Int'
+            colTypes[em.typeSizeT.getName()] = 'Int'
+            colTypes[em.typeString.getName()] = 'Str'
+            colTypes[em.typeUInt16.getName()] = 'Int'
+            colTypes[em.typeUInt32.getName()] = 'Int'
+            colTypes[em.typeUInt64.getName()] = 'Int'
+            colTypes[em.typeUInt8.getName()] = 'Int'
 
-            i = i+1
-            lastPath = path
+            for i in range(0, table.getColumnsSize()):
+                column = table.getColumnByIndex(i)
+                colProp = ColumnProperties(column.getName(),
+                                           column.getName(),
+                                           colTypes[column.getType().getName()],
+                                           **{'renderable': False,
+                                              'editable': True}
+                                           )
+                properties.append(colProp)
+        else:
+            print("Can not read input file:", emFile)
+            sys.exit(0)
+    else:
+        i = 1
+        lastPath = args.files[0]
+        for index in range(0, 250):
+            for path in args.files:
+                _, ext = os.path.splitext(path)
+                row = table.createRow()
+                row["FileName"] = os.path.basename(path)
+                row["Path"] = path
+                row["RealImage"] = lastPath
+                row["Ext"] = ext
+                row["Check"] = True if i % 2 else False
+                row["Count"] = i
+                table.addRow(row)
 
-    properties = [ColumnProperties('FileName', 'File Name', 'Str',
-                                   **{'renderable': False,
-                                      'editable': True}),
-                  ColumnProperties('Path', 'Icon', 'Image',
-                                   **{'renderable': True,
-                                      'editable': False,
-                                      'allowSetVisible': True}),
-                  ColumnProperties('Path', 'Real Image', 'Image',
-                                   **{'renderable': True,
-                                      'editable': False,
-                                      'allowSetVisible': True,
-                                      'visible': True}),
-                  ColumnProperties('Ext', 'Ext', 'Str',
-                                   **{'renderable': False,
-                                      'editable': False}),
-                  ColumnProperties('Checked', 'Checked', 'Bool',
-                                   **{'renderable': False,
-                                      'editable': True}),
-                  ColumnProperties('Count', 'Count', 'Int',
-                                   **{'renderable': False,
-                                      'editable': True})]
+                i = i+1
+                lastPath = path
+
+        properties = [ColumnProperties('FileName', 'File Name', 'Str',
+                                       **{'renderable': False,
+                                          'editable': True}),
+                      ColumnProperties('Path', 'Icon', 'Image',
+                                       **{'renderable': True,
+                                          'editable': False,
+                                          'allowSetVisible': True}),
+                      ColumnProperties('Path', 'Real Image', 'Image',
+                                       **{'renderable': True,
+                                          'editable': False,
+                                          'allowSetVisible': True,
+                                          'visible': True}),
+                      ColumnProperties('Ext', 'Ext', 'Str',
+                                       **{'renderable': False,
+                                          'editable': False}),
+                      ColumnProperties('Checked', 'Checked', 'Bool',
+                                       **{'renderable': False,
+                                          'editable': True}),
+                      ColumnProperties('Count', 'Count', 'Int',
+                                       **{'renderable': False,
+                                          'editable': True})]
 
     kwargs['tableData'] = table
     kwargs['colProperties'] = properties

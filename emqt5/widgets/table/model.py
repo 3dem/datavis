@@ -4,6 +4,11 @@
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QVariant, QSize, QAbstractItemModel, QModelIndex
 
+import emqt5.utils.functions as em_img_utils
+
+import numpy as np
+import em
+
 
 class TableDataModel(QAbstractItemModel):
     """
@@ -46,8 +51,8 @@ class TableDataModel(QAbstractItemModel):
         if role == Qt.DisplayRole:
             t = self._colProperties[col].getType() \
                 if self._colProperties else ""
-            if t == 'Bool' or t == 'Image':
-                return QVariant()  # hide 'True' or 'False', path in Image type
+            if t == 'Bool':
+                return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.getTableData(row, col))
         if role == Qt.CheckStateRole:
@@ -82,8 +87,12 @@ class TableDataModel(QAbstractItemModel):
         Reimplemented from QAbstractItemModel.
         Return the items per page.
         """
-        return self._itemsXPage if self._itemsXPage <= self._emTable.getSize() \
-            else self._emTable.getSize()
+        vc = (self._currentPage + 1) * self._itemsXPage
+        ts = self._emTable.getSize()
+        if vc > ts:  # last page
+            return self._itemsXPage - (vc - ts)
+
+        return self._itemsXPage
 
     def index(self, row, column, parent=QModelIndex()):
         """
@@ -152,6 +161,8 @@ class TableDataModel(QAbstractItemModel):
                 return bool(int(emRow[emCol.getId()]))
             elif t == 'Int':
                 return int(emRow[emCol.getId()])
+            elif t == 'Real':
+                return float(emRow[emCol.getId()])
 
             return emRow[emCol.getId()]
 
@@ -290,7 +301,7 @@ class ImageCache:
         TODO: Use an ID in the future, now we use the image path
         """
         ret = self._imgData.get(imgId)
-        if not ret:
+        if ret is None:
             ret = self.__createThumb__(imgData)
             self._imgData[imgId] = ret
         return ret
@@ -305,8 +316,19 @@ class ImageCache:
         Return the thumbail created for the specified image path.
         Rescale the original image according to  self._imageSize
         """
-        pixmap = QPixmap(imgData)
-        pixmap = pixmap.scaledToHeight(
-            int(pixmap.height() * self._imgSize / 100), Qt.SmoothTransformation)
+        if em_img_utils.isImage(imgData):
+            pixmap = QPixmap(imgData)
+            pixmap = pixmap.scaledToHeight(
+                int(pixmap.height() * self._imgSize / 100),
+                Qt.SmoothTransformation)
 
-        return pixmap
+            return pixmap
+        elif em_img_utils.isEmImage(imgData) \
+                or em_img_utils.isEMImageStack(imgData):
+            img = em.Image()
+            loc2 = em.ImageLocation(imgData)
+            img.read(loc2)
+            array = np.array(img, copy=False)
+            return array
+
+        return None
