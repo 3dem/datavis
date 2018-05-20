@@ -7,10 +7,16 @@ from PyQt5.QtWidgets import QApplication, QFileSystemModel, QDialog, QLabel, \
     QMessageBox
 
 from PyQt5.QtCore import QDir
+import numpy as np
+
 import em
 from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
-from emqt5.widgets.image.gallery_view import GalleryView
+from emqt5.widgets.table import TableView, ColumnProperties
+from emqt5.widgets.table.table_view import (EMImageItemDelegate,
+                                            X_AXIS, Y_AXIS, Z_AXIS)
+from emqt5.widgets.table.model import TableDataModel
+
 import emqt5.utils.functions as utils
 
 
@@ -141,9 +147,141 @@ if __name__ == '__main__':
                                 volumeSlice = VolumeSlice(**kwargs)
                                 volumeSlice.show()
                             elif args.slices[0] == 'gallery':
-                                    kwargs['imagePath'] = args.path
-                                    galleryView = GalleryView(**kwargs)
-                                    galleryView.show()
+
+                                # Create three Tables with the volume slices
+                                xTable = em.Table([em.Table.Column(0, "X",
+                                                          em.typeInt32,
+                                                          "X Dimension")])
+                                yTable = em.Table([em.Table.Column(0, "Y",
+                                                          em.typeInt32,
+                                                          "Y Dimension")])
+                                zTable = em.Table([em.Table.Column(0, "Z",
+                                                          em.typeInt32,
+                                                          "Z Dimension")])
+
+                                # Get the volume dimension
+                                _dim = image.getDim()
+                                _dx = _dim.x
+                                _dy = _dim.y
+                                _dz = _dim.z
+
+                                # Create a 3D array with the volume slices
+                                _array3D = np.array(image, copy=False)
+
+                                for i in range(0, _dx):
+                                    row = xTable.createRow()
+                                    row['X'] = i
+                                    xTable.addRow(row)
+
+                                for i in range(0, _dy):
+                                    row = yTable.createRow()
+                                    row['Y'] = i
+                                    yTable.addRow(row)
+
+                                for i in range(0, _dz):
+                                    row = zTable.createRow()
+                                    row['Z'] = i
+                                    zTable.addRow(row)
+
+                                xProperties = [
+                                    ColumnProperties('X', 'X',
+                                                     'Int',
+                                                     **{'renderable': True,
+                                                        'editable': False})]
+                                yProperties = [
+                                    ColumnProperties('Y', 'Y',
+                                                     'Int',
+                                                     **{'renderable': True,
+                                                        'editable': False})]
+                                zProperties = [
+                                    ColumnProperties('Z', 'Z',
+                                                     'Int',
+                                                     **{'renderable': True,
+                                                        'editable': False})]
+
+                                xTableKwargs = {}
+                                xTableKwargs['colProperties'] = xProperties
+                                xTableKwargs['views'] = ['GALLERY']
+                                xTableKwargs['defaultView'] = 'GALLERY'
+                                xTableKwargs['defaultRowHeight'] = 100
+                                xTableKwargs['maxRowHeight'] = 300
+                                xTableKwargs['minRowHeight'] = 50
+                                xTableKwargs['zoomUnits'] = 1
+
+                                yTableKwargs = {}
+                                yTableKwargs['colProperties'] = yProperties
+                                yTableKwargs['views'] = ['GALLERY']
+                                yTableKwargs['defaultView'] = 'GALLERY'
+                                yTableKwargs['defaultRowHeight'] = 100
+                                yTableKwargs['maxRowHeight'] = 300
+                                yTableKwargs['minRowHeight'] = 50
+                                yTableKwargs['zoomUnits'] = 1
+
+                                zTableKwargs = {}
+                                zTableKwargs['colProperties'] = zProperties
+                                zTableKwargs['views'] = ['GALLERY']
+                                zTableKwargs['defaultView'] = 'GALLERY'
+                                zTableKwargs['defaultRowHeight'] = 100
+                                zTableKwargs['maxRowHeight'] = 300
+                                zTableKwargs['minRowHeight'] = 50
+                                zTableKwargs['zoomUnits'] = 1
+
+                                tableWin = TableView(parent=None,
+                                                      **xTableKwargs)
+                                models = []
+
+                                models.append(TableDataModel(
+                                    parent=tableWin,
+                                    title='X Axis (Right View)',
+                                    emTable=xTable,
+                                    columnProperties=xProperties))
+
+                                models.append(TableDataModel(
+                                    parent=tableWin,
+                                    title='Y Axis (Left View)',
+                                    emTable=yTable,
+                                    columnProperties=yProperties))
+
+                                models.append(TableDataModel(
+                                    parent=tableWin,
+                                    title='Z Axis (Front View)',
+                                    emTable=zTable,
+                                    columnProperties=zProperties))
+
+                                tableWin.setModel(models)
+                                tableWin.setItemDelegateForColumn(
+                                    0, EMImageItemDelegate(
+                                        parent=tableWin,
+                                        selectedStatePen=None,
+                                        borderPen=None,
+                                        iconWidth=150,
+                                        iconHeight=150,
+                                        volData=_array3D,
+                                        axis=X_AXIS),
+                                    X_AXIS)
+                                tableWin.setItemDelegateForColumn(
+                                    0, EMImageItemDelegate(
+                                        parent=tableWin,
+                                        selectedStatePen=None,
+                                        borderPen=None,
+                                        iconWidth=150,
+                                        iconHeight=150,
+                                        volData=_array3D,
+                                        axis=Y_AXIS),
+                                    Y_AXIS)
+                                tableWin.setItemDelegateForColumn(
+                                    0, EMImageItemDelegate(
+                                        parent=tableWin,
+                                        selectedStatePen=None,
+                                        borderPen=None,
+                                        iconWidth=150,
+                                        iconHeight=150,
+                                        volData=_array3D,
+                                        axis=Z_AXIS),
+                                    Z_AXIS)
+
+                                tableWin.show()
+
                             else:
                                 QMessageBox.critical(app.parent(), 'ERROR',
                                                      'A valid way to display '

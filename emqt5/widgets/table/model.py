@@ -14,7 +14,8 @@ class TableDataModel(QAbstractItemModel):
     """
     Model for EM Data
     """
-    def __init__(self, parent=None, emTable=None, columnProperties=None,
+    def __init__(self, parent=None, title=None, emTable=None,
+                 columnProperties=None,
                  itemsXPage=10):
         """
         Constructs an DataModel with the given parent.
@@ -30,6 +31,7 @@ class TableDataModel(QAbstractItemModel):
         self._currentPage = 0
         self._pageCount = 0
         self._items = []
+        self._title = title
         self.__setupModel__()
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
@@ -264,6 +266,9 @@ class TableDataModel(QAbstractItemModel):
         :param size: QSize
         """
         self._iconSize = size
+
+    def getTitle(self):
+        return self._title
 
     def __setupModel__(self):
         """

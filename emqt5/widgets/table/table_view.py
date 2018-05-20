@@ -28,6 +28,10 @@ ELEMENT_VIEW_MODE = 'ELEMENT'
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
 
+X_AXIS = 0
+Y_AXIS = 1
+Z_AXIS = 2
+
 
 class TableView(QWidget):
     """
@@ -70,6 +74,7 @@ class TableView(QWidget):
                                  ELEMENT_VIEW_MODE: "fa.file-image-o"}
         self._viewActions = []
         self._tableModel = None
+        self._models = None
         self._tableViewSelectionModel = QItemSelectionModel(None, self)
         self._galleryViewSelectionModel = QItemSelectionModel(None, self)
         self._currentRenderableColumn = 0  # for GALLERY mode
@@ -85,6 +90,7 @@ class TableView(QWidget):
         self._currentTablePage = 0
         self._currentElementPage = 0
         self._imageCache = ImageCache(50, 50)
+        self._columnDelegates = {}
         self.__setupUi__()
         self.__setupCurrentViewMode__()
 
@@ -117,6 +123,7 @@ class TableView(QWidget):
         self._listView.setLayoutMode(QListView.Batched)
         self._listView.setBatchSize(500)
         self._listView.setMovement(QListView.Static)
+        self._listView.setModel(None)
         self._listView.doubleClicked.connect(
             self._onGalleryViewItemDoubleClicked)
         sModel = self._listView.selectionModel()
@@ -404,6 +411,7 @@ class TableView(QWidget):
         Invoke this function when you needs to initialize all widgets.
         Example: when setting new model in the table view
         """
+
         self._tableView.setModel(self._tableModel)
         self._listView.setModel(self._tableModel)
         if self._tableModel:
@@ -433,7 +441,12 @@ class TableView(QWidget):
             model = QStandardItemModel(self._comboBoxCurrentColumn)
         model.clear()
 
-        if self._tableModel:
+        if self._models:
+            for i, currentModel in enumerate(self._models):
+                item = QStandardItem(currentModel.getTitle())
+                item.setData(0, Qt.UserRole)  # use UserRole for store
+                model.appendRow([item])
+        elif self._tableModel:
             for index, columnProp in \
                     enumerate(self._tableModel.getColumnProperties()):
                 if columnProp.isRenderable() and columnProp.isAllowSetVisible()\
@@ -690,6 +703,19 @@ class TableView(QWidget):
         self._currentRenderableColumn = self._comboBoxCurrentColumn.\
             currentData(Qt.UserRole)
 
+        if self._models:
+            self._tableModel = self._models[
+                self._comboBoxCurrentColumn.currentIndex()]
+            self._listView.setModel(self._tableModel)
+            self._listView.selectionModel().currentChanged.connect(
+                self._onCurrentGalleryItemChanged)
+            self.__calcGalleryPageProperties__()
+            if len(self._columnDelegates):
+                self._listView.setItemDelegateForColumn(
+                    0, self._columnDelegates[self._tableModel.getTitle()])
+            self._currentRow = 0
+            self._showNumberOfPages()
+
         if self._tableModel:
             if self._comboBoxCurrentColumn.model().rowCount():
                 self._listView.setModelColumn(self._currentRenderableColumn)
@@ -709,6 +735,9 @@ class TableView(QWidget):
 
         qsize = QSize(size, size)
         self._tableView.verticalHeader().setDefaultSectionSize(size)
+        if self._models:
+            for model in self._models:
+                model.setIconSize(qsize)
         if self._tableModel:
             self._tableModel.setIconSize(qsize)
             cProp = self._tableModel.getColumnProperties()
@@ -766,14 +795,17 @@ class TableView(QWidget):
                         self._tableView.selectRow(
                             int(self._currentRow % self._itemsXTablePage))
                 elif self._currentViewMode == GALLERY_VIEW_MODE:
-                    galleryRow = (row - 1) % self._itemsXGalleryPage
-                    page = self.__getGalleryPage__(row - 1)
-                    if not page == self._currentGalleryPage:
-                        self.__goToPage__(page)
-                    index = self._listView.model().\
-                        createIndex(galleryRow, self._currentRenderableColumn)
-                    if index.isValid():
-                        self._listView.setCurrentIndex(index)
+                    if self._itemsXGalleryPage:
+                        galleryRow = (row - 1) % self._itemsXGalleryPage
+
+                        page = self.__getGalleryPage__(row - 1)
+                        if not page == self._currentGalleryPage:
+                            self.__goToPage__(page)
+                        index = self._listView.model().\
+                            createIndex(galleryRow,
+                                        self._currentRenderableColumn)
+                        if index.isValid():
+                            self._listView.setCurrentIndex(index)
                 elif self._currentViewMode == ELEMENT_VIEW_MODE:
                     self.__goToPage__(row - 1, True)
                     self._showCurrentPageNumber()
@@ -913,10 +945,20 @@ class TableView(QWidget):
 
     def setModel(self, model):
         """
-        Set the table model
-        :param model: the model
+        Set the table model or models for display a image volume
+        :param model: the model or models
         """
-        self._tableModel = model
+        self._models = None
+        self._tableModel = None
+
+        if isinstance(model, list):
+            if len(model) > 0:
+                self._tableModel = model[0]
+
+            self._models = model
+        else:
+            self._tableModel = model
+
         self.__setupAllWidgets__()
         self.__setupCurrentViewMode__()
 
@@ -941,7 +983,7 @@ class TableView(QWidget):
         """
         self._sortRole = role
 
-    def setItemDelegateForColumn(self, column, delegate):
+    def setItemDelegateForColumn(self, column, delegate, modelIndex=-1):
         """
         Sets the given item delegate used by this table view and model
         for the given column. All items on column will be drawn and managed
@@ -950,7 +992,24 @@ class TableView(QWidget):
         take ownership of delegate.
         First column index is 0.
         """
-        self._tableView.setItemDelegateForColumn(column, delegate)
+        if self._models:
+            if modelIndex == -1:
+                for model in self._models:
+                    self._columnDelegates[model.getTitle()] = delegate
+            else:
+                self._columnDelegates[
+                    self._models[modelIndex].getTitle()] = delegate
+
+            model = self._models[modelIndex] if not modelIndex == -1 \
+                else self._tableModel
+            if self._tableModel == model:
+                self._listView.setItemDelegateForColumn(
+                    column,
+                    self._columnDelegates[model.getTitle()])
+        else:
+            self._tableView.setItemDelegateForColumn(column, delegate)
+            self._listView.setItemDelegateForColumn(column, delegate)
+
 
 
 class _ImageItemDelegate(QStyledItemDelegate):
@@ -1050,7 +1109,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
                  selectedStatePen=None,
                  borderPen=None,
                  iconWidth=150,
-                 iconHeight=150):
+                 iconHeight=150,
+                 volData=None,
+                 axis=-1):
         """
         If selectedStatePen is None then the border will not be painted when
         the item is selected.
@@ -1068,6 +1129,8 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._iconHeight = iconHeight
         self._disableFitToSize = True
         self._pixmapItem = None
+        self._volData =volData
+        self._axis = axis
 
     def paint(self, painter, option, index):
         """
@@ -1140,7 +1203,16 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
         if imgData is None:
             #  create one and store in imgCache
-            imgData = self._imgCache.addImage(imgPath, imgPath)
+            if isinstance(imgPath, str):
+                imgData = self._imgCache.addImage(imgPath, imgPath)
+            elif isinstance(imgPath, int) and not self._volData is None:
+                if not self._volData is None:
+                    if self._axis == X_AXIS:
+                        imgData = self._volData[:, :, imgPath]
+                    elif self._axis == Y_AXIS:
+                        imgData = self._volData[:, imgPath, :]
+                    else:  # Z
+                        imgData = self._volData[imgPath, :, :]
 
         return imgData
 
