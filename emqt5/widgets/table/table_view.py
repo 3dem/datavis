@@ -31,7 +31,7 @@ PERCENT_UNITS = 2
 X_AXIS = 0
 Y_AXIS = 1
 Z_AXIS = 2
-
+N_DIM = -1
 
 class TableView(QWidget):
     """
@@ -1211,8 +1211,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
                         imgData = self._volData[:, :, imgPath]
                     elif self._axis == Y_AXIS:
                         imgData = self._volData[:, imgPath, :]
-                    else:  # Z
+                    elif self._axis == Z_AXIS:
                         imgData = self._volData[imgPath, :, :]
+                    else:
+                        imgData = self._volData[imgPath]
 
         return imgData
 
