@@ -14,7 +14,7 @@ from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
 from emqt5.widgets.table import TableView, ColumnProperties
 from emqt5.widgets.table.table_view import (EMImageItemDelegate,
-                                            X_AXIS, Y_AXIS, Z_AXIS)
+                                            X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
 from emqt5.widgets.table.model import TableDataModel
 
 import emqt5.utils.functions as utils
