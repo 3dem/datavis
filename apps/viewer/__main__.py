@@ -121,10 +121,11 @@ if __name__ == '__main__':
 
             if isFileExist:  # The file exist
 
-                if utils.isEmImage(args.path):  # The file constitute an
-                                                # em-image.
-                                          # In this case we determined if the
-                                          # image has a volume or not
+                if utils.isEmImage(args.path) or \
+                        utils.isEMImageVolume(args.path):
+                    # The file constitute an em-image.
+                    # In this case we determined if the
+                    # image has a volume or not
 
                     # Create an image from imagePath using em-bindings
                     image = em.Image()

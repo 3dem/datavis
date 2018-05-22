@@ -572,25 +572,36 @@ class BrowserWindow(QMainWindow):
                 # Hide Volume Slice and Gallery View Buttons
                 self._changeViewFrame.setVisible(False)
 
-            else:  # The image has a volume. The data is a numpy 3D array. In
-                # this case, display the Top, Front and the Right View planes
+        elif utils.isEMImageVolume(imagePath):
+            # The image has a volume. The data is a numpy 3D array. In
+            # this case, display the Top, Front and the Right View planes
 
-                if self._galeryViewButton.isEnabled():
-                    self._galleryView.close()
-                    self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
-                    self._imageLayout.addWidget(self._volumeSlice)
-                    self._changeViewFrame.setVisible(True)
-                else:
-                    self._volumeSlice.setupProperties()
-                    self._createGalleryKwargs(self._image)
-                    self._imageLayout.addWidget(self._galleryView)
-                    self._changeViewFrame.setVisible(True)
+            self._frame.setEnabled(True)
 
-                # Show the image dimension and type
-                self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " +
-                                        str(self._image.getDim()))
-                self.listWidget.addItem("Type: " + str(self._image.getType()))
+            # Create an image from imagePath using em-bindings
+            self._image = em.Image()
+            loc2 = em.ImageLocation(imagePath)
+            self._image.read(loc2)
+
+            # Determinate the image dimension
+            z = self._image.getDim().z
+
+            if self._galeryViewButton.isEnabled():
+                self._galleryView.close()
+                self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
+                self._imageLayout.addWidget(self._volumeSlice)
+                self._changeViewFrame.setVisible(True)
+            else:
+                self._volumeSlice.setupProperties()
+                self._createGalleryKwargs(self._image)
+                self._imageLayout.addWidget(self._galleryView)
+                self._changeViewFrame.setVisible(True)
+
+            # Show the image dimension and type
+            self.listWidget.clear()
+            self.listWidget.addItem("Dimension: " +
+                                    str(self._image.getDim()))
+            self.listWidget.addItem("Type: " + str(self._image.getType()))
 
         elif utils.isImage(imagePath):  # The image is a standard image
 
