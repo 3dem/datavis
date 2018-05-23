@@ -162,6 +162,14 @@ class BrowserWindow(QMainWindow):
         if event.type() == QEvent.Resize:
             ret = QMainWindow.eventFilter(self, obj, event)
             self._onExpandTreeView()
+
+        if event.type() == QEvent.KeyRelease:
+            ret = QMainWindow.eventFilter(self, obj, event)
+            index = self._treeView.currentIndex()
+            file_path = self._model.filePath(index)
+            self._imagePath = file_path
+            self.setLineCompleter(self._imagePath)
+            self.imagePlot(self._imagePath)
             return ret
         return QMainWindow.eventFilter(self, obj, event)
 
