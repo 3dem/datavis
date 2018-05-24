@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-import os
-
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QSplitter, QApplication, QTreeView,
                              QFileSystemModel, QLineEdit, QVBoxLayout,
@@ -16,7 +14,10 @@ from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
 from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
 from emqt5.widgets.image import VolumeSlice
-from emqt5.widgets.image import GalleryView
+from emqt5.widgets.table import TableView, ColumnProperties
+from emqt5.widgets.table.table_view import (EMImageItemDelegate,
+                                            X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
+from emqt5.widgets.table.model import TableDataModel
 import emqt5.utils.functions as utils
 
 import qtawesome as qta
@@ -45,10 +46,11 @@ class BrowserWindow(QMainWindow):
         self._image2DView = pg.ImageView(view=pg.PlotItem())
         self._imageBox = ImageBox()
         self._volumeSlice = VolumeSlice(imagePath='')
-        self._galleryView = GalleryView(imagePath='',
-                                        iconWidth=150, iconHeight=150)
+        xTableKwargs = {}
+        self._galleryView = TableView(parent=None, **xTableKwargs)
+        self._stackView = TableView(parent=None, **xTableKwargs)
+        self._tableView = TableView(parent=None, **xTableKwargs)
         self.__initGUI__()
-
 
     def _onPathEntered(self):
         """
@@ -132,7 +134,7 @@ class BrowserWindow(QMainWindow):
         This Slot is executed when volume slice button was clicked.
         Select an em-image to display the slice views
         """
-        self._galleryView.setupProperties()
+        self._galleryView.close()
         self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
         self._imageLayout.addWidget(self._volumeSlice)
         self._galeryViewButton.setEnabled(True)
@@ -144,9 +146,7 @@ class BrowserWindow(QMainWindow):
         Select an em-image to display as gallery view
         """
         self._volumeSlice.setupProperties()
-        self._galleryView = GalleryView(imagePath=self._imagePath,
-                                        iconWidth=150,
-                                        iconHeight=150)
+        self._createGalleryKwargs(self._image)
         self._imageLayout.addWidget(self._galleryView)
         self._galeryViewButton.setEnabled(False)
         self._volumeSliceButton.setEnabled(True)
@@ -162,6 +162,14 @@ class BrowserWindow(QMainWindow):
         if event.type() == QEvent.Resize:
             ret = QMainWindow.eventFilter(self, obj, event)
             self._onExpandTreeView()
+
+        if event.type() == QEvent.KeyRelease:
+            ret = QMainWindow.eventFilter(self, obj, event)
+            index = self._treeView.currentIndex()
+            file_path = self._model.filePath(index)
+            self._imagePath = file_path
+            self.setLineCompleter(self._imagePath)
+            self.imagePlot(self._imagePath)
             return ret
         return QMainWindow.eventFilter(self, obj, event)
 
@@ -358,6 +366,144 @@ class BrowserWindow(QMainWindow):
         self._imagePath = newPath
         self._lineCompleter.setText(self._imagePath)
 
+    def _createGalleryKwargs(self, image):
+        """
+        Create a Gallery kwargs taking into account a 3D image
+        :param image: 3D
+        :return:
+        """
+        # Create three Tables with the volume slices
+        xTable = em.Table([em.Table.Column(0, "X",
+                                           em.typeInt32,
+                                           "X Dimension")])
+        yTable = em.Table([em.Table.Column(0, "Y",
+                                           em.typeInt32,
+                                           "Y Dimension")])
+        zTable = em.Table([em.Table.Column(0, "Z",
+                                           em.typeInt32,
+                                           "Z Dimension")])
+
+        # Get the volume dimension
+        _dim = image.getDim()
+        _dx = _dim.x
+        _dy = _dim.y
+        _dz = _dim.z
+
+        # Create a 3D array with the volume slices
+        _array3D = np.array(image, copy=False)
+
+        for i in range(0, _dx):
+            row = xTable.createRow()
+            row['X'] = i
+            xTable.addRow(row)
+
+        for i in range(0, _dy):
+            row = yTable.createRow()
+            row['Y'] = i
+            yTable.addRow(row)
+
+        for i in range(0, _dz):
+            row = zTable.createRow()
+            row['Z'] = i
+            zTable.addRow(row)
+
+        xProperties = [
+            ColumnProperties('X', 'X',
+                             'Int',
+                             **{'renderable': True,
+                                'editable': False})]
+        yProperties = [
+            ColumnProperties('Y', 'Y',
+                             'Int',
+                             **{'renderable': True,
+                                'editable': False})]
+        zProperties = [
+            ColumnProperties('Z', 'Z',
+                             'Int',
+                             **{'renderable': True,
+                                'editable': False})]
+
+        xTableKwargs = {}
+        xTableKwargs['colProperties'] = xProperties
+        xTableKwargs['views'] = ['GALLERY']
+        xTableKwargs['defaultView'] = 'GALLERY'
+        xTableKwargs['defaultRowHeight'] = 100
+        xTableKwargs['maxRowHeight'] = 300
+        xTableKwargs['minRowHeight'] = 50
+        xTableKwargs['zoomUnits'] = 1
+
+        yTableKwargs = {}
+        yTableKwargs['colProperties'] = yProperties
+        yTableKwargs['views'] = ['GALLERY']
+        yTableKwargs['defaultView'] = 'GALLERY'
+        yTableKwargs['defaultRowHeight'] = 100
+        yTableKwargs['maxRowHeight'] = 300
+        yTableKwargs['minRowHeight'] = 50
+        yTableKwargs['zoomUnits'] = 1
+
+        zTableKwargs = {}
+        zTableKwargs['colProperties'] = zProperties
+        zTableKwargs['views'] = ['GALLERY']
+        zTableKwargs['defaultView'] = 'GALLERY'
+        zTableKwargs['defaultRowHeight'] = 100
+        zTableKwargs['maxRowHeight'] = 300
+        zTableKwargs['minRowHeight'] = 50
+        zTableKwargs['zoomUnits'] = 1
+
+        self._galleryView = TableView(parent=None,
+                             **xTableKwargs)
+        models = []
+
+        models.append(TableDataModel(
+            parent=self._galleryView,
+            title='X Axis (Right View)',
+            emTable=xTable,
+            columnProperties=xProperties))
+
+        models.append(TableDataModel(
+            parent=self._galleryView,
+            title='Y Axis (Left View)',
+            emTable=yTable,
+            columnProperties=yProperties))
+
+        models.append(TableDataModel(
+            parent=self._galleryView,
+            title='Z Axis (Front View)',
+            emTable=zTable,
+            columnProperties=zProperties))
+
+        self._galleryView.setModel(models)
+        self._galleryView.setItemDelegateForColumn(
+            0, EMImageItemDelegate(
+                parent=self._galleryView,
+                selectedStatePen=None,
+                borderPen=None,
+                iconWidth=150,
+                iconHeight=150,
+                volData=_array3D,
+                axis=X_AXIS),
+            X_AXIS)
+        self._galleryView.setItemDelegateForColumn(
+            0, EMImageItemDelegate(
+                parent=self._galleryView,
+                selectedStatePen=None,
+                borderPen=None,
+                iconWidth=150,
+                iconHeight=150,
+                volData=_array3D,
+                axis=Y_AXIS),
+            Y_AXIS)
+        self._galleryView.setItemDelegateForColumn(
+            0, EMImageItemDelegate(
+                parent=self._galleryView,
+                selectedStatePen=None,
+                borderPen=None,
+                iconWidth=150,
+                iconHeight=150,
+                volData=_array3D,
+                axis=Z_AXIS),
+            Z_AXIS)
+
     def imagePlot(self, imagePath):
         """
         This method display an image using of pyqtgraph ImageView, a volume
@@ -386,7 +532,9 @@ class BrowserWindow(QMainWindow):
             plotItem.showAxis('left', False)
             self._imageBox.setupProperties()
             self._volumeSlice.setupProperties()
-            self._galleryView.setupProperties()
+            self._galleryView.close()
+            self._tableView.close()
+            self._stackView.close()
 
         if utils.isEmImage(imagePath):  # EM-Image
 
@@ -432,33 +580,46 @@ class BrowserWindow(QMainWindow):
                 # Hide Volume Slice and Gallery View Buttons
                 self._changeViewFrame.setVisible(False)
 
-            else:  # The image has a volume. The data is a numpy 3D array. In
-                # this case, display the Top, Front and the Right View planes
+        elif utils.isEMImageVolume(imagePath):
+            # The image has a volume. The data is a numpy 3D array. In
+            # this case, display the Top, Front and the Right View planes
 
-                if self._galeryViewButton.isEnabled():
-                    self._galleryView.setupProperties()
-                    self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
-                    self._imageLayout.addWidget(self._volumeSlice)
-                    self._changeViewFrame.setVisible(True)
-                else:
-                    self._volumeSlice.setupProperties()
-                    self._galleryView = GalleryView(imagePath=self._imagePath,
-                                                    iconWidth=150,
-                                                    iconHeight=150)
-                    self._imageLayout.addWidget(self._galleryView)
-                    self._changeViewFrame.setVisible(True)
+            self._frame.setEnabled(True)
 
-                # Show the image dimension and type
-                self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " +
-                                        str(self._image.getDim()))
-                self.listWidget.addItem("Type: " + str(self._image.getType()))
+            # Create an image from imagePath using em-bindings
+            self._image = em.Image()
+            loc2 = em.ImageLocation(imagePath)
+            self._image.read(loc2)
+
+            # Determinate the image dimension
+            z = self._image.getDim().z
+
+            if self._galeryViewButton.isEnabled():
+                self._galleryView.close()
+                self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
+                self._imageLayout.addWidget(self._volumeSlice)
+                self._changeViewFrame.setVisible(True)
+            else:
+                self._volumeSlice.setupProperties()
+                self._createGalleryKwargs(self._image)
+                self._imageLayout.addWidget(self._galleryView)
+                self._changeViewFrame.setVisible(True)
+
+            # Show the image dimension and type
+            self.listWidget.clear()
+            self.listWidget.addItem("Dimension: " +
+                                    str(self._image.getDim()))
+            self.listWidget.addItem("Type: " + str(self._image.getType()))
 
         elif utils.isImage(imagePath):  # The image is a standard image
 
                 self._frame.setEnabled(False)
 
                 # Create and display a standard image using ImageBox class
+                self._volumeSlice.setupProperties()
+                self._galleryView.close()
+                self._tableView.close()
+                self._stackView.close()
                 self._imageBox = ImageBox()
                 self._imageLayout.addWidget(self._imageBox)
                 image = QImage(imagePath)
@@ -477,6 +638,13 @@ class BrowserWindow(QMainWindow):
 
         elif utils.isEMTable(imagePath):  # The data constitute a Table
 
+            self._volumeSlice.setupProperties()
+            self._galleryView.close()
+            self._stackView.close()
+
+            # Hide Volume Slice and Gallery View Buttons
+            self._changeViewFrame.setVisible(False)
+
             self._tableIO = em.TableIO()
             self._table = em.Table()
             self._table.clear()
@@ -485,7 +653,56 @@ class BrowserWindow(QMainWindow):
             self._tableIO.read('', self._table)
             self._tableIO.close()
 
-            # Show the Table dimension
+            properties = []
+            colTypes = {}
+            colTypes[em.typeBool.getName()] = 'Bool'
+            colTypes[em.typeCDouble.getName()] = 'Real'
+            colTypes[em.typeCFloat.getName()] = 'Real'
+            colTypes[em.typeFloat.getName()] = 'Real'
+            colTypes[em.typeInt16.getName()] = 'Int'
+            colTypes[em.typeInt32.getName()] = 'Int'
+            colTypes[em.typeInt64.getName()] = 'Int'
+            colTypes[em.typeInt8.getName()] = 'Int'
+            colTypes[em.typeSizeT.getName()] = 'Int'
+            colTypes[em.typeString.getName()] = 'Str'
+            colTypes[em.typeUInt16.getName()] = 'Int'
+            colTypes[em.typeUInt32.getName()] = 'Int'
+            colTypes[em.typeUInt64.getName()] = 'Int'
+            colTypes[em.typeUInt8.getName()] = 'Int'
+
+            for i in range(0, self._table.getColumnsSize()):
+                column = self._table.getColumnByIndex(i)
+                colProp = ColumnProperties(column.getName(),
+                                           column.getName(),
+                                           colTypes[column.getType().getName()],
+                                           **{'renderable': False,
+                                              'editable': True}
+                                           )
+                properties.append(colProp)
+
+            tableKwargs = {}
+            tableKwargs['colProperties'] = properties
+            tableKwargs['views'] = ['TABLE']
+            tableKwargs['defaultView'] = 'TABLE'
+            tableKwargs['defaultRowHeight'] = 100
+            tableKwargs['maxRowHeight'] = 300
+            tableKwargs['minRowHeight'] = 50
+            tableKwargs['zoomUnits'] = 1
+            tableKwargs['tableData'] = self._table
+
+            self._tableView = TableView(parent=None,
+                                        **tableKwargs)
+
+            self._tableModel = TableDataModel(parent=self._tableView,
+                                         emTable=tableKwargs['tableData'],
+                                         columnProperties=tableKwargs[
+                                             'colProperties'])
+
+            self._tableView.setModel(self._tableModel)
+
+            self._imageLayout.addWidget(self._tableView)
+
+            # Show the Table dimensions
             self.listWidget.clear()
             self.listWidget.addItem("Type: EM-Table ")
             self.listWidget.addItem("Dimensions (Rows x Columns): " +
@@ -494,14 +711,77 @@ class BrowserWindow(QMainWindow):
 
         elif utils.isEMImageStack(imagePath):  # The image constitute an image
                                                # stack
-            self._imageStack = em.ImageIO()
+
+            self._volumeSlice.setupProperties()
+            self._galleryView.close()
+            self._tableView.close()
+
+            _stackTable = em.Table([em.Table.Column(0,
+                                                    "Stack",
+                                                    em.typeInt32,
+                                                    "Image stack")])
+            imageIO = em.ImageIO()
             loc2 = em.ImageLocation(imagePath)
-            self._imageStack.open(loc2.path, 0)
+            imageIO.open(loc2.path, 0)
+            _dim = imageIO.getDim()
+            _dx = _dim.x
+            _dy = _dim.y
+            _dn = _dim.n
+            _stack = list()
+            for i in range(0, _dn):
+                loc2.index = i + 1
+                img = em.Image()
+                img.read(loc2)
+                a = np.array(img, copy=False)
+                _stack.append(a)
+                row = _stackTable.createRow()
+                row['Stack'] = i
+                _stackTable.addRow(row)
+
+            xProperties = [ColumnProperties('Stack',
+                                            'Stack',
+                                            'Int',
+                                            **{'renderable': True,
+                                               'editable': False})]
+            stackKwargs = {}
+            stackKwargs['colProperties'] = xProperties
+            stackKwargs['views'] = ['GALLERY']
+            stackKwargs['defaultView'] = 'GALLERY'
+            stackKwargs['defaultRowHeight'] = 100
+            stackKwargs['maxRowHeight'] = 300
+            stackKwargs['minRowHeight'] = 50
+            stackKwargs['zoomUnits'] = 1
+            stackKwargs['tableData'] = _stackTable
+
+            self._stackView = TableView(parent=None, **stackKwargs)
+
+            models = list()
+            models.append(TableDataModel(parent=None,
+                                         title='Stack',
+                                         emTable=_stackTable,
+                                         columnProperties=xProperties))
+            self._stackView.setItemDelegateForColumn(0, EMImageItemDelegate(
+                parent=self._stackView,
+                selectedStatePen=None,
+                borderPen=None,
+                iconWidth=150,
+                iconHeight=150,
+                volData=_stack,
+                axis=N_DIM), N_DIM)
+
+            self._stackModel = TableDataModel(parent=self._stackView,
+                                  emTable=stackKwargs['tableData'],
+                                  columnProperties=stackKwargs[
+                                      'colProperties'])
+
+            self._stackView.setModel(self._stackModel)
+
+            self._imageLayout.addWidget(self._stackView)
 
             # Show the image dimension and type
             self.listWidget.clear()
             self.listWidget.addItem("Dimension: " +
-                                    str(self._imageStack.getDim()))
+                                    str(_dim))
             self.listWidget.addItem("Type: Images Stack")
 
         else:  # No image format
@@ -509,13 +789,14 @@ class BrowserWindow(QMainWindow):
             self._imageBox.update()
             self.listWidget.clear()
             self._volumeSlice.setupProperties()
-            self._galleryView.setupProperties()
+            self._galleryView.close()
+            self._tableView.close()
+            self._stackView.close()
 
             # Hide Volume Slice and Gallery View Buttons
             self._changeViewFrame.setVisible(False)
 
             self.listWidget.addItem("NO IMAGE FORMAT")
-
 
 
 

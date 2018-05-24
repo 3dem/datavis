@@ -29,7 +29,7 @@ class VolumeSlice(QWidget):
         self._enableSlicesLine = kwargs.get('--enable-slicesLines', False)
         self._enableAxis = kwargs.get('--enable-axis', False)
         if self._imagePath:
-            if utils.isEmImage(self._imagePath):
+            if utils.isEMImageVolume(self._imagePath):
                 self.setMinimumWidth(500)
                 self.setMinimumHeight(500)
                 self.__initComponents__()
@@ -256,7 +256,7 @@ class VolumeSlice(QWidget):
         Given 3D data, select a 2D plane and interpolate data along that plane
         to generate a slice image.
         """
-        if utils.isEmImage(self._imagePath):
+        if utils.isEMImageVolume(self._imagePath):
 
             # Create an image from imagePath using em-bindings
             self._image = em.Image()
