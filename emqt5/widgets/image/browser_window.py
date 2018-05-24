@@ -716,6 +716,9 @@ class BrowserWindow(QMainWindow):
             self._galleryView.close()
             self._tableView.close()
 
+            # Hide Volume Slice and Gallery View Buttons
+            self._changeViewFrame.setVisible(False)
+
             _stackTable = em.Table([em.Table.Column(0,
                                                     "Stack",
                                                     em.typeInt32,
