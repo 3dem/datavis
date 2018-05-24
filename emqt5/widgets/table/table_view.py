@@ -1150,10 +1150,12 @@ class EMImageItemDelegate(QStyledItemDelegate):
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
 
+            self._imageView.ui.graphicsView.scene().setSceneRect(
+                QRectF(9, 9, option.rect.width() - 17,
+                       option.rect.height() - 17))
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
-            self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(9, 9, option.rect.width()-17, option.rect.height()-17))
+
 
             if option.state & QStyle.State_HasFocus:
                 pen = QPen(Qt.DashDotDotLine)
@@ -1174,9 +1176,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
             return
 
         size = index.data(Qt.SizeHintRole)
+        (w, h) = (size.width(), size.height())
+
         v = self._imageView.getView()
-        v.setGeometry(0, 0, size.width(), size.height())
-        v.resizeEvent(None)
+        (cw, ch) = (v.width(), v.height())
+
+        if not (w, h) == (cw, ch):
+            v.setGeometry(0, 0, w, h)
+            v.resizeEvent(None)
 
         if not isinstance(imgData, QPixmap):  # QPixmap or np.array
             if self._pixmapItem:
