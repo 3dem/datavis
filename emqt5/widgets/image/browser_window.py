@@ -697,7 +697,7 @@ class BrowserWindow(QMainWindow):
             self._tableView.close()
             self._imageStack = em.ImageIO()
             loc2 = em.ImageLocation(imagePath)
-            self._imageStack.open(loc2.path, 0)
+            self._imageStack.open(loc2.path, em.File.Mode.READ_ONLY)
 
             # Show the image dimension and type
             self.listWidget.clear()
