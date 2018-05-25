@@ -9,7 +9,7 @@ def isEmImage(imagePath):
     _, ext = os.path.splitext(imagePath)
     if imagePath is None:
         return False
-    return ext in ['.mrc', '.spi', '.map', '.vol']
+    return ext in ['.mrc', '.spi']
 
 
 def isImage(imagePath):

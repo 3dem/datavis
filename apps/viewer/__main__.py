@@ -14,7 +14,7 @@ from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
 from emqt5.widgets.table import TableView, ColumnProperties
 from emqt5.widgets.table.table_view import (EMImageItemDelegate,
-                                            X_AXIS, Y_AXIS, Z_AXIS)
+                                            X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
 from emqt5.widgets.table.model import TableDataModel
 
 import emqt5.utils.functions as utils
@@ -121,10 +121,11 @@ if __name__ == '__main__':
 
             if isFileExist:  # The file exist
 
-                if utils.isEmImage(args.path):  # The file constitute an
-                                                # em-image.
-                                          # In this case we determined if the
-                                          # image has a volume or not
+                if utils.isEmImage(args.path) or \
+                        utils.isEMImageVolume(args.path):
+                    # The file constitute an em-image.
+                    # In this case we determined if the
+                    # image has a volume or not
 
                     # Create an image from imagePath using em-bindings
                     image = em.Image()
