@@ -23,15 +23,13 @@ class TableViewWindow(QMainWindow):
         self.__setupUi__(**kwargs)
         models = kwargs['models']
         if models:
-            delegates = kwargs['delegates']
-            if delegates and len(models) == len(delegates):
-                self.tableView.setModel(models)
-                for i, delegate in enumerate(delegates):
-                    self.tableView.setItemDelegateForColumn(0, delegate, i)
+            delegates = kwargs.get('delegates')
+            self.tableView.setModel(models, delegates)
         else:
             self._model = TableDataModel(parent=self.tableView,
                                          emTable=kwargs['tableData'],
-                                         columnProperties=kwargs['colProperties'])
+                                         columnProperties=kwargs[
+                                             'colProperties'])
             self.tableView.setModel(self._model)
 
     def __setupUi__(self, **kwargs):
