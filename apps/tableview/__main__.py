@@ -152,29 +152,22 @@ if __name__ == '__main__':
             xProperties = [ColumnProperties('Stack', 'Stack', 'Int',
                                             **{'renderable': True,
                                                'editable': False})]
-            xTableKwargs = {}
-            xTableKwargs['colProperties'] = xProperties
-            xTableKwargs['views'] = ['GALLERY']
-            xTableKwargs['defaultView'] = 'GALLERY'
-            xTableKwargs['defaultRowHeight'] = 100
-            xTableKwargs['maxRowHeight'] = 300
-            xTableKwargs['minRowHeight'] = 50
-            xTableKwargs['zoomUnits'] = 1
-
             models = list()
             models.append(TableDataModel(
                 parent=None,
                 title='Stack',
                 emTable=xTable,
                 columnProperties=xProperties))
-            delegates = list()
-            delegates.append(EMImageItemDelegate(parent=None,
-                                                 selectedStatePen=None,
-                                                 borderPen=None,
-                                                 iconWidth=150,
-                                                 iconHeight=150,
-                                                 volData=_stack,
-                                                 axis=N_DIM))
+            delegates = dict()
+            stackDelegates = dict()
+            stackDelegates[0] = EMImageItemDelegate(parent=None,
+                                                    selectedStatePen=None,
+                                                    borderPen=None,
+                                                    iconWidth=150,
+                                                    iconHeight=150,
+                                                    volData=_stack,
+                                                    axis=N_DIM)
+            delegates['Stack'] = stackDelegates
             kwargs["models"] = models
             kwargs["delegates"] = delegates
 
@@ -227,32 +220,6 @@ if __name__ == '__main__':
             zProperties = [ColumnProperties('Z', 'Z', 'Int',
                                             **{'renderable': True,
                                             'editable': False})]
-            xTableKwargs = {}
-            xTableKwargs['colProperties'] = xProperties
-            xTableKwargs['views'] = ['GALLERY']
-            xTableKwargs['defaultView'] = 'GALLERY'
-            xTableKwargs['defaultRowHeight'] = 100
-            xTableKwargs['maxRowHeight'] = 300
-            xTableKwargs['minRowHeight'] = 50
-            xTableKwargs['zoomUnits'] = 1
-
-            yTableKwargs = {}
-            yTableKwargs['colProperties'] = yProperties
-            yTableKwargs['views'] = ['GALLERY']
-            yTableKwargs['defaultView'] = 'GALLERY'
-            yTableKwargs['defaultRowHeight'] = 100
-            yTableKwargs['maxRowHeight'] = 300
-            yTableKwargs['minRowHeight'] = 50
-            yTableKwargs['zoomUnits'] = 1
-
-            zTableKwargs = {}
-            zTableKwargs['colProperties'] = zProperties
-            zTableKwargs['views'] = ['GALLERY']
-            zTableKwargs['defaultView'] = 'GALLERY'
-            zTableKwargs['defaultRowHeight'] = 100
-            zTableKwargs['maxRowHeight'] = 300
-            zTableKwargs['minRowHeight'] = 50
-            zTableKwargs['zoomUnits'] = 1
 
             models = list()
             models.append(TableDataModel(
@@ -273,28 +240,35 @@ if __name__ == '__main__':
                 emTable=zTable,
                 columnProperties=zProperties))
 
-            delegates = list()
-            delegates.append(EMImageItemDelegate(parent=None,
-                                                 selectedStatePen=None,
-                                                 borderPen=None,
-                                                 iconWidth=150,
-                                                 iconHeight=150,
-                                                 volData=_array3D,
-                                                 axis=X_AXIS))
-            delegates.append(EMImageItemDelegate(parent=None,
-                                                 selectedStatePen=None,
-                                                 borderPen=None,
-                                                 iconWidth=150,
-                                                 iconHeight=150,
-                                                 volData=_array3D,
-                                                 axis=Y_AXIS))
-            delegates.append(EMImageItemDelegate(parent=None,
-                                                 selectedStatePen=None,
-                                                 borderPen=None,
-                                                 iconWidth=150,
-                                                 iconHeight=150,
-                                                 volData=_array3D,
-                                                 axis=Z_AXIS))
+            delegates = dict()
+            d = dict()
+            d[0] = EMImageItemDelegate(parent=None,
+                                       selectedStatePen=None,
+                                       borderPen=None,
+                                       iconWidth=150,
+                                       iconHeight=150,
+                                       volData=_array3D,
+                                       axis=X_AXIS)
+            delegates['Y Axis (Left View)'] = d
+            d = dict()
+            d[0] = EMImageItemDelegate(parent=None,
+                                       selectedStatePen=None,
+                                       borderPen=None,
+                                       iconWidth=150,
+                                       iconHeight=150,
+                                       volData=_array3D,
+                                       axis=Y_AXIS)
+            delegates['X Axis (Right View)'] = d
+            d = dict()
+            d[0] = EMImageItemDelegate(parent=None,
+                                       selectedStatePen=None,
+                                       borderPen=None,
+                                       iconWidth=150,
+                                       iconHeight=150,
+                                       volData=_array3D,
+                                       axis=Z_AXIS)
+            delegates['Z Axis (Front View)'] = d
+
             kwargs["models"] = models
             kwargs["delegates"] = delegates
     else:
@@ -317,7 +291,7 @@ if __name__ == '__main__':
         else PIXEL_UNITS
     if models:
         kwargs['defaultView'] = 'GALLERY'
-        kwargs['views'] = ['GALLERY']
+        kwargs['views'] = ['GALLERY', 'TABLE']
     else:
         kwargs['defaultView'] = args.default_view
         kwargs['views'] = args.views

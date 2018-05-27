@@ -18,7 +18,7 @@ from PyQt5 import QtCore
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.widgets.table.model import ImageCache
+from emqt5.widgets.table.model import ImageCache, TableDataModel
 import emqt5.utils.functions as em_utils
 
 TABLE_VIEW_MODE = 'TABLE'
@@ -243,12 +243,23 @@ class TableView(QWidget):
         self._lineEditCols.setEnabled(False)
         self._toolBar.addWidget(self._lineEditCols)
         self._toolBar.addSeparator()
+
+        self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
+        self._toolBar.addWidget(self._labelCurrentTable)
+        self._comboBoxCurrentTable = QComboBox(self._toolBar)
+        self._comboBoxCurrentTable.currentIndexChanged. \
+            connect(self._onCurrentTableChanged)
+        self._toolBar.addWidget(self._comboBoxCurrentTable)
+        self._toolBar.addSeparator()
+
         #gallery view
         self._labelCurrentColumn = QLabel(parent=self._toolBar,
                                           text="Gallery in ")
-        self._toolBar.addWidget(self._labelCurrentColumn)
+        self._actLabelCurrentColumn = self._toolBar.addWidget(
+            self._labelCurrentColumn)
         self._comboBoxCurrentColumn = QComboBox(self._toolBar)
-        self._toolBar.addWidget(self._comboBoxCurrentColumn)
+        self._actComboBoxCurrentColumn = self._toolBar.addWidget(
+            self._comboBoxCurrentColumn)
         self._comboBoxCurrentColumn.currentIndexChanged.\
             connect(self._onGalleryViewColumnChanged)
 
@@ -379,17 +390,34 @@ class TableView(QWidget):
         """
         # we have defined one delegate for the moment: ImageItemDelegate
         if self._tableModel:
+            createDelegates = not self._columnDelegates or \
+                              self._columnDelegates.get(
+                                  self._tableModel.getTitle()) is None
             for i, prop in enumerate(self._tableModel.getColumnProperties()):
                 if prop.isRenderable() and prop.isAllowSetVisible() and \
                         prop.isVisible():
-                    delegate = EMImageItemDelegate(self._tableView)
-                    delegate.setImageCache(self._imageCache)
-                    self._tableView.setItemDelegateForColumn(i, delegate)
+                    if createDelegates:
+                        delegate = EMImageItemDelegate(self._tableView)
+                        delegate.setImageCache(self._imageCache)
+                        if self._columnDelegates is None:
+                            self._columnDelegates = dict()
 
-        delegate =EMImageItemDelegate(parent=self._listView,
-                                      selectedStatePen=QPen(Qt.red))
-        delegate.setImageCache(self._imageCache)
-        self._listView.setItemDelegate(delegate)
+                        tableDelegates = self._columnDelegates.get(
+                            self._tableModel.getTitle())
+                        if tableDelegates is None:
+                            tableDelegates = dict()
+                            self._columnDelegates[
+                                self._tableModel.getTitle()] = tableDelegates
+
+                        tableDelegates[i] = delegate
+                    else:
+                        tableDelegates = self._columnDelegates.get(
+                            self._tableModel.getTitle())
+                        delegate = tableDelegates.get(i)
+
+                    self._tableView.setItemDelegateForColumn(i, delegate)
+                    self._listView.setItemDelegateForColumn(i, delegate)
+
 
     def __setupVisibleColumns__(self):
         """
@@ -420,6 +448,7 @@ class TableView(QWidget):
                 self._onCurrentTableViewItemChanged)
             self._listView.selectionModel().currentChanged.connect(
                 self._onCurrentGalleryItemChanged)
+
             self._showTableDims()
             self.__setupVisibleColumns__()
             self.__setupDelegatesForColumns__()
@@ -431,6 +460,28 @@ class TableView(QWidget):
         self.__initCurrentRenderableColumn__()
         self._onGalleryViewColumnChanged(0)
 
+    def __setupComboBoxCurrentTable__(self):
+        """
+        Configure the elements in combobox currentTable for user selection.
+        """
+        blocked = self._comboBoxCurrentTable.blockSignals(True)
+        model = self._comboBoxCurrentTable.model()
+        if not model:
+            model = QStandardItemModel(self._comboBoxCurrentColumn)
+
+        model.clear()
+        if self._models and len(self._models):
+            for i, currentModel in enumerate(self._models):
+                item = QStandardItem(currentModel.getTitle())
+                item.setData(0, Qt.UserRole)  # use UserRole for store
+                model.appendRow([item])
+        elif self._tableModel:
+            item = QStandardItem(self._tableModel.getTitle())
+            item.setData(0, Qt.UserRole)  # use UserRole for store
+            model.appendRow([item])
+
+        self._comboBoxCurrentTable.blockSignals(blocked)
+
     def __setupComboBoxCurrentColumn__(self):
         """
         Configure the elements in combobox currentColumn for gallery vew mode
@@ -441,12 +492,7 @@ class TableView(QWidget):
             model = QStandardItemModel(self._comboBoxCurrentColumn)
         model.clear()
 
-        if self._models:
-            for i, currentModel in enumerate(self._models):
-                item = QStandardItem(currentModel.getTitle())
-                item.setData(0, Qt.UserRole)  # use UserRole for store
-                model.appendRow([item])
-        elif self._tableModel:
+        if self._tableModel:
             for index, columnProp in \
                     enumerate(self._tableModel.getColumnProperties()):
                 if columnProp.isRenderable() and columnProp.isAllowSetVisible()\
@@ -454,8 +500,18 @@ class TableView(QWidget):
                     item = QStandardItem(columnProp.getLabel())
                     item.setData(index, Qt.UserRole)  # use UserRole for store
                     model.appendRow([item])           # columnIndex
+
         self._comboBoxCurrentColumn.setModel(model)
         self._comboBoxCurrentColumn.blockSignals(blocked)
+
+        self.__showCurrentColumnWidgets__(not model.rowCount() == 0)
+
+    def __showCurrentColumnWidgets__(self, visible):
+        """
+        Set visible all current column widgets
+        """
+        self._actLabelCurrentColumn.setVisible(visible)
+        self._actComboBoxCurrentColumn.setVisible(visible)
 
     def __setupCurrentViewMode__(self):
         """
@@ -483,6 +539,13 @@ class TableView(QWidget):
         self._selectRow(self._currentRow + 1)
         self._showCurrentPageNumber()
         self._showNumberOfPages()
+
+    def __setupTableModel__(self):
+        """
+        Configure the current table model in all view modes
+        """
+        self.__setupAllWidgets__()
+        self.__setupCurrentViewMode__()
 
     def __setupSpinBoxCurrentRow__(self):
         """
@@ -695,6 +758,20 @@ class TableView(QWidget):
                                               qModelIndex.column())
 
     @pyqtSlot(int)
+    def _onCurrentTableChanged(self, index):
+        """
+        Invoked when user change the current table for display content
+        """
+        self._currentTable = self._comboBoxCurrentTable.\
+            currentData(Qt.UserRole)
+
+        if self._models and len(self._models) > 0 \
+                and self._currentTable in range(0, len(self._models)):
+            self._tableModel = self._models[
+                self._comboBoxCurrentTable.currentIndex()]
+            self.__setupTableModel__()
+
+    @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
         """
          Invoked when user change the view column in gallery mode
@@ -702,19 +779,6 @@ class TableView(QWidget):
          """
         self._currentRenderableColumn = self._comboBoxCurrentColumn.\
             currentData(Qt.UserRole)
-
-        if self._models:
-            self._tableModel = self._models[
-                self._comboBoxCurrentColumn.currentIndex()]
-            self._listView.setModel(self._tableModel)
-            self._listView.selectionModel().currentChanged.connect(
-                self._onCurrentGalleryItemChanged)
-            self.__calcGalleryPageProperties__()
-            if len(self._columnDelegates):
-                self._listView.setItemDelegateForColumn(
-                    0, self._columnDelegates[self._tableModel.getTitle()])
-            self._currentRow = 0
-            self._showNumberOfPages()
 
         if self._tableModel:
             if self._comboBoxCurrentColumn.model().rowCount():
@@ -943,24 +1007,29 @@ class TableView(QWidget):
         a = self._actionGroupViews.checkedAction()
         return a.objectName() if a else None
 
-    def setModel(self, model):
+    def setModel(self, model, delegates=None):
         """
-        Set the table model or models for display a image volume
-        :param model: the model or models
+        Set the table model or models for display.
+
+        model: list of models or a TableDataModel for single table
+
+        delegates: dict<str,dict<int, EMImageItemDelegate>>.
+                   delegates keys: table model title
         """
         self._models = None
         self._tableModel = None
+        self._columnDelegates = delegates
 
         if isinstance(model, list):
             if len(model) > 0:
                 self._tableModel = model[0]
 
             self._models = model
-        else:
+        elif isinstance(model, TableDataModel):
             self._tableModel = model
 
-        self.__setupAllWidgets__()
-        self.__setupCurrentViewMode__()
+        self.__setupComboBoxCurrentTable__()
+        self.__setupTableModel__()
 
     def getModel(self):
         """
@@ -1150,10 +1219,12 @@ class EMImageItemDelegate(QStyledItemDelegate):
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
 
+            self._imageView.ui.graphicsView.scene().setSceneRect(
+                QRectF(9, 9, option.rect.width() - 17,
+                       option.rect.height() - 17))
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
-            self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(9, 9, option.rect.width()-17, option.rect.height()-17))
+
 
             if option.state & QStyle.State_HasFocus:
                 pen = QPen(Qt.DashDotDotLine)
@@ -1174,9 +1245,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
             return
 
         size = index.data(Qt.SizeHintRole)
+        (w, h) = (size.width(), size.height())
+
         v = self._imageView.getView()
-        v.setGeometry(0, 0, size.width(), size.height())
-        v.resizeEvent(None)
+        (cw, ch) = (v.width(), v.height())
+
+        if not (w, h) == (cw, ch):
+            v.setGeometry(0, 0, w, h)
+            v.resizeEvent(None)
 
         if not isinstance(imgData, QPixmap):  # QPixmap or np.array
             if self._pixmapItem:
