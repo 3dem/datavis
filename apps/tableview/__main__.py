@@ -85,6 +85,7 @@ if __name__ == '__main__':
     delegates = None
     table = None
     emFile = args.files[0]
+
     if len(args.files) == 1:
         _, ext = os.path.splitext(emFile)
         if em_utils.isEMTable(emFile):
@@ -115,8 +116,7 @@ if __name__ == '__main__':
                     column = table.getColumnByIndex(i)
                     colProp = ColumnProperties(column.getName(),
                                                column.getName(),
-                                               colTypes[column.getType().\
-                                               getName()],
+                                               colTypes[column.getType().getName()],
                                                **{'renderable': False,
                                                   'editable': True}
                                                )
@@ -124,13 +124,14 @@ if __name__ == '__main__':
             else:
                 print("Can not read input file:", emFile)
                 sys.exit(0)
+
         elif em_utils.isEMImageStack(emFile):
             xTable = em.Table([em.Table.Column(0, "Stack",
                                                em.typeInt32,
                                                "Image stack")])
             imageIO = em.ImageIO()
             loc2 = em.ImageLocation(emFile)
-            imageIO.open(loc2.path, 0)
+            imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
             _dim = imageIO.getDim()
             _dx = _dim.x
             _dy = _dim.y

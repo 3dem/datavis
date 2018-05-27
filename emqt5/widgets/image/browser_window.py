@@ -722,7 +722,7 @@ class BrowserWindow(QMainWindow):
                                                     "Image stack")])
             imageIO = em.ImageIO()
             loc2 = em.ImageLocation(imagePath)
-            imageIO.open(loc2.path, 0)
+            self._imageStack.open(loc2.path, em.File.Mode.READ_ONLY)
             _dim = imageIO.getDim()
             _dx = _dim.x
             _dy = _dim.y
