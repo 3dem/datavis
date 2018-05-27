@@ -5,8 +5,7 @@
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QSplitter, QApplication, QTreeView,
                              QFileSystemModel, QLineEdit, QVBoxLayout,
-                             QListWidget, QMainWindow, QAbstractItemView,
-                             QAction, QToolBar, QLabel, QPushButton,
+                             QListWidget, QMainWindow, QAction, QToolBar, QLabel, QPushButton,
                              QSpacerItem, QCompleter)
 from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
                          QItemSelectionModel, QEvent
@@ -15,9 +14,9 @@ from PyQt5.QtGui import QImage
 from emqt5.widgets.image import ImageBox
 from emqt5.widgets.image import VolumeSlice
 from emqt5.widgets.table import TableView, ColumnProperties
-from emqt5.widgets.table.table_view import (EMImageItemDelegate,
-                                            X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
-from emqt5.widgets.table.model import TableDataModel
+from emqt5.views.table_view import (EMImageItemDelegate,
+                                    X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
+from emqt5.views.model import TableDataModel
 import emqt5.utils.functions as utils
 
 import qtawesome as qta

@@ -1,10 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
-from PyQt5.QtWidgets import QApplication, QFileSystemModel, QDialog, QLabel, \
-    QMessageBox
+from PyQt5.QtWidgets import QApplication, QMessageBox
 
 from PyQt5.QtCore import QDir
 import numpy as np
@@ -12,15 +10,13 @@ import numpy as np
 import em
 from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
-from emqt5.widgets.table import TableView, ColumnProperties
-from emqt5.widgets.table.table_view import (EMImageItemDelegate,
-                                            X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
-from emqt5.widgets.table.model import TableDataModel
-
-import emqt5.utils.functions as utils
+from emqt5.views import (TableViewConfig, TableView, TableDataModel,
+                         EMImageItemDelegate, X_AXIS, Y_AXIS, Z_AXIS)
+import emqt5.utils.functions as em_utils
 
 
 import argparse
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -121,8 +117,8 @@ if __name__ == '__main__':
 
             if isFileExist:  # The file exist
 
-                if utils.isEmImage(args.path) or \
-                        utils.isEMImageVolume(args.path):
+                if em_utils.isEmImage(args.path) or \
+                        em_utils.isEMImageVolume(args.path):
                     # The file constitute an em-image.
                     # In this case we determined if the
                     # image has a volume or not

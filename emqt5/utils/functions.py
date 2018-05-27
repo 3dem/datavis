@@ -1,3 +1,5 @@
+import em
+
 import os
 
 
@@ -42,4 +44,3 @@ def isEMTable(imagePath):
     if imagePath is None:
         return False
     return ext in ['.xmd', '.star']
-

@@ -4,21 +4,20 @@
 
 from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QRectF,
                           QItemSelectionModel, QModelIndex)
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStyleOptionViewItem,
-                             QToolBar, QAction, QTableView, QSpinBox, QLabel,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QTableView, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QAbstractItemView,
                              QApplication, QHeaderView, QComboBox, QHBoxLayout,
                              QStackedLayout, QLineEdit, QActionGroup, QListView,
                              QSizePolicy, QSpacerItem, QPushButton, QSplitter,
                              QGraphicsPixmapItem)
 from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
-                         QStandardItem, QResizeEvent)
+                         QStandardItem)
 from PyQt5 import QtCore
 
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.widgets.table.model import ImageCache, TableDataModel
+from emqt5.views.model import ImageCache, TableDataModel
 import emqt5.utils.functions as em_utils
 
 TABLE_VIEW_MODE = 'TABLE'
@@ -369,10 +368,9 @@ class TableView(QWidget):
                 return False
             elif mode == GALLERY_VIEW_MODE or mode == ELEMENT_VIEW_MODE:
                 if self._tableView:
-                    for colProp in self._tableModel.getColumnProperties():
-                        if colProp.isRenderable() and \
-                                colProp.isAllowSetVisible() and \
-                                colProp.isVisible():
+                    for colConfig in self._tableModel.getColumnConfig():
+                        if colConfig.getPropertyValue("renderable") and \
+                                colConfig.getPropertyValue("visible"):
                             return True
                 return False
         elif self._currentViewMode == GALLERY_VIEW_MODE:
@@ -393,9 +391,9 @@ class TableView(QWidget):
             createDelegates = not self._columnDelegates or \
                               self._columnDelegates.get(
                                   self._tableModel.getTitle()) is None
-            for i, prop in enumerate(self._tableModel.getColumnProperties()):
-                if prop.isRenderable() and prop.isAllowSetVisible() and \
-                        prop.isVisible():
+            for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
+                if colConfig.getPropertyValue("renderable") and \
+                        colConfig.getPropertyValue("visible"):
                     if createDelegates:
                         delegate = EMImageItemDelegate(self._tableView)
                         delegate.setImageCache(self._imageCache)
@@ -418,13 +416,12 @@ class TableView(QWidget):
                     self._tableView.setItemDelegateForColumn(i, delegate)
                     self._listView.setItemDelegateForColumn(i, delegate)
 
-
     def __setupVisibleColumns__(self):
         """
         Hide the columns with visible property=True or allowSetVisible=False
         """
-        for i, prop in enumerate(self._tableModel.getColumnProperties()):
-            if not prop.isAllowSetVisible() or not prop.isVisible():
+        for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
+            if not colConfig.getPropertyValue("visible"):
                 self._tableView.hideColumn(i)
 
     def __setupAllWidgets__(self):
@@ -493,11 +490,11 @@ class TableView(QWidget):
         model.clear()
 
         if self._tableModel:
-            for index, columnProp in \
-                    enumerate(self._tableModel.getColumnProperties()):
-                if columnProp.isRenderable() and columnProp.isAllowSetVisible()\
-                         and columnProp.isVisible():
-                    item = QStandardItem(columnProp.getLabel())
+            for index, colConfig in \
+                    enumerate(self._tableModel.getColumnConfig()):
+                if colConfig.getPropertyValue("renderable") and \
+                        colConfig.getPropertyValue("visible"):
+                    item = QStandardItem(colConfig.getLabel())
                     item.setData(index, Qt.UserRole)  # use UserRole for store
                     model.appendRow([item])           # columnIndex
 
@@ -566,9 +563,9 @@ class TableView(QWidget):
         self._currentRenderableColumn = 0
 
         if self._tableModel:
-            for index, columnProp in \
-                    enumerate(self._tableModel.getColumnProperties()):
-                if columnProp.isRenderable():
+            for index, colConfig in \
+                    enumerate(self._tableModel.getColumnConfig()):
+                if colConfig.getPropertyValue("renderable"):
                     self._currentRenderableColumn = index
                     return
 
@@ -777,8 +774,11 @@ class TableView(QWidget):
          Invoked when user change the view column in gallery mode
          :param index: index in the combobox model
          """
-        self._currentRenderableColumn = self._comboBoxCurrentColumn.\
-            currentData(Qt.UserRole)
+        if self._comboBoxCurrentColumn.model().rowCount():
+            self._currentRenderableColumn = self._comboBoxCurrentColumn. \
+                currentData(Qt.UserRole)
+        else:
+            self._currentRenderableColumn = 0
 
         if self._tableModel:
             if self._comboBoxCurrentColumn.model().rowCount():
@@ -804,10 +804,11 @@ class TableView(QWidget):
                 model.setIconSize(qsize)
         if self._tableModel:
             self._tableModel.setIconSize(qsize)
-            cProp = self._tableModel.getColumnProperties()
-            if cProp:
-                for i, p in enumerate(cProp):
-                    if p.isRenderable() and p.isVisible():
+            cConfig = self._tableModel.getColumnConfig()
+            if cConfig:
+                for i, colConfig in enumerate(cConfig):
+                    if colConfig.getPropertyValue("renderable") and \
+                            colConfig.getPropertyValue("visible"):
                         self._tableView.setColumnWidth(i, size)
 
         self._listView.setIconSize(qsize)

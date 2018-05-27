@@ -24,7 +24,8 @@ class TableViewConfig:
         em.typeInt32: TYPE_INT,
         em.typeInt64: TYPE_INT,
         em.typeFloat: TYPE_FLOAT,
-        em.typeDouble: TYPE_FLOAT
+        em.typeDouble: TYPE_FLOAT,
+        em.typeString: TYPE_STRING
     }
 
     def __init__(self):
@@ -45,6 +46,12 @@ class TableViewConfig:
         for c in self._cols:
             s += '\n%s' % str(c)
         return s
+
+    def __getitem__(self, *args, **kwargs):
+        return self._cols[args[0]]
+
+    def __len__(self):
+        return len(self._cols)
 
     @classmethod
     def fromTable(cls, table, colsConfig=None):
@@ -113,11 +120,11 @@ class ColumnConfig:
         self._type = dataType
         self._description = kwargs.get('description', '')
         self._propertyNames = []
-        self.__setProperty('visible', True, False, **kwargs)
-        self.__setProperty('renderable', False, False, **kwargs)
-        self.__setProperty('editable', False, True, **kwargs)
+        self.__setProperty__('visible', True, False, **kwargs)
+        self.__setProperty__('renderable', False, False, **kwargs)
+        self.__setProperty__('editable', False, True, **kwargs)
 
-    def __setProperty(self, name, default, defaultRO, **kwargs):
+    def __setProperty__(self, name, default, defaultRO, **kwargs):
         """ Internal function to define a 'property' that will
         define an attribute with similar name and also a 'ReadOnly'
         flag to define when the property can be changed or not.
@@ -145,6 +152,10 @@ class ColumnConfig:
 
     def getDescrition(self):
         return self._description
+
+    def getPropertyValue(self, propName):
+        """ Return the value for specified propName"""
+        return self.__getitem__(propName)
 
     def __getitem__(self, propertyName):
         """ Return the value of a given property.

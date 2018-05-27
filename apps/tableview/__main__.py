@@ -10,17 +10,223 @@ import em
 
 from PyQt5.QtWidgets import QApplication
 
-from emqt5.widgets.table import ColumnProperties
-from emqt5.widgets.table.table_view import (EMImageItemDelegate, PERCENT_UNITS,
-                                            PIXEL_UNITS, X_AXIS, Y_AXIS, Z_AXIS,
-                                            N_DIM)
-from emqt5.widgets.table.model import TableDataModel
+from emqt5.views import (TableViewConfig, EMImageItemDelegate, PERCENT_UNITS,
+                         PIXEL_UNITS, X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
+from emqt5.views import TableDataModel
 import emqt5.utils.functions as em_utils
 
 from table_view_window import TableViewWindow
 
 Column = em.Table.Column
 Row = em.Table.Row
+
+
+def loadEMTable(imagePath):
+    """ Return the TableDataModel for the given EM table file"""
+    table = em.Table()
+    tableIO = em.TableIO()
+    tableIO.open(imagePath)
+    tableIO.read('', table)
+    tableIO.close()
+    print(table)
+    tableViewConfig = TableViewConfig.fromTable(table)
+
+    return TableDataModel(parent=None, title="TABLE", emTable=table,
+                          tableViewConfig=tableViewConfig)
+
+
+def loadEMStack(imagePath):
+    """ Return a tuple"""
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Stack",
+                                       em.typeInt32,
+                                       "Image stack")])
+    imageIO = em.ImageIO()
+    loc2 = em.ImageLocation(emFile)
+    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
+    _dim = imageIO.getDim()
+    _dx = _dim.x
+    _dy = _dim.y
+    _dn = _dim.n
+
+    _stack = list()
+
+    for i in range(0, _dn):
+        loc2.index = i + 1
+        img = em.Image()
+        img.read(loc2)
+        a = np.array(img, copy=False)
+        _stack.append(a)
+        row = xTable.createRow()
+        row['Stack'] = i
+        row['index'] = i
+        xTable.addRow(row)
+
+    tableViewConfig = TableViewConfig()
+    tableViewConfig.addColumnConfig(name='index',
+                                    dataType=TableViewConfig.TYPE_INT,
+                                    **{'label': 'Index',
+                                       'editable': False,
+                                       'visible': True})
+    tableViewConfig.addColumnConfig(name='Image',
+                                    dataType=TableViewConfig.TYPE_INT,
+                                    **{'label': 'Image',
+                                       'renderable': True,
+                                       'editable': False,
+                                       'visible': True})
+    models = list()
+    models.append(TableDataModel(parent=None, title='Stack',
+                                 emTable=xTable,
+                                 tableViewConfig=tableViewConfig))
+    delegates = dict()
+    stackDelegates = dict()
+    stackDelegates[1] = EMImageItemDelegate(parent=None,
+                                            selectedStatePen=None,
+                                            borderPen=None,
+                                            iconWidth=150,
+                                            iconHeight=150,
+                                            volData=_stack,
+                                            axis=N_DIM)
+    delegates['Stack'] = stackDelegates
+
+    return models, delegates
+
+
+def loadEMVolume(imagePath):
+    image = em.Image()
+    loc2 = em.ImageLocation(emFile)
+    image.read(loc2)
+
+    # Create three Tables with the volume slices
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "X",
+                                       em.typeInt32,
+                                       "X Dimension")])
+    xtableViewConfig = TableViewConfig()
+    xtableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    xtableViewConfig.addColumnConfig(name='X',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'X',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    yTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Y",
+                                       em.typeInt32,
+                                       "Y Dimension")])
+    ytableViewConfig = TableViewConfig()
+    ytableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ytableViewConfig.addColumnConfig(name='Y',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Y',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+    zTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Z",
+                                       em.typeInt32,
+                                       "Z Dimension")])
+    ztableViewConfig = TableViewConfig()
+    ztableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ztableViewConfig.addColumnConfig(name='Z',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Z',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    # Get the volume dimension
+    _dim = image.getDim()
+    _dx = _dim.x
+    _dy = _dim.y
+    _dz = _dim.z
+
+    # Create a 3D array with the volume slices
+    _array3D = np.array(image, copy=False)
+
+    for i in range(0, _dx):
+        row = xTable.createRow()
+        row['X'] = i
+        row['index'] = i
+        xTable.addRow(row)
+
+    for i in range(0, _dy):
+        row = yTable.createRow()
+        row['Y'] = i
+        row['index'] = i
+        yTable.addRow(row)
+
+    for i in range(0, _dz):
+        row = zTable.createRow()
+        row['Z'] = i
+        row['index'] = i
+        zTable.addRow(row)
+
+    models = list()
+    models.append(TableDataModel(parent=None, title='X Axis (Right View)',
+                                 emTable=xTable,
+                                 tableViewConfig=xtableViewConfig))
+
+    models.append(TableDataModel(parent=None, title='Y Axis (Left View)',
+                                 emTable=yTable,
+                                 tableViewConfig=ytableViewConfig))
+
+    models.append(TableDataModel(parent=None, title='Z Axis (Front View)',
+                                 emTable=zTable,
+                                 tableViewConfig=ztableViewConfig))
+
+    delegates = dict()
+    dx = dict()
+    dx[1] = EMImageItemDelegate(parent=None,
+                                selectedStatePen=None,
+                                borderPen=None,
+                                iconWidth=150,
+                                iconHeight=150,
+                                volData=_array3D,
+                                axis=X_AXIS)
+    delegates['Y Axis (Left View)'] = dx
+    dy = dict()
+    dy[1] = EMImageItemDelegate(parent=None,
+                                selectedStatePen=None,
+                                borderPen=None,
+                                iconWidth=150,
+                                iconHeight=150,
+                                volData=_array3D,
+                                axis=Y_AXIS)
+    delegates['X Axis (Right View)'] = dy
+    dz = dict()
+    dz[1] = EMImageItemDelegate(parent=None,
+                                selectedStatePen=None,
+                                borderPen=None,
+                                iconWidth=150,
+                                iconHeight=150,
+                                volData=_array3D,
+                                axis=Z_AXIS)
+    delegates['Z Axis (Front View)'] = dz
+
+    return models, delegates
+
 
 if __name__ == '__main__':
 
@@ -89,188 +295,11 @@ if __name__ == '__main__':
     if len(args.files) == 1:
         _, ext = os.path.splitext(emFile)
         if em_utils.isEMTable(emFile):
-            if True:  # em.TableIO.hasImpl(ext):
-                table = em.Table()
-                tableIO = em.TableIO()
-                tableIO.open(emFile)
-                tableIO.read('', table)
-                tableIO.close()
-                properties = []
-                colTypes = {}
-                colTypes[em.typeBool.getName()] = 'Bool'
-                colTypes[em.typeCDouble.getName()] = 'Real'
-                colTypes[em.typeCFloat.getName()] = 'Real'
-                colTypes[em.typeFloat.getName()] = 'Real'
-                colTypes[em.typeInt16.getName()] = 'Int'
-                colTypes[em.typeInt32.getName()] = 'Int'
-                colTypes[em.typeInt64.getName()] = 'Int'
-                colTypes[em.typeInt8.getName()] = 'Int'
-                colTypes[em.typeSizeT.getName()] = 'Int'
-                colTypes[em.typeString.getName()] = 'Str'
-                colTypes[em.typeUInt16.getName()] = 'Int'
-                colTypes[em.typeUInt32.getName()] = 'Int'
-                colTypes[em.typeUInt64.getName()] = 'Int'
-                colTypes[em.typeUInt8.getName()] = 'Int'
-
-                for i in range(0, table.getColumnsSize()):
-                    column = table.getColumnByIndex(i)
-                    colProp = ColumnProperties(column.getName(),
-                                               column.getName(),
-                                               colTypes[column.getType().getName()],
-                                               **{'renderable': False,
-                                                  'editable': True}
-                                               )
-                    properties.append(colProp)
-            else:
-                print("Can not read input file:", emFile)
-                sys.exit(0)
-
+            models = [loadEMTable(emFile)]
         elif em_utils.isEMImageStack(emFile):
-            xTable = em.Table([em.Table.Column(0, "Stack",
-                                               em.typeInt32,
-                                               "Image stack")])
-            imageIO = em.ImageIO()
-            loc2 = em.ImageLocation(emFile)
-            imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
-            _dim = imageIO.getDim()
-            _dx = _dim.x
-            _dy = _dim.y
-            _dn = _dim.n
-
-            _stack = list()
-
-            for i in range(0, _dn):
-                loc2.index = i + 1
-                img = em.Image()
-                img.read(loc2)
-                a = np.array(img, copy=False)
-                _stack.append(a)
-                row = xTable.createRow()
-                row['Stack'] = i
-                xTable.addRow(row)
-
-            xProperties = [ColumnProperties('Stack', 'Stack', 'Int',
-                                            **{'renderable': True,
-                                               'editable': False})]
-            models = list()
-            models.append(TableDataModel(
-                parent=None,
-                title='Stack',
-                emTable=xTable,
-                columnProperties=xProperties))
-            delegates = dict()
-            stackDelegates = dict()
-            stackDelegates[0] = EMImageItemDelegate(parent=None,
-                                                    selectedStatePen=None,
-                                                    borderPen=None,
-                                                    iconWidth=150,
-                                                    iconHeight=150,
-                                                    volData=_stack,
-                                                    axis=N_DIM)
-            delegates['Stack'] = stackDelegates
-            kwargs["models"] = models
-            kwargs["delegates"] = delegates
-
+            models, delegates = loadEMStack(emFile)
         elif em_utils.isEMImageVolume(emFile):
-            image = em.Image()
-            loc2 = em.ImageLocation(emFile)
-            image.read(loc2)
-
-            # Create three Tables with the volume slices
-            xTable = em.Table([em.Table.Column(0, "X",
-                                               em.typeInt32,
-                                               "X Dimension")])
-            yTable = em.Table([em.Table.Column(0, "Y",
-                                               em.typeInt32,
-                                               "Y Dimension")])
-            zTable = em.Table([em.Table.Column(0, "Z",
-                                               em.typeInt32,
-                                               "Z Dimension")])
-
-            # Get the volume dimension
-            _dim = image.getDim()
-            _dx = _dim.x
-            _dy = _dim.y
-            _dz = _dim.z
-
-            # Create a 3D array with the volume slices
-            _array3D = np.array(image, copy=False)
-
-            for i in range(0, _dx):
-                row = xTable.createRow()
-                row['X'] = i
-                xTable.addRow(row)
-
-            for i in range(0, _dy):
-                row = yTable.createRow()
-                row['Y'] = i
-                yTable.addRow(row)
-
-            for i in range(0, _dz):
-                row = zTable.createRow()
-                row['Z'] = i
-                zTable.addRow(row)
-
-            xProperties = [ColumnProperties('X', 'X', 'Int',
-                                            **{'renderable': True,
-                                               'editable': False})]
-            yProperties = [ColumnProperties('Y', 'Y', 'Int',
-                                            **{'renderable': True,
-                                            'editable': False})]
-            zProperties = [ColumnProperties('Z', 'Z', 'Int',
-                                            **{'renderable': True,
-                                            'editable': False})]
-
-            models = list()
-            models.append(TableDataModel(
-                parent=None,
-                title='X Axis (Right View)',
-                emTable=xTable,
-                columnProperties=xProperties))
-
-            models.append(TableDataModel(
-                parent=None,
-                title='Y Axis (Left View)',
-                emTable=yTable,
-                columnProperties=yProperties))
-
-            models.append(TableDataModel(
-                parent=None,
-                title='Z Axis (Front View)',
-                emTable=zTable,
-                columnProperties=zProperties))
-
-            delegates = dict()
-            d = dict()
-            d[0] = EMImageItemDelegate(parent=None,
-                                       selectedStatePen=None,
-                                       borderPen=None,
-                                       iconWidth=150,
-                                       iconHeight=150,
-                                       volData=_array3D,
-                                       axis=X_AXIS)
-            delegates['Y Axis (Left View)'] = d
-            d = dict()
-            d[0] = EMImageItemDelegate(parent=None,
-                                       selectedStatePen=None,
-                                       borderPen=None,
-                                       iconWidth=150,
-                                       iconHeight=150,
-                                       volData=_array3D,
-                                       axis=Y_AXIS)
-            delegates['X Axis (Right View)'] = d
-            d = dict()
-            d[0] = EMImageItemDelegate(parent=None,
-                                       selectedStatePen=None,
-                                       borderPen=None,
-                                       iconWidth=150,
-                                       iconHeight=150,
-                                       volData=_array3D,
-                                       axis=Z_AXIS)
-            delegates['Z Axis (Front View)'] = d
-
-            kwargs["models"] = models
-            kwargs["delegates"] = delegates
+            models, delegates = loadEMVolume(emFile)
     else:
         print("Only one file is supported")
         sys.exit(0)
@@ -280,7 +309,7 @@ if __name__ == '__main__':
         kwargs['delegates'] = delegates
     else:
         kwargs['tableData'] = table
-        kwargs['colProperties'] = properties
+        kwargs['colProperties'] = None
         kwargs['models'] = None
         kwargs['delegates'] = None
 

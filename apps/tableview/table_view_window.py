@@ -1,12 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import (pyqtSlot, pyqtSignal)
+from PyQt5.QtCore import (pyqtSlot)
 from PyQt5.QtWidgets import (QMainWindow, QStatusBar, QWidget, QVBoxLayout,
                              QLabel)
 
-from emqt5.widgets.table.table_view import TableView
-from emqt5.widgets.table.model import TableDataModel
+from emqt5.views.table_view import TableView
+from emqt5.views.model import TableDataModel
 
 
 class TableViewWindow(QMainWindow):
