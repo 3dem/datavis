@@ -352,27 +352,27 @@ if __name__ == '__main__':
 
         else:  # The path constitute a file. In this case we parse this file
 
-            directory = QDir(args.path)
-            isFileExist = directory.exists(args.path)
+            directory = QDir(args.files)
+            isFileExist = directory.exists(args.files)
 
             if isFileExist:  # The file exist
 
-                if em_utils.isEmImage(args.path) or \
-                        em_utils.isEMImageVolume(args.path):
+                if em_utils.isEmImage(args.files) or \
+                        em_utils.isEMImageVolume(args.files):
                     # The file constitute an em-image.
                     # In this case we determined if the
                     # image has a volume or not
 
                     # Create an image from imagePath using em-bindings
                     image = em.Image()
-                    loc2 = em.ImageLocation(args.path)
+                    loc2 = em.ImageLocation(args.files)
                     image.read(loc2)
 
                     # Determinate the image dimension
                     z = image.getDim().z
 
                     if z == 1:  # Display the EM-BROWSER component
-                        kwargs['--files'] = args.path
+                        kwargs['--files'] = args.files
                         browserWin = BrowserWindow(**kwargs)
                         browserWin.show()
 
@@ -380,12 +380,12 @@ if __name__ == '__main__':
                         if len(args.slices) == 1:
                             if args.slices[0] == 'axis':  # Display the Volume
                                                           # Slicer app
-                                kwargs['imagePath'] = args.path
+                                kwargs['imagePath'] = args.files
                                 volumeSlice = VolumeSlice(**kwargs)
                                 volumeSlice.show()
                             elif args.slices[0] == 'gallery':  # Display the
                                                                # Gallery app
-                                models, delegates = loadEMVolume(args.path)
+                                models, delegates = loadEMVolume(args.files)
                                 kwargs['defaultRowHeight'] = 120
                                 kwargs['defaultView'] = 'GALLERY'
                                 kwargs['views'] = ['GALLERY', 'TABLE']
@@ -400,13 +400,13 @@ if __name__ == '__main__':
                                                      'the image are required')
                         else:  # Display the image by the default component:
                                # Volume-Slicer
-                            kwargs['imagePath'] = args.path
+                            kwargs['imagePath'] = args.files
                             volumeSlice = VolumeSlice(**kwargs)
                             volumeSlice.show()
 
                 elif em_utils.isEMImageStack(args.path):  # Display the file as
                                                           # a Image Stack
-                    models, delegates = loadEMStack(args.path)
+                    models, delegates = loadEMStack(args.files)
                     kwargs['defaultRowHeight'] = 120
                     kwargs['defaultView'] = 'GALLERY'
                     kwargs['views'] = ['GALLERY', 'TABLE']
@@ -417,7 +417,7 @@ if __name__ == '__main__':
 
                 elif em_utils.isEMTable(args.path):   # Display the file as
                                                       # a Table
-                        models = [loadEMTable(args.path)]
+                        models = [loadEMTable(args.files)]
                         kwargs['defaultRowHeight'] = 120
                         kwargs['defaultView'] = 'TABLE'
                         kwargs['views'] = ['TABLE']
@@ -428,7 +428,7 @@ if __name__ == '__main__':
                         tableWin.show()
 
                 else:  # Display the EM-BROWSER component
-                    kwargs['--files'] = args.path
+                    kwargs['--files'] = args.files
                     browserWin = BrowserWindow(**kwargs)
                     browserWin.show()
 
