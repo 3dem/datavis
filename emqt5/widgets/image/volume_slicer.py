@@ -1,17 +1,13 @@
 
-import os
-
 from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
-                             QGridLayout, QSlider, QVBoxLayout, QHBoxLayout,
-                             QSpacerItem, QPushButton, QSpinBox)
-from PyQt5.QtCore import Qt, QSize, QEvent, QPointF, QRectF
-from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor, QIcon
+                             QGridLayout, QSlider, QSpinBox)
+from PyQt5.QtCore import Qt, QSize, QEvent
+from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
 import emqt5.utils.functions as utils
 
 import numpy as np
 import pyqtgraph as pg
-import qtawesome as qta
 
 import em
 
