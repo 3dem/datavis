@@ -404,7 +404,7 @@ if __name__ == '__main__':
                             volumeSlice = VolumeSlice(**kwargs)
                             volumeSlice.show()
 
-                elif em_utils.isEMImageStack(args.path):  # Display the file as
+                elif em_utils.isEMImageStack(args.files):  # Display the file as
                                                           # a Image Stack
                     models, delegates = loadEMStack(args.files)
                     kwargs['defaultRowHeight'] = 120
@@ -415,7 +415,7 @@ if __name__ == '__main__':
                     tableWin.setModel(models, delegates)
                     tableWin.show()
 
-                elif em_utils.isEMTable(args.path):   # Display the file as
+                elif em_utils.isEMTable(args.files):   # Display the file as
                                                       # a Table
                         models = [loadEMTable(args.files)]
                         kwargs['defaultRowHeight'] = 120
