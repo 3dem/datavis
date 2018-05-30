@@ -11,11 +11,217 @@ import em
 from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
 from emqt5.views import (TableViewConfig, TableView, TableDataModel,
-                         EMImageItemDelegate, X_AXIS, Y_AXIS, Z_AXIS)
+                         EMImageItemDelegate, X_AXIS, Y_AXIS, Z_AXIS, N_DIM,
+                         PERCENT_UNITS, PIXEL_UNITS)
 import emqt5.utils.functions as em_utils
 
 
 import argparse
+
+def loadEMTable(imagePath):
+    """ Return the TableDataModel for the given EM table file"""
+    table = em.Table()
+    tableIO = em.TableIO()
+    tableIO.open(imagePath)
+    tableIO.read('', table)
+    tableIO.close()
+    tableViewConfig = TableViewConfig.fromTable(table)
+
+    return TableDataModel(parent=None, title="TABLE", emTable=table,
+                          tableViewConfig=tableViewConfig)
+
+
+def loadEMStack(imagePath):
+    """ Return a tuple"""
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Stack",
+                                       em.typeInt32,
+                                       "Image stack")])
+    imageIO = em.ImageIO()
+    loc2 = em.ImageLocation(imagePath)
+    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
+    _dim = imageIO.getDim()
+    _dx = _dim.x
+    _dy = _dim.y
+    _dn = _dim.n
+
+    _stack = list()
+
+    for i in range(0, _dn):
+        loc2.index = i + 1
+        img = em.Image()
+        img.read(loc2)
+        a = np.array(img, copy=False)
+        _stack.append(a)
+        row = xTable.createRow()
+        row['Stack'] = i
+        row['index'] = i
+        xTable.addRow(row)
+
+    tableViewConfig = TableViewConfig()
+    tableViewConfig.addColumnConfig(name='index',
+                                    dataType=TableViewConfig.TYPE_INT,
+                                    **{'label': 'Index',
+                                       'editable': False,
+                                       'visible': True})
+    tableViewConfig.addColumnConfig(name='Image',
+                                    dataType=TableViewConfig.TYPE_INT,
+                                    **{'label': 'Image',
+                                       'renderable': True,
+                                       'editable': False,
+                                       'visible': True})
+    models = list()
+    models.append(TableDataModel(parent=None, title='Stack',
+                                 emTable=xTable,
+                                 tableViewConfig=tableViewConfig))
+    delegates = dict()
+    stackDelegates = dict()
+    stackDelegates[1] = EMImageItemDelegate(parent=None,
+                                            selectedStatePen=None,
+                                            borderPen=None,
+                                            iconWidth=150,
+                                            iconHeight=150,
+                                            volData=_stack,
+                                            axis=N_DIM)
+    delegates['Stack'] = stackDelegates
+
+    return models, delegates
+
+
+def loadEMVolume(imagePath):
+    image = em.Image()
+    loc2 = em.ImageLocation(imagePath)
+    image.read(loc2)
+
+    # Create three Tables with the volume slices
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "X",
+                                       em.typeInt32,
+                                       "X Dimension")])
+    xtableViewConfig = TableViewConfig()
+    xtableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    xtableViewConfig.addColumnConfig(name='X',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'X',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    yTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Y",
+                                       em.typeInt32,
+                                       "Y Dimension")])
+    ytableViewConfig = TableViewConfig()
+    ytableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ytableViewConfig.addColumnConfig(name='Y',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Y',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+    zTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Z",
+                                       em.typeInt32,
+                                       "Z Dimension")])
+    ztableViewConfig = TableViewConfig()
+    ztableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ztableViewConfig.addColumnConfig(name='Z',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Z',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    # Get the volume dimension
+    _dim = image.getDim()
+    _dx = _dim.x
+    _dy = _dim.y
+    _dz = _dim.z
+
+    # Create a 3D array with the volume slices
+    _array3D = np.array(image, copy=False)
+
+    for i in range(0, _dx):
+        row = xTable.createRow()
+        row['X'] = i
+        row['index'] = i
+        xTable.addRow(row)
+
+    for i in range(0, _dy):
+        row = yTable.createRow()
+        row['Y'] = i
+        row['index'] = i
+        yTable.addRow(row)
+
+    for i in range(0, _dz):
+        row = zTable.createRow()
+        row['Z'] = i
+        row['index'] = i
+        zTable.addRow(row)
+
+    models = list()
+    models.append(TableDataModel(parent=None, title='X Axis (Right View)',
+                                 emTable=xTable,
+                                 tableViewConfig=xtableViewConfig))
+
+    models.append(TableDataModel(parent=None, title='Y Axis (Left View)',
+                                 emTable=yTable,
+                                 tableViewConfig=ytableViewConfig))
+
+    models.append(TableDataModel(parent=None, title='Z Axis (Front View)',
+                                 emTable=zTable,
+                                 tableViewConfig=ztableViewConfig))
+
+    delegates = dict()
+    dx = dict()
+    dx[1] = EMImageItemDelegate(parent=None,
+                                selectedStatePen=None,
+                                borderPen=None,
+                                iconWidth=150,
+                                iconHeight=150,
+                                volData=_array3D,
+                                axis=X_AXIS)
+    delegates['Y Axis (Left View)'] = dx
+    dy = dict()
+    dy[1] = EMImageItemDelegate(parent=None,
+                                selectedStatePen=None,
+                                borderPen=None,
+                                iconWidth=150,
+                                iconHeight=150,
+                                volData=_array3D,
+                                axis=Y_AXIS)
+    delegates['X Axis (Right View)'] = dy
+    dz = dict()
+    dz[1] = EMImageItemDelegate(parent=None,
+                                selectedStatePen=None,
+                                borderPen=None,
+                                iconWidth=150,
+                                iconHeight=150,
+                                volData=_array3D,
+                                axis=Z_AXIS)
+    delegates['Z Axis (Front View)'] = dz
+
+    return models, delegates
 
 
 if __name__ == '__main__':
@@ -32,9 +238,9 @@ if __name__ == '__main__':
                                         argument_default=None)
 
     # GLOBAL PARAMETERS
-    argParser.add_argument('path', type=str, nargs='?', default=[],
-                            help='3D image path or a specific '
-                                                'directory')
+    argParser.add_argument('files', type=str, nargs='?', default=[],
+                            help='3D image path or a list of image files or'
+                                 ' specific directory')
     argParser.add_argument('--slices', type=str, default=['gallery', 'axis'],
                            nargs='+', required=False, choices=['gallery',
                                                                'axis'],
@@ -44,40 +250,65 @@ if __name__ == '__main__':
     argParser.add_argument('--disable-zoom', default=False,
                            required=False, action='store_true',
                            help=' do not scale the image')
-    argParser.add_argument('--disable-histogram', default=False,
-                           required=False, action='store_true',
-                           help='disable the histogram')
-    argParser.add_argument('--disable-roi', default=False,
-                           required=False, action='store_true',
-                           help='disable the ROI button')
-    argParser.add_argument('--disable-menu', default=False,
-                           required=False, action='store_true',
-                           help='disable the MENU button')
     argParser.add_argument('--enable-axis', default=False,
                            required=False, action='store_true',
                            help='disable the image axis')
 
-    # VOLUME-SLICER PARAMETERS
-    argParser.add_argument('--enable-slicesLines', default=False,
-                           required=False, action='store_true',
-                           help=' hide the slices lines')
-    argParser.add_argument('--enable-slicesAxis', default=False,
-                           required=False, action='store_true',
-                           help='hide the axis')
-
-    # GALLERY-VIEW PARAMETERS
-    argParser.add_argument('--iconWidth', type=int, default=150,
+    # TABLE-VIEW PARAMETERS
+    argParser.add_argument('--cell-size', type=int, default=100,
                            required=False,
-                           help=' an integer for image width')
-    argParser.add_argument('--iconHeight', type=int, default=150,
+                           help=' an integer for default cell size')
+    argParser.add_argument('--max-cell-size', type=int, default=300,
                            required=False,
-                           help=' an integer for image height')
+                           help=' an integer for max cell size')
+    argParser.add_argument('--min-cell-size', type=int, default=10,
+                           required=False,
+                           help=' an integer for min cell size')
+    argParser.add_argument('--zoom-units', type=str, default='px',
+                           required=False,
+                           choices=['%', 'px'],
+                           help=' units in which the rescaling  will be done: '
+                                ' percent or pixels ')
+    argParser.add_argument('--default-view', type=str, default='TABLE',
+                           required=False,
+                           choices=['GALLERY', 'TABLE', 'ELEMENT'],
+                           help=' the default view. TABLE if not specified')
+    argParser.add_argument('--views', type=str,
+                           default=['GALLERY', 'TABLE', 'ELEMENT'],
+                           nargs='+', required=False,
+                           choices=['GALLERY', 'TABLE', 'ELEMENT'],
+                           help=' list of accessible '
+                                'views.[\'GALLERY\', \'TABLE\', \'ELEMENT\'] if'
+                                ' not specified')
+    argParser.add_argument('--disable-histogram', default=False,
+                           required=False, action='store_true',
+                           help=' hide the histogram widget in the view image '
+                                'widget for ELEMENT view mode')
+    argParser.add_argument('--disable-menu', default=False,
+                           required=False, action='store_true',
+                           help=' hide the menu button in the view image widget'
+                                ' for ELEMENT view ')
+    argParser.add_argument('--disable-roi', default=False,
+                           required=False, action='store_true',
+                           help=' hide the roi button in the view image widget'
+                                ' for ELEMENT view ')
+    argParser.add_argument('--disable-popup-menu', default=False,
+                           required=False, action='store_true',
+                           help=' disable the popup menu in the view image '
+                                'widget for ELEMENT view ')
+    argParser.add_argument('--disable-fit-to-size', default=False,
+                           required=False, action='store_true',
+                           help=' the image is not rescaled to the size of view'
+                                ' image widget for ELEMENT view ')
 
     args = argParser.parse_args()
 
+    models = None
+    delegates = None
+
     # GENERAL ARGS
-    kwargs['path'] = QDir.toNativeSeparators(args.path) if len(args.path) else \
-        QDir.currentPath()
+    kwargs['files'] = QDir.toNativeSeparators(args.files) if len(args.files) \
+        else QDir.currentPath()
     kwargs['--slices'] = args.slices
 
     # EM-BROWSER ARGS
@@ -85,28 +316,37 @@ if __name__ == '__main__':
     kwargs['--disable-histogram'] = args.disable_histogram
     kwargs['--disable-roi'] = args.disable_roi
     kwargs['--disable-menu'] = args.disable_menu
-    kwargs['--enable-slicesAxis'] = args.enable_slicesAxis
 
-    # VOLUME SLICER ARGS
-    kwargs['--enable-slicesLines'] = args.enable_slicesLines
-    kwargs['--enable-axis'] = args.enable_axis
+    # TABLE-VIEW ARGS
+    kwargs['defaultRowHeight'] = args.cell_size
+    kwargs['maxRowHeight'] = args.max_cell_size
+    kwargs['minRowHeight'] = args.min_cell_size
+    kwargs['zoomUnits'] = PERCENT_UNITS if args.zoom_units == '%' \
+        else PIXEL_UNITS
+    if models:
+        kwargs['defaultView'] = 'GALLERY'
+        kwargs['views'] = ['GALLERY', 'TABLE']
+    else:
+        kwargs['defaultView'] = args.default_view
+        kwargs['views'] = args.views
+    kwargs['disableHistogram'] = args.disable_histogram
+    kwargs['disableMenu'] = args.disable_menu
+    kwargs['disableROI'] = args.disable_roi
+    kwargs['disablePopupMenu'] = args.disable_popup_menu
+    kwargs['disableFitToSize'] = args.disable_fit_to_size
 
-    # GALLERY-VIEW ARGS
-    kwargs['--iconWidth'] = args.iconWidth
-    kwargs['--iconHeight'] = args.iconHeight
+    if not args.files:  # Display the EM-BROWSER component
 
-    if not args.path:  # Display the EM-BROWSER component
-
-        kwargs['--path'] = QDir.currentPath()
+        kwargs['--files'] = QDir.currentPath()
         browserWin = BrowserWindow(**kwargs)
         browserWin.show()
     else:  # We parse the path
 
-        isDir = QDir(args.path)
+        isDir = QDir(args.files)
 
         if isDir:  # The path constitute an directory. In this case we display
                    # the EM-BROWSER component
-            kwargs['--path'] = args.path
+            kwargs['--files'] = args.files
             browserWin = BrowserWindow(**kwargs)
             browserWin.show()
 
@@ -132,7 +372,7 @@ if __name__ == '__main__':
                     z = image.getDim().z
 
                     if z == 1:  # Display the EM-BROWSER component
-                        kwargs['--path'] = args.path
+                        kwargs['--files'] = args.path
                         browserWin = BrowserWindow(**kwargs)
                         browserWin.show()
 
@@ -143,140 +383,15 @@ if __name__ == '__main__':
                                 kwargs['imagePath'] = args.path
                                 volumeSlice = VolumeSlice(**kwargs)
                                 volumeSlice.show()
-                            elif args.slices[0] == 'gallery':
-
-                                # Create three Tables with the volume slices
-                                xTable = em.Table([em.Table.Column(0, "X",
-                                                          em.typeInt32,
-                                                          "X Dimension")])
-                                yTable = em.Table([em.Table.Column(0, "Y",
-                                                          em.typeInt32,
-                                                          "Y Dimension")])
-                                zTable = em.Table([em.Table.Column(0, "Z",
-                                                          em.typeInt32,
-                                                          "Z Dimension")])
-
-                                # Get the volume dimension
-                                _dim = image.getDim()
-                                _dx = _dim.x
-                                _dy = _dim.y
-                                _dz = _dim.z
-
-                                # Create a 3D array with the volume slices
-                                _array3D = np.array(image, copy=False)
-
-                                for i in range(0, _dx):
-                                    row = xTable.createRow()
-                                    row['X'] = i
-                                    xTable.addRow(row)
-
-                                for i in range(0, _dy):
-                                    row = yTable.createRow()
-                                    row['Y'] = i
-                                    yTable.addRow(row)
-
-                                for i in range(0, _dz):
-                                    row = zTable.createRow()
-                                    row['Z'] = i
-                                    zTable.addRow(row)
-
-                                xProperties = [
-                                    ColumnProperties('X', 'X',
-                                                     'Int',
-                                                     **{'renderable': True,
-                                                        'editable': False})]
-                                yProperties = [
-                                    ColumnProperties('Y', 'Y',
-                                                     'Int',
-                                                     **{'renderable': True,
-                                                        'editable': False})]
-                                zProperties = [
-                                    ColumnProperties('Z', 'Z',
-                                                     'Int',
-                                                     **{'renderable': True,
-                                                        'editable': False})]
-
-                                xTableKwargs = {}
-                                xTableKwargs['colProperties'] = xProperties
-                                xTableKwargs['views'] = ['GALLERY']
-                                xTableKwargs['defaultView'] = 'GALLERY'
-                                xTableKwargs['defaultRowHeight'] = 100
-                                xTableKwargs['maxRowHeight'] = 300
-                                xTableKwargs['minRowHeight'] = 50
-                                xTableKwargs['zoomUnits'] = 1
-
-                                yTableKwargs = {}
-                                yTableKwargs['colProperties'] = yProperties
-                                yTableKwargs['views'] = ['GALLERY']
-                                yTableKwargs['defaultView'] = 'GALLERY'
-                                yTableKwargs['defaultRowHeight'] = 100
-                                yTableKwargs['maxRowHeight'] = 300
-                                yTableKwargs['minRowHeight'] = 50
-                                yTableKwargs['zoomUnits'] = 1
-
-                                zTableKwargs = {}
-                                zTableKwargs['colProperties'] = zProperties
-                                zTableKwargs['views'] = ['GALLERY']
-                                zTableKwargs['defaultView'] = 'GALLERY'
-                                zTableKwargs['defaultRowHeight'] = 100
-                                zTableKwargs['maxRowHeight'] = 300
-                                zTableKwargs['minRowHeight'] = 50
-                                zTableKwargs['zoomUnits'] = 1
-
+                            elif args.slices[0] == 'gallery':  # Display the
+                                                               # Gallery app
+                                models, delegates = loadEMVolume(args.path)
+                                kwargs['defaultRowHeight'] = 120
+                                kwargs['defaultView'] = 'GALLERY'
+                                kwargs['views'] = ['GALLERY', 'TABLE']
                                 tableWin = TableView(parent=None,
-                                                      **xTableKwargs)
-                                models = []
-
-                                models.append(TableDataModel(
-                                    parent=tableWin,
-                                    title='X Axis (Right View)',
-                                    emTable=xTable,
-                                    columnProperties=xProperties))
-
-                                models.append(TableDataModel(
-                                    parent=tableWin,
-                                    title='Y Axis (Left View)',
-                                    emTable=yTable,
-                                    columnProperties=yProperties))
-
-                                models.append(TableDataModel(
-                                    parent=tableWin,
-                                    title='Z Axis (Front View)',
-                                    emTable=zTable,
-                                    columnProperties=zProperties))
-
-                                tableWin.setModel(models)
-                                tableWin.setItemDelegateForColumn(
-                                    0, EMImageItemDelegate(
-                                        parent=tableWin,
-                                        selectedStatePen=None,
-                                        borderPen=None,
-                                        iconWidth=150,
-                                        iconHeight=150,
-                                        volData=_array3D,
-                                        axis=X_AXIS),
-                                    X_AXIS)
-                                tableWin.setItemDelegateForColumn(
-                                    0, EMImageItemDelegate(
-                                        parent=tableWin,
-                                        selectedStatePen=None,
-                                        borderPen=None,
-                                        iconWidth=150,
-                                        iconHeight=150,
-                                        volData=_array3D,
-                                        axis=Y_AXIS),
-                                    Y_AXIS)
-                                tableWin.setItemDelegateForColumn(
-                                    0, EMImageItemDelegate(
-                                        parent=tableWin,
-                                        selectedStatePen=None,
-                                        borderPen=None,
-                                        iconWidth=150,
-                                        iconHeight=150,
-                                        volData=_array3D,
-                                        axis=Z_AXIS),
-                                    Z_AXIS)
-
+                                                     **kwargs)
+                                tableWin.setModel(models, delegates)
                                 tableWin.show()
 
                             else:
@@ -289,8 +404,31 @@ if __name__ == '__main__':
                             volumeSlice = VolumeSlice(**kwargs)
                             volumeSlice.show()
 
+                elif em_utils.isEMImageStack(args.path):  # Display the file as
+                                                          # a Image Stack
+                    models, delegates = loadEMStack(args.path)
+                    kwargs['defaultRowHeight'] = 120
+                    kwargs['defaultView'] = 'GALLERY'
+                    kwargs['views'] = ['GALLERY', 'TABLE']
+                    tableWin = TableView(parent=None,
+                                         **kwargs)
+                    tableWin.setModel(models, delegates)
+                    tableWin.show()
+
+                elif em_utils.isEMTable(args.path):   # Display the file as
+                                                      # a Table
+                        models = [loadEMTable(args.path)]
+                        kwargs['defaultRowHeight'] = 120
+                        kwargs['defaultView'] = 'TABLE'
+                        kwargs['views'] = ['TABLE']
+
+                        tableWin = TableView(parent=None,
+                                             **kwargs)
+                        tableWin.setModel(models)
+                        tableWin.show()
+
                 else:  # Display the EM-BROWSER component
-                    kwargs['--path'] = args.path
+                    kwargs['--files'] = args.path
                     browserWin = BrowserWindow(**kwargs)
                     browserWin.show()
 

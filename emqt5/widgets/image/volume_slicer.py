@@ -26,8 +26,6 @@ class VolumeSlice(QWidget):
 
         self._imagePath = kwargs.get('imagePath')
         self._image = None
-        self._enableSlicesLine = kwargs.get('--enable-slicesLines', False)
-        self._enableAxis = kwargs.get('--enable-axis', False)
         if self._imagePath:
             if utils.isEMImageVolume(self._imagePath):
                 self.setMinimumWidth(500)
@@ -435,17 +433,6 @@ class VolumeSlice(QWidget):
         self._rightView.ui.roiBtn.hide()
         self._rightView.ui.histogram.hide()
 
-        """ plotTopView = self.topView.getView()
-        plotTopView.showAxis('bottom', False)
-        plotTopView.showAxis('left', False)
-
-        plotFrontView = self.frontView.getView()
-        plotFrontView.showAxis('bottom', False)
-        plotFrontView.showAxis('left', False)
-
-        plotRightView = self.rightView.getView()
-        plotRightView.showAxis('bottom', False)
-        plotRightView.showAxis('left', False)"""
 
 class RenderArea(QWidget):
     def __init__(self, parent=None):
