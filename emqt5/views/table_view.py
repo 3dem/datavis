@@ -369,8 +369,8 @@ class TableView(QWidget):
             elif mode == GALLERY_VIEW_MODE or mode == ELEMENT_VIEW_MODE:
                 if self._tableView:
                     for colConfig in self._tableModel.getColumnConfig():
-                        if colConfig.getPropertyValue("renderable") and \
-                                colConfig.getPropertyValue("visible"):
+                        if colConfig["renderable"] and \
+                                colConfig["visible"]:
                             return True
                 return False
         elif self._currentViewMode == GALLERY_VIEW_MODE:
@@ -392,8 +392,8 @@ class TableView(QWidget):
                               self._columnDelegates.get(
                                   self._tableModel.getTitle()) is None
             for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
-                if colConfig.getPropertyValue("renderable") and \
-                        colConfig.getPropertyValue("visible"):
+                if colConfig["renderable"] and \
+                        colConfig["visible"]:
                     if createDelegates:
                         delegate = EMImageItemDelegate(self._tableView)
                         delegate.setImageCache(self._imageCache)
@@ -421,7 +421,7 @@ class TableView(QWidget):
         Hide the columns with visible property=True or allowSetVisible=False
         """
         for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
-            if not colConfig.getPropertyValue("visible"):
+            if not colConfig["visible"]:
                 self._tableView.hideColumn(i)
 
     def __setupAllWidgets__(self):
@@ -492,8 +492,8 @@ class TableView(QWidget):
         if self._tableModel:
             for index, colConfig in \
                     enumerate(self._tableModel.getColumnConfig()):
-                if colConfig.getPropertyValue("renderable") and \
-                        colConfig.getPropertyValue("visible"):
+                if colConfig["renderable"] and \
+                        colConfig["visible"]:
                     item = QStandardItem(colConfig.getLabel())
                     item.setData(index, Qt.UserRole)  # use UserRole for store
                     model.appendRow([item])           # columnIndex
@@ -565,7 +565,7 @@ class TableView(QWidget):
         if self._tableModel:
             for index, colConfig in \
                     enumerate(self._tableModel.getColumnConfig()):
-                if colConfig.getPropertyValue("renderable"):
+                if colConfig["renderable"]:
                     self._currentRenderableColumn = index
                     return
 
@@ -807,8 +807,8 @@ class TableView(QWidget):
             cConfig = self._tableModel.getColumnConfig()
             if cConfig:
                 for i, colConfig in enumerate(cConfig):
-                    if colConfig.getPropertyValue("renderable") and \
-                            colConfig.getPropertyValue("visible"):
+                    if colConfig["renderable"] and \
+                            colConfig["visible"]:
                         self._tableView.setColumnWidth(i, size)
 
         self._listView.setIconSize(qsize)
@@ -1180,7 +1180,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
                  borderPen=None,
                  iconWidth=150,
                  iconHeight=150,
-                 volData=None,
                  axis=-1):
         """
         If selectedStatePen is None then the border will not be painted when
@@ -1199,7 +1198,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._iconHeight = iconHeight
         self._disableFitToSize = True
         self._pixmapItem = None
-        self._volData =volData
         self._axis = axis
 
     def paint(self, painter, option, index):
@@ -1276,22 +1274,34 @@ class EMImageItemDelegate(QStyledItemDelegate):
         :param height: height to scale the image
         """
         imgPath = index.data(Qt.UserRole)
-        imgData = self._imgCache.getImage(imgPath)
+
+        imgParams = em_utils.parseImagePath(imgPath)
+
+        if imgParams is None or not len(imgParams) == 3:
+            return None
+        else:
+            imgPath = imgParams[2]
+
+            if em_utils.isEMImageStack(imgParams[2]):
+                id = str(imgParams[0]) + '_' + imgPath
+            else:
+                id = imgPath
+
+        imgData = self._imgCache.getImage(id)
 
         if imgData is None:
-            #  create one and store in imgCache
-            if isinstance(imgPath, str):
-                imgData = self._imgCache.addImage(imgPath, imgPath)
-            elif isinstance(imgPath, int) and not self._volData is None:
-                if not self._volData is None:
-                    if self._axis == X_AXIS:
-                        imgData = self._volData[:, :, imgPath]
-                    elif self._axis == Y_AXIS:
-                        imgData = self._volData[:, imgPath, :]
-                    elif self._axis == Z_AXIS:
-                        imgData = self._volData[imgPath, :, :]
-                    else:
-                        imgData = self._volData[imgPath]
+            imgData = self._imgCache.addImage(id, imgPath, imgParams[0])
+
+        if imgData is None:
+            return None
+        else:
+            axis = imgParams[1]
+            if axis == X_AXIS:
+                imgData = imgData[:, :, imgParams[0]]
+            elif axis == Y_AXIS:
+                imgData = imgData[:, imgParams[0], :]
+            elif axis == Z_AXIS:
+                 imgData = imgData[imgParams[0], :, :]
 
         return imgData
 

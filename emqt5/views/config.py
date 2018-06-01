@@ -153,10 +153,6 @@ class ColumnConfig:
     def getDescrition(self):
         return self._description
 
-    def getPropertyValue(self, propName):
-        """ Return the value for specified propName"""
-        return self.__getitem__(propName)
-
     def __getitem__(self, propertyName):
         """ Return the value of a given property.
         If the property does not exits, an Exception is raised.

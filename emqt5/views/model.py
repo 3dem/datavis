@@ -15,6 +15,9 @@ class TableDataModel(QAbstractItemModel):
     """
     Model for EM Data
     """
+
+    DataTypeRole = Qt.UserRole + 2
+
     def __init__(self, parent=None, title=None, emTable=None,
                  tableViewConfig=None,
                  itemsXPage=10):
@@ -52,6 +55,8 @@ class TableDataModel(QAbstractItemModel):
         t = self._tableViewConfig[col].getType() \
             if self._tableViewConfig else None
 
+        if role == TableDataModel.DataTypeRole:
+            return t
         if role == Qt.DecorationRole:
             return QVariant()
         if role == Qt.DisplayRole:
@@ -69,7 +74,7 @@ class TableDataModel(QAbstractItemModel):
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.SizeHintRole:
-            if self._tableViewConfig[col].getPropertyValue("renderable"):
+            if self._tableViewConfig[col]["renderable"]:
                 return self._iconSize
 
         if role == Qt.TextAlignmentRole:
@@ -158,13 +163,13 @@ class TableDataModel(QAbstractItemModel):
             t = self._tableViewConfig[col].getType()
 
             if t == TableViewConfig.TYPE_STRING:
-                return emRow[emCol.getId()].toString()
+                return emRow[emCol.getName()].toString()
             elif t == TableViewConfig.TYPE_BOOL:
-                return bool(int(emRow[emCol.getId()]))
+                return bool(int(emRow[emCol.getName()]))
             elif t == TableViewConfig.TYPE_INT:
-                return int(emRow[emCol.getId()])
+                return int(emRow[emCol.getName()])
             elif t == TableViewConfig.TYPE_FLOAT:
-                return float(emRow[emCol.getId()])
+                return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
 
@@ -233,7 +238,7 @@ class TableDataModel(QAbstractItemModel):
         col = qModelIndex.column()
         if qModelIndex.isValid():
             if self._tableViewConfig:
-                if self._tableViewConfig[col].getPropertyValue("editable"):
+                if self._tableViewConfig[col]["editable"]:
                     fl |= Qt.ItemIsEditable
                 if self._tableViewConfig[col].getType() == \
                         TableViewConfig.TYPE_BOOL:
@@ -301,7 +306,7 @@ class ImageCache:
         self._imgSize = imgSize
         self._imgData = dict()
 
-    def addImage(self, imgId, imgData):
+    def addImage(self, imgId, imgData, index=0):
         """
         Adds an image data to the chache
         :param imgData: image path
@@ -309,7 +314,7 @@ class ImageCache:
         """
         ret = self._imgData.get(imgId)
         if ret is None:
-            ret = self.__createThumb__(imgData)
+            ret = self.__createThumb__(imgData, index)
             self._imgData[imgId] = ret
         return ret
 
@@ -318,7 +323,7 @@ class ImageCache:
         ret = self._imgData.get(imgId)
         return ret
 
-    def __createThumb__(self, imgData):
+    def __createThumb__(self, imgData, index=0):
         """
         Return the thumbail created for the specified image path.
         Rescale the original image according to  self._imageSize
@@ -331,11 +336,12 @@ class ImageCache:
 
             return pixmap
         elif em_utils.isEmImage(imgData) \
-                or em_utils.isEMImageStack(imgData):
-            img = em.Image()
-            loc2 = em.ImageLocation(imgData)
-            img.read(loc2)
-            array = np.array(img, copy=False)
-            return array
+                or em_utils.isEMImageStack(imgData)\
+                or em_utils.isEMImageVolume(imgData):
+            img = em_utils.loadEMImage(imgData, index)
+            if img is None:
+                return None
+
+            return np.array(img, copy=False)
 
         return None

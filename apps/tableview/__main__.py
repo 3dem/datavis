@@ -28,7 +28,6 @@ def loadEMTable(imagePath):
     tableIO.open(imagePath)
     tableIO.read('', table)
     tableIO.close()
-    print(table)
     tableViewConfig = TableViewConfig.fromTable(table)
 
     return TableDataModel(parent=None, title="TABLE", emTable=table,
@@ -41,7 +40,7 @@ def loadEMStack(imagePath):
                                        em.typeInt32,
                                        "Image index"),
                        em.Table.Column(1, "Stack",
-                                       em.typeInt32,
+                                       em.typeString,
                                        "Image stack")])
     imageIO = em.ImageIO()
     loc2 = em.ImageLocation(emFile)
@@ -51,16 +50,9 @@ def loadEMStack(imagePath):
     _dy = _dim.y
     _dn = _dim.n
 
-    _stack = list()
-
     for i in range(0, _dn):
-        loc2.index = i + 1
-        img = em.Image()
-        img.read(loc2)
-        a = np.array(img, copy=False)
-        _stack.append(a)
         row = xTable.createRow()
-        row['Stack'] = i
+        row['Stack'] = str(i) + '@' + imagePath
         row['index'] = i
         xTable.addRow(row)
 
@@ -71,7 +63,7 @@ def loadEMStack(imagePath):
                                        'editable': False,
                                        'visible': True})
     tableViewConfig.addColumnConfig(name='Image',
-                                    dataType=TableViewConfig.TYPE_INT,
+                                    dataType=TableViewConfig.TYPE_STRING,
                                     **{'label': 'Image',
                                        'renderable': True,
                                        'editable': False,
@@ -87,7 +79,6 @@ def loadEMStack(imagePath):
                                             borderPen=None,
                                             iconWidth=150,
                                             iconHeight=150,
-                                            volData=_stack,
                                             axis=N_DIM)
     delegates['Stack'] = stackDelegates
 
@@ -95,16 +86,14 @@ def loadEMStack(imagePath):
 
 
 def loadEMVolume(imagePath):
-    image = em.Image()
-    loc2 = em.ImageLocation(emFile)
-    image.read(loc2)
+    image = em_utils.loadEMImage(imagePath)
 
     # Create three Tables with the volume slices
     xTable = em.Table([em.Table.Column(0, "index",
                                        em.typeInt32,
                                        "Image index"),
                        em.Table.Column(1, "X",
-                                       em.typeInt32,
+                                       em.typeString,
                                        "X Dimension")])
     xtableViewConfig = TableViewConfig()
     xtableViewConfig.addColumnConfig(name='index',
@@ -113,7 +102,7 @@ def loadEMVolume(imagePath):
                                         'editable': False,
                                         'visible': True})
     xtableViewConfig.addColumnConfig(name='X',
-                                     dataType=TableViewConfig.TYPE_INT,
+                                     dataType=TableViewConfig.TYPE_STRING,
                                      **{'label': 'X',
                                         'renderable': True,
                                         'editable': False,
@@ -123,7 +112,7 @@ def loadEMVolume(imagePath):
                                        em.typeInt32,
                                        "Image index"),
                        em.Table.Column(1, "Y",
-                                       em.typeInt32,
+                                       em.typeString,
                                        "Y Dimension")])
     ytableViewConfig = TableViewConfig()
     ytableViewConfig.addColumnConfig(name='index',
@@ -132,7 +121,7 @@ def loadEMVolume(imagePath):
                                         'editable': False,
                                         'visible': True})
     ytableViewConfig.addColumnConfig(name='Y',
-                                     dataType=TableViewConfig.TYPE_INT,
+                                     dataType=TableViewConfig.TYPE_STRING,
                                      **{'label': 'Y',
                                         'renderable': True,
                                         'editable': False,
@@ -141,7 +130,7 @@ def loadEMVolume(imagePath):
                                        em.typeInt32,
                                        "Image index"),
                        em.Table.Column(1, "Z",
-                                       em.typeInt32,
+                                       em.typeString,
                                        "Z Dimension")])
     ztableViewConfig = TableViewConfig()
     ztableViewConfig.addColumnConfig(name='index',
@@ -150,7 +139,7 @@ def loadEMVolume(imagePath):
                                         'editable': False,
                                         'visible': True})
     ztableViewConfig.addColumnConfig(name='Z',
-                                     dataType=TableViewConfig.TYPE_INT,
+                                     dataType=TableViewConfig.TYPE_STRING,
                                      **{'label': 'Z',
                                         'renderable': True,
                                         'editable': False,
@@ -162,24 +151,21 @@ def loadEMVolume(imagePath):
     _dy = _dim.y
     _dz = _dim.z
 
-    # Create a 3D array with the volume slices
-    _array3D = np.array(image, copy=False)
-
     for i in range(0, _dx):
         row = xTable.createRow()
-        row['X'] = i
+        row['X'] = str(i) + '@' + str(X_AXIS) + '@' + imagePath
         row['index'] = i
         xTable.addRow(row)
 
     for i in range(0, _dy):
         row = yTable.createRow()
-        row['Y'] = i
+        row['Y'] = str(i) + '@' + str(Y_AXIS) + '@' + imagePath
         row['index'] = i
         yTable.addRow(row)
 
     for i in range(0, _dz):
         row = zTable.createRow()
-        row['Z'] = i
+        row['Z'] = str(i) + '@' + str(Z_AXIS) + '@' + imagePath
         row['index'] = i
         zTable.addRow(row)
 
@@ -203,7 +189,6 @@ def loadEMVolume(imagePath):
                                 borderPen=None,
                                 iconWidth=150,
                                 iconHeight=150,
-                                volData=_array3D,
                                 axis=X_AXIS)
     delegates['Y Axis (Left View)'] = dx
     dy = dict()
@@ -212,7 +197,6 @@ def loadEMVolume(imagePath):
                                 borderPen=None,
                                 iconWidth=150,
                                 iconHeight=150,
-                                volData=_array3D,
                                 axis=Y_AXIS)
     delegates['X Axis (Right View)'] = dy
     dz = dict()
@@ -221,7 +205,6 @@ def loadEMVolume(imagePath):
                                 borderPen=None,
                                 iconWidth=150,
                                 iconHeight=150,
-                                volData=_array3D,
                                 axis=Z_AXIS)
     delegates['Z Axis (Front View)'] = dz
 
