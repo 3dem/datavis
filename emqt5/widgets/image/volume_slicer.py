@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
 from PyQt5.QtCore import Qt, QSize, QEvent
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-import emqt5.utils.functions as utils
+import emqt5.utils.functions as em_utils
 
 import numpy as np
 import pyqtgraph as pg
@@ -20,14 +20,12 @@ class VolumeSlice(QWidget):
 
         super(VolumeSlice, self).__init__(parent)
 
-        self._imagePath = kwargs.get('imagePath')
+        self._imagePath = None
         self._image = None
-        if self._imagePath:
-            if utils.isEMImageVolume(self._imagePath):
-                self.setMinimumWidth(500)
-                self.setMinimumHeight(500)
-                self.__initComponents__()
-                self.volumeSlice()
+        self._array3D = None
+        self.__initComponents__()
+        self.setImagePath(kwargs.get('imagePath'))
+
 
     def _onTopSpinBoxChanged(self, value):
         """
@@ -58,46 +56,49 @@ class VolumeSlice(QWidget):
         Display a Top View Slice in a specific value
         :param value: value of Slide
         """
-        self._sliceY = value
-        self._topSpinBox.setValue(value)
+        if self._array3D is not None:
+            self._sliceY = value
+            self._topSpinBox.setValue(value)
+            self._topView.setImage(self._array3D[:, self._sliceY, :])
 
-        self._topView.setImage(self._array3D[:, self._sliceY, :])
+            if self._topViewScale:
+                self._topView.getView().setRange(rect=self._topViewScale,
+                                                 padding=0.0)
 
-        if self._topViewScale:
-            self._topView.getView().setRange(rect=self._topViewScale,
-                                             padding=0.0)
-
-        self._renderArea.setShiftY(40 * value / self._dy-1)
+            self._renderArea.setShiftY(40 * value / self._dy-1)
 
     def _onFrontSliderChange(self, value):
         """
          Display a Front View Slice in a specific value
         :param value: value of Slide
         """
-        self._sliceZ = value
-        self._frontSpinBox.setValue(value)
-        self._frontView.setImage(self._array3D[self._sliceZ, :, :])
+        if self._array3D is not None:
+            self._sliceZ = value
+            self._frontSpinBox.setValue(value)
+            self._frontView.setImage(self._array3D[self._sliceZ, :, :])
 
-        if self._frontViewScale:
-            self._frontView.getView().setRange(rect=self._frontViewScale,
-                                             padding=0.0)
+            if self._frontViewScale:
+                self._frontView.getView().setRange(rect=self._frontViewScale,
+                                                   padding=0.0)
 
-        self._renderArea.setShiftZ(40 * value / self._dz-1)
+            self._renderArea.setShiftZ(40 * value / self._dz-1)
 
     def _onRightSliderChange(self, value):
         """
         Display a Front View Slice in a specific value
         :param value: value of Slide
         """
-        self._sliceX = value
-        self._rightSpinBox.setValue(value)
-        self._rightView.setImage(self._array3D[:, :, self._sliceX])
 
-        if self._rightViewScale:
-            self._rightView.getView().setRange(rect=self._rightViewScale,
-                                             padding=0.0)
+        if self._array3D is not None:
+            self._sliceX = value
+            self._rightSpinBox.setValue(value)
+            self._rightView.setImage(self._array3D[:, :, self._sliceX])
 
-        self._renderArea.setShiftX(40 * value / self._dx-1)
+            if self._rightViewScale:
+                self._rightView.getView().setRange(rect=self._rightViewScale,
+                                                   padding=0.0)
+
+            self._renderArea.setShiftX(40 * value / self._dx-1)
 
     def _onTopLineVChange(self, pos):
         """
@@ -216,6 +217,10 @@ class VolumeSlice(QWidget):
 
         self._renderArea = RenderArea()
 
+        # Create a window with three ImageView widgets with
+        # central slice on each axis
+        self.createVolumeSliceDialog(0, 0, 0)
+
     def getImage(self):
         """
         Get the image
@@ -229,28 +234,28 @@ class VolumeSlice(QWidget):
         :param imagePath: new image path
         """
         self._imagePath = imagePath
+        self._image = None
+        if self._imagePath:
+            if em_utils.isEMImageVolume(self._imagePath):
+                self.setMinimumWidth(500)
+                self.setMinimumHeight(500)
+                self.volumeSlice()
+        else:
+            self.clearComponent()
 
-    def setupProperties(self):
+    def clearComponent(self):
         """
-        Setup all properties
+        Clear all properties
+        TODO: Review for implementation
         """
-        if self._image:
-            self._image = None
-            self._topView.close()
-            self._frontView.close()
-            self._rightView.close()
-            self._topWidget.close()
-            self._rightWidget.close()
-            self._frontWidget.close()
-            self._renderArea.close()
-            self.close()
+        pass
 
     def volumeSlice(self):
         """
         Given 3D data, select a 2D plane and interpolate data along that plane
         to generate a slice image.
         """
-        if utils.isEMImageVolume(self._imagePath):
+        if em_utils.isEMImageVolume(self._imagePath):
 
             # Create an image from imagePath using em-bindings
             self._image = em.Image()
@@ -272,10 +277,6 @@ class VolumeSlice(QWidget):
                 self._sliceY = int(self._dy / 2)
                 self._sliceX = int(self._dx / 2)
 
-                # Create a window with three ImageView widgets with
-                # central slice on each axis
-                self.createVolumeSliceDialog(self._dx, self._dy, self._dz)
-
                 # Display the data on the Top View
                 self._topView.setImage(self._array3D[:, self._sliceY, :])
                 self._topView.getView().setAspectLocked(True)
@@ -287,9 +288,10 @@ class VolumeSlice(QWidget):
                 # Display the data on the Right View
                 self._rightView.setImage(self._array3D[:, :, self._sliceX])
                 self._rightView.getView().setAspectLocked(True)
+
+                self.initVolumeSliceDialog(self._dx, self._dy, self._dz)
             else:
                 self.createErrorTextLoadingImage()
-                self.setupProperties()
 
     def createErrorTextLoadingImage(self):
         """
@@ -299,6 +301,40 @@ class VolumeSlice(QWidget):
         label = QLabel(self)
         label.setText(' ERROR: A valid 3D image format are required. See the '
                       'image path.')
+
+    def initVolumeSliceDialog(self, x, y, z):
+        """
+        :param x:
+        :param y:
+        :param z:
+        :return:
+        """
+        # Create a Top View Slice (widgets)
+        self._topSlider.setMinimum(0)
+        self._topSlider.setMaximum(y - 1)
+        self._topSlider.setValue(int(y / 2))
+
+        self._topSpinBox.setMinimum(0)
+        self._topSpinBox.setMaximum(y - 1)
+        self._topSpinBox.setValue(int(y / 2))
+
+        # Create a Front View Slice (widgets)
+        self._frontSlider.setMinimum(0)
+        self._frontSlider.setMaximum(z - 1)
+        self._frontSlider.setValue(int(z / 2))
+
+        self._frontSpinBox.setMinimum(0)
+        self._frontSpinBox.setMaximum(z - 1)
+        self._frontSpinBox.setValue(int(z / 2))
+
+        # Create a Right View Slice (widgets)
+        self._rightSlider.setMinimum(0)
+        self._rightSlider.setMaximum(x - 1)
+        self._rightSlider.setValue(int(x / 2))
+
+        self._rightSpinBox.setMinimum(0)
+        self._rightSpinBox.setMaximum(x - 1)
+        self._rightSpinBox.setValue(int(x / 2))
 
     def createVolumeSliceDialog(self, x, y, z):
         """
@@ -317,14 +353,8 @@ class VolumeSlice(QWidget):
         self._toplayout = QGridLayout()
         self._topWidget.setLayout(self._toplayout.layout())
         self._topSlider = QSlider()
-        self._topSlider.setMinimum(0)
-        self._topSlider.setMaximum(y - 1)
-        self._topSlider.setValue(int(y / 2))
 
         self._topSpinBox = QSpinBox()
-        self._topSpinBox.setMinimum(0)
-        self._topSpinBox.setMaximum(y-1)
-        self._topSpinBox.setValue(int(y/2))
         self._topSpinBox.valueChanged.connect(self._onTopSpinBoxChanged)
 
         self._topSlider.valueChanged.connect(self._onTopSliderChange)
@@ -346,14 +376,8 @@ class VolumeSlice(QWidget):
         self._frontlayout = QGridLayout()
         self._frontWidget.setLayout(self._frontlayout.layout())
         self._frontSlider = QSlider()
-        self._frontSlider.setMinimum(0)
-        self._frontSlider.setMaximum(z - 1)
-        self._frontSlider.setValue(int(z / 2))
 
         self._frontSpinBox = QSpinBox()
-        self._frontSpinBox.setMinimum(0)
-        self._frontSpinBox.setMaximum(z - 1)
-        self._frontSpinBox.setValue(int(z / 2))
         self._frontSpinBox.valueChanged.connect(self._onFrontSpinBoxChanged)
 
         self._frontSlider.valueChanged.connect(self._onFrontSliderChange)
@@ -375,14 +399,8 @@ class VolumeSlice(QWidget):
         self._rightlayout = QGridLayout()
         self._rightWidget.setLayout(self._rightlayout.layout())
         self._rightSlider = QSlider()
-        self._rightSlider.setMinimum(0)
-        self._rightSlider.setMaximum(x - 1)
-        self._rightSlider.setValue(int(x / 2))
 
         self._rightSpinBox = QSpinBox()
-        self._rightSpinBox.setMinimum(0)
-        self._rightSpinBox.setMaximum(x - 1)
-        self._rightSpinBox.setValue(int(x / 2))
         self._rightSpinBox.valueChanged.connect(self._onRightSpinBoxChanged)
 
         self._rightSlider.valueChanged.connect(self._onRightSliderChange)
@@ -428,6 +446,8 @@ class VolumeSlice(QWidget):
         self._rightView.ui.menuBtn.hide()
         self._rightView.ui.roiBtn.hide()
         self._rightView.ui.histogram.hide()
+
+        self.initVolumeSliceDialog(x, y, z)
 
 
 class RenderArea(QWidget):

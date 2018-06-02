@@ -59,19 +59,18 @@ class TableView(QWidget):
         QWidget.__init__(self, kwargs.get("parent", None))
         self.__calcTablePageProperties = True
         self.__calcGalleryPageProperties = True
-        self._defaultRowHeight = kwargs.get("defaultRowHeight", 20)
-        self._maxRowHeight = kwargs.get("maxRowHeight", 250)
-        self._minRowHeight = kwargs.get("minRowHeight", 5)
-        self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
-        self._defaultView = kwargs.get("defaultView", TABLE_VIEW_MODE)
-        self._views = kwargs.get("views", [TABLE_VIEW_MODE,
-                                           GALLERY_VIEW_MODE,
-                                           ELEMENT_VIEW_MODE])
-        self._disableHistogram = kwargs.get("disableHistogram", False)
-        self._disableMenu = kwargs.get("disableMenu", False)
-        self._disableROI = kwargs.get("disableROI", False)
-        self._disablePopupMenu = kwargs.get("disablePopupMenu", False)
-        self._disableFitToSize = kwargs.get("disableFitToSize", False)
+
+        self._defaultRowHeight = 50
+        self._maxRowHeight = 50
+        self._minRowHeight = 50
+        self._zoomUnits = PIXEL_UNITS
+        self._defaultView = TABLE_VIEW_MODE
+        self._views = [TABLE_VIEW_MODE, GALLERY_VIEW_MODE, ELEMENT_VIEW_MODE]
+        self._disableHistogram = None
+        self._disableMenu = None
+        self._disableROI = None
+        self._disablePopupMenu = None
+        self._disableFitToSize = None
 
         self._viewActionIcons = {TABLE_VIEW_MODE: "fa.table",
                                  GALLERY_VIEW_MODE: "fa.image",
@@ -96,6 +95,9 @@ class TableView(QWidget):
         self._imageCache = ImageCache(50, 50)
         self._columnDelegates = {}
         self.__setupUi__()
+        self._defaultTableViewDelegate = self._tableView.itemDelegate()
+        self._defaultGalleryViewDelegate = self._listView.itemDelegate()
+        self.setup(**kwargs)
         self.__setupCurrentViewMode__()
 
     def __setupUi__(self):
@@ -140,14 +142,6 @@ class TableView(QWidget):
         self._elemViewContainer = QSplitter(self)
         self._elemViewContainer.setOrientation(Qt.Horizontal)
         self._imageView = pg.ImageView(parent=self._elemViewContainer)
-        if self._disableHistogram:
-            self._imageView.ui.histogram.hide()
-        if self._disableMenu:
-            self._imageView.ui.menuBtn.hide()
-        if self._disableROI:
-            self._imageView.ui.roiBtn.hide()
-        if self._disablePopupMenu:
-            self._imageView.getView().setMenuEnabled(False)
 
         self._pixMapElem = QPixmap()
         self._pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
@@ -419,6 +413,7 @@ class TableView(QWidget):
                               self._columnDelegates.get(
                                   self._tableModel.getTitle()) is None
             for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
+                delegate = self._defaultTableViewDelegate
                 if colConfig["renderable"] and \
                         colConfig["visible"]:
                     if createDelegates:
@@ -440,8 +435,9 @@ class TableView(QWidget):
                             self._tableModel.getTitle())
                         delegate = tableDelegates.get(i)
 
-                    self._tableView.setItemDelegateForColumn(i, delegate)
                     self._listView.setItemDelegateForColumn(i, delegate)
+                #  Restore the default item delegate for column i
+                self._tableView.setItemDelegateForColumn(i, delegate)
 
     def __setupVisibleColumns__(self):
         """
@@ -476,6 +472,7 @@ class TableView(QWidget):
             self._showTableDims()
             self.__setupVisibleColumns__()
             self.__setupDelegatesForColumns__()
+            self.__setupSpinBoxRowHeigth__()
             self._onChangeCellSize()
             self.__setupSpinBoxCurrentRow__()
             self._spinBoxCurrentRow.setValue(1)
@@ -483,6 +480,11 @@ class TableView(QWidget):
 
         self.__initCurrentRenderableColumn__()
         self._onGalleryViewColumnChanged(0)
+
+    def __setupSpinBoxRowHeigth__(self):
+        """ Configure the row height spinbox """
+        self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
+        self._spinBoxRowHeight.setValue(self._defaultRowHeight)
 
     def __setupComboBoxCurrentTable__(self):
         """
@@ -559,6 +561,11 @@ class TableView(QWidget):
         elif self._currentViewMode == ELEMENT_VIEW_MODE:
             self._stackedLayoud.setCurrentWidget(self._elemViewContainer)
             self.__calcElementPageProperties__()
+
+        for a in self._actionGroupViews.actions():
+            if a.objectName() == self._currentViewMode:
+                a.setChecked(True)
+                break
 
         self._selectRow(self._currentRow + 1)
         self._showCurrentPageNumber()
@@ -1109,6 +1116,33 @@ class TableView(QWidget):
             self._tableView.setItemDelegateForColumn(column, delegate)
             self._listView.setItemDelegateForColumn(column, delegate)
 
+    def setup(self, **kwargs):
+        """ Configure all properties  """
+        self._defaultRowHeight = kwargs.get("defaultRowHeight", 20)
+        self._maxRowHeight = kwargs.get("maxRowHeight", 250)
+        self._minRowHeight = kwargs.get("minRowHeight", 5)
+        self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
+        self._defaultView = kwargs.get("defaultView", TABLE_VIEW_MODE)
+        self._currentViewMode = self._defaultView
+        views = kwargs.get("views", [TABLE_VIEW_MODE, GALLERY_VIEW_MODE,
+                                     ELEMENT_VIEW_MODE])
+        for v in self._actionGroupViews.actions():
+            v.setVisible(v.objectName() in views)
+
+        self._disableHistogram = kwargs.get("disableHistogram", False)
+        self._disableMenu = kwargs.get("disableMenu", False)
+        self._disableROI = kwargs.get("disableROI", False)
+        self._disablePopupMenu = kwargs.get("disablePopupMenu", False)
+        self._disableFitToSize = kwargs.get("disableFitToSize", False)
+
+        if self._disableHistogram:
+            self._imageView.ui.histogram.hide()
+        if self._disableMenu:
+            self._imageView.ui.menuBtn.hide()
+        if self._disableROI:
+            self._imageView.ui.roiBtn.hide()
+        if self._disablePopupMenu:
+            self._imageView.getView().setMenuEnabled(False)
 
 
 class _ImageItemDelegate(QStyledItemDelegate):
