@@ -4,8 +4,9 @@
 
 from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QRectF,
                           QItemSelectionModel, QModelIndex)
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QTableView, QSpinBox, QLabel,
-                             QStyledItemDelegate, QStyle, QAbstractItemView,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction,
+                             QTableView, QSpinBox, QLabel, QStyledItemDelegate,
+                             QStyle, QAbstractItemView,
                              QApplication, QHeaderView, QComboBox, QHBoxLayout,
                              QStackedLayout, QLineEdit, QActionGroup, QListView,
                              QSizePolicy, QSpacerItem, QPushButton, QSplitter,
@@ -14,11 +15,15 @@ from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
                          QStandardItem)
 from PyQt5 import QtCore
 
+from emqt5.views import TableViewConfig
+
 import qtawesome as qta
 import pyqtgraph as pg
 
 from emqt5.views.model import ImageCache, TableDataModel
 import emqt5.utils.functions as em_utils
+
+import em
 
 TABLE_VIEW_MODE = 'TABLE'
 GALLERY_VIEW_MODE = 'GALLERY'
@@ -62,11 +67,11 @@ class TableView(QWidget):
         self._views = kwargs.get("views", [TABLE_VIEW_MODE,
                                            GALLERY_VIEW_MODE,
                                            ELEMENT_VIEW_MODE])
-        self._disableHistogram = kwargs.get("disableHistogram", True)
-        self._disableMenu = kwargs.get("disableMenu", True)
-        self._disableROI = kwargs.get("disableROI", True)
-        self._disablePopupMenu = kwargs.get("disablePopupMenu", True)
-        self._disableFitToSize = kwargs.get("disableFitToSize", True)
+        self._disableHistogram = kwargs.get("disableHistogram", False)
+        self._disableMenu = kwargs.get("disableMenu", False)
+        self._disableROI = kwargs.get("disableROI", False)
+        self._disablePopupMenu = kwargs.get("disablePopupMenu", False)
+        self._disableFitToSize = kwargs.get("disableFitToSize", False)
 
         self._viewActionIcons = {TABLE_VIEW_MODE: "fa.table",
                                  GALLERY_VIEW_MODE: "fa.image",
@@ -1012,6 +1017,8 @@ class TableView(QWidget):
         Show the number of pages depending of current view mode.
         Now: _labelPageCount
         """
+        if self._tableModel is None:
+            return 0
         if self._currentViewMode == GALLERY_VIEW_MODE:
             page = self._galleryPageCount
         elif self._currentViewMode == TABLE_VIEW_MODE:
@@ -1201,8 +1208,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
                  selectedStatePen=None,
                  borderPen=None,
                  iconWidth=150,
-                 iconHeight=150,
-                 axis=-1):
+                 iconHeight=150):
         """
         If selectedStatePen is None then the border will not be painted when
         the item is selected.
@@ -1220,7 +1226,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._iconHeight = iconHeight
         self._disableFitToSize = True
         self._pixmapItem = None
-        self._axis = axis
 
     def paint(self, painter, option, index):
         """
@@ -1373,3 +1378,177 @@ class TableWidget(QTableView):
         """
         QTableView.resizeEvent(self, evt)
         self.sigSizeChanged.emit()
+
+def createTableModel(imagePath):
+    """ Return the TableDataModel for the given EM table file"""
+    table = em.Table()
+    tableIO = em.TableIO()
+    tableIO.open(imagePath)
+    tableIO.read('', table)
+    tableIO.close()
+    tableViewConfig = TableViewConfig.fromTable(table)
+
+    return TableDataModel(parent=None, title="TABLE", emTable=table,
+                          tableViewConfig=tableViewConfig)
+
+
+def createStackModel(imagePath):
+    """ Return a stack model for the given image """
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Stack",
+                                       em.typeString,
+                                       "Image stack")])
+    imageIO = em.ImageIO()
+    loc2 = em.ImageLocation(imagePath)
+    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
+    _dim = imageIO.getDim()
+    _dn = _dim.n
+
+    for i in range(0, _dn):
+        row = xTable.createRow()
+        row['Stack'] = str(i) + '@' + imagePath
+        row['index'] = i
+        xTable.addRow(row)
+
+    tableViewConfig = TableViewConfig()
+    tableViewConfig.addColumnConfig(name='index',
+                                    dataType=TableViewConfig.TYPE_INT,
+                                    **{'label': 'Index',
+                                       'editable': False,
+                                       'visible': True})
+    tableViewConfig.addColumnConfig(name='Image',
+                                    dataType=TableViewConfig.TYPE_STRING,
+                                    **{'label': 'Image',
+                                       'renderable': True,
+                                       'editable': False,
+                                       'visible': True})
+    models = list()
+    models.append(TableDataModel(parent=None, title='Stack',
+                                 emTable=xTable,
+                                 tableViewConfig=tableViewConfig))
+    return models, None
+
+def createVolumeModel(imagePath):
+    image = em.Image()
+    loc2 = em.ImageLocation(imagePath)
+    image.read(loc2)
+
+    # Create three Tables with the volume slices
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "X",
+                                       em.typeString,
+                                       "X Dimension")])
+    xtableViewConfig = TableViewConfig()
+    xtableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    xtableViewConfig.addColumnConfig(name='X',
+                                     dataType=TableViewConfig.TYPE_STRING,
+                                     **{'label': 'X',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    yTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Y",
+                                       em.typeString,
+                                       "Y Dimension")])
+    ytableViewConfig = TableViewConfig()
+    ytableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ytableViewConfig.addColumnConfig(name='Y',
+                                     dataType=TableViewConfig.TYPE_STRING,
+                                     **{'label': 'Y',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+    zTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Z",
+                                       em.typeString,
+                                       "Z Dimension")])
+    ztableViewConfig = TableViewConfig()
+    ztableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ztableViewConfig.addColumnConfig(name='Z',
+                                     dataType=TableViewConfig.TYPE_STRING,
+                                     **{'label': 'Z',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    # Get the volume dimension
+    _dim = image.getDim()
+    _dx = _dim.x
+    _dy = _dim.y
+    _dz = _dim.z
+
+    for i in range(0, _dx):
+        row = xTable.createRow()
+        row['X'] = str(i) + '@' + str(X_AXIS) + '@' + imagePath
+        row['index'] = i
+        xTable.addRow(row)
+
+    for i in range(0, _dy):
+        row = yTable.createRow()
+        row['Y'] = str(i) + '@' + str(Y_AXIS) + '@' + imagePath
+        row['index'] = i
+        yTable.addRow(row)
+
+    for i in range(0, _dz):
+        row = zTable.createRow()
+        row['Z'] = str(i) + '@' + str(Z_AXIS) + '@' + imagePath
+        row['index'] = i
+        zTable.addRow(row)
+
+    models = list()
+    models.append(TableDataModel(parent=None, title='X Axis (Right View)',
+                                 emTable=xTable,
+                                 tableViewConfig=xtableViewConfig))
+
+    models.append(TableDataModel(parent=None, title='Y Axis (Left View)',
+                                 emTable=yTable,
+                                 tableViewConfig=ytableViewConfig))
+
+    models.append(TableDataModel(parent=None, title='Z Axis (Front View)',
+                                 emTable=zTable,
+                                 tableViewConfig=ztableViewConfig))
+
+    return models, None
+
+
+def createSingleImageModel(imagePath):
+    """ Return a single image model """
+    if em_utils.isEmImage(imagePath) or em_utils.isImage(imagePath):
+        table = em.Table([em.Table.Column(0, "Image", em.typeString,
+                                          "Image path")])
+        tableViewConfig = TableViewConfig()
+        tableViewConfig.addColumnConfig(name='Image',
+                                        dataType=TableViewConfig.TYPE_STRING,
+                                         **{'label': 'Image',
+                                            'renderable': True,
+                                            'editable': False,
+                                            'visible': True})
+        row = table.createRow()
+        row['Image'] = '0@' + imagePath
+        table.addRow(row)
+        return [TableDataModel(parent=None, title='IMAGE',
+                               emTable=table,
+                               tableViewConfig=tableViewConfig)], None
+
+

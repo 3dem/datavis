@@ -11,17 +11,14 @@ from PyQt5.QtCore import Qt, QCoreApplication, QMetaObject, QRect, QDir,\
                          QItemSelectionModel, QEvent
 
 from PyQt5.QtGui import QImage
-from emqt5.widgets.image import ImageBox
 from emqt5.widgets.image import VolumeSlice
-from emqt5.views import (TableViewConfig, TableView, EMImageItemDelegate,
-                         X_AXIS, Y_AXIS, Z_AXIS, N_DIM)
-from emqt5.views import TableDataModel
+from emqt5.views import (TableView, createVolumeModel, createTableModel,
+                         createStackModel, createSingleImageModel)
 
-import emqt5.utils.functions as utils
+
+import emqt5.utils.functions as em_utils
 
 import qtawesome as qta
-import numpy as np
-import pyqtgraph as pg
 import em
 
 
@@ -33,17 +30,8 @@ class BrowserWindow(QMainWindow):
 
     def __init__(self, parent=None, **kwargs):
         super(QMainWindow, self).__init__(parent)
-
-        self._disableZoom = kwargs.get('--disable-zoom', False)
-        self._disableHistogram = kwargs.get('--disable-histogram', False)
-        self._disableROI = kwargs.get('--disable-roi', False)
-        self._disableMenu = kwargs.get('--disable-menu', False)
-        self._enableAxis = kwargs.get('--enable-slicesAxis', False)
         self._imagePath = kwargs.get('--files', None)
         self._image = None
-        self._image2D = None
-        self._image2DView = pg.ImageView(view=pg.PlotItem())
-        self._imageBox = ImageBox()
         self._volumeSlice = VolumeSlice(imagePath='')
         xTableKwargs = {}
         self._galleryView = TableView(parent=None, **xTableKwargs)
@@ -83,7 +71,7 @@ class BrowserWindow(QMainWindow):
         This Slot is executed when select button signal was clicked.
         Select an em-image to realize a simple data-slicing
         """
-        if utils.isEmImage(self._imagePath):
+        if em_utils.isEmImage(self._imagePath):
             self.volumeSliceView = VolumeSlice(imagePath=self._imagePath)
 
     def _onHomeActionClicked(self):
@@ -145,11 +133,11 @@ class BrowserWindow(QMainWindow):
         Select an em-image to display as gallery view
         """
         self._volumeSlice.setupProperties()
-        models, delegates = self.loadEMVolume(self._lineCompleter.text())
+        models, delegates = createVolumeModel(self._lineCompleter.text())
         galleryKwargs = {}
         galleryKwargs['defaultRowHeight'] = 120
         galleryKwargs['defaultView'] = 'GALLERY'
-        galleryKwargs['views'] = ['GALLERY', 'TABLE']
+        galleryKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
         self._galleryView = TableView(parent=None, **galleryKwargs)
         self._galleryView.setModel(models, delegates)
         self._imageLayout.addWidget(self._galleryView)
@@ -365,209 +353,6 @@ class BrowserWindow(QMainWindow):
         self._imagePath = newPath
         self._lineCompleter.setText(self._imagePath)
 
-    def loadEMTable(self, imagePath):
-        """ Return the TableDataModel for the given EM table file"""
-        table = em.Table()
-        tableIO = em.TableIO()
-        tableIO.open(imagePath)
-        tableIO.read('', table)
-        tableIO.close()
-        tableViewConfig = TableViewConfig.fromTable(table)
-
-        return TableDataModel(parent=None, title="TABLE", emTable=table,
-                              tableViewConfig=tableViewConfig)
-
-    def loadEMStack(self, imagePath):
-        """ Return a tuple"""
-        xTable = em.Table([em.Table.Column(0, "index",
-                                           em.typeInt32,
-                                           "Image index"),
-                           em.Table.Column(1, "Stack",
-                                           em.typeInt32,
-                                           "Image stack")])
-        imageIO = em.ImageIO()
-        loc2 = em.ImageLocation(imagePath)
-        imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
-        _dim = imageIO.getDim()
-        _dx = _dim.x
-        _dy = _dim.y
-        _dn = _dim.n
-
-        _stack = list()
-
-        for i in range(0, _dn):
-            loc2.index = i + 1
-            img = em.Image()
-            img.read(loc2)
-            a = np.array(img, copy=False)
-            _stack.append(a)
-            row = xTable.createRow()
-            row['Stack'] = i
-            row['index'] = i
-            xTable.addRow(row)
-
-        tableViewConfig = TableViewConfig()
-        tableViewConfig.addColumnConfig(name='index',
-                                        dataType=TableViewConfig.TYPE_INT,
-                                        **{'label': 'Index',
-                                           'editable': False,
-                                           'visible': True})
-        tableViewConfig.addColumnConfig(name='Image',
-                                        dataType=TableViewConfig.TYPE_INT,
-                                        **{'label': 'Image',
-                                           'renderable': True,
-                                           'editable': False,
-                                           'visible': True})
-        models = list()
-        models.append(TableDataModel(parent=None, title='Stack',
-                                     emTable=xTable,
-                                     tableViewConfig=tableViewConfig))
-        delegates = dict()
-        stackDelegates = dict()
-        stackDelegates[1] = EMImageItemDelegate(parent=None,
-                                                selectedStatePen=None,
-                                                borderPen=None,
-                                                iconWidth=150,
-                                                iconHeight=150,
-                                                volData=_stack,
-                                                axis=N_DIM)
-        delegates['Stack'] = stackDelegates
-
-        return models, delegates
-
-    def loadEMVolume(self, imagePath):
-        image = em.Image()
-        loc2 = em.ImageLocation(imagePath)
-        image.read(loc2)
-
-        # Create three Tables with the volume slices
-        xTable = em.Table([em.Table.Column(0, "index",
-                                           em.typeInt32,
-                                           "Image index"),
-                           em.Table.Column(1, "X",
-                                           em.typeInt32,
-                                           "X Dimension")])
-        xtableViewConfig = TableViewConfig()
-        xtableViewConfig.addColumnConfig(name='index',
-                                         dataType=TableViewConfig.TYPE_INT,
-                                         **{'label': 'Index',
-                                            'editable': False,
-                                            'visible': True})
-        xtableViewConfig.addColumnConfig(name='X',
-                                         dataType=TableViewConfig.TYPE_INT,
-                                         **{'label': 'X',
-                                            'renderable': True,
-                                            'editable': False,
-                                            'visible': True})
-
-        yTable = em.Table([em.Table.Column(0, "index",
-                                           em.typeInt32,
-                                           "Image index"),
-                           em.Table.Column(1, "Y",
-                                           em.typeInt32,
-                                           "Y Dimension")])
-        ytableViewConfig = TableViewConfig()
-        ytableViewConfig.addColumnConfig(name='index',
-                                         dataType=TableViewConfig.TYPE_INT,
-                                         **{'label': 'Index',
-                                            'editable': False,
-                                            'visible': True})
-        ytableViewConfig.addColumnConfig(name='Y',
-                                         dataType=TableViewConfig.TYPE_INT,
-                                         **{'label': 'Y',
-                                            'renderable': True,
-                                            'editable': False,
-                                            'visible': True})
-        zTable = em.Table([em.Table.Column(0, "index",
-                                           em.typeInt32,
-                                           "Image index"),
-                           em.Table.Column(1, "Z",
-                                           em.typeInt32,
-                                           "Z Dimension")])
-        ztableViewConfig = TableViewConfig()
-        ztableViewConfig.addColumnConfig(name='index',
-                                         dataType=TableViewConfig.TYPE_INT,
-                                         **{'label': 'Index',
-                                            'editable': False,
-                                            'visible': True})
-        ztableViewConfig.addColumnConfig(name='Z',
-                                         dataType=TableViewConfig.TYPE_INT,
-                                         **{'label': 'Z',
-                                            'renderable': True,
-                                            'editable': False,
-                                            'visible': True})
-
-        # Get the volume dimension
-        _dim = image.getDim()
-        _dx = _dim.x
-        _dy = _dim.y
-        _dz = _dim.z
-
-        # Create a 3D array with the volume slices
-        _array3D = np.array(image, copy=False)
-
-        for i in range(0, _dx):
-            row = xTable.createRow()
-            row['X'] = i
-            row['index'] = i
-            xTable.addRow(row)
-
-        for i in range(0, _dy):
-            row = yTable.createRow()
-            row['Y'] = i
-            row['index'] = i
-            yTable.addRow(row)
-
-        for i in range(0, _dz):
-            row = zTable.createRow()
-            row['Z'] = i
-            row['index'] = i
-            zTable.addRow(row)
-
-        models = list()
-        models.append(TableDataModel(parent=None, title='X Axis (Right View)',
-                                     emTable=xTable,
-                                     tableViewConfig=xtableViewConfig))
-
-        models.append(TableDataModel(parent=None, title='Y Axis (Left View)',
-                                     emTable=yTable,
-                                     tableViewConfig=ytableViewConfig))
-
-        models.append(TableDataModel(parent=None, title='Z Axis (Front View)',
-                                     emTable=zTable,
-                                     tableViewConfig=ztableViewConfig))
-
-        delegates = dict()
-        dx = dict()
-        dx[1] = EMImageItemDelegate(parent=None,
-                                    selectedStatePen=None,
-                                    borderPen=None,
-                                    iconWidth=150,
-                                    iconHeight=150,
-                                    volData=_array3D,
-                                    axis=X_AXIS)
-        delegates['Y Axis (Left View)'] = dx
-        dy = dict()
-        dy[1] = EMImageItemDelegate(parent=None,
-                                    selectedStatePen=None,
-                                    borderPen=None,
-                                    iconWidth=150,
-                                    iconHeight=150,
-                                    volData=_array3D,
-                                    axis=Y_AXIS)
-        delegates['X Axis (Right View)'] = dy
-        dz = dict()
-        dz[1] = EMImageItemDelegate(parent=None,
-                                    selectedStatePen=None,
-                                    borderPen=None,
-                                    iconWidth=150,
-                                    iconHeight=150,
-                                    volData=_array3D,
-                                    axis=Z_AXIS)
-        delegates['Z Axis (Front View)'] = dz
-
-        return models, delegates
-
     def imagePlot(self, imagePath):
         """
         This method display an image using of pyqtgraph ImageView, a volume
@@ -589,62 +374,12 @@ class BrowserWindow(QMainWindow):
             item = self._imageLayout.takeAt(0)
             self._imageLayout.removeItem(item)
             self._imageLayout.removeItem(item)
-            self._image2DView.close()
-            self._image2DView = pg.ImageView(view=pg.PlotItem())
-            plotItem = self._image2DView.getView()
-            plotItem.showAxis('bottom', False)
-            plotItem.showAxis('left', False)
-            self._imageBox.setupProperties()
             self._volumeSlice.setupProperties()
             self._galleryView.close()
             self._tableView.close()
             self._stackView.close()
 
-        if utils.isEmImage(imagePath):  # EM-Image
-
-            self._frame.setEnabled(True)
-
-            # Create an image from imagePath using em-bindings
-            self._image = em.Image()
-            loc2 = em.ImageLocation(imagePath)
-            self._image.read(loc2)
-
-            # Determinate the image dimension
-            z = self._image.getDim().z
-
-            if z == 1:  # The data is a 2D numpy array
-
-                self._image2D = np.array(self._image, copy=False)
-
-                # A plot area (ViewBox + axes) for displaying the image
-                self._imageLayout.addWidget(self._image2DView)
-                self._image2DView.setImage(self._image2D)
-
-                # Disable image operations
-                if self._disableHistogram:
-                    self._image2DView.ui.histogram.hide()
-                if self._disableMenu:
-                    self._image2DView.ui.menuBtn.hide()
-                if self._disableROI:
-                    self._image2DView.ui.roiBtn.hide()
-                if self._disableZoom:
-                    self._image2DView.getView().setMouseEnabled(False, False)
-
-                if self._enableAxis:
-                    plotItem = self._image2DView.getView()
-                    plotItem.showAxis('bottom', True)
-                    plotItem.showAxis('left', True)
-
-                # Show the image dimension and type
-                self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " +
-                                        str(self._image.getDim()))
-                self.listWidget.addItem("Type: " + str(self._image.getType()))
-
-                # Hide Volume Slice and Gallery View Buttons
-                self._changeViewFrame.setVisible(False)
-
-        elif utils.isEMImageVolume(imagePath):
+        if em_utils.isEMImageVolume(imagePath):
             # The image has a volume. The data is a numpy 3D array. In
             # this case, display the Top, Front and the Right View planes
 
@@ -656,9 +391,6 @@ class BrowserWindow(QMainWindow):
             loc2 = em.ImageLocation(imagePath)
             self._image.read(loc2)
 
-            # Determinate the image dimension
-            z = self._image.getDim().z
-
             if self._galeryViewButton.isEnabled():
                 self._galleryView.close()
                 self._volumeSlice = VolumeSlice(imagePath=self._imagePath)
@@ -666,11 +398,11 @@ class BrowserWindow(QMainWindow):
                 self._changeViewFrame.setVisible(True)
             else:
                 self._volumeSlice.setupProperties()
-                models, delegates = self.loadEMVolume(imagePath)
+                models, delegates = createVolumeModel(imagePath)
                 galleryKwargs = {}
                 galleryKwargs['defaultRowHeight'] = 90
                 galleryKwargs['defaultView'] = 'GALLERY'
-                galleryKwargs['views'] = ['GALLERY', 'TABLE']
+                galleryKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
                 self._galleryView = TableView(parent=None, **galleryKwargs)
 
                 self._galleryView.setModel(models, delegates)
@@ -683,32 +415,44 @@ class BrowserWindow(QMainWindow):
                                     str(self._image.getDim()))
             self.listWidget.addItem("Type: " + str(self._image.getType()))
 
-        elif utils.isImage(imagePath):  # The image is a standard image
+        elif em_utils.isImage(imagePath) or em_utils.isEmImage(imagePath):
 
-                self._frame.setEnabled(False)
+                self._frame.setEnabled(True)
 
                 # Create and display a standard image using ImageBox class
                 self._volumeSlice.setupProperties()
                 self._galleryView.close()
                 self._tableView.close()
                 self._stackView.close()
-                self._imageBox = ImageBox()
-                self._imageLayout.addWidget(self._imageBox)
-                image = QImage(imagePath)
-                self._imageBox.setImage(image)
-                self._imageBox.update()
-                self._imageBox.fitToWindow()
 
+                models, delegates = createSingleImageModel(imagePath)
+                imageKwargs = {}
+                imageKwargs['defaultRowHeight'] = 90
+                imageKwargs['defaultView'] = 'ELEMENT'
+                imageKwargs['views'] = ['ELEMENT']
+                img = em_utils.isImage(imagePath)
+                imageKwargs['disableHistogram'] = img
+                imageKwargs['disableMenu'] = img
+                imageKwargs['disableROI'] = img
+                imageKwargs['disablePopupMenu'] = img
+                imageKwargs['disableFitToSize'] = img
+
+                self._galleryView = TableView(parent=None, **imageKwargs)
+
+                self._galleryView.setModel(models, delegates)
+                self._imageLayout.addWidget(self._galleryView)
+                self._changeViewFrame.setVisible(False)
+
+                image = QImage(imagePath)
                 width = image.width()
                 height = image.height()
-                type = image.format()
 
-                # Show the image dimension and type
+                # Show the image dimension
                 self.listWidget.clear()
                 self.listWidget.addItem("Dimension: " + str(width) + " x "
                                         + str(height))
 
-        elif utils.isEMTable(imagePath):  # The data constitute a Table
+        elif em_utils.isEMTable(imagePath):  # The data constitute a Table
 
             self._volumeSlice.setupProperties()
             self._galleryView.close()
@@ -717,11 +461,11 @@ class BrowserWindow(QMainWindow):
             # Hide Volume Slice and Gallery View Buttons
             self._changeViewFrame.setVisible(False)
 
-            models = [self.loadEMTable(imagePath)]
+            models = [createTableModel(imagePath)]
             tableKwargs = {}
             tableKwargs['defaultRowHeight'] = 90
             tableKwargs['defaultView'] = 'TABLE'
-            tableKwargs['views'] = ['TABLE']
+            tableKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
 
             self._tableView = TableView(parent=None,
                                  **tableKwargs)
@@ -744,8 +488,8 @@ class BrowserWindow(QMainWindow):
                                     str(table.getSize()) + ' x ' +
                                     str(table.getColumnsSize()))
 
-        elif utils.isEMImageStack(imagePath):  # The image constitute an image
-                                               # stack
+        elif em_utils.isEMImageStack(imagePath):
+            # The image constitute an image stack
 
             self._volumeSlice.setupProperties()
             self._galleryView.close()
@@ -753,28 +497,27 @@ class BrowserWindow(QMainWindow):
 
             # Hide Volume Slice and Gallery View Buttons
             self._changeViewFrame.setVisible(False)
-            models, delegates = self.loadEMStack(imagePath)
+            models, delegates = createStackModel(imagePath)
             stackKwargs = {}
             stackKwargs['defaultRowHeight'] = 90
             stackKwargs['defaultView'] = 'GALLERY'
-            stackKwargs['views'] = ['GALLERY', 'TABLE']
+            stackKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
             self._stackView = TableView(parent=None,  **stackKwargs)
             self._stackView.setModel(models, delegates)
 
             self._imageLayout.addWidget(self._stackView)
 
             # Show the image dimension and type
-            self._image = em.Image()
-            loc2 = em.ImageLocation(imagePath)
-            self._image.read(loc2)
+            self._image = em.ImageIO()
+            self._image.open(imagePath, em.File.READ_ONLY)
             self.listWidget.clear()
             self.listWidget.addItem("Dimension: " +
                                     str(self._image.getDim()))
             self.listWidget.addItem("Type: Images Stack")
+            self._image.close()
 
         else:  # No image format
-            self._imageBox.setupProperties()
-            self._imageBox.update()
+
             self.listWidget.clear()
             self._volumeSlice.setupProperties()
             self._galleryView.close()

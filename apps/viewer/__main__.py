@@ -5,224 +5,16 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 from PyQt5.QtCore import QDir
-import numpy as np
 
 import em
 from emqt5.widgets.image.browser_window import BrowserWindow
 from emqt5.widgets.image.volume_slicer import VolumeSlice
-from emqt5.views import (TableViewConfig, TableView, TableDataModel,
-                         EMImageItemDelegate, X_AXIS, Y_AXIS, Z_AXIS, N_DIM,
-                         PERCENT_UNITS, PIXEL_UNITS)
+from emqt5.views import (TableView, PERCENT_UNITS, PIXEL_UNITS,
+                         createVolumeModel, createStackModel, createTableModel)
 import emqt5.utils.functions as em_utils
 
 
 import argparse
-
-def loadEMTable(imagePath):
-    """ Return the TableDataModel for the given EM table file"""
-    table = em.Table()
-    tableIO = em.TableIO()
-    tableIO.open(imagePath)
-    tableIO.read('', table)
-    tableIO.close()
-    tableViewConfig = TableViewConfig.fromTable(table)
-
-    return TableDataModel(parent=None, title="TABLE", emTable=table,
-                          tableViewConfig=tableViewConfig)
-
-
-def loadEMStack(imagePath):
-    """ Return a tuple"""
-    xTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Stack",
-                                       em.typeInt32,
-                                       "Image stack")])
-    imageIO = em.ImageIO()
-    loc2 = em.ImageLocation(imagePath)
-    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
-    _dim = imageIO.getDim()
-    _dx = _dim.x
-    _dy = _dim.y
-    _dn = _dim.n
-
-    _stack = list()
-
-    for i in range(0, _dn):
-        loc2.index = i + 1
-        img = em.Image()
-        img.read(loc2)
-        a = np.array(img, copy=False)
-        _stack.append(a)
-        row = xTable.createRow()
-        row['Stack'] = i
-        row['index'] = i
-        xTable.addRow(row)
-
-    tableViewConfig = TableViewConfig()
-    tableViewConfig.addColumnConfig(name='index',
-                                    dataType=TableViewConfig.TYPE_INT,
-                                    **{'label': 'Index',
-                                       'editable': False,
-                                       'visible': True})
-    tableViewConfig.addColumnConfig(name='Image',
-                                    dataType=TableViewConfig.TYPE_INT,
-                                    **{'label': 'Image',
-                                       'renderable': True,
-                                       'editable': False,
-                                       'visible': True})
-    models = list()
-    models.append(TableDataModel(parent=None, title='Stack',
-                                 emTable=xTable,
-                                 tableViewConfig=tableViewConfig))
-    delegates = dict()
-    stackDelegates = dict()
-    stackDelegates[1] = EMImageItemDelegate(parent=None,
-                                            selectedStatePen=None,
-                                            borderPen=None,
-                                            iconWidth=150,
-                                            iconHeight=150,
-                                            volData=_stack,
-                                            axis=N_DIM)
-    delegates['Stack'] = stackDelegates
-
-    return models, delegates
-
-
-def loadEMVolume(imagePath):
-    image = em.Image()
-    loc2 = em.ImageLocation(imagePath)
-    image.read(loc2)
-
-    # Create three Tables with the volume slices
-    xTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "X",
-                                       em.typeInt32,
-                                       "X Dimension")])
-    xtableViewConfig = TableViewConfig()
-    xtableViewConfig.addColumnConfig(name='index',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Index',
-                                        'editable': False,
-                                        'visible': True})
-    xtableViewConfig.addColumnConfig(name='X',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'X',
-                                        'renderable': True,
-                                        'editable': False,
-                                        'visible': True})
-
-    yTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Y",
-                                       em.typeInt32,
-                                       "Y Dimension")])
-    ytableViewConfig = TableViewConfig()
-    ytableViewConfig.addColumnConfig(name='index',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Index',
-                                        'editable': False,
-                                        'visible': True})
-    ytableViewConfig.addColumnConfig(name='Y',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Y',
-                                        'renderable': True,
-                                        'editable': False,
-                                        'visible': True})
-    zTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Z",
-                                       em.typeInt32,
-                                       "Z Dimension")])
-    ztableViewConfig = TableViewConfig()
-    ztableViewConfig.addColumnConfig(name='index',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Index',
-                                        'editable': False,
-                                        'visible': True})
-    ztableViewConfig.addColumnConfig(name='Z',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Z',
-                                        'renderable': True,
-                                        'editable': False,
-                                        'visible': True})
-
-    # Get the volume dimension
-    _dim = image.getDim()
-    _dx = _dim.x
-    _dy = _dim.y
-    _dz = _dim.z
-
-    # Create a 3D array with the volume slices
-    _array3D = np.array(image, copy=False)
-
-    for i in range(0, _dx):
-        row = xTable.createRow()
-        row['X'] = i
-        row['index'] = i
-        xTable.addRow(row)
-
-    for i in range(0, _dy):
-        row = yTable.createRow()
-        row['Y'] = i
-        row['index'] = i
-        yTable.addRow(row)
-
-    for i in range(0, _dz):
-        row = zTable.createRow()
-        row['Z'] = i
-        row['index'] = i
-        zTable.addRow(row)
-
-    models = list()
-    models.append(TableDataModel(parent=None, title='X Axis (Right View)',
-                                 emTable=xTable,
-                                 tableViewConfig=xtableViewConfig))
-
-    models.append(TableDataModel(parent=None, title='Y Axis (Left View)',
-                                 emTable=yTable,
-                                 tableViewConfig=ytableViewConfig))
-
-    models.append(TableDataModel(parent=None, title='Z Axis (Front View)',
-                                 emTable=zTable,
-                                 tableViewConfig=ztableViewConfig))
-
-    delegates = dict()
-    dx = dict()
-    dx[1] = EMImageItemDelegate(parent=None,
-                                selectedStatePen=None,
-                                borderPen=None,
-                                iconWidth=150,
-                                iconHeight=150,
-                                volData=_array3D,
-                                axis=X_AXIS)
-    delegates['Y Axis (Left View)'] = dx
-    dy = dict()
-    dy[1] = EMImageItemDelegate(parent=None,
-                                selectedStatePen=None,
-                                borderPen=None,
-                                iconWidth=150,
-                                iconHeight=150,
-                                volData=_array3D,
-                                axis=Y_AXIS)
-    delegates['X Axis (Right View)'] = dy
-    dz = dict()
-    dz[1] = EMImageItemDelegate(parent=None,
-                                selectedStatePen=None,
-                                borderPen=None,
-                                iconWidth=150,
-                                iconHeight=150,
-                                volData=_array3D,
-                                axis=Z_AXIS)
-    delegates['Z Axis (Front View)'] = dz
-
-    return models, delegates
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -385,7 +177,7 @@ if __name__ == '__main__':
                                 volumeSlice.show()
                             elif args.slices[0] == 'gallery':  # Display the
                                                                # Gallery app
-                                models, delegates = loadEMVolume(args.files)
+                                models, delegates = createVolumeModel(args.files)
                                 kwargs['defaultRowHeight'] = 120
                                 kwargs['defaultView'] = 'GALLERY'
                                 kwargs['views'] = ['GALLERY', 'TABLE']
@@ -406,7 +198,7 @@ if __name__ == '__main__':
 
                 elif em_utils.isEMImageStack(args.files):  # Display the file as
                                                           # a Image Stack
-                    models, delegates = loadEMStack(args.files)
+                    models, delegates = createStackModel(args.files)
                     kwargs['defaultRowHeight'] = 120
                     kwargs['defaultView'] = 'GALLERY'
                     kwargs['views'] = ['GALLERY', 'TABLE']
@@ -417,7 +209,7 @@ if __name__ == '__main__':
 
                 elif em_utils.isEMTable(args.files):   # Display the file as
                                                       # a Table
-                        models = [loadEMTable(args.files)]
+                        models = [createTableModel(args.files)]
                         kwargs['defaultRowHeight'] = 120
                         kwargs['defaultView'] = 'TABLE'
                         kwargs['views'] = ['TABLE']
