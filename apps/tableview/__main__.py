@@ -303,7 +303,7 @@ if __name__ == '__main__':
         else PIXEL_UNITS
     if models:
         kwargs['defaultView'] = 'GALLERY'
-        kwargs['views'] = ['GALLERY', 'TABLE']
+        kwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
     else:
         kwargs['defaultView'] = args.default_view
         kwargs['views'] = args.views

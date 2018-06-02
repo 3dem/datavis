@@ -316,10 +316,12 @@ class ImageCache:
         if ret is None:
             ret = self.__createThumb__(imgData, index)
             self._imgData[imgId] = ret
+            if len(self._imgData) > self._cacheSize:
+                self._imgData.popitem()
         return ret
 
     def getImage(self, imgId):
-
+        """ Return the image data for the given image id """
         ret = self._imgData.get(imgId)
         return ret
 

@@ -311,19 +311,41 @@ class TableView(QWidget):
                              Qt.DisplayRole)
                 if i == imgColumn:
                     imgPath = self._tableModel.getTableData(row, i)
-                    if em_utils.isImage(imgPath):
-                        self._pixMapElem.load(imgPath)
-                        self._pixmapItem.setPixmap(self._pixMapElem)
-                        self._pixmapItem.setVisible(True)
-                        v = self._imageView.getView()
-                        if not self._disableFitToSize:
-                            v.autoRange()
-                    elif em_utils.isEmImage(imgPath) \
-                            or em_utils.isEMImageStack(imgPath):
-                        if self._pixmapItem:
-                            self._pixmapItem.setVisible(False)
-                        self._imageView.setImage(
-                            self._imageCache.addImage(imgPath, imgPath))
+                    imgParams = em_utils.parseImagePath(imgPath)
+                    if imgParams is not None and len(imgParams) == 3:
+                        imgPath = imgParams[2]
+                        if em_utils.isImage(imgPath):
+                            self._pixMapElem.load(imgPath)
+                            self._pixmapItem.setPixmap(self._pixMapElem)
+                            self._pixmapItem.setVisible(True)
+                            v = self._imageView.getView()
+                            if not self._disableFitToSize:
+                                v.autoRange()
+                        else:
+                            if self._pixmapItem:
+                                self._pixmapItem.setVisible(False)
+
+                            if em_utils.isEMImageStack(imgPath):
+                                id = str(imgParams[0]) + '_' + imgPath
+                                index = imgParams[0]
+                            else:
+                                id = imgPath
+                                index = 0
+
+                            data = self._imageCache.addImage(id, imgPath,
+                                                             index)
+                            if data is not None:
+                                axis = imgParams[1]
+                                if axis == X_AXIS:
+                                    data = data[:, :, imgParams[0]]
+                                elif axis == Y_AXIS:
+                                    data = data[:, imgParams[0], :]
+                                elif axis == Z_AXIS:
+                                    data = data[imgParams[0], :, :]
+
+                                self._imageView.setImage(data)
+                            else:
+                                self._imageView.clear()
                     else:
                         self._imageView.clear()
 
