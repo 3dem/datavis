@@ -407,7 +407,7 @@ class BrowserWindow(QMainWindow):
                 galleryKwargs['defaultRowHeight'] = 100
                 galleryKwargs['defaultView'] = 'GALLERY'
                 galleryKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
-                self._tableView.setup(galleryKwargs)
+                self._tableView.setup(**galleryKwargs)
                 self._tableView.setModel(models, delegates)
                 self.__showTableView__()
                 self._changeViewFrame.setVisible(True)
