@@ -78,7 +78,7 @@ class TableViewConfig:
         tvConfig = TableViewConfig()
 
         for item in colsConfig:
-            if isinstance(item, str):
+            if isinstance(item, basestring):
                 name = item
                 properties = {}
             elif isinstance(item, tuple):

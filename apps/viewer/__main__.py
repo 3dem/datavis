@@ -1,20 +1,20 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
 import sys
-from PyQt5.QtWidgets import QApplication, QMessageBox
+import argparse
+
 
 from PyQt5.QtCore import QDir
+from PyQt5.QtWidgets import QApplication, QMessageBox
 
 import em
-from emqt5.widgets.image.browser_window import BrowserWindow
-from emqt5.widgets.image.volume_slicer import VolumeSlice
+from emqt5.utils import EmPath, EmTable
 from emqt5.views import (TableView, PERCENT_UNITS, PIXEL_UNITS,
-                         createVolumeModel, createStackModel, createTableModel)
-import emqt5.utils.functions as em_utils
+                         createVolumeModel, TableDataModel, MultiSliceView)
+from emqt5.windows import BrowserWindow
 
-
-import argparse
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -127,104 +127,56 @@ if __name__ == '__main__':
     kwargs['disablePopupMenu'] = args.disable_popup_menu
     kwargs['disableFitToSize'] = args.disable_fit_to_size
 
-    if not args.files:  # Display the EM-BROWSER component
+    def createTableView(table, title):
+        tableView = TableView(views=['TABLE', 'GALLERY'])
+        tableView.setModel(TableDataModel(table, title=title))
+        return tableView
 
-        kwargs['--files'] = QDir.currentPath()
-        browserWin = BrowserWindow(**kwargs)
-        browserWin.show()
-    else:  # We parse the path
+    def createBrowserView(path):
+        return BrowserWindow(path, **kwargs)
 
-        isDir = QDir(args.files)
+    files = args.files or os.getcwd()  # if not files use the current dir
 
-        if isDir:  # The path constitute an directory. In this case we display
-                   # the EM-BROWSER component
-            kwargs['--files'] = args.files
-            browserWin = BrowserWindow(**kwargs)
-            browserWin.show()
+    if not os.path.exists(files):
+        raise Exception("Input file '%s' does not exists. " % files)
 
-        else:  # The path constitute a file. In this case we parse this file
+    # If the input is a directory, display the BrowserWindow
+    if os.path.isdir(files):
+        view = createBrowserView(files)
+    elif EmPath.isTable(files):  # Display the file as a Table:
+        view = createTableView(EmTable.load(files), 'Table')
+    elif EmPath.isStack(files):
+        view = createTableView(EmTable.fromStack(files), 'Stack')
+    elif EmPath.isData(files):  # Image or Volume at this point
+        # Create an image from imagePath using em-bindings
+        image = em.Image()
+        loc2 = em.ImageLocation(files)
+        image.read(loc2)
 
-            directory = QDir(args.files)
-            isFileExist = directory.exists(args.files)
+        # Determinate the image dimension
+        z = image.getDim().z
 
-            if isFileExist:  # The file exist
+        if z == 1:  # Display the EM-BROWSER component
+            view = createBrowserView(files)  # FIXME: Replace this with the ImageView
+        else:  # The image has a Volume
+            # Read the display mode or 'axis' as default
+            mode = args.slices[0] if args.slices else 'axis'
 
-                if em_utils.isEmImage(args.files) or \
-                        em_utils.isEMImageVolume(args.files):
-                    # The file constitute an em-image.
-                    # In this case we determined if the
-                    # image has a volume or not
+            if mode == 'axis':
+                view = MultiSliceView(path=files)
 
-                    # Create an image from imagePath using em-bindings
-                    image = em.Image()
-                    loc2 = em.ImageLocation(args.files)
-                    image.read(loc2)
+            elif mode == 'gallery':  # Display the Gallery app
+                models, delegates = createVolumeModel(files)
+                kwargs['defaultRowHeight'] = 120
+                kwargs['defaultView'] = 'GALLERY'
+                kwargs['views'] = ['GALLERY', 'TABLE']
+                tableWin = TableView(parent=None,
+                                     **kwargs)
+                tableWin.setModel(models, delegates)
+                view = tableWin
+            else:
+                raise Exception("Invalid display mode for volume: '%s'"
+                                % mode)
 
-                    # Determinate the image dimension
-                    z = image.getDim().z
-
-                    if z == 1:  # Display the EM-BROWSER component
-                        kwargs['--files'] = args.files
-                        browserWin = BrowserWindow(**kwargs)
-                        browserWin.show()
-
-                    else:  # The image has a Volume
-                        if len(args.slices) == 1:
-                            if args.slices[0] == 'axis':  # Display the Volume
-                                                          # Slicer app
-                                kwargs['imagePath'] = args.files
-                                volumeSlice = VolumeSlice(**kwargs)
-                                volumeSlice.show()
-                            elif args.slices[0] == 'gallery':  # Display the
-                                                               # Gallery app
-                                models, delegates = createVolumeModel(args.files)
-                                kwargs['defaultRowHeight'] = 120
-                                kwargs['defaultView'] = 'GALLERY'
-                                kwargs['views'] = ['GALLERY', 'TABLE']
-                                tableWin = TableView(parent=None,
-                                                     **kwargs)
-                                tableWin.setModel(models, delegates)
-                                tableWin.show()
-
-                            else:
-                                QMessageBox.critical(app.parent(), 'ERROR',
-                                                     'A valid way to display '
-                                                     'the image are required')
-                        else:  # Display the image by the default component:
-                               # Volume-Slicer
-                            kwargs['imagePath'] = args.files
-                            volumeSlice = VolumeSlice(**kwargs)
-                            volumeSlice.show()
-
-                elif em_utils.isEMImageStack(args.files):  # Display the file as
-                                                          # a Image Stack
-                    models, delegates = createStackModel(args.files)
-                    kwargs['defaultRowHeight'] = 120
-                    kwargs['defaultView'] = 'GALLERY'
-                    kwargs['views'] = ['GALLERY', 'TABLE']
-                    tableWin = TableView(parent=None,
-                                         **kwargs)
-                    tableWin.setModel(models, delegates)
-                    tableWin.show()
-
-                elif em_utils.isEMTable(args.files):   # Display the file as
-                                                      # a Table
-                        models = [createTableModel(args.files)]
-                        kwargs['defaultRowHeight'] = 120
-                        kwargs['defaultView'] = 'TABLE'
-                        kwargs['views'] = ['TABLE']
-
-                        tableWin = TableView(parent=None,
-                                             **kwargs)
-                        tableWin.setModel(models)
-                        tableWin.show()
-
-                else:  # Display the EM-BROWSER component
-                    kwargs['--files'] = args.files
-                    browserWin = BrowserWindow(**kwargs)
-                    browserWin.show()
-
-            else:  # The file don't exist
-                QMessageBox.critical(app.parent(), 'ERROR',
-                                     'A file do not exist')
+    view.show()
     sys.exit(app.exec_())

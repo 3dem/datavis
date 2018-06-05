@@ -5,7 +5,7 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QVariant, QSize, QAbstractItemModel, QModelIndex
 
 from emqt5.views.config import TableViewConfig
-import emqt5.utils.functions as em_utils
+from emqt5.utils import EmPath, EmImage
 
 import numpy as np
 import em
@@ -18,25 +18,29 @@ class TableDataModel(QAbstractItemModel):
 
     DataTypeRole = Qt.UserRole + 2
 
-    def __init__(self, parent=None, title=None, emTable=None,
-                 tableViewConfig=None,
-                 itemsXPage=10):
+    def __init__(self, table, **kwargs):
         """
-        Constructs an DataModel with the given parent.
-        :param parent: The parent
-        :param data: table data. Example: [[2,3,4], [6,5,7], [4,5,6]].
-        :param columnProperties: The properties for each column
+        Constructs an DataModel to be used from TableView
+        :param table: input em.Table from where the data will be read
+        :param **kwargs: Optional arguments:
+            - parent: a parent QObject of the model (FIXME: when this can be used?)
+            - title: a title that will be display (FIXME: should this be here in the model?)
+            - tableViewConfig: specify a config how we want to diSplay the
+                data in the em.Table. If it is None, a default one will be
+                created from the table.
+            - itemsPerPage: number of elements displayed per page (default 10)
         """
-        QAbstractItemModel.__init__(self, parent)
-        self._tableViewConfig = tableViewConfig
+        QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
-        self._emTable = emTable
-        self._itemsXPage = itemsXPage
+        self._emTable = table
+        self._tableViewConfig = (kwargs.get('tableViewConfig', None)
+                                 or TableViewConfig.fromTable(table))
+        self._itemsPerPage = kwargs.get('itemsPerPage', 10)
         self._currentPage = 0
         self._pageCount = 0
         self._items = []
-        self._title = title
-        self.__setupModel__()
+        self._title = kwargs.get('title', '')
+        self.__setupModel()
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """
@@ -49,7 +53,7 @@ class TableDataModel(QAbstractItemModel):
         """
         if not qModelIndex.isValid():
             return None
-        row = qModelIndex.row() + self._currentPage * self._itemsXPage
+        row = qModelIndex.row() + self._currentPage * self._itemsPerPage
         col = qModelIndex.column()
 
         t = self._tableViewConfig[col].getType() \
@@ -94,12 +98,12 @@ class TableDataModel(QAbstractItemModel):
         Reimplemented from QAbstractItemModel.
         Return the items per page.
         """
-        vc = (self._currentPage + 1) * self._itemsXPage
+        vc = (self._currentPage + 1) * self._itemsPerPage
         ts = self._emTable.getSize()
         if vc > ts:  # last page
-            return self._itemsXPage - (vc - ts)
+            return self._itemsPerPage - (vc - ts)
 
-        return self._itemsXPage
+        return self._itemsPerPage
 
     def index(self, row, column, parent=QModelIndex()):
         """
@@ -192,7 +196,7 @@ class TableDataModel(QAbstractItemModel):
 
     def nextPage(self):
         self._currentPage = self._currentPage + 1 \
-            if (self._currentPage + 1) * self._itemsXPage <= len(self._emTable)\
+            if (self._currentPage + 1) * self._itemsPerPage <= len(self._emTable)\
              else self._currentPage
         self.loadPage()
 
@@ -202,30 +206,30 @@ class TableDataModel(QAbstractItemModel):
                 and orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self._tableViewConfig[column].getLabel()
 
-    def setItemsXPage(self, itemsXPage):
+    def setItemsPerPage(self, itemsPerPage):
         """
         Set the items per page value and calculates the current configuration
         """
-        if itemsXPage <= 0:
-            itemsXPage = 1
+        if itemsPerPage <= 0:
+            itemsPerPage = 1
 
-        self._itemsXPage = itemsXPage
-        self.__setupModel__()
+        self._itemsPerPage = itemsPerPage
+        self.__setupModel()
 
-    def setupPage(self, itemsXPage, currentPage):
+    def setupPage(self, itemsPerPage, currentPage):
         """
         Configure paging properties. Load the model data for the specified page
-        :param itemsXPage:
+        :param itemsPerPage:
         :param currentPage:
         :return:
         """
-        if itemsXPage <= 0:
-            itemsXPage = 1
+        if itemsPerPage <= 0:
+            itemsPerPage = 1
 
-        self._itemsXPage = itemsXPage
+        self._itemsPerPage = itemsPerPage
         self._currentPage = currentPage
 
-        self.__setupModel__()
+        self.__setupModel()
         self.loadPage()
 
     def flags(self, qModelIndex):
@@ -277,19 +281,19 @@ class TableDataModel(QAbstractItemModel):
     def getTitle(self):
         return self._title
 
-    def __setupModel__(self):
+    def __setupModel(self):
         """
-        Configure the model according to the itemsXPage and current page values
+        Configure the model according to the itemsPerPage and current page values
         """
         s = self._emTable.getSize()
-        offset = self._currentPage * self._itemsXPage
+        offset = self._currentPage * self._itemsPerPage
 
-        if s < self._itemsXPage:
+        if s < self._itemsPerPage:
             self._pageCount = 1
         else:
-            self._pageCount = int(s / self._itemsXPage) + s % self._itemsXPage
+            self._pageCount = int(s / self._itemsPerPage) + s % self._itemsPerPage
 
-        self._currentPage = int(offset / self._itemsXPage)
+        self._currentPage = int(offset / self._itemsPerPage)
 
 
 class ImageCache:
@@ -314,7 +318,7 @@ class ImageCache:
         """
         ret = self._imgData.get(imgId)
         if ret is None:
-            ret = self.__createThumb__(imgData, index)
+            ret = self.__createThumb(imgData, index)
             self._imgData[imgId] = ret
             if len(self._imgData) > self._cacheSize:
                 self._imgData.popitem()
@@ -325,25 +329,18 @@ class ImageCache:
         ret = self._imgData.get(imgId)
         return ret
 
-    def __createThumb__(self, imgData, index=0):
+    def __createThumb(self, path, index=0):
         """
-        Return the thumbail created for the specified image path.
+        Return the thumbnail created for the specified image path.
         Rescale the original image according to  self._imageSize
         """
-        if em_utils.isImage(imgData):
-            pixmap = QPixmap(imgData)
-            pixmap = pixmap.scaledToHeight(
-                int(pixmap.height() * self._imgSize / 100),
-                Qt.SmoothTransformation)
+        if EmPath.isStandardImage(path):
+            pixmap = QPixmap(path)
+            height = int(pixmap.height() * self._imgSize / 100)
+            return pixmap.scaledToHeight(height, Qt.SmoothTransformation)
 
-            return pixmap
-        elif em_utils.isEmImage(imgData) \
-                or em_utils.isEMImageStack(imgData)\
-                or em_utils.isEMImageVolume(imgData):
-            img = em_utils.loadEMImage(imgData, index)
-            if img is None:
-                return None
-
+        elif EmPath.isData(path):
+            img = EmImage.load(path, index+1)
             return np.array(img, copy=False)
 
         return None

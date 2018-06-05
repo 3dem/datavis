@@ -4,4 +4,5 @@ from .table_view import (TableView, EMImageItemDelegate, X_AXIS, Y_AXIS, Z_AXIS,
                          N_DIM, PERCENT_UNITS, PIXEL_UNITS, createStackModel,
                          createTableModel, createVolumeModel,
                          createSingleImageModel)
+from .multislice_view import MultiSliceView
 from .model import TableDataModel
