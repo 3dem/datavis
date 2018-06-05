@@ -33,10 +33,6 @@ if __name__ == '__main__':
     argParser.add_argument('files', type=str, nargs='?', default=[],
                             help='3D image path or a list of image files or'
                                  ' specific directory')
-    argParser.add_argument('--slices', type=str, default=['gallery', 'axis'],
-                           nargs='+', required=False, choices=['gallery',
-                                                               'axis'],
-                           help=' list of accessible')
 
     # EM-BROWSER PARAMETERS
     argParser.add_argument('--disable-zoom', default=False,
@@ -61,17 +57,11 @@ if __name__ == '__main__':
                            choices=['%', 'px'],
                            help=' units in which the rescaling  will be done: '
                                 ' percent or pixels ')
-    argParser.add_argument('--default-view', type=str, default='TABLE',
+    argParser.add_argument('--view', type=str, default='',
                            required=False,
-                           choices=['GALLERY', 'TABLE', 'ELEMENT'],
+                           choices=['gallery', 'columns', 'items'],
                            help=' the default view. TABLE if not specified')
-    argParser.add_argument('--views', type=str,
-                           default=['GALLERY', 'TABLE', 'ELEMENT'],
-                           nargs='+', required=False,
-                           choices=['GALLERY', 'TABLE', 'ELEMENT'],
-                           help=' list of accessible '
-                                'views.[\'GALLERY\', \'TABLE\', \'ELEMENT\'] if'
-                                ' not specified')
+
     argParser.add_argument('--disable-histogram', default=False,
                            required=False, action='store_true',
                            help=' hide the histogram widget in the view image '
@@ -101,7 +91,6 @@ if __name__ == '__main__':
     # GENERAL ARGS
     kwargs['files'] = QDir.toNativeSeparators(args.files) if len(args.files) \
         else QDir.currentPath()
-    kwargs['--slices'] = args.slices
 
     # EM-BROWSER ARGS
     kwargs['--disable-zoom'] = args.disable_zoom
@@ -115,20 +104,17 @@ if __name__ == '__main__':
     kwargs['minRowHeight'] = args.min_cell_size
     kwargs['zoomUnits'] = PERCENT_UNITS if args.zoom_units == '%' \
         else PIXEL_UNITS
-    if models:
-        kwargs['defaultView'] = 'GALLERY'
-        kwargs['views'] = ['GALLERY', 'TABLE']
-    else:
-        kwargs['defaultView'] = args.default_view
-        kwargs['views'] = args.views
+
+    view = args.view
+
     kwargs['disableHistogram'] = args.disable_histogram
     kwargs['disableMenu'] = args.disable_menu
     kwargs['disableROI'] = args.disable_roi
     kwargs['disablePopupMenu'] = args.disable_popup_menu
     kwargs['disableFitToSize'] = args.disable_fit_to_size
 
-    def createTableView(table, title):
-        tableView = TableView(views=['TABLE', 'GALLERY'])
+    def createTableView(table, title, defaultView):
+        tableView = TableView(view=defaultView)
         tableView.setModel(TableDataModel(table, title=title))
         return tableView
 
@@ -144,9 +130,11 @@ if __name__ == '__main__':
     if os.path.isdir(files):
         view = createBrowserView(files)
     elif EmPath.isTable(files):  # Display the file as a Table:
-        view = createTableView(EmTable.load(files), 'Table')
+        view = createTableView(EmTable.load(files), 'Table',
+                               args.view or TableView.COLUMNS)
     elif EmPath.isStack(files):
-        view = createTableView(EmTable.fromStack(files), 'Stack')
+        view = createTableView(EmTable.fromStack(files), 'Stack',
+                               args.view or TableView.GALLERY)
     elif EmPath.isData(files):  # Image or Volume at this point
         # Create an image from imagePath using em-bindings
         image = em.Image()
