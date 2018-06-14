@@ -101,15 +101,15 @@ class TableViewConfig:
         tableViewConfig = TableViewConfig()
         tableViewConfig.addColumnConfig(name='index',
                                         dataType=TableViewConfig.TYPE_INT,
-                                        **{'label': 'Index',
-                                           'editable': False,
-                                           'visible': True})
+                                        label='Index',
+                                        editable=False,
+                                        visible=True)
         tableViewConfig.addColumnConfig(name='Image',
                                         dataType=TableViewConfig.TYPE_STRING,
-                                        **{'label': 'Image',
-                                           'renderable': True,
-                                           'editable': False,
-                                           'visible': True})
+                                        label='Image',
+                                        renderable=True,
+                                        editable=False,
+                                        visible=True)
         return tableViewConfig
 
 
