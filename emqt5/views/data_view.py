@@ -248,14 +248,14 @@ class DataView(QWidget):
         self._mainLayout.addWidget(self._statusBar)
         self._statusBar.setVisible(False)  # hide for now
 
-    def __getViewPage(self, row, itemsXPage):
+    def __getViewPage(self, row, pageSize):
         """
-        Return the corresponding page for a specific row where itemsXPage is
+        Return the corresponding page for a specific row where pageSize is
         the number of items for one page.
         First row is 0.
         First page is 0.
         """
-        return int(row / itemsXPage) if itemsXPage > 0 else 0
+        return int(row / pageSize) if pageSize > 0 else 0
 
     def __loadElementData(self, row, imgColumn=0):
         """
@@ -264,12 +264,11 @@ class DataView(QWidget):
         row: row in current model
         imgColumn: selected image column
         """
-        if self._tableModel and row in range(0,
-                                             self._tableModel.totalRowCount()):
+        if self._tableModel and row in range(self._tableModel.totalRowCount()):
             model = self._elemViewTable.model()
             model.clear()
             vLabels = []
-            for i in range(0, self._tableModel.columnCount()):
+            for i in range(self._tableModel.columnCount()):
                 item = QStandardItem()
                 item.setData(self._tableModel.getTableData(row, i),
                              Qt.DisplayRole)
@@ -332,10 +331,9 @@ class DataView(QWidget):
                 self._spinBoxCurrentRow.setValue(page + 1)
                 self._tableModel.setupPage(self._itemsXItemPage, page)
             else:
-                itemsXPage = self._itemsXTablePage \
+                pageSize = self._itemsXTablePage \
                     if self._view == self.COLUMNS else self._itemsXGalleryPage
-                self._tableModel.setupPage(itemsXPage,
-                                           page)
+                self._tableModel.setupPage(pageSize, page)
             self._showCurrentPageNumber()
 
     def __canChangeToView(self, view):
@@ -479,12 +477,10 @@ class DataView(QWidget):
         model.clear()
 
         if self._tableModel:
-            for index, colConfig in \
-                    enumerate(self._tableModel.getColumnConfig()):
-                if colConfig["renderable"] and \
-                        colConfig["visible"]:
+            for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
+                if colConfig["renderable"] and colConfig["visible"]:
                     item = QStandardItem(colConfig.getLabel())
-                    item.setData(index, Qt.UserRole)  # use UserRole for store
+                    item.setData(i, Qt.UserRole)  # use UserRole for store
                     model.appendRow([item])           # columnIndex
 
         self._comboBoxCurrentColumn.setModel(model)
@@ -562,8 +558,7 @@ class DataView(QWidget):
         """
         if self._tableModel:
             mode = self.getSelectedViewMode()
-            if mode == self.COLUMNS or mode == self.GALLERY \
-                    or mode == self.ITEMS:
+            if mode == self.COLUMNS or mode == self.GALLERY or mode == self.ITEMS:
                 self._spinBoxCurrentRow.setRange(1,
                                                  self._tableModel.totalRowCount())
 
@@ -576,10 +571,9 @@ class DataView(QWidget):
         self._currentRenderableColumn = 0
 
         if self._tableModel:
-            for index, colConfig in \
-                    enumerate(self._tableModel.getColumnConfig()):
+            for i, colConfig in enumerate(self._tableModel.getColumnConfig()):
                 if colConfig["renderable"]:
-                    self._currentRenderableColumn = index
+                    self._currentRenderableColumn = i
                     return
 
     def __createNewAction(self, parent, actionName, text="", faIconName=None,
@@ -842,8 +836,8 @@ class DataView(QWidget):
     def _selectRow(self, row):
         """
         This slot is invoked when the value of the current spinbox changes.
-        If GALLERY mode is selected and row > itemsXPage then load the new page.
-        If TABLE mode is selected, and row > itemsXPagethe then load
+        If GALLERY mode is selected and row > pageSize then load the new page.
+        If TABLE mode is selected, and row > pageSize the then load
         the new page.
         :param row: the row, 1 is the first
         """
@@ -1106,8 +1100,7 @@ class DataView(QWidget):
     def getPageCount(self):
         """ Return the page count for the current view or -1 if current model
         is None """
-        return -1 if self._tableModel is None \
-            else self._tableModel.getPageCount()
+        return -1 if self._tableModel is None else self._tableModel.getPageCount()
 
     def __initProperties(self, **kwargs):
         """ Configure all properties  """
