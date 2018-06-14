@@ -78,7 +78,7 @@ class TableViewConfig:
         tvConfig = TableViewConfig()
 
         for item in colsConfig:
-            if isinstance(item, basestring):
+            if isinstance(item, str):
                 name = item
                 properties = {}
             elif isinstance(item, tuple):
@@ -95,6 +95,22 @@ class TableViewConfig:
                     properties['description'] = col.getDescription()
                 tvConfig.addColumnConfig(name, cType, **properties)
         return tvConfig
+
+    @classmethod
+    def createStackConfig(cls):
+        tableViewConfig = TableViewConfig()
+        tableViewConfig.addColumnConfig(name='index',
+                                        dataType=TableViewConfig.TYPE_INT,
+                                        **{'label': 'Index',
+                                           'editable': False,
+                                           'visible': True})
+        tableViewConfig.addColumnConfig(name='Image',
+                                        dataType=TableViewConfig.TYPE_STRING,
+                                        **{'label': 'Image',
+                                           'renderable': True,
+                                           'editable': False,
+                                           'visible': True})
+        return tableViewConfig
 
 
 class ColumnConfig:

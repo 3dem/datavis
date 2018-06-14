@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import QApplication, QMessageBox
 
 import em
 from emqt5.utils import EmPath, EmTable
-from emqt5.views import (TableView, PERCENT_UNITS, PIXEL_UNITS,
-                         createVolumeModel, TableDataModel, MultiSliceView)
+from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
+                         createVolumeModel, TableDataModel, MultiSliceView,
+                         TableViewConfig)
 from emqt5.windows import BrowserWindow
 
 
@@ -57,10 +58,10 @@ if __name__ == '__main__':
                            choices=['%', 'px'],
                            help=' units in which the rescaling  will be done: '
                                 ' percent or pixels ')
-    argParser.add_argument('--view', type=str, default='',
+    argParser.add_argument('--view', type=str, default='columns',
                            required=False,
                            choices=['gallery', 'columns', 'items'],
-                           help=' the default view. TABLE if not specified')
+                           help=' the default view. COLUMNS if not specified')
 
     argParser.add_argument('--disable-histogram', default=False,
                            required=False, action='store_true',
@@ -106,6 +107,9 @@ if __name__ == '__main__':
         else PIXEL_UNITS
 
     view = args.view
+    views = {'gallery': DataView.GALLERY,
+             'columns': DataView.COLUMNS,
+             'items': DataView.ITEMS}
 
     kwargs['disableHistogram'] = args.disable_histogram
     kwargs['disableMenu'] = args.disable_menu
@@ -113,9 +117,10 @@ if __name__ == '__main__':
     kwargs['disablePopupMenu'] = args.disable_popup_menu
     kwargs['disableFitToSize'] = args.disable_fit_to_size
 
-    def createTableView(table, title, defaultView):
-        tableView = TableView(view=defaultView)
-        tableView.setModel(TableDataModel(table, title=title))
+    def createTableView(table, tableViewConfig, title, defaultView):
+        tableView = DataView(view=defaultView)
+        tableView.setModel(TableDataModel(table, title=title,
+                                          tableViewConfig=tableViewConfig))
         return tableView
 
     def createBrowserView(path):
@@ -130,11 +135,13 @@ if __name__ == '__main__':
     if os.path.isdir(files):
         view = createBrowserView(files)
     elif EmPath.isTable(files):  # Display the file as a Table:
-        view = createTableView(EmTable.load(files), 'Table',
-                               args.view or TableView.COLUMNS)
+        view = createTableView(EmTable.load(files), None, 'Table',
+                               views[args.view] or DataView.COLUMNS)
     elif EmPath.isStack(files):
-        view = createTableView(EmTable.fromStack(files), 'Stack',
-                               args.view or TableView.GALLERY)
+        view = createTableView(EmTable.fromStack(files),
+                               TableViewConfig.createStackConfig(),
+                               'Stack',
+                               views[args.view] or DataView.GALLERY)
     elif EmPath.isData(files):  # Image or Volume at this point
         # Create an image from imagePath using em-bindings
         image = em.Image()
@@ -156,10 +163,10 @@ if __name__ == '__main__':
             elif mode == 'gallery':  # Display the Gallery app
                 models, delegates = createVolumeModel(files)
                 kwargs['defaultRowHeight'] = 120
-                kwargs['defaultView'] = 'GALLERY'
-                kwargs['views'] = ['GALLERY', 'TABLE']
-                tableWin = TableView(parent=None,
-                                     **kwargs)
+                kwargs['defaultView'] = DataView.GALLERY
+                kwargs['views'] = [DataView.GALLERY, DataView.COLUMNS]
+                tableWin = DataView(parent=None,
+                                    **kwargs)
                 tableWin.setModel(models, delegates)
                 view = tableWin
             else:

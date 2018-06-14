@@ -12,7 +12,7 @@ from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QRect, QDir,
                          QItemSelectionModel, QEvent)
 
 from PyQt5.QtGui import QImage
-from emqt5.views import (TableView, createVolumeModel, createTableModel,
+from emqt5.views import (DataView, createVolumeModel, createTableModel,
                          createStackModel, createSingleImageModel,
                          MultiSliceView)
 import qtawesome as qta
@@ -33,7 +33,7 @@ class BrowserWindow(QMainWindow):
         self._imagePath = path
         self._image = None
         self._volumeSlice = MultiSliceView(parent=self)
-        self._tableView = TableView(parent=self)
+        self._tableView = DataView(parent=self)
         self._emptyWidget = QWidget(parent=self)
         self.__initGUI()
 
@@ -132,8 +132,9 @@ class BrowserWindow(QMainWindow):
         models, delegates = createVolumeModel(self._lineCompleter.text())
         galleryKwargs = {}
         galleryKwargs['defaultRowHeight'] = 100
-        galleryKwargs['defaultView'] = 'GALLERY'
-        galleryKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
+        galleryKwargs['defaultView'] = DataView.GALLERY
+        galleryKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
+                                  DataView.ITEMS]
         self._tableView.setup(**galleryKwargs)
         self._tableView.setModel(models, delegates)
         self.__showTableView()
@@ -405,8 +406,9 @@ class BrowserWindow(QMainWindow):
                 models, delegates = createVolumeModel(imagePath)
                 galleryKwargs = {}
                 galleryKwargs['defaultRowHeight'] = 100
-                galleryKwargs['defaultView'] = 'GALLERY'
-                galleryKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
+                galleryKwargs['defaultView'] = DataView.GALLERY
+                galleryKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
+                                          DataView.ITEMS]
                 self._tableView.setup(**galleryKwargs)
                 self._tableView.setModel(models, delegates)
                 self.__showTableView()
@@ -465,9 +467,9 @@ class BrowserWindow(QMainWindow):
             models = [createTableModel(imagePath)]
             tableKwargs = {}
             tableKwargs['defaultRowHeight'] = 40
-            tableKwargs['defaultView'] = 'TABLE'
-            tableKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
-
+            tableKwargs['defaultView'] = DataView.COLUMNS
+            tableKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
+                                    DataView.ITEMS]
             self._tableView.setup(**tableKwargs)
             self._tableView.setModel(models)
             self.__showTableView()
@@ -495,8 +497,9 @@ class BrowserWindow(QMainWindow):
             models, delegates = createStackModel(imagePath)
             stackKwargs = {}
             stackKwargs['defaultRowHeight'] = 100
-            stackKwargs['defaultView'] = 'GALLERY'
-            stackKwargs['views'] = ['GALLERY', 'TABLE', 'ELEMENT']
+            stackKwargs['defaultView'] = DataView.GALLERY
+            stackKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
+                                    DataView.ITEMS]
 
             self._tableView.setup(**stackKwargs)
             self._tableView.setModel(models, delegates)
