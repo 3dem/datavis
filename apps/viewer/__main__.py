@@ -58,9 +58,9 @@ if __name__ == '__main__':
                            choices=['%', 'px'],
                            help=' units in which the rescaling  will be done: '
                                 ' percent or pixels ')
-    argParser.add_argument('--view', type=str, default='columns',
+    argParser.add_argument('--view', type=str, default='',
                            required=False,
-                           choices=['gallery', 'columns', 'items'],
+                           choices=['gallery', 'columns', 'items', 'slices'],
                            help=' the default view. COLUMNS if not specified')
 
     argParser.add_argument('--disable-histogram', default=False,
@@ -155,9 +155,9 @@ if __name__ == '__main__':
             view = createBrowserView(files)  # FIXME: Replace this with the ImageView
         else:  # The image has a Volume
             # Read the display mode or 'axis' as default
-            mode = args.slices[0] if args.slices else 'axis'
+            mode = args.view or 'slices'
 
-            if mode == 'axis':
+            if mode == 'slices':
                 view = MultiSliceView(path=files)
 
             elif mode == 'gallery':  # Display the Gallery app
