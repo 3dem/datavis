@@ -33,15 +33,15 @@ class TableDataModel(QAbstractItemModel):
             - tableViewConfig: specify a config how we want to diSplay the
                 data in the em.Table. If it is None, a default one will be
                 created from the table.
-            - itemsPerPage: number of elements displayed per page (default 10)
+            - pageSize: number of elements displayed per page (default 10)
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
         self._emTable = table
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or TableViewConfig.fromTable(table))
-        self._itemsXPage = kwargs.get('itemsPerPage', 10)
-        self._currentPage = 0
+        self._page = 0
+        self._pageSize = kwargs.get('pageSize', 10)
         self._pageCount = 0
         self._title = kwargs.get('title', '')
         self.__setupModel()
@@ -57,7 +57,7 @@ class TableDataModel(QAbstractItemModel):
         """
         if not qModelIndex.isValid():
             return None
-        row = qModelIndex.row() + self._currentPage * self._itemsXPage
+        row = qModelIndex.row() + self._page * self._pageSize
         col = qModelIndex.column()
 
         t = self._tableViewConfig[col].getType() \
@@ -102,12 +102,12 @@ class TableDataModel(QAbstractItemModel):
         Reimplemented from QAbstractItemModel.
         Return the items per page.
         """
-        vc = (self._currentPage + 1) * self._itemsXPage
+        vc = (self._page + 1) * self._pageSize
         ts = self._emTable.getSize()
         if vc > ts:  # last page
-            return self._itemsXPage - (vc - ts)
+            return self._pageSize - (vc - ts)
 
-        return self._itemsXPage
+        return self._pageSize
 
     def index(self, row, column, parent=QModelIndex()):
         """
@@ -190,18 +190,18 @@ class TableDataModel(QAbstractItemModel):
         """
         self.beginResetModel()
         if pageIndex in range(0, self._pageCount):
-            self._currentPage = pageIndex
+            self._page = pageIndex
         self.endResetModel()
 
     def prevPage(self):
-        self._currentPage = self._currentPage - 1 \
-            if self._currentPage > 0 else 0
+        self._page = self._page - 1 \
+            if self._page > 0 else 0
         self.loadPage()
 
     def nextPage(self):
-        self._currentPage = self._currentPage + 1 \
-            if (self._currentPage + 1) * self._itemsXPage <= len(self._emTable)\
-             else self._currentPage
+        self._page = self._page + 1 \
+            if (self._page + 1) * self._pageSize <= len(self._emTable)\
+             else self._page
         self.loadPage()
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
@@ -210,28 +210,28 @@ class TableDataModel(QAbstractItemModel):
                 and orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self._tableViewConfig[column].getLabel()
 
-    def setItemsPerPage(self, itemsPerPage):
+    def setItemsPerPage(self, pageSize):
         """
         Set the items per page value and calculates the current configuration
         """
-        if itemsPerPage <= 0:
-            itemsPerPage = 1
+        if pageSize <= 0:
+            pageSize = 1
 
-        self._itemsXPage = itemsPerPage
+        self._pageSize = pageSize
         self.__setupModel()
 
-    def setupPage(self, itemsPerPage, currentPage):
+    def setupPage(self, pageSize, currentPage):
         """
         Configure paging properties. Load the model data for the specified page
-        :param itemsPerPage:
+        :param pageSize:
         :param currentPage:
         :return:
         """
-        if itemsPerPage <= 0:
-            itemsPerPage = 1
+        if pageSize <= 0:
+            pageSize = 1
 
-        self._itemsXPage = itemsPerPage
-        self._currentPage = currentPage
+        self._pageSize = pageSize
+        self._page = currentPage
 
         self.__setupModel()
         self.loadPage()
@@ -288,7 +288,7 @@ class TableDataModel(QAbstractItemModel):
 
     def getCurrentPage(self):
         """ Return the current page for this model """
-        return self._currentPage
+        return self._page
 
     def getTitle(self):
         """ Return the title for this model """
@@ -296,18 +296,18 @@ class TableDataModel(QAbstractItemModel):
 
     def __setupModel(self):
         """
-        Configure the model according to the itemsPerPage and current page
+        Configure the model according to the pageSize and current page
         values
         """
         s = self._emTable.getSize()
-        offset = self._currentPage * self._itemsXPage
+        offset = self._page * self._pageSize
 
-        if s < self._itemsXPage:
+        if s < self._pageSize:
             self._pageCount = 1
         else:
-            self._pageCount = int(s / self._itemsXPage) + s % self._itemsXPage
+            self._pageCount = int(s / self._pageSize) + s % self._pageSize
 
-        self._currentPage = int(offset / self._itemsXPage)
+        self._page = int(offset / self._pageSize)
 
 
 class VolumeDataModel(QAbstractItemModel):
@@ -328,15 +328,15 @@ class VolumeDataModel(QAbstractItemModel):
             - tableViewConfig: specify a config how we want to display the three
                 colums data. If it is None, a default one will be
                 created.
-            - itemsPerPage: number of elements displayed per page (default 10)
+            - pageSize: number of elements displayed per page (default 10)
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
         self._path = path
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or self.__createDefaultTableViewConfig())
-        self._itemsPerPage = kwargs.get('itemsPerPage', 10)
-        self._currentPage = 0
+        self._pageSize = kwargs.get('pageSize', 10)
+        self._page = 0
         self._pageCount = 0
         self._title = kwargs.get('title', '')
         self.__setupModel()
