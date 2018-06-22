@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QVariant, QSize, QAbstractItemModel, QModelIndex
+from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
+                          QAbstractItemModel, QModelIndex)
 
 from emqt5.views.config import TableViewConfig
 from emqt5.utils import EmPath, EmImage
 
 import numpy as np
-import em
 
 X_AXIS = 0
 Y_AXIS = 1
@@ -23,14 +23,26 @@ class TableDataModel(QAbstractItemModel):
 
     DataTypeRole = Qt.UserRole + 2
 
+    """ 
+    Signal emitted when change page configuration 
+    emit (page, pageCount, pageSize)
+    """
+    sigPageConfigChanged = pyqtSignal(int, int, int)
+
+    """ 
+        Signal emitted when change the current page 
+        emit (page)
+        """
+    sigPageChanged = pyqtSignal(int)
+
     def __init__(self, table, **kwargs):
         """
         Constructs an DataModel to be used from TableView
         :param table: input em.Table from where the data will be read
         :param **kwargs: Optional arguments:
-            - parent: a parent QObject of the model (FIXME: when this can be used?)
+            - parent: a parent QObject of the model (NOTE: see Qt framework)
             - title: a title that will be display (FIXME: should this be here in the model?)
-            - tableViewConfig: specify a config how we want to diSplay the
+            - tableViewConfig: specify a config how we want to display the
                 data in the em.Table. If it is None, a default one will be
                 created from the table.
             - pageSize: number of elements displayed per page (default 10)
@@ -183,6 +195,7 @@ class TableDataModel(QAbstractItemModel):
 
         return None
 
+    @pyqtSlot(int)
     def loadPage(self, pageIndex=-1):
         """
         Load the page specified by pageIndex. If pageIndex is not within
@@ -231,10 +244,11 @@ class TableDataModel(QAbstractItemModel):
             pageSize = 1
 
         self._pageSize = pageSize
-        self._page = currentPage
-
+        self._page = currentPage if currentPage >= 0 else 0
         self.__setupModel()
         self.loadPage()
+        self.sigPageConfigChanged.emit(self._page, self._pageCount,
+                                       self._pageSize)
 
     def flags(self, qModelIndex):
         """
@@ -286,9 +300,13 @@ class TableDataModel(QAbstractItemModel):
         """ Return the page count for this model """
         return self._pageCount
 
-    def getCurrentPage(self):
+    def getPage(self):
         """ Return the current page for this model """
         return self._page
+
+    def getPageSize(self):
+        """ Return the items per page for this model """
+        return self._pageSize
 
     def getTitle(self):
         """ Return the title for this model """
@@ -305,7 +323,8 @@ class TableDataModel(QAbstractItemModel):
         if s < self._pageSize:
             self._pageCount = 1
         else:
-            self._pageCount = int(s / self._pageSize) + s % self._pageSize
+            self._pageCount = int(s / self._pageSize) + \
+                              (1 if s % self._pageSize else 0)
 
         self._page = int(offset / self._pageSize)
 
@@ -353,7 +372,7 @@ class ImageCache:
     """
     The ImageCache provide a data cache for images
     """
-    def __init__(self, cacheSize, imgSize):
+    def __init__(self, cacheSize, imgSize=100):
         """
         Constructor
         :param cacheSize: max length for internal image list

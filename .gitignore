@@ -3,3 +3,4 @@
 *.lib
 *.pyd
 __pycache__
+.cache

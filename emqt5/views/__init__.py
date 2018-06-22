@@ -1,9 +1,9 @@
 
 from .config import TableViewConfig, ColumnConfig
 
-from .data_view import (DataView, EMImageItemDelegate, PERCENT_UNITS,
-                        PIXEL_UNITS, createStackModel,
-                        createTableModel, createVolumeModel,
+from .data_view import (DataView, GalleryView, ColumnsView,
+                        EMImageItemDelegate, PERCENT_UNITS, PIXEL_UNITS,
+                        createStackModel, createTableModel, createVolumeModel,
                         createSingleImageModel)
 
 from .multislice_view import MultiSliceView

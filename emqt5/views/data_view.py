@@ -98,7 +98,7 @@ class DataView(QWidget):
         self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         # gallery view
         self._listViewContainer = QWidget(self)
-        self._listView = GalleryViewWidget(self._listViewContainer)
+        self._listView = GalleryView(self._listViewContainer)
         self._listView.installEventFilter(self)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
@@ -1365,22 +1365,340 @@ class EMImageItemDelegate(QStyledItemDelegate):
         return self._imgCache
 
 
-class GalleryViewWidget(QListView):
+class PageBar(QWidget):
+
+    """ This signal is emitted when the current page change """
+    sigPageChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        QWidget.__init__(self, parent)
+        self._page = 0
+        self._firstPage = 0
+        self._lastPage = 0
+        self._step = 1
+        self.__setupUI()
+
+    def __setupUI(self):
+        self._mainLayout = QHBoxLayout(self)
+        self._mainLayout.setContentsMargins(1, 1, 1, 1)
+        self._mainLayout.addItem(QSpacerItem(40,
+                                             20,
+                                             QSizePolicy.Expanding,
+                                             QSizePolicy.Minimum))
+        self._pushButtonPrevPage = QPushButton(self)
+        self._mainLayout.addWidget(self._pushButtonPrevPage)
+        self._pushButtonPrevPage.setIcon(qta.icon('fa.angle-left'))
+        self._pushButtonPrevPage.clicked.connect(self._onPrevPage)
+        self._spinBoxCurrentPage = QSpinBox(self)
+        self._spinBoxCurrentPage.setButtonSymbols(QSpinBox.NoButtons)
+        self._spinBoxCurrentPage.editingFinished.connect(
+            self._onSpinBoxCurrentPageEditingFinished)
+        self._spinBoxCurrentPage.setMaximumSize(50, 25)
+        self._spinBoxCurrentPage.setMinimumSize(50, 25)
+        self._mainLayout.addWidget(self._spinBoxCurrentPage)
+        self._labelPageCount = QLabel(self)
+        self._mainLayout.addWidget(self._labelPageCount)
+        self._pushButtonNextPage = QPushButton(self)
+        self._pushButtonNextPage.setIcon(qta.icon('fa.angle-right'))
+        self._pushButtonNextPage.clicked.connect(self._onNextPage)
+        self._mainLayout.addWidget(self._pushButtonNextPage)
+        self._mainLayout.addItem(QSpacerItem(40,
+                                             20,
+                                             QSizePolicy.Expanding,
+                                             QSizePolicy.Minimum))
+
+    def __showPageCount(self):
+        """ Show page count """
+        t = " of %d" % (self._lastPage - self._firstPage + 1)
+        self._labelPageCount.setText(t)
+
+    @pyqtSlot()
+    def _onPrevPage(self):
+        self.setPage(self._page - 1)
+
+    @pyqtSlot()
+    def _onNextPage(self):
+        self.setPage(self._page + 1)
+
+    @pyqtSlot()
+    def _onSpinBoxCurrentPageEditingFinished(self):
+        """
+        This slot is invoked when the user edit the page number and press ENTER
+        """
+        self.setPage(self._spinBoxCurrentPage.value() - 1)
+
+    def setPage(self, page):
+        """
+        Sets page as current page.
+        Emit the sigPageChanged signal
+        """
+        if not page == self._page and page in range(self._firstPage,
+                                                    self._lastPage + 1):
+            self._page = page
+            self._spinBoxCurrentPage.setValue(page + 1)
+            self.sigPageChanged.emit(self._page)
+
+    def setup(self, page, firstPage, lastPage, step=1):
+        """ Setups the paging params """
+        if firstPage <= lastPage and page in range(firstPage, lastPage + 1):
+            self._page = page
+            self._firstPage = firstPage
+            self._lastPage = lastPage
+            self._step = step
+            self._spinBoxCurrentPage.setRange(firstPage + 1, lastPage + 1)
+            self._spinBoxCurrentPage.setSingleStep(step)
+            self._spinBoxCurrentPage.setValue(page + 1)
+            self.__showPageCount()
+
+
+class AbstractView(QWidget):
+    """ The base class for a view. AbstractView contains a paging bar """
+
+    def __init__(self, parent=None):
+        QWidget.__init__(self, parent=parent)
+        self._model = None
+        self.__setupUI()
+
+    def __setupUI(self):
+        self._mainLayout = QVBoxLayout(self)
+        self._pageBar = PageBar(self)
+        self._mainLayout.addWidget(self._pageBar)
+
+    def __connectModelSignals(self, model):
+        """ Connect all signals needed from the given model """
+        if model:
+            model.sigPageConfigChanged.connect(self.__onPageConfigChanged)
+            model.sigPageChanged.connect(self.__onPageChanged)
+            self._pageBar.sigPageChanged.connect(self._model.loadPage)
+
+    def __disconnectModelSignals(self, model):
+        """ Connect all signals needed from the given model """
+        if model:
+            model.sigPageConfigChanged.disconnect(self.__onPageConfigChanged)
+            model.sigPageChanged.disconnect(self.__onPageChanged)
+            self._pageBar.sigPageChanged.disconnect(self._model.loadPage)
+
+    @pyqtSlot(int, int, int)
+    def __onPageConfigChanged(self, page, pageCount, pageSize):
+        """ Invoked when the model change his page configuration """
+        self._pageBar.setup(page, 0, pageCount - 1, 1)
+
+    @pyqtSlot(int)
+    def __onPageChanged(self, page):
+        """ Invoked when the model change his current page """
+        self._pageBar.setPage(page)
+
+    def setModel(self, model):
+        """ Sets the model for the this abstract view """
+        self.__disconnectModelSignals(self._model)
+        self._model = model
+        self.__connectModelSignals(model)
+
+        if model:
+            self.__onPageConfigChanged(model.getPage(), model.getPageCount(),
+                                       model.getPageSize())
+        else:
+            self.__onPageConfigChanged(0, 0, 0)
+
+    def getModel(self):
+        return self._model
+
+    def showPageBar(self, visible):
+        """ Show or hide the paging bar """
+        self._pageBar.setVisible(visible)
+
+
+class GalleryView(AbstractView):
     """
     The GalleryView class provides some functionality for show large numbers of
-    items with simple paginate elements.
+    items with simple paginate elements in gallery view.
     """
     sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
 
     def __init__(self, parent=None):
-        QListView.__init__(self, parent)
+        AbstractView.__init__(self, parent)
+        self._pageSize = 0
+        self._imgCache = ImageCache(50)
+        self.__setupUI()
 
-    def resizeEvent(self, evt):
+    def __setupUI(self):
+        self._listView = GalleryWidget(self)
+        self._listView.sigSizeChanged.connect(self.__onSizeChanged)
+        self._listView.setViewMode(QListView.IconMode)
+        self._listView.setResizeMode(QListView.Adjust)
+        self._listView.setSpacing(5)
+        self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._listView.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
+        self._listView.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
+        self._listView.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._listView.setLayoutMode(QListView.Batched)
+        self._listView.setBatchSize(500)
+        self._listView.setMovement(QListView.Static)
+        self._listView.setIconSize(QSize(32, 32))
+        self._listView.setModel(None)
+        self._delegate = EMImageItemDelegate(self)
+        self._delegate.setImageCache(self._imgCache)
+        self._mainLayout.insertWidget(0, self._listView)
+
+    def __calcPageSize(self):
         """
-        Reimplemented from QListView
+        Calculate the number of items per page according to the size of the
+        view area.
         """
-        QListView.resizeEvent(self, evt)
-        self.sigSizeChanged.emit()
+        self._pageSize = 0
+
+        size = self._listView.viewport().size()
+        s = self._listView.iconSize()
+        spacing = self._listView.spacing()
+
+        if size.width() > 0 and size.height() > 0 \
+                and s.width() > 0 and s.height() > 0:
+            pCols = int((size.width() - spacing - 1) / (s.width() + spacing))
+            pRows = int((size.height() - 1) / (s.height() + spacing))
+            # if size.width() < iconSize.width() pRows may be 0
+            if pRows == 0:
+                pRows = 1
+            if pCols == 0:
+                pCols = 1
+
+            self._pageSize = pRows * pCols
+
+    def __getPage(self, row):
+        """
+        Return the page where row are located or -1 if it can not be calculated
+        """
+        return int(row / self._pageSize) \
+            if self._pageSize > 0 and row >= 0 else -1
+
+    @pyqtSlot()
+    def __onSizeChanged(self):
+        """ Invoked when the gallery widget is resized """
+        self.__calcPageSize()
+        if self._model:
+            index = self._listView.currentIndex()
+            row = index.row() if index and index.isValid() else 0
+            self._model.setupPage(self._pageSize, self.__getPage(row))
+
+    def setModel(self, model):
+        """ Sets the model """
+        self._listView.setModel(model)
+        AbstractView.setModel(self, model)
+        if model:
+            model.setIconSize(self._listView.iconSize())
+            model.setupPage(self._pageSize, 0)
+
+    def setModelColumn(self, column):
+        """ Holds the column in the model that is visible. """
+        self._listView.setModelColumn(column)
+        self._listView.setItemDelegateForColumn(column, self._delegate)
+
+    def setIconSize(self, size):
+        """
+        Sets the icon size.
+        size: (width, height)
+        """
+        s = QSize(size[0], size[1])
+        self._listView.setIconSize(s)
+        self.__calcPageSize()
+        if self._model:
+            self._model.setupPage(self._pageSize, self._page)
+            self._model.setIconSize(s)
+
+    def setImageCache(self, imgCache):
+        """ Sets the image cache """
+        self._imgCache = imgCache
+
+
+class ColumnsView(AbstractView):
+    """
+    The ColumnsView class provides some functionality for show large numbers of
+    items with simple paginate elements in columns view. """
+
+    def __init__(self, parent=None):
+        AbstractView.__init__(self, parent)
+        self._pageSize = 0
+        self._imgCache = ImageCache(50)
+        self.__setupUI()
+
+    def __setupUI(self):
+        self._tableView = TableWidget(self)
+        self._defaultDelegate = self._tableView.itemDelegate()
+        self._tableView.sigSizeChanged.connect(self.__onSizeChanged)
+        self._tableView.setSelectionBehavior(QTableView.SelectRows)
+        self._tableView.verticalHeader().hide()
+        self._tableView.setSortingEnabled(False)
+        self._tableView.setModel(None)
+        self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._delegate = EMImageItemDelegate(self)
+        self._delegate.setImageCache(self._imgCache)
+        self._mainLayout.insertWidget(0, self._tableView)
+
+    def __getPage(self, row):
+        """
+        Return the page where row are located or -1 if it can not be calculated
+        """
+        return int(row / self._pageSize) \
+            if self._pageSize > 0 and row >= 0 else -1
+
+    def __calcPageSize(self):
+        """
+        Calculate the number of items per page according to the size of the
+        view area.
+        """
+        self._pageSize = 0
+
+        tableSize = self._tableView.viewport().size()
+        rowSize = self._tableView.verticalHeader().defaultSectionSize()
+
+        if tableSize.width() > 0 and tableSize.height() > 0 and rowSize:
+            pRows = int(tableSize.height() / rowSize)
+            # if tableSize.width() < rowSize.width() pRows may be 0
+            if pRows == 0:
+                pRows = 1
+
+            self._pageSize = pRows
+
+    def __setupDelegatesForColumns(self):
+        """
+        Sets the corresponding Delegate for all columns
+        """
+        # we have defined one delegate for the moment: ImageItemDelegate
+        if self._model:
+            for i, colConfig in enumerate(self._model.getColumnConfig()):
+                delegate = self._defaultDelegate
+                if colConfig["renderable"] and \
+                        colConfig["visible"]:
+                    delegate = self._delegate
+
+                self._tableView.setItemDelegateForColumn(i, delegate)
+
+    @pyqtSlot()
+    def __onSizeChanged(self):
+        """ Invoked when the table widget is resized """
+        self.__calcPageSize()
+        if self._model:
+            index = self._tableView.currentIndex()
+            row = index.row() if index and index.isValid() else 0
+            self._model.setupPage(self._pageSize, self.__getPage(row))
+
+    def setModel(self, model):
+        self._tableView.setModel(model)
+        AbstractView.setModel(self, model)
+        if model:
+            self.__setupDelegatesForColumns()
+            s = self._tableView.verticalHeader().defaultSectionSize()
+            model.setIconSize(QSize(s, s))
+            model.setupPage(self._pageSize, 0)
+
+    def setRowHeight(self, height):
+        """ Sets the heigth for all rows """
+        self._tableView.verticalHeader().setDefaultSectionSize(height)
+        self.__calcPageSize()
+        if self._model:
+            index = self._listView.currentIndex()
+            row = index.row() if index and index.isValid() else 0
+            self._model.setupPage(self._pageSize, self.__getPage(row))
+            self._model.setIconSize(QSize(height, height))
 
 
 class TableWidget(QTableView):
@@ -1400,6 +1718,22 @@ class TableWidget(QTableView):
         QTableView.resizeEvent(self, evt)
         self.sigSizeChanged.emit()
 
+
+class GalleryWidget(QListView):
+    """
+    The GalleryWidget class
+    """
+    sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
+
+    def __init__(self, parent=None):
+        QListView.__init__(self, parent)
+
+    def resizeEvent(self, evt):
+        """
+        Reimplemented from TableWidget
+        """
+        QListView.resizeEvent(self, evt)
+        self.sigSizeChanged.emit()
 
 def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
