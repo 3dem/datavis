@@ -133,17 +133,20 @@ class GalleryView(AbstractView):
         self._listView.setIconSize(s)
         self.__calcPageSize()
         if self._model:
-            self._model.setupPage(self._pageSize, self._page)
+            self._model.setupPage(self._pageSize, self._model.getPage())
             self._model.setIconSize(s)
 
     def setImageCache(self, imgCache):
         """ Sets the image cache """
         self._imgCache = imgCache
 
-    # FIXME: Check if this method is really needed, just added
-    # to fix errors
-    def blockSignals(self, value):
-        return self._listView.selectionModel().blockSignals(value)
+    def selectRow(self, row):
+        """ Selects the given row """
+        if self._model and row in range(0, self._model.totalRowCount()):
+            page = self.__getPage(row)
+            self._model.loadPage(page)
+            index = self._model.createIndex(
+                0 if row == 0 else row % self._pageSize,
+                self._listView.modelColumn())
 
-
-
+            self._listView.setCurrentIndex(index)

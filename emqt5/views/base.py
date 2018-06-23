@@ -396,6 +396,3 @@ class AbstractView(QWidget):
     def showPageBar(self, visible):
         """ Show or hide the paging bar """
         self._pageBar.setVisible(visible)
-
-
-

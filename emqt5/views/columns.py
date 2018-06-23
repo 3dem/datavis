@@ -104,6 +104,16 @@ class ColumnsView(AbstractView):
 
                 self._tableView.setItemDelegateForColumn(i, delegate)
 
+    def __setupVisibleColumns(self):
+        """
+        Hide the columns with visible property=True or allowSetVisible=False
+        """
+        for i, colConfig in enumerate(self._model.getColumnConfig()):
+            if not colConfig["visible"]:
+                self._tableView.hideColumn(i)
+            else:
+                self._tableView.showColumn(i)
+
     @pyqtSlot()
     def __onSizeChanged(self):
         """ Invoked when the table widget is resized """
@@ -118,6 +128,7 @@ class ColumnsView(AbstractView):
         AbstractView.setModel(self, model)
         if model:
             self.__setupDelegatesForColumns()
+            self.__setupVisibleColumns()
             s = self._tableView.verticalHeader().defaultSectionSize()
             model.setIconSize(QSize(s, s))
             model.setupPage(self._pageSize, 0)
@@ -127,19 +138,21 @@ class ColumnsView(AbstractView):
         self._tableView.verticalHeader().setDefaultSectionSize(height)
         self.__calcPageSize()
         if self._model:
-            index = self._listView.currentIndex()
+            index = self._tableView.currentIndex()
             row = index.row() if index and index.isValid() else 0
             self._model.setupPage(self._pageSize, self.__getPage(row))
             self._model.setIconSize(QSize(height, height))
 
-    # FIXME: Check if this method is really needed, just added
-    # to fix errors
-    def blockSignals(self, value):
-        return self._tableView.selectionModel().blockSignals(value)
+    def setColumnWidth(self, column, width):
+        """ Sets the width for the given column """
+        self._tableView.setColumnWidth(column, width)
 
-    #FIXME: CHECK IF THIS IS NEEDED
-    def itemDelegate(self):
-        return self._tableView.itemDelegate()
+    def selectRow(self, row):
+        """ Selects the given row """
+        if self._model and row in range(0, self._model.totalRowCount()):
+            page = self.__getPage(row)
+            self._model.loadPage(page)
+            self._tableView.selectRow(0 if row == 0 else row % self._pageSize)
 
-
-
+    def setImageCache(self, imgCache):
+        self._imgCache = imgCache
