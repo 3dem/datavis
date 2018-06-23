@@ -136,12 +136,12 @@ if __name__ == '__main__':
         view = createBrowserView(files)
     elif EmPath.isTable(files):  # Display the file as a Table:
         view = createTableView(EmTable.load(files), None, 'Table',
-                               views[args.view] or DataView.COLUMNS)
+                               views.get(args.view, DataView.COLUMNS))
     elif EmPath.isStack(files):
         view = createTableView(EmTable.fromStack(files),
                                TableViewConfig.createStackConfig(),
                                'Stack',
-                               views[args.view] or DataView.GALLERY)
+                               views.get(args.view, DataView.GALLERY))
     elif EmPath.isData(files):  # Image or Volume at this point
         # Create an image from imagePath using em-bindings
         image = em.Image()

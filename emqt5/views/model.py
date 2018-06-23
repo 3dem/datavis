@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import numpy as np
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
@@ -8,7 +9,8 @@ from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
 from emqt5.views.config import TableViewConfig
 from emqt5.utils import EmPath, EmImage
 
-import numpy as np
+import em
+
 
 X_AXIS = 0
 Y_AXIS = 1
@@ -300,8 +302,12 @@ class TableDataModel(QAbstractItemModel):
         """ Return the page count for this model """
         return self._pageCount
 
+    # FIXME Check if this is in use, duplicated of getCurrentPage
     def getPage(self):
         """ Return the current page for this model """
+        return self._page
+
+    def getCurrentPage(self):
         return self._page
 
     def getPageSize(self):
@@ -416,3 +422,158 @@ class ImageCache:
             return np.array(img, copy=False)
 
         return None
+
+
+def createTableModel(path):
+    """ Return the TableDataModel for the given EM table file """
+    table = em.Table()
+    tableIO = em.TableIO()
+    tableIO.open(path)
+    tableIO.read('', table)
+    tableIO.close()
+    tableViewConfig = TableViewConfig.fromTable(table)
+
+    return TableDataModel(table, parent=None, title="TABLE",
+                          tableViewConfig=tableViewConfig)
+
+
+def createStackModel(imagePath):
+    """ Return a stack model for the given image """
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Stack",
+                                       em.typeString,
+                                       "Image stack")])
+    imageIO = em.ImageIO()
+    loc2 = em.ImageLocation(imagePath)
+    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
+    dim = imageIO.getDim()
+
+    for i in range(0, dim.n):
+        row = xTable.createRow()
+        row['Stack'] = str(i) + '@' + imagePath
+        row['index'] = i
+        xTable.addRow(row)
+
+    return [TableDataModel(xTable, title='Stack')], None
+
+
+def createVolumeModel(imagePath):
+    image = em.Image()
+    loc2 = em.ImageLocation(imagePath)
+    image.read(loc2)
+
+    # Create three Tables with the volume slices
+    xTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "X",
+                                       em.typeString,
+                                       "X Dimension")])
+    xtableViewConfig = TableViewConfig()
+    xtableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    xtableViewConfig.addColumnConfig(name='X',
+                                     dataType=TableViewConfig.TYPE_STRING,
+                                     **{'label': 'X',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    yTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Y",
+                                       em.typeString,
+                                       "Y Dimension")])
+    ytableViewConfig = TableViewConfig()
+    ytableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ytableViewConfig.addColumnConfig(name='Y',
+                                     dataType=TableViewConfig.TYPE_STRING,
+                                     **{'label': 'Y',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+    zTable = em.Table([em.Table.Column(0, "index",
+                                       em.typeInt32,
+                                       "Image index"),
+                       em.Table.Column(1, "Z",
+                                       em.typeString,
+                                       "Z Dimension")])
+    ztableViewConfig = TableViewConfig()
+    ztableViewConfig.addColumnConfig(name='index',
+                                     dataType=TableViewConfig.TYPE_INT,
+                                     **{'label': 'Index',
+                                        'editable': False,
+                                        'visible': True})
+    ztableViewConfig.addColumnConfig(name='Z',
+                                     dataType=TableViewConfig.TYPE_STRING,
+                                     **{'label': 'Z',
+                                        'renderable': True,
+                                        'editable': False,
+                                        'visible': True})
+
+    # Get the volume dimension
+    _dim = image.getDim()
+    _dx = _dim.x
+    _dy = _dim.y
+    _dz = _dim.z
+
+    for i in range(0, _dx):
+        row = xTable.createRow()
+        row['X'] = str(i) + '@' + str(X_AXIS) + '@' + imagePath
+        row['index'] = i
+        xTable.addRow(row)
+
+    for i in range(0, _dy):
+        row = yTable.createRow()
+        row['Y'] = str(i) + '@' + str(Y_AXIS) + '@' + imagePath
+        row['index'] = i
+        yTable.addRow(row)
+
+    for i in range(0, _dz):
+        row = zTable.createRow()
+        row['Z'] = str(i) + '@' + str(Z_AXIS) + '@' + imagePath
+        row['index'] = i
+        zTable.addRow(row)
+
+    models = list()
+    models.append(TableDataModel(xTable, title='X Axis (Right View)',
+                                 tableViewConfig=xtableViewConfig))
+
+    models.append(TableDataModel(yTable, title='Y Axis (Left View)',
+                                 tableViewConfig=ytableViewConfig))
+
+    models.append(TableDataModel(zTable, title='Z Axis (Front View)',
+                                 tableViewConfig=ztableViewConfig))
+
+    return models, None
+
+
+def createSingleImageModel(imagePath):
+    """ Return a single image model """
+    if EmPath.isImage(imagePath) or EmPath.isStandardImage(imagePath):
+        table = em.Table([em.Table.Column(0, "Image", em.typeString,
+                                          "Image path")])
+        tableViewConfig = TableViewConfig()
+        tableViewConfig.addColumnConfig(name='Image',
+                                        dataType=TableViewConfig.TYPE_STRING,
+                                         **{'label': 'Image',
+                                            'renderable': True,
+                                            'editable': False,
+                                            'visible': True})
+        row = table.createRow()
+        row['Image'] = '0@' + imagePath
+        table.addRow(row)
+        return [TableDataModel(table, title='IMAGE',
+                               tableViewConfig=tableViewConfig)], None
+
+
