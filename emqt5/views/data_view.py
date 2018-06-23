@@ -93,7 +93,7 @@ class DataView(QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._stackedLayoud = QStackedLayout(self._mainLayout)
         # table view
-        self._tableViewContainer = QWidget(self)
+        self._tableViewContainer = QWidget(self)   # FIXME: Do we really need the extra container over the actual view
         self._tableView = ColumnsView(self._tableViewContainer)
         verticalLayout = QVBoxLayout(self._tableViewContainer)
         verticalLayout.addWidget(self._tableView)
@@ -103,7 +103,7 @@ class DataView(QWidget):
         # self._tableView.setModel(self._tableModel)
         # self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         # gallery view
-        self._listViewContainer = QWidget(self)
+        self._listViewContainer = QWidget(self)   # FIXME: Do we really need the extra container over the actual view
         self._listView = GalleryView(self._listViewContainer)
         self._listView.installEventFilter(self)
 
@@ -711,7 +711,7 @@ class DataView(QWidget):
          - itemsXGalleryPage
         If current view is GALLERY then load the current page
         """
-        return
+        return  # FIXME
 
         self._itemsXGalleryPage = 0
 
@@ -1130,6 +1130,9 @@ class DataView(QWidget):
         self._minRowHeight = kwargs.get("minRowHeight", 5)
         self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
         self._viewName = kwargs.get("view", self.COLUMNS)
+        # The following dict should have a map between names and actual view
+        self._viewsDict = {}
+
         self._views = kwargs.get("views", [self.COLUMNS, self.GALLERY,
                                            self.ITEMS])
 
