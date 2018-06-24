@@ -79,9 +79,11 @@ class DataView(QWidget):
 
     def __setupUi(self):
         self._mainLayout = QVBoxLayout(self)
+        self._mainLayout.setSpacing(0)
         self._toolBar = QToolBar(self)
         self._mainLayout.addWidget(self._toolBar)
         self._stackedLayoud = QStackedLayout(self._mainLayout)
+        self._stackedLayoud.setSpacing(0)
 
         # actions
         self._actionGroupViews = QActionGroup(self._toolBar)
@@ -144,8 +146,6 @@ class DataView(QWidget):
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
         self._toolBar.addWidget(self._labelCurrentTable)
         self._comboBoxCurrentTable = QComboBox(self._toolBar)
-        self._comboBoxCurrentTable.currentIndexChanged. \
-            connect(self._onCurrentTableChanged)
         self._toolBar.addWidget(self._comboBoxCurrentTable)
         self._toolBar.addSeparator()
 
@@ -185,6 +185,11 @@ class DataView(QWidget):
                 if viewWidget is not None:
                     viewWidget.setImageCache(self._imageCache)
                     self._stackedLayoud.addWidget(viewWidget)
+                    viewWidget.sigCurrentRowChanged.connect(
+                        self.__onViewRowChanged)
+                    viewWidget.getPageBar().sigPageConfigChanged.connect(
+                        self.__onPageConfigChaned)
+
                 a = self._viewActions[v]
                 a["view"] = viewWidget
 
@@ -197,95 +202,11 @@ class DataView(QWidget):
             a = self._viewActions[view]
             a["view"] = None
             viewWidget.setParent(None)
+            viewWidget.sigCurrentRowChanged.disconnect(
+                self.__onViewRowChanged)
+            viewWidget.getPageBar().sigPageConfigChanged.disconnect(
+                self.__onPageConfigChaned)
             del viewWidget
-
-    def __getViewPage(self, row, pageSize):
-        """
-        Return the corresponding page for a specific row where pageSize is
-        the number of items for one page.
-        First row is 0.
-        First page is 0.
-        """
-        return int(row / pageSize) if pageSize > 0 else 0
-
-    def __loadElementData(self, row, imgColumn=0):
-        """
-        Load the element data in the view element table for the specific row
-        First row is 0.
-        row: row in current model
-        imgColumn: selected image column
-        """
-        if self._model and row in range(self._model.totalRowCount()):
-            model = self._elemViewTable.model()
-            model.clear()
-            vLabels = []
-            for i in range(self._model.columnCount()):
-                item = QStandardItem()
-                item.setData(self._model.getTableData(row, i),
-                             Qt.DisplayRole)
-                if i == imgColumn:
-                    imgPath = self._model.getTableData(row, i)
-                    imgParams = parseImagePath(imgPath)
-                    if imgParams is not None and len(imgParams) == 3:
-                        imgPath = imgParams[2]
-                        if EmPath.isStandardImage(imgPath):
-                            self._pixMapElem.load(imgPath)
-                            self._pixmapItem.setPixmap(self._pixMapElem)
-                            self._pixmapItem.setVisible(True)
-                            v = self._imageView.getView()
-                            if not self._disableFitToSize:
-                                v.autoRange()
-                        else:
-                            if self._pixmapItem:
-                                self._pixmapItem.setVisible(False)
-
-                            if EmPath.isStack(imgPath):
-                                id = str(imgParams[0]) + '_' + imgPath
-                                index = imgParams[0]
-                            else:
-                                id = imgPath
-                                index = 0
-
-                            data = self._imageCache.addImage(id, imgPath,
-                                                             index)
-                            if data is not None:
-                                axis = imgParams[1]
-                                if axis == X_AXIS:
-                                    data = data[:, :, imgParams[0]]
-                                elif axis == Y_AXIS:
-                                    data = data[:, imgParams[0], :]
-                                elif axis == Z_AXIS:
-                                    data = data[imgParams[0], :, :]
-
-                                self._imageView.setImage(data)
-                            else:
-                                self._imageView.clear()
-                    else:
-                        self._imageView.clear()
-
-                model.appendRow([item])
-                label = self._model.headerData(i, Qt.Horizontal)
-                if label:
-                    vLabels.append(label)
-            model.setHorizontalHeaderLabels(["Values"])
-            model.setVerticalHeaderLabels(vLabels)
-            self._elemViewTable.horizontalHeader().setStretchLastSection(True)
-            self.sigCurrentElementItemChanged.emit(row, imgColumn)
-
-    def __loadViewPage(self, page):
-        """ Load the current view page """
-
-        if self._model:
-            if self._viewName == self.ITEMS:
-                self.__loadElementData(page,
-                                       self._currentRenderableColumn)
-                self._spinBoxCurrentRow.setValue(page + 1)
-                self._model.setupPage(self._itemsXItemPage, page)
-            else:
-                pageSize = self._itemsXTablePage \
-                    if self._viewName == self.COLUMNS else self._itemsXGalleryPage
-                self._model.setupPage(pageSize, page)
-            self._showCurrentPageNumber()
 
     def __canChangeToView(self, view):
         """
@@ -352,12 +273,7 @@ class DataView(QWidget):
             model = QStandardItemModel(self._comboBoxCurrentColumn)
 
         model.clear()
-        if self._models and len(self._models):
-            for i, currentModel in enumerate(self._models):
-                item = QStandardItem(currentModel.getTitle())
-                item.setData(0, Qt.UserRole)  # use UserRole for store
-                model.appendRow([item])
-        elif self._model:
+        if self._model:
             item = QStandardItem(self._model.getTitle())
             item.setData(0, Qt.UserRole)  # use UserRole for store
             model.appendRow([item])
@@ -465,167 +381,22 @@ class DataView(QWidget):
             a.triggered.connect(slot)
         return a
 
-    def __goToPage(self, page):
-        """
-        Show the given page. The page number is depending of current
-        view mode.
-        First index is 0.
-        """
+    def __clearViews(self):
+        """ Clear all views """
+        for viewWidget in self._viewsDict.values():
+            if viewWidget is not None:
+                viewWidget.setModel(None)
 
-        if self._model and page in range(0,
-                                         self._model.getPageCount()):
-            self.__loadViewPage(page)
-
-    @pyqtSlot()
-    def __galleryResized(self):
-        """
-        Invoked when gallery is resized.
-        New page properties will be calculated
-        """
-        self.__calcGalleryPageProperties()
-        if self._viewName == self.GALLERY:
-            page = self.__getViewPage(self._currentRow,
-                                      self._itemsXGalleryPage)
-            self.__goToPage(page)
-            self._selectRow(self._currentRow + 1)
-
-    @pyqtSlot()
-    def __elementTableResized(self):
-        """
-        Invoked when element table is resized
-        """
-        self._elemViewTable.resizeColumnsToContents()
-
-    @pyqtSlot()
-    def __tableResized(self):
-        """
-        Invoked when table is resized.
-        New page properties will be calculated
-        """
-        self.__calcTablePageProperties()
-
-        if self._viewName == self.COLUMNS:
-            page = self.__getViewPage(self._currentRow,
-                                      self._itemsXTablePage)
-            self.__goToPage(page)
-            self._selectRow(self._currentRow + 1)
-            self._showNumberOfPages()
-            self._showCurrentPageNumber()
-
-    @pyqtSlot()
-    def __calcTablePageProperties(self):
-        """
-        Calculates depending of table size:
-         - itemsXTablePage
-         If current view is COLUMS then load the current page
-        """
-        return   # FIXME
-
-        self._itemsXTablePage = 0
-
-        tableSize = self._tableView.viewport().size()
-        rowSize = self._tableView.verticalHeader().defaultSectionSize()
-
-        if tableSize.width() > 0 and tableSize.height() > 0 and rowSize:
-            pRows = int(tableSize.height() / rowSize)
-            # if tableSize.width() < rowSize.width() pRows may be 0
-            if pRows == 0:
-                pRows = 1
-
-            self._itemsXTablePage = pRows
-
-            if self._tableModel and self._viewName == self.COLUMNS:
-                page = self.__getViewPage(self._currentRow,
-                                          self._itemsXTablePage)
-                self._tableModel.setupPage(self._itemsXTablePage, page)
-                self.__loadViewPage(page)
-                self._spinBoxCurrentPage.setRange(1,
-                                                  self._tableModel.
-                                                  getPageCount())
-                self._showNumberOfPages()
-            self._calcTablePageProperties = False
-
-    @pyqtSlot()
-    def __calcElementPageProperties(self):
-        """
-        Calculates the element view page properties. In ITEMS view mode,
-        the number of pages is the table row count.
-        If current view is ITEMS then load the current item
-        """
-        return  # FIXME
-
-        if self._tableModel and self._viewName == self.ITEMS:
-            self._tableModel.setupPage(self._itemsXItemPage, self._currentRow)
-            self._spinBoxCurrentPage.setRange(1,
-                                              self._tableModel.totalRowCount())
-            self.__loadViewPage(self._currentRow)
-            self._showNumberOfPages()
-            self._showCurrentPageNumber()
-
-    @pyqtSlot()
-    def __calcGalleryPageProperties(self):
-        """
-        Calculates the gallery page properties depending of gallery size:
-         - itemsXGalleryPage
-        If current view is GALLERY then load the current page
-        """
-        return  # FIXME
-
-        self._itemsXGalleryPage = 0
-
-        gallerySize = self._listView.viewport().size()
-        iconSize = self._listView.iconSize()
-        spacing = self._listView.spacing()
-
-        if gallerySize.width() > 0 and gallerySize.height() > 0 \
-                and iconSize.width() > 0 and iconSize.height() > 0:
-            pCols = int((gallerySize.width() - spacing - 1)
-                        / (iconSize.width() + spacing))
-            pRows = int((gallerySize.height() - 1) /
-                        (iconSize.height() + spacing))
-            # if gallerySize.width() < iconSize.width() pRows may be 0
-            if pRows == 0:
-                pRows = 1
-            if pCols == 0:
-                pCols = 1
-
-            pTotal = self._tableModel.totalRowCount() / (pCols * pRows)
-
-            galleryPageCount = int(pTotal)
-            galleryPageCount += 1 if pTotal - int(pTotal) > 0 else 0
-            self._itemsXGalleryPage = pRows * pCols
-            if self._tableModel and self._viewName == self.GALLERY:
-                page = self.__getViewPage(self._currentRow,
-                                          self._itemsXGalleryPage)
-                self._tableModel.setupPage(self._itemsXGalleryPage, page)
-                self.__loadViewPage(page)
-                self._spinBoxCurrentPage.setRange(1,
-                                                  self._tableModel.
-                                                  getPageCount())
-                self._showNumberOfPages()
-            self._calcGalleryPageProperties = False
-
-    def _onGalleryViewItemDoubleClicked(self, qModelIndex):
-        """
-        Invoked when a mouse button is double-clicked over a item
-        :param qModelIndex:
-        """
-        self.sigGalleryItemDoubleClicked.emit(self._currentRow,
-                                              qModelIndex.column())
+    @pyqtSlot(int, int, int, int)
+    def __onPageConfigChaned(self, page, fist, last, step):
+        """ Invoked when views change his page configuration """
+        self._selectRow(self._currentRow + 1)
 
     @pyqtSlot(int)
-    def _onCurrentTableChanged(self, index):
-        """
-        Invoked when user change the current table for display content
-        """
-        self._currentTable = self._comboBoxCurrentTable.\
-            currentData(Qt.UserRole)
-
-        if self._models and len(self._models) > 0 \
-                and self._currentTable in range(0, len(self._models)):
-            self._model = self._models[
-                self._comboBoxCurrentTable.currentIndex()]
-            self.__setupTableModel()
+    def __onViewRowChanged(self, row):
+        """ Invoked when views change the current row """
+        if not self._currentRow == row:
+            self._selectRow(row + 1)
 
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
@@ -685,50 +456,15 @@ class DataView(QWidget):
         This slot is invoked when the value of the current spinbox changes.
         :param row: the row, 1 is the first
         """
-        if self._model:
-            if row in range(1, self._model.totalRowCount() + 1):
+        if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
                 viewWidget = self._viewsDict[self._viewName]
 
                 if viewWidget is not None:
                     viewWidget.selectRow(self._currentRow)
 
-    @pyqtSlot(QModelIndex, QModelIndex)
-    def _onCurrentTableViewItemChanged(self, current, previous):
-        """
-        This slot is invoked when the current table item change
-        """
-        return  #FIXME
-        col = row = -1
-        if current.isValid():
-            row = current.row() + self._tableModel.getCurrentPage() \
-                  * self._itemsXTablePage
-            col = current.column()
-            if not row == self._currentRow:
-                self._currentRow = row
-                if not self._spinBoxCurrentRow.value() == row + 1:
-                    self._spinBoxCurrentRow.setValue(self._currentRow + 1)
-            self._showCurrentPageNumber()
-
-        self.sigCurrentTableItemChanged.emit(row, col)
-
-    @pyqtSlot(QModelIndex, QModelIndex)
-    def _onCurrentGalleryItemChanged(self, current, previous):
-        """
-        This slot is invoked when the current gallery item change.
-        """
-        return  # FIXME
-        col = row = -1
-        if current.isValid():
-            row = current.row()
-            col = current.column()
-            self._currentRow = \
-                row + self._tableModel.getCurrentPage() \
-                * self._itemsXGalleryPage
-            if not self._spinBoxCurrentRow.value() == self._currentRow + 1:
-                self._spinBoxCurrentRow.setValue(self._currentRow + 1)
-
-        self.sigCurrentGalleryItemChanged.emit(row, col)
+                if not row == self._spinBoxCurrentRow.value():
+                    self._spinBoxCurrentRow.setValue(row)
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -743,81 +479,17 @@ class DataView(QWidget):
                 self._viewName = view
                 self.__setupCurrentViewMode()
 
-    @pyqtSlot(bool)
-    def _onListNextPage(self, checked=True):
-        """ This slot is invoked when the user clicks next page """
-        if self._model:
-            self.__goToPage(self._model.getCurrentPage() + 1)
-            self._showCurrentPageNumber()
-
-    @pyqtSlot(bool)
-    def _onListPrevPage(self, checked=True):
-        """ This slot is invoked when the user clicks prev page """
-        if self._model:
-            self.__goToPage(self._model.getCurrentPage() - 1)
-            self._showCurrentPageNumber()
-
-    @pyqtSlot()
-    def _onSpinBoxCurrentPageEditingFinished(self):
-        """
-        Invoked when editing is finished. This happens when the spinbox loses
-        focus and when enter is pressed.
-        """
-        if self._model:
-            page = self._spinBoxCurrentPage.value() - 1
-            if not self._model.getCurrentPage() == page and \
-                    page in range(0, self._model.getPageCount()):
-                self.__goToPage(page)
-
-    @pyqtSlot()
-    def _showCurrentPageNumber(self):
-        """
-        Show the currentPage number in the corresponding widget.
-        """
-        pass  # FIXME
-        # if self._tableModel:
-        #     self._spinBoxCurrentPage.setValue(
-        #         self._tableModel.getCurrentPage() + 1)
-
-    @pyqtSlot()
-    def _showNumberOfPages(self):
-        """
-        Show the number of pages depending of current view mode.
-        Now: _labelPageCount
-        """
-        pass  # FIXME
-        # if self._tableModel:
-        #     self._labelPageCount.setText(
-        #         "of %i" % self._tableModel.getPageCount())
-
     def getSelectedViewMode(self):
         """
-        Return the selected mode. Possible values are: TABLE, GALLERY, ELEMENT
+        Return the selected mode. Possible values are:
+        COLUMNS, GALLERY, ITEMS
         """
-        a = self._actionGroupViews.checkedAction()
-        return self._viewTypes[a.objectName()] if a else None
+        return self._viewName
 
-    def setModel(self, model, delegates=None):
-        """
-        Set the table model or models for display.
-
-        model: list of models or a TableDataModel for single table
-
-        delegates: dict<str,dict<int, EMImageItemDelegate>>.
-                   delegates keys: table model title
-        """
-        self._models = None
-        self._model = None
-        self._columnDelegates = delegates
-
-        if isinstance(model, list):
-            if len(model) > 0:
-                self._model = model[0]
-
-            self._models = model
-        elif isinstance(model, TableDataModel):
-            self._model = model
-
+    def setModel(self, model):
+        """ Set the table model for display. """
+        self.__clearViews()
+        self._model = model
         self.__setupComboBoxCurrentTable()
         self.__setupTableModel()
 
@@ -841,33 +513,6 @@ class DataView(QWidget):
                     Qt.SizeHintRole
         """
         self._sortRole = role
-
-    def setItemDelegateForColumn(self, column, delegate, modelIndex=-1):
-        """
-        Sets the given item delegate used by this table view and model
-        for the given column. All items on column will be drawn and managed
-        by delegate instead of using the default delegate. Any existing column
-        delegate for column will be removed, but not deleted. TableView does not
-        take ownership of delegate.
-        First column index is 0.
-        """
-        if self._models:
-            if modelIndex == -1:
-                for model in self._models:
-                    self._columnDelegates[model.getTitle()] = delegate
-            else:
-                self._columnDelegates[
-                    self._models[modelIndex].getTitle()] = delegate
-
-            model = self._models[modelIndex] if not modelIndex == -1 \
-                else self._model
-            if self._model == model:
-                self._listView.setItemDelegateForColumn(
-                    column,
-                    self._columnDelegates[model.getTitle()])
-        else:
-            self._tableView.setItemDelegateForColumn(column, delegate)
-            self._listView.setItemDelegateForColumn(column, delegate)
 
     def setup(self, **kwargs):
         self.__initProperties(**kwargs)

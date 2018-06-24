@@ -46,6 +46,8 @@ class ColumnsView(AbstractView):
     The ColumnsView class provides some functionality for show large numbers of
     items with simple paginate elements in columns view. """
 
+    sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
+
     def __init__(self, parent=None):
         AbstractView.__init__(self, parent)
         self._pageSize = 0
@@ -57,6 +59,7 @@ class ColumnsView(AbstractView):
         self._defaultDelegate = self._tableView.itemDelegate()
         self._tableView.sigSizeChanged.connect(self.__onSizeChanged)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
+        self._tableView.setSelectionMode(QTableView.SingleSelection)
         self._tableView.verticalHeader().hide()
         self._tableView.setSortingEnabled(False)
         self._tableView.setModel(None)
@@ -123,6 +126,17 @@ class ColumnsView(AbstractView):
             row = index.row() if index and index.isValid() else 0
             self._model.setupPage(self._pageSize, self.__getPage(row))
 
+    @pyqtSlot(QModelIndex, QModelIndex)
+    def __onCurrentRowChanged(self, current, previous):
+        """ Invoked when current row change """
+        print("previous: ", previous.row())
+        print("current: ", current.row())
+        print("-----------------------------")
+        if current.isValid():
+            row = current.row()
+            self.sigCurrentRowChanged.emit(
+                row + self._pageSize * self._model.getPage())
+
     def setModel(self, model):
         self._tableView.setModel(model)
         AbstractView.setModel(self, model)
@@ -132,6 +146,8 @@ class ColumnsView(AbstractView):
             s = self._tableView.verticalHeader().defaultSectionSize()
             model.setIconSize(QSize(s, s))
             model.setupPage(self._pageSize, 0)
+            self._tableView.selectionModel().currentRowChanged.connect(
+                self.__onCurrentRowChanged)
 
     def setRowHeight(self, height):
         """ Sets the heigth for all rows """
@@ -147,12 +163,22 @@ class ColumnsView(AbstractView):
         """ Sets the width for the given column """
         self._tableView.setColumnWidth(column, width)
 
+    def getColumnWidth(self, column):
+        """ Returns the width for the given column """
+        return self._tableView.columnWidth(column)
+
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model and row in range(0, self._model.totalRowCount()):
-            page = self.__getPage(row)
-            self._model.loadPage(page)
-            self._tableView.selectRow(0 if row == 0 else row % self._pageSize)
+        if self._model:
+            r = self._tableView.currentIndex().row()
+            r = r if r <= 0 else r + self._pageSize * self._model.getPage()
+
+            if not r == row and row in range(0, self._model.totalRowCount()):
+                page = self.__getPage(row)
+                self._model.loadPage(page)
+                self._tableView.selectRow(
+                    0 if row == 0 else row % self._pageSize)
 
     def setImageCache(self, imgCache):
         self._imgCache = imgCache
+        self._delegate.setImageCache(imgCache)

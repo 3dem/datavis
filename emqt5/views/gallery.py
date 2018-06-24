@@ -2,24 +2,12 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize, QRectF, QModelIndex
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction,
-                             QTableView, QSpinBox, QLabel, QStyledItemDelegate,
-                             QStyle, QAbstractItemView, QStatusBar,
-                             QApplication, QHeaderView, QComboBox, QHBoxLayout,
-                             QStackedLayout, QLineEdit, QActionGroup, QListView,
-                             QSizePolicy, QSpacerItem, QPushButton, QSplitter,
-                             QGraphicsPixmapItem)
-from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
-                         QStandardItem)
-from PyQt5 import QtCore
-import qtawesome as qta
-import pyqtgraph as pg
+from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
+from PyQt5.QtWidgets import QAbstractItemView, QListView
 
-import em
-from emqt5.utils import EmPath, EmTable, parseImagePath
-from .config import TableViewConfig
-from .model import ImageCache, TableDataModel, X_AXIS, Y_AXIS, Z_AXIS
+from PyQt5 import QtCore
+
+from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
 
 
@@ -45,7 +33,8 @@ class GalleryView(AbstractView):
     The GalleryView class provides some functionality for show large numbers of
     items with simple paginate elements in gallery view.
     """
-    sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
+
+    sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
     def __init__(self, parent=None):
         AbstractView.__init__(self, parent)
@@ -111,6 +100,14 @@ class GalleryView(AbstractView):
             row = index.row() if index and index.isValid() else 0
             self._model.setupPage(self._pageSize, self.__getPage(row))
 
+    @pyqtSlot(QModelIndex, QModelIndex)
+    def __onCurrentRowChanged(self, current, previous):
+        """ Invoked when current row change """
+        if current.isValid():
+            row = current.row()
+            self.sigCurrentRowChanged.emit(
+                row + self._pageSize * self._model.getPage())
+
     def setModel(self, model):
         """ Sets the model """
         self._listView.setModel(model)
@@ -118,6 +115,8 @@ class GalleryView(AbstractView):
         if model:
             model.setIconSize(self._listView.iconSize())
             model.setupPage(self._pageSize, 0)
+            self._listView.selectionModel().currentRowChanged.connect(
+                self.__onCurrentRowChanged)
 
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
@@ -139,6 +138,7 @@ class GalleryView(AbstractView):
     def setImageCache(self, imgCache):
         """ Sets the image cache """
         self._imgCache = imgCache
+        self._delegate.setImageCache(imgCache)
 
     def selectRow(self, row):
         """ Selects the given row """

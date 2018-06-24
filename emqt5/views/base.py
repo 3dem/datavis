@@ -2,112 +2,18 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize, QRectF, QModelIndex
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction,
-                             QTableView, QSpinBox, QLabel, QStyledItemDelegate,
-                             QStyle, QAbstractItemView, QStatusBar,
-                             QApplication, QHeaderView, QComboBox, QHBoxLayout,
-                             QStackedLayout, QLineEdit, QActionGroup, QListView,
-                             QSizePolicy, QSpacerItem, QPushButton, QSplitter,
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
+                             QStyledItemDelegate, QStyle, QApplication,
+                             QHBoxLayout, QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
-                         QStandardItem)
-from PyQt5 import QtCore
+from PyQt5.QtGui import QPixmap, QPen, QPalette
+
 import qtawesome as qta
 import pyqtgraph as pg
 
-import em
-from emqt5.utils import EmPath, EmTable, parseImagePath
-from .config import TableViewConfig
-from .model import ImageCache, TableDataModel, X_AXIS, Y_AXIS, Z_AXIS
-
-
-class _ImageItemDelegate(QStyledItemDelegate):
-    """
-    _ImageItemDelegate class provides visualization and editing functions
-    of image data for widgets of the TableView class
-    """
-    def __init__(self, parent=None, selectedStatePen=None, borderPen=None):
-        """
-        If selectedStatePen is None then the border will not be painted when
-        the item is selected.
-        If selectedStatePen has a QPen value then a border will be painted when
-        the item is selected
-        :param parent: the parent qt object
-        :param selectedStatePen: QPen object
-        """
-        QStyledItemDelegate.__init__(self, parent)
-        self._selectedStatePen = selectedStatePen
-        self._borderPen = borderPen
-        self._imgCache = ImageCache(50, 50)
-
-    def createEditor(self, parent, option, index):
-        """
-        Otherwise an editor is created if the user clicks in this cell.
-        """
-        return None
-
-    def paint(self, painter, option, index):
-        """
-        Reimplemented from QStyledItemDelegate
-        """
-        if index.isValid():
-            pixmap = self._getThumb(index)
-            if option.state & QStyle.State_Selected:
-                if option.state & QStyle.State_Active:
-                    colorGroup = QPalette.Active
-                else:
-                    colorGroup = QPalette.Inactive
-
-                painter.fillRect(option.rect,
-                                 option.palette.color(colorGroup,
-                                                      QPalette.Highlight))
-            if pixmap:
-                rect = QStyle.alignedRect(option.direction,
-                                          option.displayAlignment |
-                                          Qt.AlignHCenter | Qt.AlignVCenter,
-                                          pixmap.size().
-                                          scaled(option.rect.width(),
-                                                 option.rect.height(),
-                                                 Qt.KeepAspectRatio),
-                                          option.rect)
-                painter.drawPixmap(rect, pixmap)
-
-                if self._borderPen:
-                    painter.save()
-                    painter.setPen(self._borderPen)
-                    painter.drawRect(option.rect.x(), option.rect.y(),
-                                     option.rect.width() - 1,
-                                     option.rect.height() - 1)
-                    painter.restore()
-            else:
-                painter.drawRect(option.rect.x(), option.rect.y(),
-                                 option.rect.width() - 1,
-                                 option.rect.height() - 1)
-
-            if self._selectedStatePen and option.state & QStyle.State_Selected:
-                painter.setPen(self._selectedStatePen)
-                painter.drawRect(option.rect.x(), option.rect.y(),
-                                 option.rect.width() - 1,
-                                 option.rect.height() - 1)
-
-    def _getThumb(self, index, height=100):
-        """
-        If the thumbnail stored in Qt.UserRole + 1 is None then create a
-        thumbnail by scaling the original image according to its height and
-        store the new thumbnail in Qt.UserRole + 1
-        :param index: the item
-        :param height: height to scale the image
-        :return: scaled QPixmap
-        """
-        imgPath = index.data(Qt.UserRole)
-        pixmap = self._imgCache.getImage(imgPath)
-
-        if not pixmap:
-            #  create one and store in imgCache
-            pixmap = self._imgCache.addImage(imgPath, imgPath)
-
-        return pixmap
+from emqt5.utils import EmPath, parseImagePath
+from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 
 
 class EMImageItemDelegate(QStyledItemDelegate):
@@ -257,8 +163,17 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
 class PageBar(QWidget):
 
-    """ This signal is emitted when the current page change """
+    """
+    This signal is emitted when the current page change
+    emit(currentPage)
+    """
     sigPageChanged = pyqtSignal(int)
+
+    """ 
+    This signal is emitted when the page configuration change.
+    emit(page, firstPage, lastPage, step) 
+    """
+    sigPageConfigChanged = pyqtSignal(int, int, int, int)
 
     def __init__(self, parent=None):
         QWidget.__init__(self, parent)
@@ -339,6 +254,8 @@ class PageBar(QWidget):
             self._spinBoxCurrentPage.setSingleStep(step)
             self._spinBoxCurrentPage.setValue(page + 1)
             self.__showPageCount()
+            self.sigPageConfigChanged.emit(self._page, self._firstPage,
+                                           self._lastPage, self._step)
 
 
 class AbstractView(QWidget):
@@ -351,6 +268,7 @@ class AbstractView(QWidget):
 
     def __setupUI(self):
         self._mainLayout = QVBoxLayout(self)
+        self._mainLayout.setSpacing(0)
         self._pageBar = PageBar(self)
         self._mainLayout.addWidget(self._pageBar)
 
@@ -396,3 +314,7 @@ class AbstractView(QWidget):
     def showPageBar(self, visible):
         """ Show or hide the paging bar """
         self._pageBar.setVisible(visible)
+
+    def getPageBar(self):
+        """ Returns the page bar widget """
+        return self._pageBar

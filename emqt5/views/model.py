@@ -207,6 +207,7 @@ class TableDataModel(QAbstractItemModel):
         if pageIndex in range(0, self._pageCount):
             self._page = pageIndex
         self.endResetModel()
+        self.sigPageChanged.emit(self._page)
 
     def prevPage(self):
         self._page = self._page - 1 \
