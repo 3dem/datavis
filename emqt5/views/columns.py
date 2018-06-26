@@ -129,9 +129,6 @@ class ColumnsView(AbstractView):
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
-        print("previous: ", previous.row())
-        print("current: ", current.row())
-        print("-----------------------------")
         if current.isValid():
             row = current.row()
             self.sigCurrentRowChanged.emit(

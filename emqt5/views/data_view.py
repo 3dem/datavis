@@ -188,7 +188,7 @@ class DataView(QWidget):
                     viewWidget.sigCurrentRowChanged.connect(
                         self.__onViewRowChanged)
                     viewWidget.getPageBar().sigPageConfigChanged.connect(
-                        self.__onPageConfigChaned)
+                        self.__onPageConfigChanged)
 
                 a = self._viewActions[v]
                 a["view"] = viewWidget
@@ -205,7 +205,7 @@ class DataView(QWidget):
             viewWidget.sigCurrentRowChanged.disconnect(
                 self.__onViewRowChanged)
             viewWidget.getPageBar().sigPageConfigChanged.disconnect(
-                self.__onPageConfigChaned)
+                self.__onPageConfigChanged)
             del viewWidget
 
     def __canChangeToView(self, view):
@@ -237,8 +237,6 @@ class DataView(QWidget):
     def __setupAllWidgets(self):
         """
         Configure all widgets:
-           * set model for qtableview and qlistview widgets
-           * set ImageDelegates for renderable columns
            * configure the value range for all spinboxs
            * configure the icon size for the model
            * show table dims
@@ -246,15 +244,12 @@ class DataView(QWidget):
         Invoke this function when you needs to initialize all widgets.
         Example: when setting new model in the table view
         """
-
-        if self._model:
-            self._showTableDims()
-            self.__setupSpinBoxRowHeigth()
-            self._onChangeCellSize()
-            self.__setupSpinBoxCurrentRow()
-            self._spinBoxCurrentRow.setValue(1)
-            self.__setupComboBoxCurrentColumn()
-
+        self._showTableDims()
+        self.__setupSpinBoxRowHeigth()
+        self._onChangeCellSize()
+        self.__setupSpinBoxCurrentRow()
+        self._spinBoxCurrentRow.setValue(1)
+        self.__setupComboBoxCurrentColumn()
         self.__initCurrentRenderableColumn()
         self._onGalleryViewColumnChanged(0)
 
@@ -330,7 +325,7 @@ class DataView(QWidget):
 
         self._selectRow(self._currentRow + 1)
 
-    def __setupTableModel(self):
+    def __setupModel(self):
         """
         Configure the current table model in all view modes
         """
@@ -388,7 +383,7 @@ class DataView(QWidget):
                 viewWidget.setModel(None)
 
     @pyqtSlot(int, int, int, int)
-    def __onPageConfigChaned(self, page, fist, last, step):
+    def __onPageConfigChanged(self, page, fist, last, step):
         """ Invoked when views change his page configuration """
         self._selectRow(self._currentRow + 1)
 
@@ -429,10 +424,12 @@ class DataView(QWidget):
             viewWidget.setRowHeight(size)
             if self._model:
                 cConfig = self._model.getColumnConfig()
+                self._model.setIconSize(QSize(size, size))
                 if cConfig:
                     for i, colConfig in enumerate(cConfig):
                         if colConfig["renderable"] and \
-                                colConfig["visible"]:
+                                colConfig["visible"] and \
+                                viewWidget.getColumnWidth(i) < size:
                             viewWidget.setColumnWidth(i, size)
 
         viewWidget = self._viewsDict.get(self.GALLERY)
@@ -491,7 +488,7 @@ class DataView(QWidget):
         self.__clearViews()
         self._model = model
         self.__setupComboBoxCurrentTable()
-        self.__setupTableModel()
+        self.__setupModel()
 
     def getModel(self):
         """

@@ -4,10 +4,10 @@
 
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
-                             QStyledItemDelegate, QStyle, QApplication,
-                             QHBoxLayout, QSizePolicy, QSpacerItem, QPushButton,
+                             QStyledItemDelegate, QStyle, QHBoxLayout,
+                             QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import QPixmap, QPen, QPalette
+from PyQt5.QtGui import QPixmap, QPalette
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -61,22 +61,11 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
-
             self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(9, 9, option.rect.width() - 17,
-                       option.rect.height() - 17))
+                QRectF(0, 0, option.rect.width(),
+                       option.rect.height()))
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
-
-
-            if option.state & QStyle.State_HasFocus:
-                pen = QPen(Qt.DashDotDotLine)
-                pen.setColor(Qt.red)
-                painter.setPen(pen)
-                painter.drawRect(option.rect.x(), option.rect.y(),
-                                 option.rect.width()-1, option.rect.height()-1)
-            QApplication.style().drawPrimitive(
-                QStyle.PE_FrameFocusRect, option, painter)
 
     def _setupView(self, index):
         """
