@@ -78,7 +78,7 @@ class TableViewConfig:
         tvConfig = TableViewConfig()
 
         for item in colsConfig:
-            if isinstance(item, basestring):
+            if isinstance(item, basestring):  # FIXME: name 'basestring' is not defined in Python3
                 name = item
                 properties = {}
             elif isinstance(item, tuple):

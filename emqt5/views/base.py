@@ -173,6 +173,8 @@ class PageBar(QWidget):
         self.__setupUI()
 
     def __setupUI(self):
+        self.setMinimumHeight(40)
+        self.setMaximumHeight(40)
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._mainLayout.addItem(QSpacerItem(40,
@@ -258,6 +260,7 @@ class AbstractView(QWidget):
     def __setupUI(self):
         self._mainLayout = QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
+        self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._pageBar = PageBar(self)
         self._mainLayout.addWidget(self._pageBar)
 

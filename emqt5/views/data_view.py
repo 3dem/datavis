@@ -2,27 +2,17 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize, QRectF, QModelIndex
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction,
-                             QTableView, QSpinBox, QLabel, QStyledItemDelegate,
-                             QStyle, QAbstractItemView, QStatusBar,
-                             QApplication, QHeaderView, QComboBox, QHBoxLayout,
-                             QStackedLayout, QLineEdit, QActionGroup, QListView,
-                             QSizePolicy, QSpacerItem, QPushButton, QSplitter,
-                             QGraphicsPixmapItem)
-from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
-                         QStandardItem)
-from PyQt5 import QtCore
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
+                             QLabel, QStatusBar, QComboBox, QStackedLayout,
+                             QLineEdit, QActionGroup)
+from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
-import pyqtgraph as pg
 
-import em
-from emqt5.utils import EmPath, EmTable, parseImagePath
-from .config import TableViewConfig
-from .model import ImageCache, TableDataModel, X_AXIS, Y_AXIS, Z_AXIS
-from .base import EMImageItemDelegate
+from .model import ImageCache
 from .columns import ColumnsView
 from .gallery import GalleryView
+from .items import ItemsView
 
 
 PIXEL_UNITS = 1
@@ -37,18 +27,8 @@ class DataView(QWidget):
     GALLERY = 2
     ITEMS = 4
 
-    """ This signal is emitted when the current item change in TABLE mode """
-    sigCurrentTableItemChanged = pyqtSignal(int, int)
-
-    """ This signal is emitted when the current item change in GALLERY mode """
-    sigCurrentGalleryItemChanged = pyqtSignal(int, int)
-
-    """ This signal is emitted when the current item change in ELEMENT mode """
-    sigCurrentElementItemChanged = pyqtSignal(int, int)
-
-    """ This signal is emitted when a mouse button is double-clicked 
-        in GALLERY mode """
-    sigGalleryItemDoubleClicked = pyqtSignal(int, int)
+    """ This signal is emitted when the current item change """
+    sigCurrentItemChanged = pyqtSignal(int, int)
 
     def __init__(self, **kwargs):
         QWidget.__init__(self, kwargs.get("parent", None))
@@ -80,6 +60,7 @@ class DataView(QWidget):
     def __setupUi(self):
         self._mainLayout = QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
+        self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._toolBar = QToolBar(self)
         self._mainLayout.addWidget(self._toolBar)
         self._stackedLayoud = QStackedLayout(self._mainLayout)
@@ -171,6 +152,8 @@ class DataView(QWidget):
             return ColumnsView(self)
         if view == self.GALLERY:
             return GalleryView(self)
+        if view == self.ITEMS:
+            return ItemsView(self)
 
         return None
 
@@ -316,7 +299,7 @@ class DataView(QWidget):
                 w.setModel(None)
             self._stackedLayoud.setCurrentWidget(viewWidget)
             viewWidget.setModel(self._model)
-            if self._viewName == self.GALLERY:
+            if self._viewName == self.GALLERY or self._viewName == self.ITEMS:
                 viewWidget.setModelColumn(self._currentRenderableColumn)
 
         a = self._viewActions[self._viewName].get("action", None)
@@ -408,6 +391,10 @@ class DataView(QWidget):
         if self._model:
             if self._comboBoxCurrentColumn.model().rowCount():
                 viewWidget = self._viewsDict[self.GALLERY]
+                if viewWidget is not None:
+                    viewWidget.setModelColumn(self._currentRenderableColumn)
+
+                viewWidget = self._viewsDict[self.ITEMS]
                 if viewWidget is not None:
                     viewWidget.setModelColumn(self._currentRenderableColumn)
 
