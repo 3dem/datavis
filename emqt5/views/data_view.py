@@ -48,6 +48,8 @@ class DataView(QWidget):
         self._viewTypes = {"Columns": self.COLUMNS,
                            "Gallery": self.GALLERY,
                            "Items": self.ITEMS}
+        self._views = []
+        self._viewName = None
         self._model = None
         self._currentRenderableColumn = 0  # for GALLERY and ITEMS mode
         self._currentRow = 0  # selected table row
@@ -55,7 +57,7 @@ class DataView(QWidget):
         self.__initProperties(**kwargs)
         self.__setupUi()
         self.__setupCurrentViewMode()
-        self.__setupImageView()
+        self.__setupActions()
 
     def __setupUi(self):
         self._mainLayout = QVBoxLayout(self)
@@ -189,6 +191,7 @@ class DataView(QWidget):
                 self.__onViewRowChanged)
             viewWidget.getPageBar().sigPageConfigChanged.disconnect(
                 self.__onPageConfigChanged)
+            view.setModel(None)
             del viewWidget
 
     def __canChangeToView(self, view):
@@ -197,12 +200,10 @@ class DataView(QWidget):
         If mode == currentMode then return False
         :param mode: Possible values are: COLUMNS, GALLERY, ITEMS
         """
-        if view not in self._views:
+        if view not in self._views or view == self._viewName:
             return False
         if self._viewName == self.COLUMNS:
-            if view == self.COLUMNS:
-                return False
-            elif view == self.GALLERY or view == self.ITEMS:
+            if view == self.GALLERY or view == self.ITEMS:
                 if self._model:
                     for colConfig in self._model.getColumnConfig():
                         if colConfig["renderable"] and colConfig["visible"]:
@@ -499,8 +500,11 @@ class DataView(QWidget):
         self._sortRole = role
 
     def setup(self, **kwargs):
+        """ TODO: Reconfigure the views, eliminating those that will not be used
+                  and creating the new ones.
+        """
         self.__initProperties(**kwargs)
-        self.__setupImageView()
+        self.__setupActions()
 
     def showToolBar(self, visible):
         """ Show or hide the toolbar """
@@ -529,20 +533,9 @@ class DataView(QWidget):
         return self._views
 
     def setAvailableViews(self, views):
-        """ Sets the available views
-        TODO: If current view not in views?"""
-        li = [self.COLUMNS, self.GALLERY, self.ITEMS]
-        n = []
-        for v in views:
-            va = self._viewActions[v]
-            action = va["action"]
-            if v in li:
-                n.append(v)
-                action.setVisible(True)
-            else:
-                action.setVisible(False)
-        if n:
-            self._views = n
+        """ Sets the available views """
+        self._views = views
+        self.__createViews()
 
     def getPage(self):
         """ Return the current page for current view
@@ -580,16 +573,6 @@ class DataView(QWidget):
         self._disablePopupMenu = kwargs.get("disablePopupMenu", False)
         self._disableFitToSize = kwargs.get("disableFitToSize", False)
 
-    def __setupImageView(self):
+    def __setupActions(self):
         for v in self._actionGroupViews.actions():
             v.setVisible(self._viewTypes[v.objectName()] in self._views)
-
-        if self._disableHistogram:
-            self._imageView.ui.histogram.hide()
-        if self._disableMenu:
-            self._imageView.ui.menuBtn.hide()
-        if self._disableROI:
-            self._imageView.ui.roiBtn.hide()
-        if self._disablePopupMenu:
-            self._imageView.getView().setMenuEnabled(False)
-
