@@ -160,14 +160,15 @@ if __name__ == '__main__':
             if mode == 'slices':
                 view = MultiSliceView(path=files)
 
-            elif mode == 'gallery':  # Display the Gallery app
-                models, delegates = createVolumeModel(files)
-                kwargs['defaultRowHeight'] = 120
-                kwargs['defaultView'] = DataView.GALLERY
-                kwargs['views'] = [DataView.GALLERY, DataView.COLUMNS]
-                tableWin = DataView(parent=None,
-                                    **kwargs)
-                tableWin.setModel(models, delegates)
+            elif mode == 'gallery' or mode == 'columns' or mode == 'items':
+                model = createVolumeModel(files)
+                v = DataView.GALLERY if mode == 'gallery' else \
+                    DataView.COLUMNS if mode == 'columns' else DataView.ITEMS
+                kwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
+                                           DataView.ITEMS]
+                kwargs['view'] = v
+                tableWin = DataView(**kwargs)
+                tableWin.setModel(model)
                 view = tableWin
             else:
                 raise Exception("Invalid display mode for volume: '%s'"

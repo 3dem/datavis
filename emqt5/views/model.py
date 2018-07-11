@@ -343,6 +343,18 @@ class VolumeDataModel(QAbstractItemModel):
 
     DataTypeRole = Qt.UserRole + 2
 
+    """ 
+    Signal emitted when change page configuration 
+    emit (page, pageCount, pageSize)
+    """
+    sigPageConfigChanged = pyqtSignal(int, int, int)
+
+    """ 
+        Signal emitted when change the current page 
+        emit (page)
+        """
+    sigPageChanged = pyqtSignal(int)
+
     def __init__(self, path, **kwargs):
         """
         Constructs an DataModel to be used from a View for display volume data.
@@ -360,19 +372,289 @@ class VolumeDataModel(QAbstractItemModel):
         self._iconSize = QSize(32, 32)
         self._path = path
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
-                                 or self.__createDefaultTableViewConfig())
+                                 or TableViewConfig.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
         self._page = 0
         self._pageCount = 0
         self._title = kwargs.get('title', '')
+        self._dim = EmImage.getDim(path)
+        self._axis = X_AXIS
+        self._rows = 0
+        self.setAxis(kwargs.get('axis', X_AXIS))
+        
+    def setAxis(self, axis):
+        """ Sets the current axis """
+        if axis == X_AXIS:
+            self._rows = self._dim.x
+        elif axis == Y_AXIS:
+            self._rows = self._dim.y
+        elif axis == Z_AXIS:
+            self._rows = self._dim.z
+        else:
+            self._rows = 0
+
+        self._axis = axis
         self.__setupModel()
 
-    def __createDefaultTableViewConfig(self):
+    def data(self, qModelIndex, role=Qt.DisplayRole):
+        """ Reimplemented function from QAbstractItemModel. """
+        if not qModelIndex.isValid():
+            return None
+        row = qModelIndex.row() + self._page * self._pageSize
+        col = qModelIndex.column()
+
+        t = self._tableViewConfig[col].getType() \
+            if self._tableViewConfig else None
+
+        if role == TableDataModel.DataTypeRole:
+            return t
+        if role == Qt.DecorationRole:
+            return QVariant()
+        if role == Qt.DisplayRole:
+            if t == TableViewConfig.TYPE_BOOL:
+                return QVariant()  # hide 'True' or 'False'
+            # we use Qt.UserRole for store data
+            return QVariant(self.getTableData(row, col))
+        if role == Qt.CheckStateRole:
+            if t == TableViewConfig.TYPE_BOOL:
+                return Qt.Checked \
+                    if self.getTableData(row, col) else Qt.Unchecked
+            return QVariant()
+
+        if role == Qt.EditRole:
+            return QVariant(self.getTableData(row, col))
+
+        if role == Qt.SizeHintRole:
+            if self._tableViewConfig[col]["renderable"]:
+                return self._iconSize
+
+        if role == Qt.TextAlignmentRole:
+            return Qt.AlignVCenter
+
+        return QVariant(self.getTableData(row, col))
+
+    def columnCount(self, index=QModelIndex()):
         """
-        Return the default configuration for the three columns:
-        index, enabled, slice
+        Reimplemented from QAbstractItemModel.
+        Return the column count
         """
+        return len(self._tableViewConfig) if self._tableViewConfig else 0
+
+    def rowCount(self, index=QModelIndex()):
+        """
+        Reimplemented from QAbstractItemModel.
+        Return the items per page.
+        """
+        vc = (self._page + 1) * self._pageSize
+
+        if self._axis == X_AXIS:
+            ts = self._dim.x
+        elif self._axis == Y_AXIS:
+            ts = self._dim.y
+        else:
+            ts = self._dim.z
+
+        if vc > ts:  # last page
+            return self._pageSize - (vc - ts)
+
+        return self._pageSize
+
+    def index(self, row, column, parent=QModelIndex()):
+        """
+        Reimplemented from QAbstractItemModel.
+        Returns the index of the item in the model specified by the given row,
+        column and parent index.
+        """
+        return self.createIndex(row, column)
+
+    def parent(self, index):
+        """
+        Reimplemented from QAbstractItemModel.
+        Returns the parent of the model item with the given index.
+        If the item has no parent, an invalid QModelIndex is returned.
+        """
+        return QModelIndex()
+
+    def totalRowCount(self):
+        """
+        Return the row count for the entire model
+        """
+        if self._axis == X_AXIS:
+            return self._dim.x
+        elif self._axis == Y_AXIS:
+            return self._dim.y
+
+        return self._dim.z
+
+    def setData(self, qModelIndex, value, role=Qt.EditRole):
+        """
+        Reimplemented from QAbstractItemModel
+        """
+        if not qModelIndex.isValid():
+            return False
+
+        if self.flags(qModelIndex) & Qt.ItemIsEditable:
+            return self.setTableData(qModelIndex.row(),
+                                     qModelIndex.column(),
+                                     value)
+
+        return False
+
+    def setTableData(self, row, column, value):
+        """
+        Set table data.
+        TODO: how to store "enable" column
+        """
+        return False
+
+    def getTableData(self, row, col):
+        """
+        Return the data for specified column and row
+        """
+        if row in range(0, self._rows) \
+                and col in range(0, len(self._tableViewConfig)):
+            if col == 0:
+                return row + 1
+            if col == 1:
+                return True
+            if col == 2:
+                return str(row) + '@' + str(self._axis) + '@' + self._path
+
         return None
+
+    @pyqtSlot(int)
+    def loadPage(self, pageIndex=-1):
+        """
+        Load the page specified by pageIndex. If pageIndex is not within
+        the page range then load the current page.
+        """
+        self.beginResetModel()
+        if pageIndex in range(0, self._pageCount):
+            self._page = pageIndex
+        self.endResetModel()
+        self.sigPageChanged.emit(self._page)
+
+    def prevPage(self):
+        self._page = self._page - 1 \
+            if self._page > 0 else 0
+        self.loadPage()
+
+    def nextPage(self):
+        self._page = self._page + 1 \
+            if (self._page + 1) * self._pageSize <= len(self._emTable)\
+             else self._page
+        self.loadPage()
+
+    def headerData(self, column, orientation, role=Qt.DisplayRole):
+        if self._tableViewConfig and \
+                column in range(0, len(self._tableViewConfig)) \
+                and orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return self._tableViewConfig[column].getLabel()
+
+    def setItemsPerPage(self, pageSize):
+        """
+        Set the items per page value and calculates the current configuration
+        """
+        if pageSize <= 0:
+            pageSize = 1
+
+        self._pageSize = pageSize
+        self.__setupModel()
+
+    def setupPage(self, pageSize, currentPage):
+        """
+        Configure paging properties. Load the model data for the specified page
+        :param pageSize:
+        :param currentPage:
+        :return:
+        """
+        if pageSize <= 0:
+            pageSize = 1
+
+        self._pageSize = pageSize
+        self._page = currentPage if currentPage >= 0 else 0
+        self.__setupModel()
+        self.loadPage()
+        self.sigPageConfigChanged.emit(self._page, self._pageCount,
+                                       self._pageSize)
+
+    def flags(self, qModelIndex):
+        """
+        Reimplemented from QStandardItemModel
+        :param qModelIndex: index in the model
+        :return: The flags for the item. See :  Qt.ItemDataRole
+        """
+        fl = Qt.NoItemFlags
+        col = qModelIndex.column()
+        if qModelIndex.isValid():
+            if self._tableViewConfig:
+                if self._tableViewConfig[col]["editable"]:
+                    fl |= Qt.ItemIsEditable
+                if self._tableViewConfig[col].getType() == \
+                        TableViewConfig.TYPE_BOOL:
+                    fl |= Qt.ItemIsUserCheckable
+
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
+
+    def setColumnConfig(self, colConfig):
+        """
+        Set the column properties for the model
+        """
+        self._tableViewConfig = colConfig
+
+    def getColumnConfig(self, column=-1):
+        """
+        Return column configuration for the given column index
+        :param column: column index, first column is 0.
+                       column <0 return entire list
+        :return: ColumnConfig.
+        """
+        if column < 0 or not self._tableViewConfig:
+            return self._tableViewConfig
+
+        if column < len(self._tableViewConfig):
+            return self._tableViewConfig[column]
+
+        return None
+
+    def setIconSize(self, size):
+        """
+        Sets the size for renderable items
+        :param size: QSize
+        """
+        self._iconSize = size
+
+    def getPageCount(self):
+        """ Return the page count for this model """
+        return self._pageCount
+
+    def getPage(self):
+        """ Return the current page for this model """
+        return self._page
+
+    def getPageSize(self):
+        """ Return the items per page for this model """
+        return self._pageSize
+
+    def getTitle(self):
+        """ Return the title for this model """
+        return self._title
+
+    def __setupModel(self):
+        """
+        Configure the model according to the pageSize and current page
+        values
+        """
+        s = self._rows
+        offset = self._page * self._pageSize
+
+        if s < self._pageSize:
+            self._pageCount = 1
+        else:
+            self._pageCount = int(s / self._pageSize) + \
+                              (1 if s % self._pageSize else 0)
+
+        self._page = int(offset / self._pageSize)
 
 
 class ImageCache:
@@ -460,103 +742,9 @@ def createStackModel(imagePath):
     return [TableDataModel(xTable, title='Stack')], None
 
 
-def createVolumeModel(imagePath):
-    image = em.Image()
-    loc2 = em.ImageLocation(imagePath)
-    image.read(loc2)
+def createVolumeModel(imagePath, axis=X_AXIS, title="Volume"):
 
-    # Create three Tables with the volume slices
-    xTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "X",
-                                       em.typeString,
-                                       "X Dimension")])
-    xtableViewConfig = TableViewConfig()
-    xtableViewConfig.addColumnConfig(name='index',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Index',
-                                        'editable': False,
-                                        'visible': True})
-    xtableViewConfig.addColumnConfig(name='X',
-                                     dataType=TableViewConfig.TYPE_STRING,
-                                     **{'label': 'X',
-                                        'renderable': True,
-                                        'editable': False,
-                                        'visible': True})
-
-    yTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Y",
-                                       em.typeString,
-                                       "Y Dimension")])
-    ytableViewConfig = TableViewConfig()
-    ytableViewConfig.addColumnConfig(name='index',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Index',
-                                        'editable': False,
-                                        'visible': True})
-    ytableViewConfig.addColumnConfig(name='Y',
-                                     dataType=TableViewConfig.TYPE_STRING,
-                                     **{'label': 'Y',
-                                        'renderable': True,
-                                        'editable': False,
-                                        'visible': True})
-    zTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Z",
-                                       em.typeString,
-                                       "Z Dimension")])
-    ztableViewConfig = TableViewConfig()
-    ztableViewConfig.addColumnConfig(name='index',
-                                     dataType=TableViewConfig.TYPE_INT,
-                                     **{'label': 'Index',
-                                        'editable': False,
-                                        'visible': True})
-    ztableViewConfig.addColumnConfig(name='Z',
-                                     dataType=TableViewConfig.TYPE_STRING,
-                                     **{'label': 'Z',
-                                        'renderable': True,
-                                        'editable': False,
-                                        'visible': True})
-
-    # Get the volume dimension
-    _dim = image.getDim()
-    _dx = _dim.x
-    _dy = _dim.y
-    _dz = _dim.z
-
-    for i in range(0, _dx):
-        row = xTable.createRow()
-        row['X'] = str(i) + '@' + str(X_AXIS) + '@' + imagePath
-        row['index'] = i
-        xTable.addRow(row)
-
-    for i in range(0, _dy):
-        row = yTable.createRow()
-        row['Y'] = str(i) + '@' + str(Y_AXIS) + '@' + imagePath
-        row['index'] = i
-        yTable.addRow(row)
-
-    for i in range(0, _dz):
-        row = zTable.createRow()
-        row['Z'] = str(i) + '@' + str(Z_AXIS) + '@' + imagePath
-        row['index'] = i
-        zTable.addRow(row)
-
-    models = list()
-    models.append(TableDataModel(xTable, title='X Axis (Right View)',
-                                 tableViewConfig=xtableViewConfig))
-
-    models.append(TableDataModel(yTable, title='Y Axis (Left View)',
-                                 tableViewConfig=ytableViewConfig))
-
-    models.append(TableDataModel(zTable, title='Z Axis (Front View)',
-                                 tableViewConfig=ztableViewConfig))
-
-    return models, None
+    return VolumeDataModel(imagePath, parent=None, axis=axis, title=title)
 
 
 def createSingleImageModel(imagePath):

@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
-from .model import ImageCache
+from .model import ImageCache, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
@@ -129,6 +129,8 @@ class DataView(QWidget):
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
         self._toolBar.addWidget(self._labelCurrentTable)
         self._comboBoxCurrentTable = QComboBox(self._toolBar)
+        self._comboBoxCurrentTable.currentIndexChanged.\
+            connect(self._onAxisChanged)
         self._toolBar.addWidget(self._comboBoxCurrentTable)
         self._toolBar.addSeparator()
 
@@ -253,9 +255,16 @@ class DataView(QWidget):
 
         model.clear()
         if self._model:
-            item = QStandardItem(self._model.getTitle())
-            item.setData(0, Qt.UserRole)  # use UserRole for store
-            model.appendRow([item])
+            if isinstance(self._model, VolumeDataModel):
+                s = ['X', 'Y', 'Z']
+                for axis in s:
+                    item = QStandardItem(self._model.getTitle() + "(%s)" % axis)
+                    item.setData(0, Qt.UserRole)  # use UserRole for store
+                    model.appendRow([item])
+            else:
+                item = QStandardItem(self._model.getTitle())
+                item.setData(0, Qt.UserRole)  # use UserRole for store
+                model.appendRow([item])
 
         self._comboBoxCurrentTable.blockSignals(blocked)
 
@@ -376,6 +385,23 @@ class DataView(QWidget):
         """ Invoked when views change the current row """
         if not self._currentRow == row:
             self._selectRow(row + 1)
+
+    @pyqtSlot(int)
+    def _onAxisChanged(self, index):
+        """ Invoked when user change the axis in volumes """
+        if self._model and isinstance(self._model, VolumeDataModel):
+            t = self._comboBoxCurrentTable.currentText().split("(")
+            if len(t) > 1:
+                s = t[len(t)-1]
+                if s == "X)":
+                    self._model.setAxis(X_AXIS)
+                elif s == "Y)":
+                    self._model.setAxis(Y_AXIS)
+                elif s == "Z)":
+                    self._model.setAxis(Z_AXIS)
+                self._model.setupPage(self._model.getPageSize(), 0)
+                self._selectRow(0)
+
 
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):

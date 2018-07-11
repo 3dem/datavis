@@ -98,6 +98,7 @@ class TableViewConfig:
 
     @classmethod
     def createStackConfig(cls):
+        """ Create a TableViewConfig instance for a stack """
         tableViewConfig = TableViewConfig()
         tableViewConfig.addColumnConfig(name='index',
                                         dataType=TableViewConfig.TYPE_INT,
@@ -107,6 +108,29 @@ class TableViewConfig:
         tableViewConfig.addColumnConfig(name='Image',
                                         dataType=TableViewConfig.TYPE_STRING,
                                         label='Image',
+                                        renderable=True,
+                                        editable=False,
+                                        visible=True)
+
+        return tableViewConfig
+
+    @classmethod
+    def createVolumeConfig(cls):
+        """ Create a TableViewConfig instance for a volume """
+        tableViewConfig = TableViewConfig()
+        tableViewConfig.addColumnConfig(name='index',
+                                        dataType=TableViewConfig.TYPE_INT,
+                                        label='Index',
+                                        editable=False,
+                                        visible=True)
+        tableViewConfig.addColumnConfig(name='enabled',
+                                        dataType=TableViewConfig.TYPE_BOOL,
+                                        label='Enabled',
+                                        editable=False,
+                                        visible=True)
+        tableViewConfig.addColumnConfig(name='slice',
+                                        dataType=TableViewConfig.TYPE_STRING,
+                                        label='Slice',
                                         renderable=True,
                                         editable=False,
                                         visible=True)

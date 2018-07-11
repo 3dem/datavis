@@ -403,14 +403,14 @@ class BrowserWindow(QMainWindow):
                 self.__showVolumeSlice()
                 self._changeViewFrame.setVisible(True)
             else:
-                models, delegates = createVolumeModel(imagePath)
+                model = createVolumeModel(imagePath)
                 galleryKwargs = {}
                 galleryKwargs['defaultRowHeight'] = 100
                 galleryKwargs['defaultView'] = DataView.GALLERY
                 galleryKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
                                           DataView.ITEMS]
                 self._tableView.setup(**galleryKwargs)
-                self._tableView.setModel(models, delegates)
+                self._tableView.setModel(model)
                 self.__showTableView()
                 self._changeViewFrame.setVisible(True)
 
