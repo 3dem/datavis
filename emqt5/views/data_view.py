@@ -400,7 +400,7 @@ class DataView(QWidget):
                 elif s == "Z)":
                     self._model.setAxis(Z_AXIS)
                 self._model.setupPage(self._model.getPageSize(), 0)
-                self._selectRow(0)
+                self._selectRow(1)
 
 
     @pyqtSlot(int)
@@ -417,11 +417,11 @@ class DataView(QWidget):
 
         if self._model:
             if self._comboBoxCurrentColumn.model().rowCount():
-                viewWidget = self._viewsDict[self.GALLERY]
+                viewWidget = self._viewsDict.get(self.GALLERY)
                 if viewWidget is not None:
                     viewWidget.setModelColumn(self._currentRenderableColumn)
 
-                viewWidget = self._viewsDict[self.ITEMS]
+                viewWidget = self._viewsDict.get(self.ITEMS)
                 if viewWidget is not None:
                     viewWidget.setModelColumn(self._currentRenderableColumn)
 
@@ -469,7 +469,7 @@ class DataView(QWidget):
         """
         if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
-                viewWidget = self._viewsDict[self._viewName]
+                viewWidget = self._viewsDict.get(self._viewName)
 
                 if viewWidget is not None:
                     viewWidget.selectRow(self._currentRow)

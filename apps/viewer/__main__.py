@@ -62,7 +62,12 @@ if __name__ == '__main__':
                            required=False,
                            choices=['gallery', 'columns', 'items', 'slices'],
                            help=' the default view. COLUMNS if not specified')
-
+    argParser.add_argument('--views', type=str, nargs='+',
+                           choices=['gallery', 'columns', 'items'],
+                           default=['gallery', 'columns', 'items'],
+                           required=False,
+                           help=' list of views. [COLUMNS, ITEMS, GALLERY] '
+                                'if not specified')
     argParser.add_argument('--disable-histogram', default=False,
                            required=False, action='store_true',
                            help=' hide the histogram widget in the view image '
@@ -111,6 +116,10 @@ if __name__ == '__main__':
              'columns': DataView.COLUMNS,
              'items': DataView.ITEMS}
 
+    vs = []
+    for v in args.views:
+        vs.append(views[v])
+    kwargs['views'] = vs
     kwargs['disableHistogram'] = args.disable_histogram
     kwargs['disableMenu'] = args.disable_menu
     kwargs['disableROI'] = args.disable_roi
@@ -162,11 +171,7 @@ if __name__ == '__main__':
 
             elif mode == 'gallery' or mode == 'columns' or mode == 'items':
                 model = createVolumeModel(files)
-                v = DataView.GALLERY if mode == 'gallery' else \
-                    DataView.COLUMNS if mode == 'columns' else DataView.ITEMS
-                kwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                           DataView.ITEMS]
-                kwargs['view'] = v
+                kwargs['view'] = views[mode]
                 tableWin = DataView(**kwargs)
                 tableWin.setModel(model)
                 view = tableWin
