@@ -350,9 +350,9 @@ class VolumeDataModel(QAbstractItemModel):
     sigPageConfigChanged = pyqtSignal(int, int, int)
 
     """ 
-        Signal emitted when change the current page 
-        emit (page)
-        """
+    Signal emitted when change the current page
+    emit (page)
+    """
     sigPageChanged = pyqtSignal(int)
 
     def __init__(self, path, **kwargs):
