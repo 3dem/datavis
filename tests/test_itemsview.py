@@ -16,7 +16,7 @@ testDataPath = os.environ.get("EM_TEST_DATA", None)
 
 if testDataPath is not None:
     path = os.path.join(testDataPath, "relion_tutorial", "import", "classify2d",
-                            "extra", "relion_it025_classes.mrcs")
+                            "extra", "relion_it015_classes.mrcs")
 
     table = em.Table([em.Table.Column(0, "index", em.typeInt32, "Image index"),
                       em.Table.Column(1, "path", em.typeString, "Image path")])

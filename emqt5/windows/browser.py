@@ -437,7 +437,7 @@ class BrowserWindow(QMainWindow):
                 imageKwargs['disableFitToSize'] = img
 
                 self._tableView.setup(**imageKwargs)
-                self._tableView.setModel(models, delegates)
+                self._tableView.setModel(models)
                 self.__showTableView()
 
                 self._changeViewFrame.setVisible(False)
