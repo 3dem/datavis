@@ -1,20 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
 import sys
-from PyQt5.QtWidgets import QApplication, QMessageBox
+import argparse
+
 
 from PyQt5.QtCore import QDir
+from PyQt5.QtWidgets import QApplication, QMessageBox
 
 import em
-from emqt5.widgets.image.browser_window import BrowserWindow
-from emqt5.widgets.image.volume_slicer import VolumeSlice
-from emqt5.views import (TableView, PERCENT_UNITS, PIXEL_UNITS,
-                         createVolumeModel, createStackModel, createTableModel)
-import emqt5.utils.functions as em_utils
+from emqt5.utils import EmPath, EmTable
+from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
+                         createVolumeModel, TableDataModel, MultiSliceView,
+                         TableViewConfig)
+from emqt5.windows import BrowserWindow
 
-
-import argparse
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -33,10 +34,6 @@ if __name__ == '__main__':
     argParser.add_argument('files', type=str, nargs='?', default=[],
                             help='3D image path or a list of image files or'
                                  ' specific directory')
-    argParser.add_argument('--slices', type=str, default=['gallery', 'axis'],
-                           nargs='+', required=False, choices=['gallery',
-                                                               'axis'],
-                           help=' list of accessible')
 
     # EM-BROWSER PARAMETERS
     argParser.add_argument('--disable-zoom', default=False,
@@ -61,17 +58,16 @@ if __name__ == '__main__':
                            choices=['%', 'px'],
                            help=' units in which the rescaling  will be done: '
                                 ' percent or pixels ')
-    argParser.add_argument('--default-view', type=str, default='TABLE',
+    argParser.add_argument('--view', type=str, default='',
                            required=False,
-                           choices=['GALLERY', 'TABLE', 'ELEMENT'],
-                           help=' the default view. TABLE if not specified')
-    argParser.add_argument('--views', type=str,
-                           default=['GALLERY', 'TABLE', 'ELEMENT'],
-                           nargs='+', required=False,
-                           choices=['GALLERY', 'TABLE', 'ELEMENT'],
-                           help=' list of accessible '
-                                'views.[\'GALLERY\', \'TABLE\', \'ELEMENT\'] if'
-                                ' not specified')
+                           choices=['gallery', 'columns', 'items', 'slices'],
+                           help=' the default view. COLUMNS if not specified')
+    argParser.add_argument('--views', type=str, nargs='+',
+                           choices=['gallery', 'columns', 'items'],
+                           default=['gallery', 'columns', 'items'],
+                           required=False,
+                           help=' list of views. [COLUMNS, ITEMS, GALLERY] '
+                                'if not specified')
     argParser.add_argument('--disable-histogram', default=False,
                            required=False, action='store_true',
                            help=' hide the histogram widget in the view image '
@@ -101,7 +97,6 @@ if __name__ == '__main__':
     # GENERAL ARGS
     kwargs['files'] = QDir.toNativeSeparators(args.files) if len(args.files) \
         else QDir.currentPath()
-    kwargs['--slices'] = args.slices
 
     # EM-BROWSER ARGS
     kwargs['--disable-zoom'] = args.disable_zoom
@@ -115,116 +110,74 @@ if __name__ == '__main__':
     kwargs['minRowHeight'] = args.min_cell_size
     kwargs['zoomUnits'] = PERCENT_UNITS if args.zoom_units == '%' \
         else PIXEL_UNITS
-    if models:
-        kwargs['defaultView'] = 'GALLERY'
-        kwargs['views'] = ['GALLERY', 'TABLE']
-    else:
-        kwargs['defaultView'] = args.default_view
-        kwargs['views'] = args.views
+
+    view = args.view
+    views = {'gallery': DataView.GALLERY,
+             'columns': DataView.COLUMNS,
+             'items': DataView.ITEMS}
+
+    vs = []
+    for v in args.views:
+        vs.append(views[v])
+    kwargs['views'] = vs
     kwargs['disableHistogram'] = args.disable_histogram
     kwargs['disableMenu'] = args.disable_menu
     kwargs['disableROI'] = args.disable_roi
     kwargs['disablePopupMenu'] = args.disable_popup_menu
     kwargs['disableFitToSize'] = args.disable_fit_to_size
 
-    if not args.files:  # Display the EM-BROWSER component
+    def createTableView(table, tableViewConfig, title, defaultView):
+        tableView = DataView(view=defaultView)
+        tableView.setModel(TableDataModel(table, title=title,
+                                          tableViewConfig=tableViewConfig))
+        return tableView
 
-        kwargs['--files'] = QDir.currentPath()
-        browserWin = BrowserWindow(**kwargs)
-        browserWin.show()
-    else:  # We parse the path
+    def createBrowserView(path):
+        return BrowserWindow(path, **kwargs)
 
-        isDir = QDir(args.files)
+    files = args.files or os.getcwd()  # if not files use the current dir
 
-        if isDir:  # The path constitute an directory. In this case we display
-                   # the EM-BROWSER component
-            kwargs['--files'] = args.files
-            browserWin = BrowserWindow(**kwargs)
-            browserWin.show()
+    if not os.path.exists(files):
+        raise Exception("Input file '%s' does not exists. " % files)
 
-        else:  # The path constitute a file. In this case we parse this file
+    # If the input is a directory, display the BrowserWindow
+    if os.path.isdir(files):
+        view = createBrowserView(files)
+    elif EmPath.isTable(files):  # Display the file as a Table:
+        view = createTableView(EmTable.load(files), None, 'Table',
+                               views.get(args.view, DataView.COLUMNS))
+    elif EmPath.isStack(files):
+        view = createTableView(EmTable.fromStack(files),
+                               TableViewConfig.createStackConfig(),
+                               'Stack',
+                               views.get(args.view, DataView.GALLERY))
+    elif EmPath.isData(files):  # Image or Volume at this point
+        # Create an image from imagePath using em-bindings
+        image = em.Image()
+        loc2 = em.ImageLocation(files)
+        image.read(loc2)
 
-            directory = QDir(args.files)
-            isFileExist = directory.exists(args.files)
+        # Determinate the image dimension
+        z = image.getDim().z
 
-            if isFileExist:  # The file exist
+        if z == 1:  # Display the EM-BROWSER component
+            view = createBrowserView(files)  # FIXME: Replace this with the ImageView
+        else:  # The image has a Volume
+            # Read the display mode or 'axis' as default
+            mode = args.view or 'slices'
 
-                if em_utils.isEmImage(args.files) or \
-                        em_utils.isEMImageVolume(args.files):
-                    # The file constitute an em-image.
-                    # In this case we determined if the
-                    # image has a volume or not
+            if mode == 'slices':
+                view = MultiSliceView(path=files)
 
-                    # Create an image from imagePath using em-bindings
-                    image = em.Image()
-                    loc2 = em.ImageLocation(args.files)
-                    image.read(loc2)
+            elif mode == 'gallery' or mode == 'columns' or mode == 'items':
+                model = createVolumeModel(files)
+                kwargs['view'] = views[mode]
+                tableWin = DataView(**kwargs)
+                tableWin.setModel(model)
+                view = tableWin
+            else:
+                raise Exception("Invalid display mode for volume: '%s'"
+                                % mode)
 
-                    # Determinate the image dimension
-                    z = image.getDim().z
-
-                    if z == 1:  # Display the EM-BROWSER component
-                        kwargs['--files'] = args.files
-                        browserWin = BrowserWindow(**kwargs)
-                        browserWin.show()
-
-                    else:  # The image has a Volume
-                        if len(args.slices) == 1:
-                            if args.slices[0] == 'axis':  # Display the Volume
-                                                          # Slicer app
-                                kwargs['imagePath'] = args.files
-                                volumeSlice = VolumeSlice(**kwargs)
-                                volumeSlice.show()
-                            elif args.slices[0] == 'gallery':  # Display the
-                                                               # Gallery app
-                                models, delegates = createVolumeModel(args.files)
-                                kwargs['defaultRowHeight'] = 120
-                                kwargs['defaultView'] = 'GALLERY'
-                                kwargs['views'] = ['GALLERY', 'TABLE']
-                                tableWin = TableView(parent=None,
-                                                     **kwargs)
-                                tableWin.setModel(models, delegates)
-                                tableWin.show()
-
-                            else:
-                                QMessageBox.critical(app.parent(), 'ERROR',
-                                                     'A valid way to display '
-                                                     'the image are required')
-                        else:  # Display the image by the default component:
-                               # Volume-Slicer
-                            kwargs['imagePath'] = args.files
-                            volumeSlice = VolumeSlice(**kwargs)
-                            volumeSlice.show()
-
-                elif em_utils.isEMImageStack(args.files):  # Display the file as
-                                                          # a Image Stack
-                    models, delegates = createStackModel(args.files)
-                    kwargs['defaultRowHeight'] = 120
-                    kwargs['defaultView'] = 'GALLERY'
-                    kwargs['views'] = ['GALLERY', 'TABLE']
-                    tableWin = TableView(parent=None,
-                                         **kwargs)
-                    tableWin.setModel(models, delegates)
-                    tableWin.show()
-
-                elif em_utils.isEMTable(args.files):   # Display the file as
-                                                      # a Table
-                        models = [createTableModel(args.files)]
-                        kwargs['defaultRowHeight'] = 120
-                        kwargs['defaultView'] = 'TABLE'
-                        kwargs['views'] = ['TABLE']
-
-                        tableWin = TableView(parent=None,
-                                             **kwargs)
-                        tableWin.setModel(models)
-                        tableWin.show()
-
-                else:  # Display the EM-BROWSER component
-                    kwargs['--files'] = args.files
-                    browserWin = BrowserWindow(**kwargs)
-                    browserWin.show()
-
-            else:  # The file don't exist
-                QMessageBox.critical(app.parent(), 'ERROR',
-                                     'A file do not exist')
+    view.show()
     sys.exit(app.exec_())

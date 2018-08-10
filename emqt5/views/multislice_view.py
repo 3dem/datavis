@@ -1,31 +1,28 @@
 
+
 from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
                              QGridLayout, QSlider, QSpinBox)
 from PyQt5.QtCore import Qt, QSize, QEvent
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-import emqt5.utils.functions as em_utils
-
 import numpy as np
 import pyqtgraph as pg
 
 import em
+from emqt5.utils import EmPath
 
 
-class VolumeSlice(QWidget):
+class MultiSliceView(QWidget):
     """
     Declaration of Volume Slice class
     """
     def __init__(self, parent=None, **kwargs):
-
-        super(VolumeSlice, self).__init__(parent)
-
-        self._imagePath = None
+        super(MultiSliceView, self).__init__(parent)
+        self._path = None
         self._image = None
         self._array3D = None
         self.__initComponents__()
-        self.setImagePath(kwargs.get('imagePath'))
-
+        self.loadPath(kwargs.get('path', None))
 
     def _onTopSpinBoxChanged(self, value):
         """
@@ -221,25 +218,17 @@ class VolumeSlice(QWidget):
         # central slice on each axis
         self.createVolumeSliceDialog(0, 0, 0)
 
-    def getImage(self):
-        """
-        Get the image
-        :return: an em-image
-        """
-        return self._image
-
-    def setImagePath(self, imagePath):
+    def loadPath(self, path):
         """
         Set the image Path
         :param imagePath: new image path
         """
-        self._imagePath = imagePath
+        self._path = path
         self._image = None
-        if self._imagePath:
-            if em_utils.isEMImageVolume(self._imagePath):
-                self.setMinimumWidth(500)
-                self.setMinimumHeight(500)
-                self.volumeSlice()
+        if self._path and EmPath.isVolume(self._path):
+            self.setMinimumWidth(500)
+            self.setMinimumHeight(500)
+            self.volumeSlice()
         else:
             self.clearComponent()
 
@@ -255,11 +244,11 @@ class VolumeSlice(QWidget):
         Given 3D data, select a 2D plane and interpolate data along that plane
         to generate a slice image.
         """
-        if em_utils.isEMImageVolume(self._imagePath):
+        if EmPath.isVolume(self._path):
 
             # Create an image from imagePath using em-bindings
             self._image = em.Image()
-            loc2 = em.ImageLocation(self._imagePath)
+            loc2 = em.ImageLocation(self._path)
             self._image.read(loc2)
             # Read the dimensions of the image
             dim = self._image.getDim()
@@ -269,10 +258,8 @@ class VolumeSlice(QWidget):
             self._dz = dim.z
 
             if self._dz > 1:  # The image has a volumes
-
                 # Create a numpy 3D array with the image values pixel
                 self._array3D = np.array(self._image, copy=False)
-
                 self._sliceZ = int(self._dz / 2)
                 self._sliceY = int(self._dy / 2)
                 self._sliceX = int(self._dx / 2)
@@ -291,16 +278,16 @@ class VolumeSlice(QWidget):
 
                 self.initVolumeSliceDialog(self._dx, self._dy, self._dz)
             else:
-                self.createErrorTextLoadingImage()
+                self.__showError('A valid 3D image format are required. '
+                                 'Check the image path.')
 
-    def createErrorTextLoadingImage(self):
+    def __showError(self, msg):
         """
         Create an Error Text because the image do not has a volume
         """
         self.setGeometry(500, 150, 430, 400)
         label = QLabel(self)
-        label.setText(' ERROR: A valid 3D image format are required. See the '
-                      'image path.')
+        label.setText('ERROR: ' + msg)
 
     def initVolumeSliceDialog(self, x, y, z):
         """

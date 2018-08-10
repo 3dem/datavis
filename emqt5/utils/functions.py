@@ -1,67 +1,116 @@
-import em
 
 import os
 import traceback
 import sys
 
+import em
 
-def isEmImage(imagePath):
-    """ Return True if imagePath has an extension recognized as supported
+
+class EmPath:
+    """
+    Helper class to group functions related to path handling in EM.
+    """
+    EXT_IMAGE = 0
+    EXT_VOLUME = 1
+    EXT_STACK = 2
+    EXT_TABLE = 3
+    EXT_STD_IMAGE = 4  # Standard image extensions
+
+    EXTESIONS_MAP = {
+        EXT_IMAGE: ['.mrc', '.spi', '.xmp'],
+        EXT_VOLUME: ['.mrc', '.vol', '.map'],
+        EXT_STACK: ['.mrc', '.mrcs', '.stk'],
+        EXT_TABLE: ['.star', '.xmd', '.sqlite'],
+        EXT_STD_IMAGE: ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+    }
+
+    @classmethod
+    def __isFile(cls, path, extType):
+        if not path:
+            return False
+        _, ext = os.path.splitext(path)
+        return ext in cls.EXTESIONS_MAP[extType]
+
+    @classmethod
+    def isImage(cls, path):
+        """ Return True if imagePath has an extension recognized as supported
         EM-image """
-    if imagePath is None:
-        return False
-    _, ext = os.path.splitext(imagePath)
-    if imagePath is None:
-        return False
-    return ext in ['.mrc', '.spi']
+        return cls.__isFile(path, cls.EXT_IMAGE)
+
+    @classmethod
+    def isVolume(cls, path):
+        return cls.__isFile(path, cls.EXT_VOLUME)
+
+    @classmethod
+    def isStack(cls, path):
+        return cls.__isFile(path, cls.EXT_STACK)
+
+    @classmethod
+    def isData(cls, path):
+        return cls.isImage(path) or cls.isVolume(path) or cls.isStack(path)
+
+    @classmethod
+    def isTable(cls, path):
+        return cls.__isFile(path, cls.EXT_TABLE)
+
+    @classmethod
+    def isStandardImage(cls, path):
+        return cls.__isFile(path, cls.EXT_STD_IMAGE)
 
 
-def isImage(imagePath):
-    """ Return True if imagePath has a standard image format. """
-    if imagePath is None:
-        return False
-    _, ext = os.path.splitext(imagePath)
-    return ext in ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+class EmImage:
+    """ Helper class around the em.Image class. """
 
+    @classmethod
+    def load(cls, path, index=1):
+        """ Read an image from the path and return the object.
+         Params:
+         loc: can be either a path or a tupe (path, index)
+        """
+        if not os.path.exists(path):
+            raise Exception("Path does not exists: %s" % path)
 
-def isEMImageVolume(imagePath):
-    """ Return True if imagePath has a image volume format. """
-    if imagePath is None:
-        return False
-    _, ext = os.path.splitext(imagePath)
-    return ext in ['.vol', '.map']
-
-
-def isEMImageStack(imagePath):
-    """ Return True if imagePath has a image stack format. """
-    if imagePath is None:
-        return False
-    _, ext = os.path.splitext(imagePath)
-    return ext in ['.mrcs', '.stk']
-
-
-def isEMTable(imagePath):
-    """ Return True if imagePath has a image stack format. """
-    _, ext = os.path.splitext(imagePath)
-    if imagePath is None:
-        return False
-    return ext in ['.xmd', '.star']
-
-
-def loadEMImage(imagePath, index=0):
-    """Return the em image at the given index"""
-    try:
         image = em.Image()
-        loc2 = em.ImageLocation(imagePath)
-        loc2.index = index + 1
-        image.read(loc2)
+        image.read(em.ImageLocation(path, index))
         return image
-    except Exception:
-        print("--------------------------------------------------------------")
-        print("Error occurred reading: ", imagePath)
-        print("--------------------------------------------------------------")
-        traceback.print_exception(*sys.exc_info())
-        return None
+
+    @classmethod
+    def getDim(cls, path):
+        """ Shortcut method to return the dimensions of the given
+        image path. """
+        imageIO = em.ImageIO()
+        imageIO.open(path, em.File.Mode.READ_ONLY)
+        dim = imageIO.getDim()
+        imageIO.close()
+        return dim
+
+
+class EmTable:
+    """ Helper class around em.Table class. """
+    @classmethod
+    def load(cls, path, tableName=''):
+        tio = em.TableIO()
+        tio.open(path, em.File.Mode.READ_ONLY)
+        table = em.Table()
+        tio.read(tableName, table)
+        return table
+
+    @classmethod
+    def fromStack(cls, path):
+        """ Create a table from a given stack. """
+        table = em.Table([
+            em.Table.Column(1, "index", em.typeInt32, "Image index"),
+            em.Table.Column(1, "path", em.typeString, "Image location")
+        ])
+        row = table.createRow()
+        n = EmImage.getDim(path).n
+
+        for i in range(1, n+1):
+            row['index'] = i
+            row['path'] = '%d@%s' % (i, path)
+            table.addRow(row)
+
+        return table
 
 
 def parseImagePath(imgPath):

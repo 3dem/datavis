@@ -78,7 +78,7 @@ class TableViewConfig:
         tvConfig = TableViewConfig()
 
         for item in colsConfig:
-            if isinstance(item, str):
+            if isinstance(item, basestring):  # FIXME: name 'basestring' is not defined in Python3
                 name = item
                 properties = {}
             elif isinstance(item, tuple):
@@ -95,6 +95,46 @@ class TableViewConfig:
                     properties['description'] = col.getDescription()
                 tvConfig.addColumnConfig(name, cType, **properties)
         return tvConfig
+
+    @classmethod
+    def createStackConfig(cls):
+        """ Create a TableViewConfig instance for a stack """
+        tableViewConfig = TableViewConfig()
+        tableViewConfig.addColumnConfig(name='index',
+                                        dataType=TableViewConfig.TYPE_INT,
+                                        label='Index',
+                                        editable=False,
+                                        visible=True)
+        tableViewConfig.addColumnConfig(name='Image',
+                                        dataType=TableViewConfig.TYPE_STRING,
+                                        label='Image',
+                                        renderable=True,
+                                        editable=False,
+                                        visible=True)
+
+        return tableViewConfig
+
+    @classmethod
+    def createVolumeConfig(cls):
+        """ Create a TableViewConfig instance for a volume """
+        tableViewConfig = TableViewConfig()
+        tableViewConfig.addColumnConfig(name='index',
+                                        dataType=TableViewConfig.TYPE_INT,
+                                        label='Index',
+                                        editable=False,
+                                        visible=True)
+        tableViewConfig.addColumnConfig(name='enabled',
+                                        dataType=TableViewConfig.TYPE_BOOL,
+                                        label='Enabled',
+                                        editable=False,
+                                        visible=True)
+        tableViewConfig.addColumnConfig(name='slice',
+                                        dataType=TableViewConfig.TYPE_STRING,
+                                        label='Slice',
+                                        renderable=True,
+                                        editable=False,
+                                        visible=True)
+        return tableViewConfig
 
 
 class ColumnConfig:
