@@ -14,8 +14,10 @@ from emqt5.utils import EmPath, EmTable
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
                          createVolumeModel, TableDataModel, MultiSliceView,
                          TableViewConfig)
+from emqt5.widgets.image import ImageView
 from emqt5.windows import BrowserWindow
 
+import numpy as np
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -135,6 +137,17 @@ if __name__ == '__main__':
     def createBrowserView(path):
         return BrowserWindow(path, **kwargs)
 
+    def createImageView(image):
+        dim = image.getDim()
+        imgView = ImageView(**kwargs)
+        desc = "<html><head/><body><p><span style=\" color:#0055ff;\">" \
+               "Dimension:  </span><span style=\" color:#000000;\">" \
+               "(%d,%d,%d,%d)</span></p></body></html>"
+        imgView.setImageDescription(desc % (dim.x, dim.y, dim.z, dim.n))
+        data = np.array(image, copy=False)
+        imgView.setImage(data)
+        return imgView
+
     files = args.files or os.getcwd()  # if not files use the current dir
 
     if not os.path.exists(files):
@@ -146,38 +159,45 @@ if __name__ == '__main__':
     elif EmPath.isTable(files):  # Display the file as a Table:
         view = createTableView(EmTable.load(files), None, 'Table',
                                views.get(args.view, DataView.COLUMNS))
-    elif EmPath.isStack(files):
-        view = createTableView(EmTable.fromStack(files),
-                               TableViewConfig.createStackConfig(),
-                               'Stack',
-                               views.get(args.view, DataView.GALLERY))
-    elif EmPath.isData(files):  # Image or Volume at this point
-        # Create an image from imagePath using em-bindings
-        image = em.Image()
-        loc2 = em.ImageLocation(files)
-        image.read(loc2)
+    elif EmPath.isImage(files) or EmPath.isVolume(files) \
+            or EmPath.isStack(files):
+        # *.mrc may be image, stack or volume. Ask for dim.n
+        _, ext = os.path.splitext(files)
+        imageIO = em.ImageIO(ext.split(".")[1])
+        imageIO.open(files, em.File.READ_ONLY)
+        d = imageIO.getDim()
+        if d.n == 1:  # Single image or volume
+            if d.z == 1:  # Single image
+                image = em.Image()
+                loc2 = em.ImageLocation(files)
+                image.read(loc2)
+                view = createImageView(image)
+            else:  # Volume
+                mode = args.view or 'slices'
+                if mode == 'slices':
+                    view = MultiSliceView(path=files)
+                elif mode == 'gallery' or mode == 'columns' or mode == 'items':
+                    model = createVolumeModel(files)
+                    kwargs['view'] = views[mode]
+                    view = DataView(**kwargs)
+                    view.setModel(model)
+                else:
+                    raise Exception("Invalid display mode for volume: '%s'"
+                                    % mode)
+        else:  # Stack
+            view = createTableView(EmTable.fromStack(files),
+                                   TableViewConfig.createStackConfig(),
+                                   'Stack',
+                                   views.get(args.view, DataView.GALLERY))
+        imageIO.close()
+    elif EmPath.isTable(files):  # Display the file as a Table:
+        view = createTableView(EmTable.load(files), None, 'Table',
+                               views.get(args.view, DataView.COLUMNS))
+    else:
+        view = None
+        raise Exception("Can't perform a view for this file.")
 
-        # Determinate the image dimension
-        z = image.getDim().z
+    if view:
+        view.show()
 
-        if z == 1:  # Display the EM-BROWSER component
-            view = createBrowserView(files)  # FIXME: Replace this with the ImageView
-        else:  # The image has a Volume
-            # Read the display mode or 'axis' as default
-            mode = args.view or 'slices'
-
-            if mode == 'slices':
-                view = MultiSliceView(path=files)
-
-            elif mode == 'gallery' or mode == 'columns' or mode == 'items':
-                model = createVolumeModel(files)
-                kwargs['view'] = views[mode]
-                tableWin = DataView(**kwargs)
-                tableWin.setModel(model)
-                view = tableWin
-            else:
-                raise Exception("Invalid display mode for volume: '%s'"
-                                % mode)
-
-    view.show()
     sys.exit(app.exec_())

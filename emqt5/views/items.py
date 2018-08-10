@@ -26,6 +26,7 @@ class ItemsView(AbstractView):
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
+        self._disableFitToSize = False
         self._imgCache = ImageCache(50)
         self.__setupUI()
 
@@ -57,7 +58,7 @@ class ItemsView(AbstractView):
                     imgParams = parseImagePath(imgPath)
                     if imgParams is not None and len(imgParams) == 3:
                         imgPath = imgParams[2]
-                        if EmPath.isImage(imgPath):
+                        if EmPath.isStandardImage(imgPath):
                             self._pixMapElem.load(imgPath)
                             self._pixmapItem.setPixmap(self._pixMapElem)
                             self._pixmapItem.setVisible(True)
