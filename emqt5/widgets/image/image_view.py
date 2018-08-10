@@ -34,6 +34,7 @@ class ImageView(QWidget):
         img-desc: (str) If specified, this will be used to set visible the
                   image description widget. Possible values are "On"(by default)
                   or "Off"
+
         """
         QWidget.__init__(self, parent=kwargs.get("parent", None))
 
@@ -47,9 +48,11 @@ class ImageView(QWidget):
         self._showMenuBtn = False
         self._showHistogram = True
         self._showImgDesc = True
+        self._showXaxis = True
+        self._showYaxis = True
 
-        self.setup(**kwargs)
         self.__setupUI()
+        self.setup(**kwargs)
 
     def __setupUI(self):
         self._mainLayout = QHBoxLayout(self)
@@ -57,6 +60,14 @@ class ImageView(QWidget):
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._toolBar = QToolBar(self)
         self._toolBar.setOrientation(Qt.Vertical)
+        self._fitToSizeAction = self.__createAction(parent=self,
+                                                    actionName="Fit",
+                                                    text="Fit to size",
+                                                    faIconName="fa.crosshairs",
+                                                    checkable=False,
+                                                    slot=self.fitToSize)
+        self._toolBar.addAction(self._fitToSizeAction)
+        self._toolBar.addSeparator()
         self._rLeftAction = self.__createAction(parent=self,
                                                 actionName="RLeft",
                                                 text="Rotate Left",
@@ -99,9 +110,11 @@ class ImageView(QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Vertical)
-        self._imageView = pg.ImageView(parent=self._splitter)
+        self._imageView = pg.ImageView(parent=self._splitter,
+                                       view=pg.PlotItem())
+        v = self._imageView.getView()
+        v.invertY(False)
         self._textEdit = QTextEdit(self._splitter)
-        self.__setupImageView()
         self._mainLayout.addWidget(self._splitter)
 
     def __createAction(self, parent, actionName, text="", faIconName=None,
@@ -133,6 +146,11 @@ class ImageView(QWidget):
         self._imageView.ui.histogram.setVisible(self._showHistogram)
         self._imageView.ui.roiBtn.setVisible(self._showRoiBtn)
         self._textEdit.setVisible(self._showImgDesc)
+        plotItem = self._imageView.getView()
+        if isinstance(plotItem, pg.PlotItem):
+            plotItem.showAxis('bottom', self._showXaxis)
+            plotItem.showAxis('left', self._showYaxis)
+            plotItem.showAxis('top', False)
 
     def __resetOperationParams(self):
         """ Reset the image operations params """
@@ -160,7 +178,10 @@ class ImageView(QWidget):
         self._showRoiBtn = kwargs.get("roi-btn", "Off") == "On"
         self._showMenuBtn = kwargs.get("menu-btn", "Off") == "On"
         self._showHistogram = kwargs.get("histogram", "On") == "On"
-        self._showImgDesc = kwargs.get("img-desc", "Off") == "On"
+        self._showImgDesc = kwargs.get("img-desc", "On") == "On"
+        self._showXaxis = kwargs.get("x-axis", "On") == "On"
+        self._showYaxis = kwargs.get("y-axis", "On") == "On"
+        self.__setupImageView()
 
     def setImage(self, image):
         """ Set the image to be displayed """
@@ -230,6 +251,13 @@ class ImageView(QWidget):
         """ Clear the view, setting a null image """
         self.__resetOperationParams()
         self._imageView.clear()
+        self.fitToSize()
+        self._textEdit.setText("")
+
+    @pyqtSlot()
+    def fitToSize(self):
+        """ Fit image to the widget size """
+        self._imageView.getView().autoRange()
 
     def showToolBar(self, visible=True):
         """ Show or hide the tool bar """
