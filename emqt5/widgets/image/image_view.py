@@ -146,6 +146,7 @@ class ImageView(QWidget):
         self._imageView.ui.histogram.setVisible(self._showHistogram)
         self._imageView.ui.roiBtn.setVisible(self._showRoiBtn)
         self._textEdit.setVisible(self._showImgDesc)
+        self._toolBar.setVisible(self._showToolBar)
         plotItem = self._imageView.getView()
         if isinstance(plotItem, pg.PlotItem):
             plotItem.showAxis('bottom', self._showXaxis)

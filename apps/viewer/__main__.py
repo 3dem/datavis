@@ -90,7 +90,31 @@ if __name__ == '__main__':
                            required=False, action='store_true',
                            help=' the image is not rescaled to the size of view'
                                 ' image widget for ELEMENT view ')
-
+    #  ImageView Params
+    argParser.add_argument('--tool-bar', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' show or hide the toolbar for ImageView')
+    argParser.add_argument('--roi-btn', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' show or hide the ROI button for ImageView')
+    argParser.add_argument('--menu-btn', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' show or hide the menu button for ImageView')
+    argParser.add_argument('--histogram', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' show or hide the histogram for ImageView')
+    argParser.add_argument('--rotation-step', type=int, default=90,
+                           required=False,
+                           help=' set the rotation step for ImageView')
+    argParser.add_argument('--img-desc', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' show or hide the image description '
+                                'for ImageView')
     args = argParser.parse_args()
 
     models = None
@@ -127,6 +151,14 @@ if __name__ == '__main__':
     kwargs['disableROI'] = args.disable_roi
     kwargs['disablePopupMenu'] = args.disable_popup_menu
     kwargs['disableFitToSize'] = args.disable_fit_to_size
+
+    # IMAGE VIEW ARGS
+    kwargs['tool-bar'] = args.tool_bar
+    kwargs['roi-btn'] = args.roi_btn
+    kwargs['menu-btn'] = args.menu_btn
+    kwargs['histogram'] = args.histogram
+    kwargs['rotation-step'] = args.rotation_step
+    kwargs['img-desc'] = args.tool_bar
 
     def createTableView(table, tableViewConfig, title, defaultView):
         tableView = DataView(view=defaultView)
