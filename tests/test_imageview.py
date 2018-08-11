@@ -19,7 +19,7 @@ if testDataPath is not None:
     path = os.path.join(testDataPath, "relion_tutorial", "import", "classify2d",
                         "extra", "relion_it025_classes.mrcs")
 
-    imageView = ImageView(parent=None)
+    imageView = ImageView(None, **{'rotation-step': 10})
     # standard image
     #image = Image.open('/media/pedro/Data/1.jpg')
     #data = np.array(image)

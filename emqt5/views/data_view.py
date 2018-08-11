@@ -55,11 +55,11 @@ class DataView(QWidget):
         self._currentRow = 0  # selected table row
         self._imageCache = ImageCache(50, 50)
         self.__initProperties(**kwargs)
-        self.__setupUi()
+        self.__setupUi(**kwargs)
         self.__setupCurrentViewMode()
         self.__setupActions()
 
-    def __setupUi(self):
+    def __setupUi(self, **kwargs):
         self._mainLayout = QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -147,27 +147,27 @@ class DataView(QWidget):
 
         self._statusBar = QStatusBar(self)
         self._mainLayout.addWidget(self._statusBar)
-        self.__createViews()
+        self.__createViews(**kwargs)
         self._statusBar.setVisible(False)  # hide for now
 
-    def __createView(self, view):
+    def __createView(self, viewType, **kwargs):
         """ Create and return a view. The parent of the view will be self """
-        if view == self.COLUMNS:
-            return ColumnsView(self)
-        if view == self.GALLERY:
-            return GalleryView(self)
-        if view == self.ITEMS:
-            return ItemsView(self)
+        if viewType == self.COLUMNS:
+            return ColumnsView(self, **kwargs)
+        if viewType == self.GALLERY:
+            return GalleryView(self, **kwargs)
+        if viewType == self.ITEMS:
+            return ItemsView(self, **kwargs)
 
         return None
 
-    def __createViews(self):
+    def __createViews(self, **kwargs):
         """ Create the views if necessary. Inserts the views in the GUI. """
         for v in self._viewTypes.values():
             if v not in self._views:
                 self.__removeView(v)
             elif self._viewsDict.get(v) is None:
-                viewWidget = self.__createView(v)
+                viewWidget = self.__createView(v, **kwargs)
                 self._viewsDict[v] = viewWidget
                 if viewWidget is not None:
                     viewWidget.setImageCache(self._imageCache)
@@ -593,11 +593,11 @@ class DataView(QWidget):
                                            self.ITEMS])
         # The following is the configuration for a pg.ImageView in ITEMS View.
         # The ItemsView widget setups this properties in the future.
-        self._disableHistogram = kwargs.get("disableHistogram", False)
-        self._disableMenu = kwargs.get("disableMenu", False)
-        self._disableROI = kwargs.get("disableROI", False)
-        self._disablePopupMenu = kwargs.get("disablePopupMenu", False)
-        self._disableFitToSize = kwargs.get("disableFitToSize", False)
+        self._showHistogram = kwargs.get("histogram", "On")
+        self._showMenuBtn = kwargs.get("menu-btn", "On")
+        self._showRoiBtn = kwargs.get("roi-btn", "On")
+        self._showPopupMenu = kwargs.get("popup-menu", "On")
+        self._disableFitToSize = kwargs.get("fit-to-size", "On")
 
     def __setupActions(self):
         for v in self._actionGroupViews.actions():

@@ -14,7 +14,7 @@ class ImageView(QWidget):
     performing basic operations over the view, such as: rotations, zoom, flips,
     move, levels. """
 
-    def __init__(self, **kwargs):
+    def __init__(self, parent, **kwargs):
         """
         By default, ImageView show a toolbar for image operations.
         **Arguments**
@@ -34,9 +34,12 @@ class ImageView(QWidget):
         img-desc: (str) If specified, this will be used to set visible the
                   image description widget. Possible values are "On"(by default)
                   or "Off"
+        fit-to-size: (str) If specified, this will be used to automatically
+                     auto-range the image whenever the view is resized.
+                     Possible values are "On"(by default) or "Off"
 
         """
-        QWidget.__init__(self, parent=kwargs.get("parent", None))
+        QWidget.__init__(self, parent=parent)
 
         self._oddFlips = False
         self._oddRotations = False
@@ -50,6 +53,7 @@ class ImageView(QWidget):
         self._showImgDesc = True
         self._showXaxis = True
         self._showYaxis = True
+        self._fitToSize = True
 
         self.__setupUI()
         self.setup(**kwargs)
@@ -114,6 +118,7 @@ class ImageView(QWidget):
                                        view=pg.PlotItem())
         v = self._imageView.getView()
         v.invertY(False)
+        self._yInverted = False
         self._textEdit = QTextEdit(self._splitter)
         self._mainLayout.addWidget(self._splitter)
 
@@ -148,6 +153,11 @@ class ImageView(QWidget):
         self._textEdit.setVisible(self._showImgDesc)
         self._toolBar.setVisible(self._showToolBar)
         plotItem = self._imageView.getView()
+        if self._fitToSize:
+            plotItem.enableAutoRange()
+        else:
+            self._disableAutoRange()
+
         if isinstance(plotItem, pg.PlotItem):
             plotItem.showAxis('bottom', self._showXaxis)
             plotItem.showAxis('left', self._showYaxis)
@@ -186,6 +196,7 @@ class ImageView(QWidget):
 
     def setImage(self, image):
         """ Set the image to be displayed """
+        self.clear()
         self._imageView.setImage(image)
 
     @pyqtSlot(int)
@@ -196,6 +207,7 @@ class ImageView(QWidget):
         """
         imgItem = self._imageView.getImageItem()
         if imgItem is not None:
+            angle *= 1 if self._yInverted else -1
             self._oddRotations = not self._oddRotations
             # When only one of the flip is activated, we need to change
             # the rotation angle (XOR)

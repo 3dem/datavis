@@ -36,13 +36,13 @@ class GalleryView(AbstractView):
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
-    def __init__(self, parent=None):
-        AbstractView.__init__(self, parent)
+    def __init__(self, parent, **kwargs):
+        AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
         self._imgCache = ImageCache(50)
-        self.__setupUI()
+        self.__setupUI(**kwargs)
 
-    def __setupUI(self):
+    def __setupUI(self, **kwargs):
         self._listView = _QListViewResizable(self)
         self._listView.sigSizeChanged.connect(self.__onSizeChanged)
         self._listView.setViewMode(QListView.IconMode)

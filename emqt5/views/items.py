@@ -11,7 +11,7 @@ from PyQt5 import QtCore
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 from .base import AbstractView
 from emqt5.utils import EmPath, parseImagePath
-
+from emqt5.widgets.image import ImageView
 import pyqtgraph as pg
 
 
@@ -22,21 +22,18 @@ class ItemsView(AbstractView):
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
-    def __init__(self, parent=None):
+    def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
         self._disableFitToSize = False
         self._imgCache = ImageCache(50)
-        self.__setupUI()
+        self.__setupUI(**kwargs)
 
-    def __setupUI(self):
+    def __setupUI(self, **kwargs):
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Horizontal)
-        self._imageView = pg.ImageView(self._splitter)
-        self._pixMapElem = QPixmap()
-        self._pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
-        self._imageView.getView().addItem(self._pixmapItem)
+        self._imageView = ImageView(self._splitter, **kwargs)
         self._itemsViewTable = QTableView(self._splitter)
         self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
         self._mainLayout.insertWidget(0, self._splitter)
@@ -58,37 +55,27 @@ class ItemsView(AbstractView):
                     imgParams = parseImagePath(imgPath)
                     if imgParams is not None and len(imgParams) == 3:
                         imgPath = imgParams[2]
-                        if EmPath.isStandardImage(imgPath):
-                            self._pixMapElem.load(imgPath)
-                            self._pixmapItem.setPixmap(self._pixMapElem)
-                            self._pixmapItem.setVisible(True)
-                            v = self._imageView.getView()
-                            if not self._disableFitToSize:
-                                v.autoRange()
+
+                        if EmPath.isStack(imgPath):
+                            id = str(imgParams[0]) + '_' + imgPath
+                            index = imgParams[0]
                         else:
-                            if self._pixmapItem:
-                                self._pixmapItem.setVisible(False)
+                            id = imgPath
+                            index = 0
 
-                            if EmPath.isStack(imgPath):
-                                id = str(imgParams[0]) + '_' + imgPath
-                                index = imgParams[0]
-                            else:
-                                id = imgPath
-                                index = 0
+                        data = self._imgCache.addImage(id, imgPath, index)
+                        if data is not None:
+                            axis = imgParams[1]
+                            if axis == X_AXIS:
+                                data = data[:, :, imgParams[0]]
+                            elif axis == Y_AXIS:
+                                data = data[:, imgParams[0], :]
+                            elif axis == Z_AXIS:
+                                data = data[imgParams[0], :, :]
 
-                            data = self._imgCache.addImage(id, imgPath, index)
-                            if data is not None:
-                                axis = imgParams[1]
-                                if axis == X_AXIS:
-                                    data = data[:, :, imgParams[0]]
-                                elif axis == Y_AXIS:
-                                    data = data[:, imgParams[0], :]
-                                elif axis == Z_AXIS:
-                                    data = data[imgParams[0], :, :]
-
-                                self._imageView.setImage(data)
-                            else:
-                                self._imageView.clear()
+                            self._imageView.setImage(data)
+                        else:
+                            self._imageView.clear()
                     else:
                         self._imageView.clear()
 

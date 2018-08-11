@@ -115,6 +115,14 @@ if __name__ == '__main__':
                            choices=['On', 'Off'],
                            help=' show or hide the image description '
                                 'for ImageView')
+    argParser.add_argument('--fit-to-size', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' enables fit to size for ImageView')
+    argParser.add_argument('--popup-menu', type=str, default='On',
+                           required=False,
+                           choices=['On', 'Off'],
+                           help=' enables the Popup Menu for ImageView')
     args = argParser.parse_args()
 
     models = None
@@ -146,11 +154,11 @@ if __name__ == '__main__':
     for v in args.views:
         vs.append(views[v])
     kwargs['views'] = vs
-    kwargs['disableHistogram'] = args.disable_histogram
-    kwargs['disableMenu'] = args.disable_menu
-    kwargs['disableROI'] = args.disable_roi
-    kwargs['disablePopupMenu'] = args.disable_popup_menu
-    kwargs['disableFitToSize'] = args.disable_fit_to_size
+    kwargs['histogram'] = args.histogram
+    kwargs['menu-btn'] = args.menu_btn
+    kwargs['roi-btn'] = args.roi_btn
+    kwargs['popup-menu'] = args.popup_menu
+    kwargs['fit-to-size'] = args.fit_to_size
 
     # IMAGE VIEW ARGS
     kwargs['tool-bar'] = args.tool_bar
@@ -159,12 +167,14 @@ if __name__ == '__main__':
     kwargs['histogram'] = args.histogram
     kwargs['rotation-step'] = args.rotation_step
     kwargs['img-desc'] = args.tool_bar
+    kwargs['fit-to-size'] = args.fit_to_size
 
-    def createTableView(table, tableViewConfig, title, defaultView):
-        tableView = DataView(view=defaultView)
-        tableView.setModel(TableDataModel(table, title=title,
-                                          tableViewConfig=tableViewConfig))
-        return tableView
+    def createDataView(table, tableViewConfig, title, defaultView):
+        kwargs['view'] = defaultView
+        dataView = DataView(**kwargs)
+        dataView.setModel(TableDataModel(table, title=title,
+                                         tableViewConfig=tableViewConfig))
+        return dataView
 
     def createBrowserView(path):
         return BrowserWindow(path, **kwargs)
@@ -189,8 +199,8 @@ if __name__ == '__main__':
     if os.path.isdir(files):
         view = createBrowserView(files)
     elif EmPath.isTable(files):  # Display the file as a Table:
-        view = createTableView(EmTable.load(files), None, 'Table',
-                               views.get(args.view, DataView.COLUMNS))
+        view = createDataView(EmTable.load(files), None, 'Table',
+                              views.get(args.view, DataView.COLUMNS))
     elif EmPath.isImage(files) or EmPath.isVolume(files) \
             or EmPath.isStack(files):
         # *.mrc may be image, stack or volume. Ask for dim.n
@@ -217,13 +227,13 @@ if __name__ == '__main__':
                     raise Exception("Invalid display mode for volume: '%s'"
                                     % mode)
         else:  # Stack
-            view = createTableView(EmTable.fromStack(files),
+            view = createDataView(EmTable.fromStack(files),
                                    TableViewConfig.createStackConfig(),
                                    'Stack',
                                    views.get(args.view, DataView.GALLERY))
         imageIO.close()
     elif EmPath.isTable(files):  # Display the file as a Table:
-        view = createTableView(EmTable.load(files), None, 'Table',
+        view = createDataView(EmTable.load(files), None, 'Table',
                                views.get(args.view, DataView.COLUMNS))
     else:
         view = None
