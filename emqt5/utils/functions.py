@@ -5,6 +5,9 @@ import sys
 
 import em
 
+from PIL import Image
+import numpy as np
+
 
 class EmPath:
     """
@@ -73,6 +76,13 @@ class EmImage:
         image = em.Image()
         image.read(em.ImageLocation(path, index))
         return image
+
+    @classmethod
+    def loadStandardImage(cls, path):
+        """ Read a standard image (.JPG, .PNG, etc.) """
+        image = Image.open(path)
+        data = np.array(image)
+        return data
 
     @classmethod
     def getDim(cls, path):

@@ -10,7 +10,7 @@ from PyQt5.QtCore import QDir
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 import em
-from emqt5.utils import EmPath, EmTable
+from emqt5.utils import EmPath, EmTable, EmImage
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
                          createVolumeModel, TableDataModel, MultiSliceView,
                          TableViewConfig)
@@ -171,13 +171,13 @@ if __name__ == '__main__':
 
     def createDataView(table, tableViewConfig, title, defaultView):
         kwargs['view'] = defaultView
-        dataView = DataView(**kwargs)
+        dataView = DataView(None, **kwargs)
         dataView.setModel(TableDataModel(table, title=title,
                                          tableViewConfig=tableViewConfig))
         return dataView
 
     def createBrowserView(path):
-        return BrowserWindow(path, **kwargs)
+        return BrowserWindow(None, path, **kwargs)
 
     def createImageView(image):
         dim = image.getDim()
@@ -204,10 +204,7 @@ if __name__ == '__main__':
     elif EmPath.isImage(files) or EmPath.isVolume(files) \
             or EmPath.isStack(files):
         # *.mrc may be image, stack or volume. Ask for dim.n
-        _, ext = os.path.splitext(files)
-        imageIO = em.ImageIO(ext.split(".")[1])
-        imageIO.open(files, em.File.READ_ONLY)
-        d = imageIO.getDim()
+        d = EmImage.getDim(files)
         if d.n == 1:  # Single image or volume
             if d.z == 1:  # Single image
                 image = em.Image()
@@ -228,10 +225,9 @@ if __name__ == '__main__':
                                     % mode)
         else:  # Stack
             view = createDataView(EmTable.fromStack(files),
-                                   TableViewConfig.createStackConfig(),
-                                   'Stack',
-                                   views.get(args.view, DataView.GALLERY))
-        imageIO.close()
+                                  TableViewConfig.createStackConfig(),
+                                  'Stack',
+                                  views.get(args.view, DataView.GALLERY))
     elif EmPath.isTable(files):  # Display the file as a Table:
         view = createDataView(EmTable.load(files), None, 'Table',
                                views.get(args.view, DataView.COLUMNS))

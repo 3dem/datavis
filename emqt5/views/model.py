@@ -7,7 +7,7 @@ from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
 from emqt5.views.config import TableViewConfig
-from emqt5.utils import EmPath, EmImage
+from emqt5.utils import EmPath, EmImage, EmTable
 
 import em
 
@@ -720,26 +720,12 @@ def createTableModel(path):
                           tableViewConfig=tableViewConfig)
 
 
-def createStackModel(imagePath):
+def createStackModel(imagePath, title='Stack'):
     """ Return a stack model for the given image """
-    xTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Stack",
-                                       em.typeString,
-                                       "Image stack")])
-    imageIO = em.ImageIO()
-    loc2 = em.ImageLocation(imagePath)
-    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
-    dim = imageIO.getDim()
+    table = EmTable.fromStack(imagePath)
 
-    for i in range(0, dim.n):
-        row = xTable.createRow()
-        row['Stack'] = str(i) + '@' + imagePath
-        row['index'] = i
-        xTable.addRow(row)
-
-    return [TableDataModel(xTable, title='Stack')], None
+    return TableDataModel(table, title=title,
+                          tableViewConfig=TableViewConfig.createStackConfig())
 
 
 def createVolumeModel(imagePath, axis=X_AXIS, title="Volume"):

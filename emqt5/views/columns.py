@@ -48,7 +48,7 @@ class ColumnsView(AbstractView):
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
-    def __init__(self,parent, **kwargs):
+    def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
         self._imgCache = ImageCache(50)

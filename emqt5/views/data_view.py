@@ -30,8 +30,8 @@ class DataView(QWidget):
     """ This signal is emitted when the current item change """
     sigCurrentItemChanged = pyqtSignal(int, int)
 
-    def __init__(self, **kwargs):
-        QWidget.__init__(self, kwargs.get("parent", None))
+    def __init__(self, parent, **kwargs):
+        QWidget.__init__(self, parent=parent)
 
         self._viewActions = {self.COLUMNS: {"name": "Columns",
                                             "icon": "fa.table",
@@ -530,6 +530,7 @@ class DataView(QWidget):
                   and creating the new ones.
         """
         self.__initProperties(**kwargs)
+        self.__createViews(**kwargs)
         self.__setupActions()
 
     def showToolBar(self, visible):
