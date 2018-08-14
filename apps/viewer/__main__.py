@@ -181,13 +181,13 @@ if __name__ == '__main__':
 
     def createImageView(image):
         dim = image.getDim()
-        imgView = ImageView(**kwargs)
+        imgView = ImageView(None, **kwargs)
         desc = "<html><head/><body><p><span style=\" color:#0055ff;\">" \
                "Dimension:  </span><span style=\" color:#000000;\">" \
                "(%d,%d,%d,%d)</span></p></body></html>"
-        imgView.setImageDescription(desc % (dim.x, dim.y, dim.z, dim.n))
         data = np.array(image, copy=False)
         imgView.setImage(data)
+        imgView.setImageDescription(desc % (dim.x, dim.y, dim.z, dim.n))
         return imgView
 
     files = args.files or os.getcwd()  # if not files use the current dir
@@ -218,7 +218,7 @@ if __name__ == '__main__':
                 elif mode == 'gallery' or mode == 'columns' or mode == 'items':
                     model = createVolumeModel(files)
                     kwargs['view'] = views[mode]
-                    view = DataView(**kwargs)
+                    view = DataView(None, **kwargs)
                     view.setModel(model)
                 else:
                     raise Exception("Invalid display mode for volume: '%s'"

@@ -450,14 +450,8 @@ class BrowserWindow(QMainWindow):
                         self._changeViewFrame.setVisible(True)
                     else:
                         model = createVolumeModel(imagePath)
-                        galleryKwargs = {}
-                        galleryKwargs['defaultRowHeight'] = 100
-                        galleryKwargs['defaultView'] = DataView.GALLERY
-                        galleryKwargs['views'] = [DataView.GALLERY,
-                                                  DataView.COLUMNS,
-                                                  DataView.ITEMS]
-                        self._dataView.setup(**galleryKwargs)
                         self._dataView.setModel(model)
+                        self._dataView.setView(DataView.GALLERY)
                         self.__showTableView()
                         self._changeViewFrame.setVisible(True)
 
@@ -472,13 +466,8 @@ class BrowserWindow(QMainWindow):
                 # Hide Volume Slice and Gallery View Buttons
                 self._changeViewFrame.setVisible(False)
                 model = createStackModel(imagePath)
-                stackKwargs = {}
-                stackKwargs['defaultRowHeight'] = 100
-                stackKwargs['defaultView'] = DataView.GALLERY
-                stackKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                        DataView.ITEMS]
-                self._dataView.setup(**stackKwargs)
                 self._dataView.setModel(model)
+                self._dataView.setView(DataView.GALLERY)
                 self.__showTableView()
 
                 # Show the image dimension and type
