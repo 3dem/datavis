@@ -13,8 +13,7 @@ import em
 from emqt5.utils import EmPath, EmTable, EmImage
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
                          createVolumeModel, TableDataModel, MultiSliceView,
-                         TableViewConfig)
-from emqt5.widgets.image import ImageView
+                         TableViewConfig, ImageView)
 from emqt5.windows import BrowserWindow
 
 import numpy as np
@@ -110,7 +109,7 @@ if __name__ == '__main__':
     argParser.add_argument('--rotation-step', type=int, default=90,
                            required=False,
                            help=' set the rotation step for ImageView')
-    argParser.add_argument('--img-desc', type=str, default='On',
+    argParser.add_argument('--img-desc', type=str, default='Off',
                            required=False,
                            choices=['On', 'Off'],
                            help=' show or hide the image description '
@@ -166,7 +165,7 @@ if __name__ == '__main__':
     kwargs['menu-btn'] = args.menu_btn
     kwargs['histogram'] = args.histogram
     kwargs['rotation-step'] = args.rotation_step
-    kwargs['img-desc'] = args.tool_bar
+    kwargs['img-desc'] = args.img_desc
     kwargs['fit-to-size'] = args.fit_to_size
 
     def createDataView(table, tableViewConfig, title, defaultView):

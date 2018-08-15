@@ -11,8 +11,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
 from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QRect, QDir,
                           QItemSelectionModel, QEvent)
 from emqt5.views import (DataView, createVolumeModel, createTableModel,
-                         createStackModel, MultiSliceView)
-from emqt5.widgets.image import ImageView
+                         createStackModel, MultiSliceView, ImageView)
 
 import qtawesome as qta
 
@@ -132,12 +131,7 @@ class BrowserWindow(QMainWindow):
         Select an em-image to display as gallery view
         """
         model = createVolumeModel(self._lineCompleter.text())
-        galleryKwargs = {}
-        galleryKwargs['defaultRowHeight'] = 100
-        galleryKwargs['defaultView'] = DataView.GALLERY
-        galleryKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                  DataView.ITEMS]
-        self._dataView.setup(**galleryKwargs)
+        self._dataView.setView(DataView.GALLERY)
         self._dataView.setModel(model)
         self.__showTableView()
 
@@ -399,13 +393,8 @@ class BrowserWindow(QMainWindow):
             self._changeViewFrame.setVisible(False)
 
             model = createTableModel(imagePath)
-            tableKwargs = {}
-            tableKwargs['defaultRowHeight'] = 40
-            tableKwargs['defaultView'] = DataView.COLUMNS
-            tableKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                    DataView.ITEMS]
-            self._dataView.setup(**tableKwargs)
             self._dataView.setModel(model)
+            self._dataView.setView(DataView.COLUMNS)
             self.__showTableView()
 
             # Hide Volume Slice and Gallery View Buttons

@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout,
                              QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import QPixmap, QPalette
+from PyQt5.QtGui import QPixmap, QPalette, QPen
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -35,10 +35,15 @@ class EMImageItemDelegate(QStyledItemDelegate):
         :param selectedStatePen: QPen object
         """
         QStyledItemDelegate.__init__(self, parent)
-        self._selectedStatePen = selectedStatePen
+        if selectedStatePen is None:
+            self._selectedStatePen = QPen(Qt.red, 3, Qt.DashLine)
+        else:
+            self._selectedStatePen = selectedStatePen
+
         self._borderPen = borderPen
         self._imgCache = ImageCache(50, 50)
         self._imageView = pg.ImageView(view=pg.ViewBox())
+        self._imageView.getView().invertY(False)
         self._iconWidth = iconWidth
         self._iconHeight = iconHeight
         self._disableFitToSize = True
@@ -50,22 +55,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         if index.isValid():
             self._setupView(index)
-
-            if option.state & QStyle.State_Selected:
-                if option.state & QStyle.State_HasFocus or \
-                     option.state & QStyle.State_Active:
-                    colorGroup = QPalette.Active
-                else:
-                    colorGroup = QPalette.Inactive
-
-                painter.fillRect(option.rect,
-                                 option.palette.color(colorGroup,
-                                                      QPalette.Highlight))
             self._imageView.ui.graphicsView.scene().setSceneRect(
                 QRectF(0, 0, option.rect.width(),
                        option.rect.height()))
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
+            if option.state & QStyle.State_Selected:
+                painter.setPen(self._selectedStatePen)
+                painter.drawRect(option.rect)
 
     def _setupView(self, index):
         """
@@ -98,7 +95,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
             else:
                 self._pixmapItem.setPixmap(imgData)
             self._pixmapItem.setVisible(True)
-            v.autoRange()
+        v.autoRange(padding=0)
 
     def _getThumb(self, index, height=100):
         """

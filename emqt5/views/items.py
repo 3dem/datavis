@@ -3,16 +3,15 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import QTableView, QGraphicsPixmapItem, QSplitter
-from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem
+from PyQt5.QtWidgets import QTableView, QSplitter
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
 
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 from .base import AbstractView
 from emqt5.utils import EmPath, parseImagePath
-from emqt5.widgets.image import ImageView
-import pyqtgraph as pg
+from .image_view import ImageView
 
 
 class ItemsView(AbstractView):
