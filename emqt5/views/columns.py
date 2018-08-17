@@ -179,3 +179,10 @@ class ColumnsView(AbstractView):
     def setImageCache(self, imgCache):
         self._imgCache = imgCache
         self._delegate.setImageCache(imgCache)
+
+    def getViewDims(self):
+        """ Returns a tuple (rows, columns) with the data size """
+        if self._model is None:
+            return 0, 0
+        else:
+            return self._model.totalRowCount(), self._model.columnCount(None)

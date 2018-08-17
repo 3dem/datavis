@@ -62,7 +62,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
                                                            QRectF(option.rect))
             if option.state & QStyle.State_Selected:
                 painter.setPen(self._selectedStatePen)
-                painter.drawRect(option.rect)
+                penWidth = self._selectedStatePen.width()
+                painter.drawRect(QRectF(option.rect.x(), option.rect.y(),
+                                        option.rect.width() - penWidth,
+                                        option.rect.height() - penWidth))
 
     def _setupView(self, index):
         """
@@ -307,3 +310,7 @@ class AbstractView(QWidget):
     def getPageBar(self):
         """ Returns the page bar widget """
         return self._pageBar
+
+    def getViewDims(self):
+        """ Returns a tuple (rows, columns) with the data size """
+        return 0, 0

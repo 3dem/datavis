@@ -35,10 +35,13 @@ class GalleryView(AbstractView):
     """
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
+    sigPageSizeChanged = QtCore.pyqtSignal()
 
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
+        self._pRows = 0
+        self._pCols = 0
         self._imgCache = ImageCache(50)
         self.__setupUI(**kwargs)
 
@@ -74,15 +77,16 @@ class GalleryView(AbstractView):
 
         if size.width() > 0 and size.height() > 0 \
                 and s.width() > 0 and s.height() > 0:
-            pCols = int((size.width() - spacing - 1) / (s.width() + spacing))
-            pRows = int((size.height() - 1) / (s.height() + spacing))
+            self._pCols = int((size.width() - spacing - 1) /
+                              (s.width() + spacing))
+            self._pRows = int((size.height() - 1) / (s.height() + spacing))
             # if size.width() < iconSize.width() pRows may be 0
-            if pRows == 0:
-                pRows = 1
-            if pCols == 0:
-                pCols = 1
+            pRows = 1 if self._pRows == 0 else self._pRows
+            pCols = 1 if self._pCols == 0 else self._pCols
 
             self._pageSize = pRows * pCols
+        else:
+            self._pRows = self._pCols = 0
 
     def __getPage(self, row):
         """
@@ -99,6 +103,8 @@ class GalleryView(AbstractView):
             index = self._listView.currentIndex()
             row = index.row() if index and index.isValid() else 0
             self._model.setupPage(self._pageSize, self.__getPage(row))
+
+        self.sigPageSizeChanged.emit()
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -135,6 +141,8 @@ class GalleryView(AbstractView):
             self._model.setupPage(self._pageSize, self._model.getPage())
             self._model.setIconSize(s)
 
+        self.sigPageSizeChanged.emit()
+
     def setImageCache(self, imgCache):
         """ Sets the image cache """
         self._imgCache = imgCache
@@ -150,3 +158,7 @@ class GalleryView(AbstractView):
                 self._listView.modelColumn())
 
             self._listView.setCurrentIndex(index)
+
+    def getViewDims(self):
+        """ Returns a tuple (rows, columns) with the data size """
+        return self._pRows, self._pCols

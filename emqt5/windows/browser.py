@@ -329,7 +329,7 @@ class BrowserWindow(QMainWindow):
         QMetaObject.connectSlotsByName(self)
 
         # Configure the Main Window
-        self.setGeometry(150, 100, 1000, 600)
+        #self.setGeometry(150, 100, 1000, 600)
         self.setWindowTitle('EM-BROWSER')
 
     def retranslateUi(self, MainWindow):

@@ -303,12 +303,8 @@ class TableDataModel(QAbstractItemModel):
         """ Return the page count for this model """
         return self._pageCount
 
-    # FIXME Check if this is in use, duplicated of getCurrentPage
     def getPage(self):
         """ Return the current page for this model """
-        return self._page
-
-    def getCurrentPage(self):
         return self._page
 
     def getPageSize(self):
@@ -318,6 +314,13 @@ class TableDataModel(QAbstractItemModel):
     def getTitle(self):
         """ Return the title for this model """
         return self._title
+
+    def hasRenderableColumn(self):
+        """ Return True if the model has renderable columns """
+        if self._tableViewConfig is None:
+            return False
+        else:
+            return self._tableViewConfig.hasRenderableColumn()
 
     def __setupModel(self):
         """
@@ -639,6 +642,13 @@ class VolumeDataModel(QAbstractItemModel):
     def getTitle(self):
         """ Return the title for this model """
         return self._title
+
+    def hasRenderableColumn(self):
+        """ Return True if the model has renderable columns """
+        if self._tableViewConfig is None:
+            return False
+        else:
+            return self._tableViewConfig.hasRenderableColumn()
 
     def __setupModel(self):
         """

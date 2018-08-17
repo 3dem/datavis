@@ -37,136 +37,61 @@ if __name__ == '__main__':
                                  ' specific directory')
 
     # EM-BROWSER PARAMETERS
-    argParser.add_argument('--disable-zoom', default=False,
-                           required=False, action='store_true',
-                           help=' do not scale the image')
-    argParser.add_argument('--enable-axis', default=False,
-                           required=False, action='store_true',
-                           help='disable the image axis')
-
-    # TABLE-VIEW PARAMETERS
-    argParser.add_argument('--cell-size', type=int, default=100,
-                           required=False,
-                           help=' an integer for default cell size')
-    argParser.add_argument('--max-cell-size', type=int, default=300,
-                           required=False,
-                           help=' an integer for max cell size')
-    argParser.add_argument('--min-cell-size', type=int, default=10,
-                           required=False,
-                           help=' an integer for min cell size')
-    argParser.add_argument('--zoom-units', type=str, default='px',
-                           required=False,
-                           choices=['%', 'px'],
-                           help=' units in which the rescaling  will be done: '
-                                ' percent or pixels ')
-    argParser.add_argument('--view', type=str, default='',
-                           required=False,
+    on_off = ['on', 'off']
+    argParser.add_argument('--zoom', type=str, default='on', required=False,
+                           choices=on_off,
+                           help=' Enable/disable the option to zoom in/out in '
+                                'the image(s)')
+    argParser.add_argument('--axis', type=str, default='on', required=False,
+                           choices=on_off,
+                           help=' Show/hide the image axis (ImageView)')
+    argParser.add_argument('--tool-bar', type=str, default='on', required=False,
+                           choices=on_off,
+                           help=' Show or hide the toolbar for ImageView')
+    argParser.add_argument('--histogram', type=str, default='off',
+                           required=False, choices=on_off,
+                           help=' Show or hide the histogram for ImageView')
+    argParser.add_argument('--fit', type=str, default='on',
+                           required=False, choices=on_off,
+                           help=' Enables fit to size for ImageView')
+    argParser.add_argument('--view', type=str, default='', required=False,
                            choices=['gallery', 'columns', 'items', 'slices'],
-                           help=' the default view. COLUMNS if not specified')
-    argParser.add_argument('--views', type=str, nargs='+',
-                           choices=['gallery', 'columns', 'items'],
-                           default=['gallery', 'columns', 'items'],
+                           help=' The default view. Default will depend on the '
+                                'input')
+    argParser.add_argument('--size', type=int, default=100,
                            required=False,
-                           help=' list of views. [COLUMNS, ITEMS, GALLERY] '
-                                'if not specified')
-    argParser.add_argument('--disable-histogram', default=False,
-                           required=False, action='store_true',
-                           help=' hide the histogram widget in the view image '
-                                'widget for ELEMENT view mode')
-    argParser.add_argument('--disable-menu', default=False,
-                           required=False, action='store_true',
-                           help=' hide the menu button in the view image widget'
-                                ' for ELEMENT view ')
-    argParser.add_argument('--disable-roi', default=False,
-                           required=False, action='store_true',
-                           help=' hide the roi button in the view image widget'
-                                ' for ELEMENT view ')
-    argParser.add_argument('--disable-popup-menu', default=False,
-                           required=False, action='store_true',
-                           help=' disable the popup menu in the view image '
-                                'widget for ELEMENT view ')
-    argParser.add_argument('--disable-fit-to-size', default=False,
-                           required=False, action='store_true',
-                           help=' the image is not rescaled to the size of view'
-                                ' image widget for ELEMENT view ')
-    #  ImageView Params
-    argParser.add_argument('--tool-bar', type=str, default='On',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' show or hide the toolbar for ImageView')
-    argParser.add_argument('--roi-btn', type=str, default='On',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' show or hide the ROI button for ImageView')
-    argParser.add_argument('--menu-btn', type=str, default='On',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' show or hide the menu button for ImageView')
-    argParser.add_argument('--histogram', type=str, default='On',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' show or hide the histogram for ImageView')
-    argParser.add_argument('--rotation-step', type=int, default=90,
-                           required=False,
-                           help=' set the rotation step for ImageView')
-    argParser.add_argument('--img-desc', type=str, default='Off',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' show or hide the image description '
-                                'for ImageView')
-    argParser.add_argument('--fit-to-size', type=str, default='On',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' enables fit to size for ImageView')
-    argParser.add_argument('--popup-menu', type=str, default='On',
-                           required=False,
-                           choices=['On', 'Off'],
-                           help=' enables the Popup Menu for ImageView')
+                           help=' The default size of the displayed image, '
+                                'either in pixels or in percentage')
+
     args = argParser.parse_args()
 
     models = None
     delegates = None
 
-    # GENERAL ARGS
+    # ARGS
     kwargs['files'] = QDir.toNativeSeparators(args.files) if len(args.files) \
         else QDir.currentPath()
 
-    # EM-BROWSER ARGS
-    kwargs['--disable-zoom'] = args.disable_zoom
-    kwargs['--disable-histogram'] = args.disable_histogram
-    kwargs['--disable-roi'] = args.disable_roi
-    kwargs['--disable-menu'] = args.disable_menu
+    kwargs['zoom'] = args.zoom
+    kwargs['histogram'] = on_off[1]
+    kwargs['roi'] = on_off[1]
+    kwargs['menu'] = on_off[1]
+    kwargs['popup'] = on_off[1]
+    kwargs['tool_bar'] = args.tool_bar
+    kwargs['img_desc'] = on_off[1]
+    kwargs['fit'] = args.fit
+    kwargs['axis'] = args.axis
+    kwargs['size'] = args.size
+    kwargs['max_cell_size'] = 300
+    kwargs['min_cell_size'] = 20
+    kwargs['zoom_units'] = PIXEL_UNITS
+    kwargs['views'] = [DataView.GALLERY, DataView.COLUMNS, DataView.ITEMS]
 
-    # TABLE-VIEW ARGS
-    kwargs['defaultRowHeight'] = args.cell_size
-    kwargs['maxRowHeight'] = args.max_cell_size
-    kwargs['minRowHeight'] = args.min_cell_size
-    kwargs['zoomUnits'] = PERCENT_UNITS if args.zoom_units == '%' \
-        else PIXEL_UNITS
-
-    view = args.view
     views = {'gallery': DataView.GALLERY,
              'columns': DataView.COLUMNS,
              'items': DataView.ITEMS}
+    kwargs['view'] = views.get(args.view, DataView.COLUMNS)
 
-    vs = []
-    for v in args.views:
-        vs.append(views[v])
-    kwargs['views'] = vs
-    kwargs['histogram'] = args.histogram
-    kwargs['menu-btn'] = args.menu_btn
-    kwargs['roi-btn'] = args.roi_btn
-    kwargs['popup-menu'] = args.popup_menu
-    kwargs['fit-to-size'] = args.fit_to_size
-
-    # IMAGE VIEW ARGS
-    kwargs['tool-bar'] = args.tool_bar
-    kwargs['roi-btn'] = args.roi_btn
-    kwargs['menu-btn'] = args.menu_btn
-    kwargs['histogram'] = args.histogram
-    kwargs['rotation-step'] = args.rotation_step
-    kwargs['img-desc'] = args.img_desc
-    kwargs['fit-to-size'] = args.fit_to_size
 
     def createDataView(table, tableViewConfig, title, defaultView):
         kwargs['view'] = defaultView
@@ -229,7 +154,7 @@ if __name__ == '__main__':
                                   views.get(args.view, DataView.GALLERY))
     elif EmPath.isTable(files):  # Display the file as a Table:
         view = createDataView(EmTable.load(files), None, 'Table',
-                               views.get(args.view, DataView.COLUMNS))
+                              views.get(args.view, DataView.COLUMNS))
     else:
         view = None
         raise Exception("Can't perform a view for this file.")

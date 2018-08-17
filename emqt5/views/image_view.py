@@ -21,22 +21,20 @@ class ImageView(QWidget):
         parent : (QWidget) Specifies the parent widget to which this ImageView
                  will belong. If None, then the ImageView is created with
                  no parent.
-        tool-bar: (str) If specified, this will be used to set visible the
-                  ToolBar. Possible values are "On"(by default) or "Off"
-        roi-btn: (str) If specified, this will be used to set visible the
-                  ROI button. Possible values are "On" or "Off"(by default)
-        menu-btn: (str) If specified, this will be used to set visible the
-                  Menu button. Possible values are "On" or "Off"(by default)
+        tool_bar: (str) If specified, this will be used to set visible the
+                  ToolBar. Possible values are "on"(by default) or "off"
+        roi: (str) If specified, this will be used to set visible the
+                  ROI button. Possible values are "on" or "off"(by default)
+        menu: (str) If specified, this will be used to set visible the
+                  Menu button. Possible values are "on" or "off"(by default)
         histogram: (str) If specified, this will be used to set visible the
-                  Menu button. Possible values are "On"(by default) or "Off"
-        rotation-step: (int) The step for each rotation (in degrees,
-                       90 by default)
-        img-desc: (str) If specified, this will be used to set visible the
-                  image description widget. Possible values are "On"(by default)
-                  or "Off"
-        fit-to-size: (str) If specified, this will be used to automatically
+                  Menu button. Possible values are "on"(by default) or "off"
+        img_desc: (str) If specified, this will be used to set visible the
+                  image description widget. Possible values are "on"(by default)
+                  or "off"
+        fit: (str) If specified, this will be used to automatically
                      auto-range the image whenever the view is resized.
-                     Possible values are "On"(by default) or "Off"
+                     Possible values are "on"(by default) or "off"
 
         """
         QWidget.__init__(self, parent=parent)
@@ -49,8 +47,9 @@ class ImageView(QWidget):
         self._showToolBar = True
         self._showRoiBtn = False
         self._showMenuBtn = False
-        self._showHistogram = True
-        self._showImgDesc = True
+        self._showHistogram = False
+        self._showPopup = False  # TODO Find in pg.ImageView
+        self._showImgDesc = False
         self._showXaxis = True
         self._showYaxis = True
         self._fitToSize = True
@@ -150,13 +149,11 @@ class ImageView(QWidget):
         self._imageView.ui.menuBtn.setVisible(self._showMenuBtn)
         self._imageView.ui.histogram.setVisible(self._showHistogram)
         self._imageView.ui.roiBtn.setVisible(self._showRoiBtn)
+        view = self._imageView.getView()
+        view.setMenuEnabled(self._showPopup)
         self._textEdit.setVisible(self._showImgDesc)
         self._toolBar.setVisible(self._showToolBar)
         plotItem = self._imageView.getView()
-        if self._fitToSize:
-            plotItem.enableAutoRange()
-        else:
-            self._disableAutoRange()
 
         if isinstance(plotItem, pg.PlotItem):
             plotItem.showAxis('bottom', self._showXaxis)
@@ -184,20 +181,22 @@ class ImageView(QWidget):
 
     def setup(self, **kwargs):
         """ Configure the ImageView. See constructor comments for the params """
-        self._rotation_step = kwargs.get("rotation-step", 90)
-        self._showToolBar = kwargs.get("tool-bar", "On") == "On"
-        self._showRoiBtn = kwargs.get("roi-btn", "Off") == "On"
-        self._showMenuBtn = kwargs.get("menu-btn", "Off") == "On"
-        self._showHistogram = kwargs.get("histogram", "On") == "On"
-        self._showImgDesc = kwargs.get("img-desc", "On") == "On"
-        self._showXaxis = kwargs.get("x-axis", "On") == "On"
-        self._showYaxis = kwargs.get("y-axis", "On") == "On"
+        self._rotation_step = 90
+        self._showToolBar = kwargs.get("tool_bar", "on") == "on"
+        self._showRoiBtn = kwargs.get("roi", "off") == "on"
+        self._showMenuBtn = kwargs.get("menu", "off") == "on"
+        self._showHistogram = kwargs.get("histogram", "off") == "on"
+        self._showPopup = kwargs.get("popup", "off") == "on"
+        self._showImgDesc = kwargs.get("img_desc", "off") == "on"
+        self._showXaxis = kwargs.get("axis", "on") == "on"
+        self._showYaxis = kwargs.get("axis", "on") == "on"
+        self._fitToSize = kwargs.get("fit", "on") == "on"
         self.__setupImageView()
 
     def setImage(self, image):
         """ Set the image to be displayed """
         self.clear()
-        self._imageView.setImage(image)
+        self._imageView.setImage(image, autoRange=self._fitToSize)
 
     @pyqtSlot(int)
     def rotate(self, angle):

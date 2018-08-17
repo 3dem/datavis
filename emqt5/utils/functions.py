@@ -68,7 +68,7 @@ class EmImage:
     def load(cls, path, index=1):
         """ Read an image from the path and return the object.
          Params:
-         loc: can be either a path or a tupe (path, index)
+         loc: can be either a path or a tuple (path, index)
         """
         if not os.path.exists(path):
             raise Exception("Path does not exists: %s" % path)

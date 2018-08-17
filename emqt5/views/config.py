@@ -36,6 +36,13 @@ class TableViewConfig:
         """ Add a new column config. """
         self._cols.append(ColumnConfig(*args, **kwargs))
 
+    def hasRenderableColumn(self):
+        """ Returns True if has any renderable column """
+        for colConfig in self._cols:
+            if colConfig["renderable"]:
+                return True
+        return False
+
     def __iter__(self):
         """ Iterate through all the column configs. """
         for colConfig in self._cols:
@@ -76,6 +83,11 @@ class TableViewConfig:
             colsConfig = tableColNames
 
         tvConfig = TableViewConfig()
+
+        try:
+            basestring
+        except NameError:
+            basestring = str
 
         for item in colsConfig:
             if isinstance(item, basestring):  # FIXME: name 'basestring' is not defined in Python3
