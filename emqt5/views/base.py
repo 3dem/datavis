@@ -23,9 +23,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
     """
     def __init__(self, parent=None,
                  selectedStatePen=None,
-                 borderPen=None,
-                 iconWidth=150,
-                 iconHeight=150):
+                 borderPen=None):
         """
         If selectedStatePen is None then the border will not be painted when
         the item is selected.
@@ -36,7 +34,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         QStyledItemDelegate.__init__(self, parent)
         if selectedStatePen is None:
-            self._selectedStatePen = QPen(Qt.red, 3, Qt.DashLine)
+            self._selectedStatePen = QPen(Qt.red, 2, Qt.DashLine)
         else:
             self._selectedStatePen = selectedStatePen
 
@@ -44,9 +42,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imgCache = ImageCache(50, 50)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
-        self._iconWidth = iconWidth
-        self._iconHeight = iconHeight
-        self._disableFitToSize = True
         self._pixmapItem = None
 
     def paint(self, painter, option, index):
@@ -63,9 +58,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
             if option.state & QStyle.State_Selected:
                 painter.setPen(self._selectedStatePen)
                 penWidth = self._selectedStatePen.width()
-                painter.drawRect(QRectF(option.rect.x(), option.rect.y(),
-                                        option.rect.width() - penWidth,
-                                        option.rect.height() - penWidth))
+                painter.drawRect(QRectF(option.rect.x() + penWidth,
+                                        option.rect.y() + penWidth,
+                                        option.rect.width() - 2 * penWidth,
+                                        option.rect.height() - 2 * penWidth))
 
     def _setupView(self, index):
         """

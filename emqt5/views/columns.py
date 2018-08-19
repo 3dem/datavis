@@ -167,14 +167,20 @@ class ColumnsView(AbstractView):
     def selectRow(self, row):
         """ Selects the given row """
         if self._model:
-            r = self._tableView.currentIndex().row()
-            r = r if r <= 0 else r + self._pageSize * self._model.getPage()
+            r = self.currentRow()
 
             if not r == row and row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._model.loadPage(page)
                 self._tableView.selectRow(
                     0 if row == 0 else row % self._pageSize)
+
+    def currentRow(self):
+        """ Returns the current selected row """
+        if self._model is None:
+            return -1
+        r = self._tableView.currentIndex().row()
+        return r if r <= 0 else r + self._pageSize * self._model.getPage()
 
     def setImageCache(self, imgCache):
         self._imgCache = imgCache

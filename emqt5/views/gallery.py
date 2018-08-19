@@ -150,14 +150,23 @@ class GalleryView(AbstractView):
 
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model and row in range(0, self._model.totalRowCount()):
-            page = self.__getPage(row)
-            self._model.loadPage(page)
+        if self._model:
+            if not row == self.currentRow() \
+                    and row in range(0, self._model.totalRowCount()):
+                page = self.__getPage(row)
+                self._model.loadPage(page)
             index = self._model.createIndex(
                 0 if row == 0 else row % self._pageSize,
                 self._listView.modelColumn())
 
             self._listView.setCurrentIndex(index)
+
+    def currentRow(self):
+        """ Returns the current selected row """
+        if self._model is None:
+            return -1
+        r = self._listView.currentIndex().row()
+        return r if r <= 0 else r + self._pageSize * self._model.getPage()
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """

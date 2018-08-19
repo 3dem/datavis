@@ -117,6 +117,12 @@ class ItemsView(AbstractView):
         if self._model and row in range(0, self._model.totalRowCount()):
             self._model.loadPage(row)
 
+    def currentRow(self):
+        """ Returns the current selected row """
+        if self._model is None:
+            return -1
+        return self._row
+
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
         return 1, self._model.totalRowCount() if self._model else 0, 0
