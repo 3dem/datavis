@@ -51,10 +51,20 @@ class EMImageItemDelegate(QStyledItemDelegate):
         if index.isValid():
             self._setupView(index)
             self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(0, 0, option.rect.width(),
-                       option.rect.height()))
+                QRectF(0, 0, option.rect.width(), option.rect.height()))
+
+            if option.state & QStyle.State_HasFocus or \
+                    option.state & QStyle.State_Active:
+                colorGroup = QPalette.Active
+            else:
+                colorGroup = QPalette.Inactive
+
+            painter.fillRect(option.rect,
+                             option.palette.color(colorGroup,
+                                                  QPalette.Highlight))
             self._imageView.ui.graphicsView.scene().render(painter,
                                                            QRectF(option.rect))
+
             if option.state & QStyle.State_Selected:
                 painter.setPen(self._selectedStatePen)
                 penWidth = self._selectedStatePen.width()
