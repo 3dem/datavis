@@ -73,7 +73,7 @@ if __name__ == '__main__':
         else QDir.currentPath()
 
     kwargs['zoom'] = args.zoom
-    kwargs['histogram'] = on_off[1]
+    kwargs['histogram'] = args.histogram
     kwargs['roi'] = on_off[1]
     kwargs['menu'] = on_off[1]
     kwargs['popup'] = on_off[1]
@@ -91,7 +91,6 @@ if __name__ == '__main__':
              'columns': DataView.COLUMNS,
              'items': DataView.ITEMS}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
-
 
     def createDataView(table, tableViewConfig, title, defaultView):
         kwargs['view'] = defaultView
