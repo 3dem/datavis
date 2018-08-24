@@ -241,6 +241,9 @@ class DataView(QWidget):
         self._spinBoxCurrentRow.setValue(1)
         self.__setupComboBoxCurrentColumn()
         self.__initCurrentRenderableColumn()
+        if self._model is not None:
+            for w in self._viewsDict.values():
+                w.setModel(self._model.clone())
         self._onGalleryViewColumnChanged(0)
 
     def __setupSpinBoxRowHeigth(self):
@@ -312,13 +315,7 @@ class DataView(QWidget):
         viewWidget = self._viewsDict.get(self._view)
 
         if viewWidget is not None:
-            w = self._stackedLayoud.currentWidget()
-            if w is not None:
-                w.setModel(None)
             self._stackedLayoud.setCurrentWidget(viewWidget)
-            viewWidget.setModel(self._model)
-            if self._view == self.GALLERY or self._view == self.ITEMS:
-                viewWidget.setModelColumn(self._currentRenderableColumn)
 
         a = self._viewActions[self._view].get("action", None)
         if a:
@@ -382,7 +379,11 @@ class DataView(QWidget):
         """ Clear all views """
         for viewWidget in self._viewsDict.values():
             if viewWidget is not None:
+                m = viewWidget.getModel()
                 viewWidget.setModel(None)
+                if m is not None:
+                    m.setParent(None)
+                    del m
 
     def __initProperties(self, **kwargs):
         """ Configure all properties  """
@@ -420,15 +421,18 @@ class DataView(QWidget):
             t = self._comboBoxCurrentTable.currentText().split("(")
             if len(t) > 1:
                 s = t[len(t)-1]
+                axis = X_AXIS
                 if s == "X)":
-                    self._model.setAxis(X_AXIS)
+                    axis = X_AXIS
                 elif s == "Y)":
-                    self._model.setAxis(Y_AXIS)
+                    axis = Y_AXIS
                 elif s == "Z)":
-                    self._model.setAxis(Z_AXIS)
-                self._model.setupPage(self._model.getPageSize(), 0)
-                self._selectRow(1)
+                    axis = Z_AXIS
 
+                for viewWidget in self._viewsDict.values():
+                    model = viewWidget.getModel()
+                    model.setAxis(axis)
+                self._selectRow(1)
 
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
@@ -460,22 +464,22 @@ class DataView(QWidget):
         """
         size = self._spinBoxRowHeight.value()
 
-        viewWidget = self._viewsDict.get(self.COLUMNS)
-        if viewWidget is not None:
-            viewWidget.setRowHeight(size)
-            if self._model:
-                cConfig = self._model.getColumnConfig()
-                self._model.setIconSize(QSize(size, size))
-                if cConfig:
-                    for i, colConfig in enumerate(cConfig):
-                        if colConfig["renderable"] and \
-                                colConfig["visible"] and \
-                                viewWidget.getColumnWidth(i) < size:
-                            viewWidget.setColumnWidth(i, size)
-
-        viewWidget = self._viewsDict.get(self.GALLERY)
-        if viewWidget is not None:
-            viewWidget.setIconSize((size, size))
+        for viewWidget in self._viewsDict.values():
+            model = viewWidget.getModel()
+            if model is not None:
+                model.setIconSize(QSize(size, size))
+            if isinstance(viewWidget, ColumnsView):
+                viewWidget.setRowHeight(size)
+                if self._model is not None:
+                    cConfig = self._model.getColumnConfig()
+                    if cConfig:
+                        for i, colConfig in enumerate(cConfig):
+                            if colConfig["renderable"] and \
+                                    colConfig["visible"] and \
+                                    viewWidget.getColumnWidth(i) < size:
+                                viewWidget.setColumnWidth(i, size)
+            elif isinstance(viewWidget, GalleryView):
+                viewWidget.setIconSize((size, size))
 
         self._selectRow(self._currentRow + 1)
 
@@ -575,7 +579,8 @@ class DataView(QWidget):
 
     def showPageBar(self, visible):
         """ Show or hide the page bar """
-        self._pagingLayout.setVisible(visible)
+        for w in self._viewsDict.values():
+            w.showPageBar(visible)
 
     def showStatusBar(self, visible):
         """ Show or hide the status bar """
@@ -604,14 +609,16 @@ class DataView(QWidget):
         """ Return the current page for current view
         or -1 if current table model is None """
         return -1 if self._model is None \
-            else self._model.getCurrentPage()
+            else self._viewsDict.get(self._view).getModel().getCurrentPage()
 
     def setPage(self, page):
         """ Change to page for the current view """
-        self.__goToPage(page)
+        if self._model is not None:
+            self._viewsDict.get(self._view).getModel().loadPage(page)
 
     def getPageCount(self):
         """ Return the page count for the current view or -1 if current model
         is None """
-        return -1 if self._model is None else self._model.getPageCount()
+        return -1 if self._model is None else \
+            self._viewsDict.get(self._view).getModel().getPageCount()
 

@@ -60,6 +60,14 @@ class TableDataModel(QAbstractItemModel):
         self._title = kwargs.get('title', '')
         self.__setupModel()
 
+    def clone(self):
+        """ Clone this Model """
+        clo = TableDataModel(self._emTable,
+                             tableViewConfig=self._tableViewConfig,
+                             pageSize=self._pageSize,
+                             title=self._title)
+        return clo
+
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """
         This is an reimplemented function from QAbstractItemModel.
@@ -385,6 +393,13 @@ class VolumeDataModel(QAbstractItemModel):
         self._rows = 0
         self.setAxis(kwargs.get('axis', X_AXIS))
         
+    def clone(self):
+        """ Clone this model """
+        clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
+                              pageSize=self._pageSize, title=self._title,
+                              axis=self._axis)
+        return clo
+
     def setAxis(self, axis):
         """ Sets the current axis """
         if axis == X_AXIS:
@@ -397,7 +412,7 @@ class VolumeDataModel(QAbstractItemModel):
             self._rows = 0
 
         self._axis = axis
-        self.__setupModel()
+        self.setupPage(self._pageSize, 0)
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """ Reimplemented function from QAbstractItemModel. """

@@ -34,7 +34,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         QStyledItemDelegate.__init__(self, parent)
         if selectedStatePen is None:
-            self._selectedStatePen = QPen(Qt.red, 2, Qt.DashLine)
+            self._selectedStatePen = QPen(Qt.red, 1, Qt.DashLine)
         else:
             self._selectedStatePen = selectedStatePen
 
@@ -49,33 +49,42 @@ class EMImageItemDelegate(QStyledItemDelegate):
         Reimplemented from QStyledItemDelegate
         """
         if index.isValid():
-            self._setupView(index)
-            self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(0, 0, option.rect.width(), option.rect.height()))
-
-            if option.state & QStyle.State_HasFocus or \
-                    option.state & QStyle.State_Active:
-                colorGroup = QPalette.Active
-            else:
-                colorGroup = QPalette.Inactive
-
-            painter.fillRect(option.rect,
-                             option.palette.color(colorGroup,
-                                                  QPalette.Highlight))
-            self._imageView.ui.graphicsView.scene().render(painter,
-                                                           QRectF(option.rect))
-
+            x = option.rect.x()
+            y = option.rect.y()
+            w = option.rect.width()
+            h = option.rect.height()
+            rect = QRectF()
             if option.state & QStyle.State_Selected:
-                painter.setPen(self._selectedStatePen)
-                penWidth = self._selectedStatePen.width()
-                painter.drawRect(QRectF(option.rect.x() + penWidth,
-                                        option.rect.y() + penWidth,
-                                        option.rect.width() - 2 * penWidth,
-                                        option.rect.height() - 2 * penWidth))
+                m = 5
+                self._setupView(index, w - 2 * m, h - 2 * m)
+                rect.setRect(0, 0, w - 2 * m, h - 2 * m)
+                self._imageView.ui.graphicsView.scene().setSceneRect(rect)
+                if option.state & QStyle.State_HasFocus or \
+                        option.state & QStyle.State_Active:
+                    colorGroup = QPalette.Active
+                else:
+                    colorGroup = QPalette.Inactive
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.Highlight))
+                rect.setRect(x + m, y + m, w - 2 * m, h - 2 * m)
+                self._imageView.ui.graphicsView.scene().render(painter, rect)
+                if option.state & QStyle.State_HasFocus:
+                    painter.setPen(self._selectedStatePen)
+                    pWidth = self._selectedStatePen.width()
+                    rect.setRect(x + pWidth, y + pWidth, w - 2 * pWidth,
+                                 h - 2 * pWidth)
+                    painter.drawRect(rect)
+            else:
+                self._setupView(index, w, h)
+                rect.setRect(0, 0, w, h)
+                self._imageView.ui.graphicsView.scene().setSceneRect(rect)
+                rect.setRect(x, y, w, h)
+                self._imageView.ui.graphicsView.scene().render(painter, rect)
 
-    def _setupView(self, index):
+    def _setupView(self, index, width, height):
         """
-        Configure the widget used as view to shoe the image
+        Configure the widget used as view to show the image
         """
         imgData = self._getThumb(index)
 
@@ -89,7 +98,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         (cw, ch) = (v.width(), v.height())
 
         if not (w, h) == (cw, ch):
-            v.setGeometry(0, 0, w, h)
+            v.setGeometry(0, 0, width, height)
             v.resizeEvent(None)
 
         if not isinstance(imgData, QPixmap):  # QPixmap or np.array

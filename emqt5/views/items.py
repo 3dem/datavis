@@ -36,12 +36,12 @@ class ItemsView(AbstractView):
         self._itemsViewTable = QTableView(self._splitter)
         self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
         self._mainLayout.insertWidget(0, self._splitter)
-        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
         if self._model and row in range(0, self._model.totalRowCount()) and \
-                col in range(0, self._model.columnCount()):
+                col in range(0, self._model.columnCount()) and \
+                self._model.getColumnConfig(col)['renderable']:
             model = self._itemsViewTable.model()
             model.clear()
             vLabels = []
@@ -104,8 +104,11 @@ class ItemsView(AbstractView):
 
     def setModel(self, model):
         """ Sets the model """
+        if self._model:
+            self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
         AbstractView.setModel(self, model)
         if self._model:
+            self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
 
     def setImageCache(self, imgCache):
