@@ -1,9 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, QPoint
+from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtWidgets import (QWidget, QToolBar, QAction, QHBoxLayout, QSplitter,
                              QTextEdit)
+from PyQt5.QtGui import QColor, QPen
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -35,6 +36,8 @@ class ImageView(QWidget):
         fit: (str) If specified, this will be used to automatically
                      auto-range the image whenever the view is resized.
                      Possible values are "on"(by default) or "off"
+        back_color (str): The background color (example: '#BBAAFF')
+        border_color (str): The border color (example: '#BBAAFF')
 
         """
         QWidget.__init__(self, parent=parent)
@@ -48,16 +51,18 @@ class ImageView(QWidget):
         self._showRoiBtn = False
         self._showMenuBtn = False
         self._showHistogram = False
-        self._showPopup = False  # TODO Find in pg.ImageView
+        self._showPopup = False
         self._showImgDesc = False
         self._showXaxis = True
         self._showYaxis = True
         self._fitToSize = True
+        self._backColor = QColor(Qt.black)
+        self._borderColor = QColor(Qt.black)
 
-        self.__setupUI()
+        self.__setupUI(**kwargs)
         self.setup(**kwargs)
 
-    def __setupUI(self):
+    def __setupUI(self, **kwargs):
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -113,8 +118,9 @@ class ImageView(QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Vertical)
-        self._imageView = pg.ImageView(parent=self._splitter,
-                                       view=pg.PlotItem())
+        view = pg.PlotItem() if kwargs.get('axis', 'off') == 'on' \
+            else pg.ViewBox()
+        self._imageView = pg.ImageView(parent=self._splitter, view=view)
         v = self._imageView.getView()
         v.invertY(False)
         self._yInverted = False
@@ -159,6 +165,10 @@ class ImageView(QWidget):
             plotItem.showAxis('bottom', self._showXaxis)
             plotItem.showAxis('left', self._showYaxis)
             plotItem.showAxis('top', False)
+            view = plotItem.getViewBox()
+
+        view.setBackgroundColor(self._backColor)
+        view.border = QPen(self._borderColor)
 
     def __resetOperationParams(self):
         """ Reset the image operations params """
@@ -191,6 +201,8 @@ class ImageView(QWidget):
         self._showXaxis = kwargs.get("axis", "on") == "on"
         self._showYaxis = kwargs.get("axis", "on") == "on"
         self._fitToSize = kwargs.get("fit", "on") == "on"
+        self._backColor = QColor(kwargs.get("back_color", Qt.black))
+        self._borderColor = QColor(kwargs.get("border_color", Qt.black))
         self.__setupImageView()
 
     def setImage(self, image):
@@ -298,3 +310,14 @@ class ImageView(QWidget):
         """
         self._textEdit.setText(text)
 
+    def getViewRect(self):
+        """ Returns the view rect area """
+        view = self._imageView.getView()
+        if isinstance(view, pg.PlotItem):
+            view = view.getViewBox()
+
+        return view.viewRect()
+
+    def getView(self):
+        """ Retuens the internal widget used for display image """
+        return self._imageView.getView()

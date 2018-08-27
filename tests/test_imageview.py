@@ -6,7 +6,7 @@ import sys
 from PIL import Image
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from emqt5.widgets.image import ImageView
+from emqt5.views import ImageView
 from emqt5.utils import EmImage
 
 import numpy as np
@@ -19,7 +19,7 @@ if testDataPath is not None:
     path = os.path.join(testDataPath, "relion_tutorial", "import", "classify2d",
                         "extra", "relion_it025_classes.mrcs")
 
-    imageView = ImageView(None, **{'rotation-step': 10})
+    imageView = ImageView(None, border_color='#FFAA33')
     # standard image
     #image = Image.open('/media/pedro/Data/1.jpg')
     #data = np.array(image)

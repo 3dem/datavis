@@ -1,445 +1,118 @@
 
 
-from PyQt5.QtWidgets import (QWidget, QFrame, QSizePolicy, QLabel,
-                             QGridLayout, QSlider, QSpinBox)
-from PyQt5.QtCore import Qt, QSize, QEvent
+from PyQt5.QtWidgets import (QWidget, QGridLayout)
+from PyQt5.QtCore import QSize, pyqtSlot
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-import numpy as np
-import pyqtgraph as pg
-
-import em
-from emqt5.utils import EmPath
+from emqt5.utils import EmImage
+from .slices_view import SlicesView
+from .model import ImageCache
 
 
 class MultiSliceView(QWidget):
     """
-    Declaration of Volume Slice class
+    This view is currently used for displaying 3D volumes and it is composed
+    by 3 SlicerViews and a custom 2D plot showing the axis and the slider
+    position. This view is the default for Volumes.
     """
-    def __init__(self, parent=None, **kwargs):
-        super(MultiSliceView, self).__init__(parent)
-        self._path = None
-        self._image = None
-        self._array3D = None
-        self.__initComponents__()
-        self.loadPath(kwargs.get('path', None))
-
-    def _onTopSpinBoxChanged(self, value):
+    def __init__(self, parent, **kwargs):
         """
-         Display a Top View Slice in a specific value
-        :param value: value of Slide
+        Constructor.
+
         """
-        self._sliceY = value
-        self._topSlider.setValue(value)
+        QWidget.__init__(self, parent=parent)
+        self._imageCache = kwargs.get('cache', None) or ImageCache(50)
+        self._dx = 0
+        self._dy = 0
+        self._dz = 0
+        self._path = kwargs.get('path', None)
+        self.__loadImageDim(self._path)
 
-    def _onFrontSpinBoxChanged(self, value):
-        """
-         Display a Front View Slice in a specific value
-        :param value: value of Slide
-        """
-        self._sliceZ = value
-        self._frontSlider.setValue(value)
+        self.__setupUi(**kwargs)
+        if self._path is not None:
+            self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
+            self._onTopViewIndexChanged(self._topView.getSliceIndex())
+            self._onRightViewIndexChanged(self._rightView.getSliceIndex())
 
-    def _onRightSpinBoxChanged(self, value):
-        """
-         Display a Right View Slice in a specific value
-        :param value: value of Slide
-        """
-        self._sliceX = value
-        self._rightSlider.setValue(value)
+    def __setupUi(self, **kwargs):
+        self._mainLayout = QGridLayout(self)
+        self._mainLayout.setSpacing(0)
+        self._mainLayout.setContentsMargins(1, 1, 1, 1)
+        kwargs['back_color'] = kwargs.get('back_color',
+                                          None) or self.palette().\
+            color(QPalette.Window)
+        kwargs['border_color'] = kwargs.get('border_color',
+                                            None) or self.palette().\
+            color(QPalette.Window)
+        kwargs['volume_axis'] = 'y'
+        self._topView = SlicesView(self, **kwargs)
+        self._topView.setImageCache(self._imageCache)
+        self._topView.setViewName('Top View')
+        self._topView.sigCurrentIndexChanged.connect(
+            self._onTopViewIndexChanged)
+        kwargs['volume_axis'] = 'z'
+        self._frontView = SlicesView(self, **kwargs)
+        self._frontView.setImageCache(self._imageCache)
+        self._frontView.setViewName('Front View')
+        self._frontView.sigCurrentIndexChanged.connect(
+            self._onFrontViewIndexChanged)
+        kwargs['volume_axis'] = 'x'
+        self._rightView = SlicesView(self, **kwargs)
+        self._rightView.setImageCache(self._imageCache)
+        self._rightView.setViewName('Right View')
+        self._rightView.sigCurrentIndexChanged.connect(
+            self._onRightViewIndexChanged)
+        self._renderArea = RenderArea(self)
 
-    def _onTopSliderChange(self, value):
-        """
-        Display a Top View Slice in a specific value
-        :param value: value of Slide
-        """
-        if self._array3D is not None:
-            self._sliceY = value
-            self._topSpinBox.setValue(value)
-            self._topView.setImage(self._array3D[:, self._sliceY, :])
+        self._mainLayout.addWidget(self._topView, 0, 0)
+        self._mainLayout.addWidget(self._renderArea, 0, 1)
+        self._mainLayout.addWidget(self._frontView, 1, 0)
+        self._mainLayout.addWidget(self._rightView, 1, 1)
 
-            if self._topViewScale:
-                self._topView.getView().setRange(rect=self._topViewScale,
-                                                 padding=0.0)
+    def __loadImageDim(self, path):
+        """ Load the em-image dim (x,y,z) """
+        if path is not None:
+            dim = EmImage.getDim(path)
+            if dim is not None:
+                self._dx = dim.x
+                self._dy = dim.y
+                self._dz = dim.z
 
-            self._renderArea.setShiftY(40 * value / self._dy-1)
+    @pyqtSlot(int)
+    def _onTopViewIndexChanged(self, value):
+        """ This slot is invoked when the index of top view change """
+        self._renderArea.setShiftY(40 * value / self._dy - 1)
 
-    def _onFrontSliderChange(self, value):
-        """
-         Display a Front View Slice in a specific value
-        :param value: value of Slide
-        """
-        if self._array3D is not None:
-            self._sliceZ = value
-            self._frontSpinBox.setValue(value)
-            self._frontView.setImage(self._array3D[self._sliceZ, :, :])
+    @pyqtSlot(int)
+    def _onFrontViewIndexChanged(self, value):
+        """ This slot is invoked when the index of front view change """
+        self._renderArea.setShiftZ(40 * value / self._dz - 1)
 
-            if self._frontViewScale:
-                self._frontView.getView().setRange(rect=self._frontViewScale,
-                                                   padding=0.0)
-
-            self._renderArea.setShiftZ(40 * value / self._dz-1)
-
-    def _onRightSliderChange(self, value):
-        """
-        Display a Front View Slice in a specific value
-        :param value: value of Slide
-        """
-
-        if self._array3D is not None:
-            self._sliceX = value
-            self._rightSpinBox.setValue(value)
-            self._rightView.setImage(self._array3D[:, :, self._sliceX])
-
-            if self._rightViewScale:
-                self._rightView.getView().setRange(rect=self._rightViewScale,
-                                                   padding=0.0)
-
-            self._renderArea.setShiftX(40 * value / self._dx-1)
-
-    def _onTopLineVChange(self, pos):
-        """
-        This Slot is executed when the Horizontal Line in the Top View is moved.
-        Display a slices in the right plane
-        :param pos: new pos of the horizontal line
-        """
-        posX = pos.x()
-        self._rightSlider.setValue(posX)
-        self._onRightSliderChange(int(posX))
-
-    def _onTopLineHChange(self, pos):
-        """
-        This Slot is executed when the Horizontal Line in the Top View is moved.
-        Display a slices in the front plane
-        :param pos: new pos of the horizontal line
-        """
-        posY = pos.y()
-        self._frontSlider.setValue(posY)
-        self._onFrontSliderChange(int(posY))
-
-    def _onFrontLineHChange(self, pos):
-        """
-        This Slot is executed when the Horizontal Line in the Front View is
-        moved.
-        Display a slices in the top plane
-        :param pos: new pos of the horizontal line
-        """
-        posZ = pos.y()
-        self._topSlider.setValue(posZ)
-        self._onTopSliderChange(int(posZ))
-
-    def _onFrontLineVChange(self, pos):
-        """
-        This Slot is executed when the Vertical Line in the Front View is moved.
-        Display a slices in the right plane
-        :param pos: new pos of the vertical line
-        """
-        pos1 = pos.x()
-        self._rightSlider.setValue(pos1)
-        self._onRightSliderChange(int(pos1))
-
-    def _onRightLineHChange(self, pos):
-        """
-        This Slot is executed when the Horizontal Line in the Right View is
-        moved.
-        Display a slices in the top plane
-        :param pos: new pos of the horizontal line
-        """
-        pos1 = pos.y()
-        self._topSlider.setValue(pos1)
-        self._onTopSliderChange(int(pos1))
-
-    def _onRightLineVChange(self, pos):
-        """
-        This Slot is executed when the Vertical Line in the Right View is moved.
-        Display a slices in the front plane
-        :param pos: new pos of the vertical line
-        """
-        pos1 = pos.x()
-        self._frontSlider.setValue(pos1)
-        self._onFrontSliderChange(int(pos1))
-
-    def eventFilter(self, obj, event):
-        """
-        Filters events if this object has been installed as an event filter for
-        the obj object.
-        In our reimplementation of this function, we always filter the event.
-        In this case, the function return true.
-        :param obj: object
-        :param event: event
-        :return: True
-        """
-        if event.type() == QEvent.Wheel:
-
-            if obj.name == 'TopView':  # Calculate a Top View scale
-                self._topViewScale = self._topView.getView().viewRect()
-
-            elif obj.name == 'FrontView':  # Calculate a Front View scale
-                self._frontViewScale = self._frontView.getView().viewRect()
-
-            else:  # Calculate a Right View scale
-                self._rightViewScale = self._rightView.getView().viewRect()
-
-        return True
-
-    def __initComponents__(self):
-        """
-        Init all Volume Slice Components
-        :return:
-        """
-        self._image = None
-
-        self._topView = pg.ImageView(self, view=pg.ViewBox(), name='TopView')
-        self._topViewScale = None
-        self._topView.installEventFilter(self)
-        self._topView.getView().setBackgroundColor(self.palette().color(
-            QPalette.Window))
-        self._topWidget = QFrame(self)
-
-        self._frontView = pg.ImageView(self, view=pg.ViewBox(),
-                                       name='FrontView')
-        self._frontViewScale = None
-        self._frontView.installEventFilter(self)
-        self._frontView.getView().setBackgroundColor(self.palette().color(
-            QPalette.Window))
-        self._frontWidget = QFrame(self)
-
-        self._rightView = pg.ImageView(self, view=pg.ViewBox(),
-                                       name='RightView')
-        self._rightViewScale = None
-        self._rightView.installEventFilter(self)
-        self._rightView.getView().setBackgroundColor(self.palette().color(
-            QPalette.Window))
-        self._rightWidget = QFrame(self)
-
-        self._renderArea = RenderArea()
-
-        # Create a window with three ImageView widgets with
-        # central slice on each axis
-        self.createVolumeSliceDialog(0, 0, 0)
+    @pyqtSlot(int)
+    def _onRightViewIndexChanged(self, value):
+        """ This slot is invoked when the index of right view change """
+        self._renderArea.setShiftX(40 * value / self._dx - 1)
 
     def loadPath(self, path):
-        """
-        Set the image Path
-        :param imagePath: new image path
-        """
+        """ Set the image Path """
         self._path = path
-        self._image = None
-        if self._path and EmPath.isVolume(self._path):
-            self.setMinimumWidth(500)
-            self.setMinimumHeight(500)
-            self.volumeSlice()
-        else:
-            self.clearComponent()
+        self.__loadImageDim(path)
+        if path is not None:
+            self._frontView.setPath(path)
+            self._frontView.setSliceIndex(self._dz / 2)
+            self._topView.setPath(path)
+            self._topView.setSliceIndex(self._dy / 2)
+            self._rightView.setPath(path)
+            self._rightView.setSliceIndex(self._dx / 2)
 
-    def clearComponent(self):
-        """
-        Clear all properties
-        TODO: Review for implementation
-        """
-        pass
-
-    def volumeSlice(self):
-        """
-        Given 3D data, select a 2D plane and interpolate data along that plane
-        to generate a slice image.
-        """
-        if EmPath.isVolume(self._path):
-
-            # Create an image from imagePath using em-bindings
-            self._image = em.Image()
-            loc2 = em.ImageLocation(self._path)
-            self._image.read(loc2)
-            # Read the dimensions of the image
-            dim = self._image.getDim()
-
-            self._dx = dim.x
-            self._dy = dim.y
-            self._dz = dim.z
-
-            if self._dz > 1:  # The image has a volumes
-                # Create a numpy 3D array with the image values pixel
-                self._array3D = np.array(self._image, copy=False)
-                self._sliceZ = int(self._dz / 2)
-                self._sliceY = int(self._dy / 2)
-                self._sliceX = int(self._dx / 2)
-
-                # Display the data on the Top View
-                self._topView.setImage(self._array3D[:, self._sliceY, :])
-                self._topView.getView().setAspectLocked(True)
-
-                # Display the data on the Front View
-                self._frontView.setImage(self._array3D[self._sliceZ, :, :])
-                self._frontView.getView().setAspectLocked(True)
-
-                # Display the data on the Right View
-                self._rightView.setImage(self._array3D[:, :, self._sliceX])
-                self._rightView.getView().setAspectLocked(True)
-
-                self.initVolumeSliceDialog(self._dx, self._dy, self._dz)
-            else:
-                self.__showError('A valid 3D image format are required. '
-                                 'Check the image path.')
-
-    def __showError(self, msg):
-        """
-        Create an Error Text because the image do not has a volume
-        """
-        self.setGeometry(500, 150, 430, 400)
-        label = QLabel(self)
-        label.setText('ERROR: ' + msg)
-
-    def initVolumeSliceDialog(self, x, y, z):
-        """
-        :param x:
-        :param y:
-        :param z:
-        :return:
-        """
-        # Create a Top View Slice (widgets)
-        self._topSlider.setMinimum(0)
-        self._topSlider.setMaximum(y - 1)
-        self._topSlider.setValue(int(y / 2))
-
-        self._topSpinBox.setMinimum(0)
-        self._topSpinBox.setMaximum(y - 1)
-        self._topSpinBox.setValue(int(y / 2))
-
-        # Create a Front View Slice (widgets)
-        self._frontSlider.setMinimum(0)
-        self._frontSlider.setMaximum(z - 1)
-        self._frontSlider.setValue(int(z / 2))
-
-        self._frontSpinBox.setMinimum(0)
-        self._frontSpinBox.setMaximum(z - 1)
-        self._frontSpinBox.setValue(int(z / 2))
-
-        # Create a Right View Slice (widgets)
-        self._rightSlider.setMinimum(0)
-        self._rightSlider.setMaximum(x - 1)
-        self._rightSlider.setValue(int(x / 2))
-
-        self._rightSpinBox.setMinimum(0)
-        self._rightSpinBox.setMaximum(x - 1)
-        self._rightSpinBox.setValue(int(x / 2))
-
-    def createVolumeSliceDialog(self, x, y, z):
-        """
-        Create a window with the Volume Slice Dialog
-
-        :param x: number of slices in the right view
-        :param y: number of slices in the top view
-        :param z: number of slices in the front view
-        """
-        self.setWindowTitle('Volume-Slicer')
-        # Create a main widgets
-        self._gridLayoutSlice = QGridLayout(self)
-        self.setLayout(self._gridLayoutSlice.layout())
-
-        # Create a Top View Slice (widgets)
-        self._toplayout = QGridLayout()
-        self._topWidget.setLayout(self._toplayout.layout())
-        self._topSlider = QSlider()
-
-        self._topSpinBox = QSpinBox()
-        self._topSpinBox.valueChanged.connect(self._onTopSpinBoxChanged)
-
-        self._topSlider.valueChanged.connect(self._onTopSliderChange)
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self._topSlider.sizePolicy().hasHeightForWidth())
-        self._topSlider.setSizePolicy(sizePolicy)
-        self._topSlider.setOrientation(Qt.Horizontal)
-
-        self._toplayout.addWidget(QLabel('Top View'), 0, 0)
-        self._toplayout.addWidget(self._topSlider, 0, 1)
-        self._toplayout.addWidget(self._topSpinBox, 0, 2)
-
-        self._toplayout.setAlignment(Qt.AlignCenter)
-
-        # Create a Front View Slice (widgets)
-        self._frontlayout = QGridLayout()
-        self._frontWidget.setLayout(self._frontlayout.layout())
-        self._frontSlider = QSlider()
-
-        self._frontSpinBox = QSpinBox()
-        self._frontSpinBox.valueChanged.connect(self._onFrontSpinBoxChanged)
-
-        self._frontSlider.valueChanged.connect(self._onFrontSliderChange)
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum,
-                                 QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self._frontSlider.sizePolicy().hasHeightForWidth())
-        self._frontSlider.setSizePolicy(sizePolicy)
-        self._frontSlider.setOrientation(Qt.Horizontal)
-
-        self._frontlayout.addWidget(QLabel('Front View'), 0, 0)
-        self._frontlayout.addWidget(self._frontSlider, 0, 1)
-        self._frontlayout.addWidget(self._frontSpinBox, 0, 2)
-        self._frontlayout.setAlignment(Qt.AlignCenter)
-
-        # Create a Right View Slice (widgets)
-        self._rightlayout = QGridLayout()
-        self._rightWidget.setLayout(self._rightlayout.layout())
-        self._rightSlider = QSlider()
-
-        self._rightSpinBox = QSpinBox()
-        self._rightSpinBox.valueChanged.connect(self._onRightSpinBoxChanged)
-
-        self._rightSlider.valueChanged.connect(self._onRightSliderChange)
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum,
-                                 QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self._rightSlider.sizePolicy().hasHeightForWidth())
-        self._rightSlider.setSizePolicy(sizePolicy)
-        self._rightSlider.setOrientation(Qt.Horizontal)
-
-        self._rightlayout.addWidget(QLabel('Right View'), 0, 0)
-        self._rightlayout.addWidget(self._rightSlider, 0, 1)
-        self._rightlayout.addWidget(self._rightSpinBox, 0, 2)
-        self._rightlayout.setAlignment(Qt.AlignCenter)
-
-        # Put into the Grid all components
-
-        self._gridLayoutSlice.addWidget(self._topView, 0, 0)
-        self._gridLayoutSlice.addWidget(self._renderArea, 0, 1)
-        self._gridLayoutSlice.addWidget(self._topWidget, 1, 0)
-
-        self._gridLayoutSlice.addWidget(self._frontView, 2, 0)
-        self._gridLayoutSlice.addWidget(self._frontWidget, 3, 0)
-
-        self._gridLayoutSlice.addWidget(self._rightView, 2, 1)
-        self._gridLayoutSlice.addWidget(self._rightWidget, 3, 1)
-
-        # Set the focus to the Top View
-        self._topSlider.setFocus()
-        self._onTopSliderChange(self._topSlider.value())
-
-        # Disable all image operations
-        self._topView.ui.menuBtn.hide()
-        self._topView.ui.roiBtn.hide()
-        self._topView.ui.histogram.hide()
-
-        self._frontView.ui.menuBtn.hide()
-        self._frontView.ui.roiBtn.hide()
-        self._frontView.ui.histogram.hide()
-
-        self._rightView.ui.menuBtn.hide()
-        self._rightView.ui.roiBtn.hide()
-        self._rightView.ui.histogram.hide()
-
-        self.initVolumeSliceDialog(x, y, z)
+            self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
+            self._onTopViewIndexChanged(self._topView.getSliceIndex())
+            self._onRightViewIndexChanged(self._rightView.getSliceIndex())
 
 
 class RenderArea(QWidget):
     def __init__(self, parent=None):
-        super(RenderArea, self).__init__(parent)
+        QWidget.__init__(self, parent)
         self._shiftx = 0
         self._widthx = 40
         self._shifty = 0
@@ -453,11 +126,14 @@ class RenderArea(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
+        w = self.width()
+        h = self.height()
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.scale(self.height()/100.0, self.height()/100.0)
-
-        ox = 20 + self.width()/8
-        oy = 60
+        painter.translate(w / 3 + 20, h / 2)
+        scale = w if w < h else h
+        painter.scale(scale / 100.0, scale / 100.0)
+        ox = 0
+        oy = 0
         wx = self._widthx
         wy = self._widthy
         wz = self._widthz
