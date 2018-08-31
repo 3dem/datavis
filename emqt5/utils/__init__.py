@@ -1,2 +1,2 @@
 
-from .functions import EmPath, EmImage, EmTable, parseImagePath
+from .functions import EmPath, EmImage, EmTable, parseImagePath, ImageRef

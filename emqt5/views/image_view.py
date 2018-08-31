@@ -56,8 +56,8 @@ class ImageView(QWidget):
         self._showXaxis = True
         self._showYaxis = True
         self._fitToSize = True
-        self._backColor = QColor(Qt.black)
-        self._borderColor = QColor(Qt.black)
+        self._backColor = None
+        self._borderColor = None
 
         self.__setupUI(**kwargs)
         self.setup(**kwargs)
@@ -167,8 +167,15 @@ class ImageView(QWidget):
             plotItem.showAxis('top', False)
             view = plotItem.getViewBox()
 
-        view.setBackgroundColor(self._backColor)
-        view.border = QPen(self._borderColor)
+        if self._backColor is not None:
+            view.setBackgroundColor(QColor(self._backColor))
+        else:
+            view.setBackgroundColor(None)
+
+        if self._borderColor is not None:
+            view.border = QPen(QColor(self._borderColor))
+        else:
+            view.border = None
 
     def __resetOperationParams(self):
         """ Reset the image operations params """
@@ -201,8 +208,8 @@ class ImageView(QWidget):
         self._showXaxis = kwargs.get("axis", "on") == "on"
         self._showYaxis = kwargs.get("axis", "on") == "on"
         self._fitToSize = kwargs.get("fit", "on") == "on"
-        self._backColor = QColor(kwargs.get("back_color", Qt.black))
-        self._borderColor = QColor(kwargs.get("border_color", Qt.black))
+        self._backColor = kwargs.get("back_color", None)
+        self._borderColor = kwargs.get("border_color", None)
         self.__setupImageView()
 
     def setImage(self, image):

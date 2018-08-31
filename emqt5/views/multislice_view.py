@@ -6,7 +6,7 @@ from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
 from emqt5.utils import EmImage
 from .slices_view import SlicesView
-from .model import ImageCache
+from .model import ImageCache, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
 
 
 class MultiSliceView(QWidget):
@@ -15,21 +15,27 @@ class MultiSliceView(QWidget):
     by 3 SlicerViews and a custom 2D plot showing the axis and the slider
     position. This view is the default for Volumes.
     """
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, path=None, model=None, **kwargs):
         """
         Constructor.
-
+        Can pass a path or model
         """
         QWidget.__init__(self, parent=parent)
         self._imageCache = kwargs.get('cache', None) or ImageCache(50)
         self._dx = 0
         self._dy = 0
         self._dz = 0
-        self._path = kwargs.get('path', None)
-        self.__loadImageDim(self._path)
+        self._axis = X_AXIS
+        self._slice = 0
+        self._model = model or VolumeDataModel(path, parent=self) \
+            if path is not None else None
+        if self._model is not None:
+            self.__loadImageDim(self._model.getPath())
+        else:
+            self.__loadImageDim(None)
 
         self.__setupUi(**kwargs)
-        if self._path is not None:
+        if self._model is not None:
             self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
             self._onTopViewIndexChanged(self._topView.getSliceIndex())
             self._onRightViewIndexChanged(self._rightView.getSliceIndex())
@@ -69,45 +75,117 @@ class MultiSliceView(QWidget):
         self._mainLayout.addWidget(self._frontView, 1, 0)
         self._mainLayout.addWidget(self._rightView, 1, 1)
 
+    def __connectModelSignals(self):
+        """ Connect all model signals with the current slots """
+        if self._model is not None:
+            self._model.sigVolumeIndexChanged.\
+                connect(self._onVolumeIndexChanged)
+
+    def __setupAllWidgets(self):
+        """ Configures the widgets """
+        path = None if self._model is None else self._model.getPath()
+
+        self._frontView.setPath(path)
+        self._topView.setPath(path)
+        self._rightView.setPath(path)
+
+        if path is not None:
+            index = self._model.getVolumeIndex()
+            self._frontView.setIndex(index)
+            self._frontView.setSliceIndex(int(self._dz / 2))
+            self._topView.setIndex(index)
+            self._topView.setSliceIndex(int(self._dy / 2))
+            self._rightView.setIndex(index)
+            self._rightView.setSliceIndex(int(self._dx / 2))
+
+            self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
+            self._onTopViewIndexChanged(self._topView.getSliceIndex())
+            self._onRightViewIndexChanged(self._rightView.getSliceIndex())
+
     def __loadImageDim(self, path):
         """ Load the em-image dim (x,y,z) """
-        if path is not None:
+        if path is None:
+            self._dx = self._dy = self._dz = 0
+        else:
             dim = EmImage.getDim(path)
-            if dim is not None:
+            if dim is None:
+                self._dx = self._dy = self._dz = 0
+            else:
                 self._dx = dim.x
                 self._dy = dim.y
                 self._dz = dim.z
 
     @pyqtSlot(int)
+    def _onVolumeIndexChanged(self, index):
+        """ This slot is invoked when the volume index change """
+        self.__setupAllWidgets()
+
+    @pyqtSlot(int)
     def _onTopViewIndexChanged(self, value):
         """ This slot is invoked when the index of top view change """
         self._renderArea.setShiftY(40 * value / self._dy - 1)
+        self._axis = Y_AXIS
+        self._slice = self._topView.getSliceIndex()
 
     @pyqtSlot(int)
     def _onFrontViewIndexChanged(self, value):
         """ This slot is invoked when the index of front view change """
         self._renderArea.setShiftZ(40 * value / self._dz - 1)
+        self._axis = Z_AXIS
+        self._slice = self._frontView.getSliceIndex()
 
     @pyqtSlot(int)
     def _onRightViewIndexChanged(self, value):
         """ This slot is invoked when the index of right view change """
         self._renderArea.setShiftX(40 * value / self._dx - 1)
+        self._axis = X_AXIS
+        self._slice = self._rightView.getSliceIndex()
 
     def loadPath(self, path):
-        """ Set the image Path """
-        self._path = path
+        """ Set the image path. None value for clear the Views """
         self.__loadImageDim(path)
-        if path is not None:
-            self._frontView.setPath(path)
-            self._frontView.setSliceIndex(self._dz / 2)
-            self._topView.setPath(path)
-            self._topView.setSliceIndex(self._dy / 2)
-            self._rightView.setPath(path)
-            self._rightView.setSliceIndex(self._dx / 2)
+        if path is None:
+            self._model = None
+        else:
+            self._model = VolumeDataModel(path, parent=self)
 
-            self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
-            self._onTopViewIndexChanged(self._topView.getSliceIndex())
-            self._onRightViewIndexChanged(self._rightView.getSliceIndex())
+        self.__setupAllWidgets()
+
+    def clear(self):
+        """
+        This is an overloaded function. Sets the image path to None value
+        """
+        self.loadPath(None)
+
+    def setModel(self, model):
+        """ Sets the model for this view """
+        if model is None:
+            self.clear()
+        else:
+            self._model = model
+            self.__loadImageDim(model.getPath())
+            self.__setupAllWidgets()
+
+    def getAxis(self):
+        """ Return the current axis """
+        return self._axis
+
+    def setAxis(self, axis):
+        """ Sets the current axis """
+        self._axis = axis
+
+    def getSlice(self):
+        """ Return the current slice index for the current axis """
+        return self._slice
+
+    def setSlice(self, sliceIndex):
+        """ Sets the current slice index """
+        if self._axis == X_AXIS:
+            self._rightView.setSliceIndex(sliceIndex)
+        elif self._axis == Y_AXIS:
+            self._topView.setSliceIndex(sliceIndex)
+        elif self._axis == Z_AXIS:
+            self._frontView.setSliceIndex(sliceIndex)
 
 
 class RenderArea(QWidget):

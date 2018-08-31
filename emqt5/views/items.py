@@ -10,7 +10,7 @@ from PyQt5 import QtCore
 
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 from .base import AbstractView
-from emqt5.utils import EmPath, parseImagePath
+from emqt5.utils import EmPath, parseImagePath, ImageRef
 from .image_view import ImageView
 
 
@@ -27,6 +27,7 @@ class ItemsView(AbstractView):
         self._row = 0
         self._disableFitToSize = False
         self._imgCache = ImageCache(50)
+        self._imageRef = ImageRef()
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
@@ -51,26 +52,32 @@ class ItemsView(AbstractView):
                              Qt.DisplayRole)
                 if i == col:
                     imgPath = self._model.getTableData(row, i)
-                    imgParams = parseImagePath(imgPath)
-                    if imgParams is not None and len(imgParams) == 3:
-                        imgPath = imgParams[2]
-
-                        if EmPath.isStack(imgPath):
-                            id = str(imgParams[0]) + '_' + imgPath
-                            index = imgParams[0]
-                        else:
-                            id = imgPath
+                    imgRef = parseImagePath(imgPath, self._imageRef)
+                    if imgRef is not None:
+                        if imgRef.imageType & \
+                                ImageRef.SINGLE == ImageRef.SINGLE:
+                            imgId = imgRef.path
                             index = 0
+                        elif imgRef.imageType & \
+                                ImageRef.STACK == ImageRef.STACK:
+                            if imgRef.imageType & \
+                                    ImageRef.VOLUME == ImageRef.VOLUME:
+                                imgId = '%d-%s' % (imgRef.volumeIndex,
+                                                   imgRef.path)
+                                index = imgRef.volumeIndex
+                            else:
+                                imgId = '%d-%s' % (imgRef.index, imgRef.path)
+                                index = imgRef.index
 
-                        data = self._imgCache.addImage(id, imgPath, index)
+                        data = self._imgCache.addImage(imgId, imgRef.path,
+                                                       index)
                         if data is not None:
-                            axis = imgParams[1]
-                            if axis == X_AXIS:
-                                data = data[:, :, imgParams[0]]
-                            elif axis == Y_AXIS:
-                                data = data[:, imgParams[0], :]
-                            elif axis == Z_AXIS:
-                                data = data[imgParams[0], :, :]
+                            if imgRef.axis == X_AXIS:
+                                data = data[:, :, imgRef.index]
+                            elif imgRef.axis == Y_AXIS:
+                                imgRef.axis = data[:, imgRef.index, :]
+                            elif imgRef.axis == Z_AXIS:
+                                data = data[imgRef.index, :, :]
 
                             self._imageView.setImage(data)
                         else:

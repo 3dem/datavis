@@ -12,7 +12,7 @@ from PyQt5.QtGui import QPixmap, QPalette, QPen
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.utils import EmPath, parseImagePath
+from emqt5.utils import EmPath, parseImagePath, ImageRef
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 
 
@@ -43,6 +43,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
+        self._imageRef = ImageRef()
 
     def paint(self, painter, option, index):
         """
@@ -123,33 +124,40 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         imgPath = index.data(Qt.UserRole)
 
-        imgParams = parseImagePath(imgPath)
+        imgRef = parseImagePath(imgPath, self._imageRef)
 
-        if imgParams is None or not len(imgParams) == 3:
+        if imgRef is None:
             return None
-        else:
-            imgPath = imgParams[2]
 
-            if EmPath.isStack(imgParams[2]):
-                id = str(imgParams[0]) + '_' + imgPath
+        if imgRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
+            imgId = imgRef.path
+        elif imgRef.imageType & ImageRef.STACK == ImageRef.STACK:
+            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
+                imgId = '%d-%s' % (imgRef.volumeIndex, imgRef.path)
             else:
-                id = imgPath
+                imgId = '%d-%s' % (imgRef.index, imgRef.path)
+        else:
+            return None
 
-        imgData = self._imgCache.getImage(id)
+        imgData = self._imgCache.getImage(imgId)
 
-        if imgData is None:
-            imgData = self._imgCache.addImage(id, imgPath, imgParams[0])
+        if imgData is None:  # the add the image to Cache
+            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
+                imgData = self._imgCache.addImage(imgId, imgRef.path,
+                                                  imgRef.volumeIndex)
+            else:
+                imgData = self._imgCache.addImage(imgId, imgRef.path,
+                                                  imgRef.index)
 
         if imgData is None:
             return None
         else:
-            axis = imgParams[1]
-            if axis == X_AXIS:
-                imgData = imgData[:, :, imgParams[0]]
-            elif axis == Y_AXIS:
-                imgData = imgData[:, imgParams[0], :]
-            elif axis == Z_AXIS:
-                 imgData = imgData[imgParams[0], :, :]
+            if imgRef.axis == X_AXIS:
+                imgData = imgData[:, :, imgRef.index]
+            elif imgRef.axis == Y_AXIS:
+                imgData = imgData[:, imgRef.index, :]
+            elif imgRef.axis == Z_AXIS:
+                 imgData = imgData[imgRef.index, :, :]
 
         return imgData
 

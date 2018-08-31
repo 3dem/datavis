@@ -365,6 +365,19 @@ class VolumeDataModel(QAbstractItemModel):
     emit (page)
     """
     sigPageChanged = pyqtSignal(int)
+    """ 
+    Signal emitted when change the current axis
+    emit (axis) 
+    X: 0
+    Y: 1
+    Z: 2
+    """
+    sigAxisChanged = pyqtSignal(int)
+    """ 
+    Signal emitted when change the current volume index
+    emit (modelIndex)
+    """
+    sigVolumeIndexChanged = pyqtSignal(int)
 
     def __init__(self, path, **kwargs):
         """
@@ -389,16 +402,44 @@ class VolumeDataModel(QAbstractItemModel):
         self._pageCount = 0
         self._title = kwargs.get('title', '')
         self._dim = EmImage.getDim(path)
-        self._axis = X_AXIS
+        self._axis = kwargs.get('axis', X_AXIS)
         self._rows = 0
+        self._volumeIndex = kwargs.get('volumeIndex', 0)
         self.setAxis(kwargs.get('axis', X_AXIS))
         
     def clone(self):
         """ Clone this model """
         clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
                               pageSize=self._pageSize, title=self._title,
-                              axis=self._axis)
+                              axis=self._axis, volumeIndex=self._volumeIndex)
         return clo
+
+    def getVolumeIndex(self):
+        """ Return the volume index """
+        return self._volumeIndex
+
+    def setVolumeIndex(self, index):
+        """
+        Sets the volume index.
+        For volume stacks: 0 <= index < em-image.dim.n
+        """
+        if self._dim is None:
+            self._volumeIndex = 0
+        elif index in range(0, self._dim.n):
+            self._volumeIndex = index
+        else:
+            self._volumeIndex = 0
+
+        self.sigVolumeIndexChanged.emit(self._volumeIndex)
+        self.setupPage(self._pageSize, 0)
+
+    def getVolumeCount(self):
+        """
+        Return the volumes count for this model
+        """
+        if self._dim is None:
+            return 0
+        return self._dim.n
 
     def setAxis(self, axis):
         """ Sets the current axis """
@@ -413,6 +454,7 @@ class VolumeDataModel(QAbstractItemModel):
 
         self._axis = axis
         self.setupPage(self._pageSize, 0)
+        self.sigAxisChanged.emit(self._axis)
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """ Reimplemented function from QAbstractItemModel. """
@@ -536,8 +578,8 @@ class VolumeDataModel(QAbstractItemModel):
             if col == 1:
                 return True
             if col == 2:
-                return str(row) + '@' + str(self._axis) + '@' + self._path
-
+                return '%d@%d@%d@%s' % (row, self._axis, self._volumeIndex,
+                                        self._path)
         return None
 
     @pyqtSlot(int)
@@ -664,6 +706,10 @@ class VolumeDataModel(QAbstractItemModel):
             return False
         else:
             return self._tableViewConfig.hasRenderableColumn()
+
+    def getPath(self):
+        """ Return the path of this volume model """
+        return self._path
 
     def __setupModel(self):
         """

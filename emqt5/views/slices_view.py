@@ -39,6 +39,7 @@ class SlicesView(QWidget):
         QWidget.__init__(self, parent=parent)
         self._imageCache = kwargs.get('cache', None) or ImageCache(10)
         self._sliceIndex = 0
+        self._index = 0
         self._axis = N_DIM
         self._imagePath = None
         self._dim = None
@@ -77,27 +78,26 @@ class SlicesView(QWidget):
 
     def __showSlice(self):
         """ Load the slice """
-        index = 0 if not self._axis == N_DIM else self._sliceIndex
-        if self._axis == N_DIM:
-            imgId = ('%i_' + self._imagePath) % self._sliceIndex
-        else:
-            imgId = self._imagePath
-
-        data = self._imageCache.addImage(imgId, self._imagePath, index)
-        if data is not None:
-            if self._axis == X_AXIS:
-                data = data[:, :, self._sliceIndex]
-            elif self._axis == Y_AXIS:
-                data = data[:, self._sliceIndex, :]
-            elif self._axis == Z_AXIS:
-                data = data[self._sliceIndex, :, :]
-
-            self._imageView.setImage(data)
-            if self._viewRect is not None:
-                self._imageView.getView().setRange(rect=self._viewRect,
-                                                   padding=0.0)
-        else:
+        if self._imagePath is None:
             self._imageView.clear()
+        else:
+            imgId = '%i-%s' % (self._index, self._imagePath)
+            data = self._imageCache.addImage(imgId, self._imagePath,
+                                             self._index)
+            if data is not None:
+                if self._axis == X_AXIS:
+                    data = data[:, :, self._sliceIndex]
+                elif self._axis == Y_AXIS:
+                    data = data[:, self._sliceIndex, :]
+                elif self._axis == Z_AXIS:
+                    data = data[self._sliceIndex, :, :]
+
+                self._imageView.setImage(data)
+                if self._viewRect is not None:
+                    self._imageView.getView().setRange(rect=self._viewRect,
+                                                       padding=0.0)
+            else:
+                self._imageView.clear()
 
     def __setupNavWidgets(self):
         """ Configure the navigation widgets (QSlider, QSpinBox) """
@@ -111,31 +111,38 @@ class SlicesView(QWidget):
             else:
                 size = self._dim.n
 
-            if self._sliceIndex < 0:
-                self._sliceIndex = 0 if self._axis == N_DIM else int(size / 2)
+            index = self._index if self._axis == N_DIM else int(size / 2)
 
             blocked = self._spinBox.blockSignals(True)
             self._spinBox.setMinimum(0)
             self._spinBox.setMaximum(size - 1)
-            self._spinBox.setValue(self._sliceIndex)
+            self._spinBox.setValue(index)
             self._spinBox.blockSignals(blocked)
 
             blocked = self._slider.blockSignals(True)
             self._slider.setMinimum(0)
             self._slider.setMaximum(size - 1)
-            self._slider.setValue(self._sliceIndex)
+            self._slider.setValue(index)
             self._slider.blockSignals(blocked)
 
     @pyqtSlot(int)
     def _onSpinBoxChanged(self, value):
         """ Invoked when change the spinbox value """
-        self._sliceIndex = value
+        if self._axis == N_DIM:
+            self._index = value
+        else:
+            self._sliceIndex = value
+
         self._slider.setValue(value)
 
     @pyqtSlot(int)
     def _onSliderChange(self, value):
         """ Invoked when change the spinbox value """
-        self._sliceIndex = value
+        if self._axis == N_DIM:
+            self._index = value
+        else:
+            self._sliceIndex = value
+
         if not self._spinBox.value() == value:
             self._spinBox.setValue(value)
 
@@ -159,10 +166,16 @@ class SlicesView(QWidget):
         self._label.setText(text)
 
     def setPath(self, path):
-        """ Sets the image path """
+        """
+        Sets the image path.(initialize slice index to 0)
+        None value for clear.
+        """
         self._imagePath = path
         self._dim = None if self._imagePath is None else \
             EmImage.getDim(self._imagePath)
+
+        self.setSliceIndex(0)
+        self.setIndex(0)
         self.__setupNavWidgets()
         self.__showSlice()
 
@@ -193,22 +206,34 @@ class SlicesView(QWidget):
 
         return True
 
+    def getIndex(self):
+        """ Return the current image index (for image stacks) """
+        return self._index
+
+    def setIndex(self, index):
+        """ Sets the current image index (for stacks) """
+        if self._dim is not None and index in range(0, self._dim.n):
+            self._index = index
+
     def getSliceIndex(self):
         """ Return the current slice index """
         return self._sliceIndex
 
     def setSliceIndex(self, index):
         """ Sets the slice index """
-        if self._axis == X_AXIS and index in range(0, self._dim.x):
-            self._sliceIndex = index
-        elif self._axis == Y_AXIS and index in range(0, self._dim.y):
-            self._sliceIndex = index
-        elif self._axis == Z_AXIS and index in range(0, self._dim.z):
-            self._sliceIndex = index
-        elif self._axis == N_DIM and index in range(0, self._dim.n):
-            self._sliceIndex = index
-        else:
+        if self._dim is None:
             self._sliceIndex = 0
+        else:
+            if self._axis == X_AXIS and index in range(0, self._dim.x):
+                self._sliceIndex = index
+            elif self._axis == Y_AXIS and index in range(0, self._dim.y):
+                self._sliceIndex = index
+            elif self._axis == Z_AXIS and index in range(0, self._dim.z):
+                self._sliceIndex = index
+            else:
+                self._sliceIndex = 0
+
+            self._onSliderChange(index)
 
 
 

@@ -26,6 +26,7 @@ class DataView(QWidget):
     COLUMNS = 1
     GALLERY = 2
     ITEMS = 4
+    SLICES = 8
 
     """ This signal is emitted when the current item change """
     sigCurrentItemChanged = pyqtSignal(int, int)
