@@ -362,8 +362,8 @@ class BrowserWindow(QMainWindow):
             d = EmImage.getDim(imagePath)
             if d.n == 1:  # Single image or volume
                 if d.z == 1:  # Single image
-                    image = EmImage.load(imagePath)
-                    data = np.array(image, copy=False)
+                    self._image = EmImage.load(imagePath)
+                    data = np.array(self._image, copy=False)
                     self._imageView.setImage(data)
                     self.__showImageView()
                 else:  # Volume
@@ -377,12 +377,12 @@ class BrowserWindow(QMainWindow):
                     self._volumeView.loadPath(imagePath)
                     self.__showVolumeSlice()
 
-                    # Show the image dimension and type
-                    self.listWidget.clear()
-                    self.listWidget.addItem("Dimension: " +
-                                            str(self._image.getDim()))
-                    self.listWidget.addItem(
-                        "Type: " + str(self._image.getType()))
+                # Show the image dimension and type
+                self.listWidget.clear()
+                self.listWidget.addItem("Dimension: " +
+                                        str(self._image.getDim()))
+                self.listWidget.addItem(
+                    "Type: " + str(self._image.getType()))
             else:
                 # The image constitute an image stack
                 if d.z > 1:  # Volume stack
