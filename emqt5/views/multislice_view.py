@@ -43,13 +43,8 @@ class MultiSliceView(QWidget):
     def __setupUi(self, **kwargs):
         self._mainLayout = QGridLayout(self)
         self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(1, 1, 1, 1)
-        kwargs['back_color'] = kwargs.get('back_color',
-                                          None) or self.palette().\
-            color(QPalette.Window)
-        kwargs['border_color'] = kwargs.get('border_color',
-                                            None) or self.palette().\
-            color(QPalette.Window)
+        self._mainLayout.setContentsMargins(0, 0, 0, 0)
+        kwargs['auto_fill'] = 'on'
         kwargs['volume_axis'] = 'y'
         self._topView = SlicesView(self, **kwargs)
         self._topView.setImageCache(self._imageCache)

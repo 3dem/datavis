@@ -51,7 +51,7 @@ class SlicesView(QWidget):
     def __setupUI(self, **kwargs):
         self._mainLayout = QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(1, 1, 1, 1)
+        self._mainLayout.setContentsMargins(0, 0, 0, 0)
         self._imageView = ImageView(self, **kwargs)
         self._imageView.installEventFilter(self)
         self._mainLayout.addWidget(self._imageView)

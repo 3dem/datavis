@@ -7,7 +7,7 @@ import argparse
 
 
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication
 
 import em
 from emqt5.utils import EmPath, EmTable, EmImage
@@ -93,6 +93,13 @@ if __name__ == '__main__':
              'slices': DataView.SLICES}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
 
+    def getPreferedBounds():
+        size = QApplication.desktop().size()
+        p = 0.8
+        (w, h) = (int(p * size.width()), int(p * size.height()))
+        return (size.width() - w) / 2, (size.height() - h) / 2, w, h
+
+
     def createDataView(table, tableViewConfig, title, defaultView):
         kwargs['view'] = defaultView
         dataView = DataView(None, **kwargs)
@@ -101,15 +108,23 @@ if __name__ == '__main__':
         return dataView
 
     def createBrowserView(path):
-        return BrowserWindow(None, path, **kwargs)
+        bounds = getPreferedBounds()
+        browser = BrowserWindow(None, path, **kwargs)
+        browser.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
+        return browser
 
     def createVolumeView():
         kwargs['tool_bar'] = 'off'
-        kwargs['axis'] = 'off'
-        return VolumeView(None, **kwargs)
+        bounds = getPreferedBounds()
+        volumeView = VolumeView(None, **kwargs)
+        volumeView.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
+        return volumeView
 
     def createSlicesView():
-        return SlicesView(None, **kwargs)
+        bounds = getPreferedBounds()
+        slicesView = SlicesView(None, **kwargs)
+        slicesView.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
+        return slicesView
 
     def createImageView(image):
         dim = image.getDim()
@@ -120,6 +135,8 @@ if __name__ == '__main__':
         data = np.array(image, copy=False)
         imgView.setImage(data)
         imgView.setImageDescription(desc % (dim.x, dim.y, dim.z, dim.n))
+        bounds = getPreferedBounds()
+        imgView.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
         return imgView
 
     files = args.files or os.getcwd()  # if not files use the current dir

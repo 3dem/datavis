@@ -56,8 +56,8 @@ class ImageView(QWidget):
         self._showXaxis = True
         self._showYaxis = True
         self._fitToSize = True
-        self._backColor = None
-        self._borderColor = None
+        self._autoFill = False
+        self._pgButtons = None
 
         self.__setupUI(**kwargs)
         self.setup(**kwargs)
@@ -118,9 +118,8 @@ class ImageView(QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Vertical)
-        view = pg.PlotItem() if kwargs.get('axis', 'off') == 'on' \
-            else pg.ViewBox()
-        self._imageView = pg.ImageView(parent=self._splitter, view=view)
+        self._imageView = pg.ImageView(parent=self._splitter,
+                                       view=pg.PlotItem())
         v = self._imageView.getView()
         v.invertY(False)
         self._yInverted = False
@@ -162,20 +161,21 @@ class ImageView(QWidget):
         plotItem = self._imageView.getView()
 
         if isinstance(plotItem, pg.PlotItem):
+            if not self._pgButtons:
+                plotItem.hideButtons()
+            plotItem.setAutoFillBackground(self._autoFill)
             plotItem.showAxis('bottom', self._showXaxis)
+            axis = plotItem.getAxis("bottom")
+            axis.setAutoFillBackground(self._autoFill)
+            axis.setZValue(0)
             plotItem.showAxis('left', self._showYaxis)
+            axis = plotItem.getAxis("left")
+            axis.setAutoFillBackground(self._autoFill)
+            axis.setZValue(0)
             plotItem.showAxis('top', False)
-            view = plotItem.getViewBox()
-
-        if self._backColor is not None:
-            view.setBackgroundColor(QColor(self._backColor))
-        else:
-            view.setBackgroundColor(None)
-
-        if self._borderColor is not None:
-            view.border = QPen(QColor(self._borderColor))
-        else:
-            view.border = None
+            axis = plotItem.getAxis("top")
+            axis.setZValue(0)
+            axis.setAutoFillBackground(self._autoFill)
 
     def __resetOperationParams(self):
         """ Reset the image operations params """
@@ -208,8 +208,8 @@ class ImageView(QWidget):
         self._showXaxis = kwargs.get("axis", "on") == "on"
         self._showYaxis = kwargs.get("axis", "on") == "on"
         self._fitToSize = kwargs.get("fit", "on") == "on"
-        self._backColor = kwargs.get("back_color", None)
-        self._borderColor = kwargs.get("border_color", None)
+        self._autoFill = kwargs.get("auto_fill", "off") == "on"
+        self._pgButtons = kwargs.get("hide_buttons", "off") == "on"
         self.__setupImageView()
 
     def setImage(self, image):
