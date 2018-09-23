@@ -587,9 +587,25 @@ class DataView(QWidget):
         """ Show or hide the status bar """
         self._statusBar.setVisible(visible)
 
-    def getViewName(self):
-        """ Return the current view """
+    def getView(self):
+        """ Returns the current view """
         return self._view
+
+    def getViewWidget(self, viewType=None):
+        """
+        If the given viewType is present in the available views then
+        return the view.
+        if viewType=None then return the current view.
+        viewType that can be used:
+        DataView.COLUMNS
+        DataView.GALLERY
+        DataView.ITEMS
+        DataView.SLICES
+        """
+        if viewType is None:
+            return self._viewsDict.get(self._view)
+
+        return self._viewsDict.get(viewType)
 
     def setView(self, view):
         """ Sets view as current view """

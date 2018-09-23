@@ -78,26 +78,31 @@ class SlicesView(QWidget):
 
     def __showSlice(self):
         """ Load the slice """
-        if self._imagePath is None:
-            self._imageView.clear()
-        else:
-            imgId = '%i-%s' % (self._index, self._imagePath)
-            data = self._imageCache.addImage(imgId, self._imagePath,
-                                             self._index)
-            if data is not None:
-                if self._axis == X_AXIS:
-                    data = data[:, :, self._sliceIndex]
-                elif self._axis == Y_AXIS:
-                    data = data[:, self._sliceIndex, :]
-                elif self._axis == Z_AXIS:
-                    data = data[self._sliceIndex, :, :]
-
-                self._imageView.setImage(data)
-                if self._viewRect is not None:
-                    self._imageView.getView().setRange(rect=self._viewRect,
-                                                       padding=0.0)
-            else:
+        try:
+            if self._imagePath is None:
                 self._imageView.clear()
+            else:
+                imgId = '%i-%s' % (self._index, self._imagePath)
+                data = self._imageCache.addImage(imgId, self._imagePath,
+                                                 self._index)
+                if data is not None:
+                    if self._axis == X_AXIS:
+                        data = data[:, :, self._sliceIndex]
+                    elif self._axis == Y_AXIS:
+                        data = data[:, self._sliceIndex, :]
+                    elif self._axis == Z_AXIS:
+                        data = data[self._sliceIndex, :, :]
+
+                    self._imageView.setImage(data)
+                    if self._viewRect is not None:
+                        self._imageView.getView().setRange(rect=self._viewRect,
+                                                           padding=0.0)
+                else:
+                    self._imageView.clear()
+        except Exception as ex:
+            raise ex
+        except RuntimeError as ex:
+            raise ex
 
     def __setupNavWidgets(self):
         """ Configure the navigation widgets (QSlider, QSpinBox) """
@@ -133,20 +138,30 @@ class SlicesView(QWidget):
         else:
             self._sliceIndex = value
 
-        self._slider.setValue(value)
+        try:
+            self._slider.setValue(value)
+        except Exception as ex:
+            print(ex)
+        except RuntimeError as ex:
+            print(ex)
 
     @pyqtSlot(int)
     def _onSliderChange(self, value):
         """ Invoked when change the spinbox value """
-        if self._axis == N_DIM:
-            self._index = value
-        else:
-            self._sliceIndex = value
+        try:
+            if self._axis == N_DIM:
+                self._index = value
+            else:
+                self._sliceIndex = value
 
-        if not self._spinBox.value() == value:
-            self._spinBox.setValue(value)
+            self.__showSlice()
+            if not self._spinBox.value() == value:
+                self._spinBox.setValue(value)
+        except Exception as ex:
+            raise ex
+        except RuntimeError as ex:
+            raise ex
 
-        self.__showSlice()
         self.sigCurrentIndexChanged.emit(value)
 
     def setImageCache(self, imageCache):
@@ -170,14 +185,18 @@ class SlicesView(QWidget):
         Sets the image path.(initialize slice index to 0)
         None value for clear.
         """
-        self._imagePath = path
-        self._dim = None if self._imagePath is None else \
-            EmImage.getDim(self._imagePath)
+        try:
+            self._imagePath = path
+            self._dim = None if self._imagePath is None else \
+                EmImage.getDim(self._imagePath)
 
-        self.setSliceIndex(0)
-        self.setIndex(0)
-        self.__setupNavWidgets()
-        self.__showSlice()
+            self.setSliceIndex(0)
+            self.setIndex(0)
+            self.__setupNavWidgets()
+        except Exception as ex:
+            raise ex
+        except RuntimeError as ex:
+            raise ex
 
     def setAxis(self, axis):
         """ Sets the axis for this view. ('x', 'y', 'z' or None for stacks) """
@@ -233,7 +252,9 @@ class SlicesView(QWidget):
             else:
                 self._sliceIndex = 0
 
-            self._onSliderChange(index)
-
-
-
+            try:
+                self._onSliderChange(index)
+            except Exception as ex:
+                raise ex
+            except RuntimeError as ex:
+                raise ex

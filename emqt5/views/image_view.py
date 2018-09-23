@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSlot, QRect, QRectF, QSize
 from PyQt5.QtWidgets import (QWidget, QToolBar, QAction, QHBoxLayout, QSplitter,
                              QTextEdit)
-from PyQt5.QtGui import QColor, QPen
+from PyQt5.QtGui import QColor, QPen, QTransform
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -36,9 +36,13 @@ class ImageView(QWidget):
         fit: (str) If specified, this will be used to automatically
                      auto-range the image whenever the view is resized.
                      Possible values are "on"(by default) or "off"
-        back_color (str): The background color (example: '#BBAAFF')
-        border_color (str): The border color (example: '#BBAAFF')
-
+        auto_fill: (str) This property holds whether the widget background
+                         is filled automatically. The color used is defined by
+                         the QPalette::Window color role from the widget's
+                         palette. Possible values are "on" or "off" (by default)
+        hide_buttons: (str) Hide/show the internal pg buttons. For example,
+                            the button used to center an image. Possible values
+                            are "on" or "off" (by default)
         """
         QWidget.__init__(self, parent=parent)
 
@@ -215,7 +219,7 @@ class ImageView(QWidget):
     def setImage(self, image):
         """ Set the image to be displayed """
         self.clear()
-        self._imageView.setImage(image, autoRange=self._fitToSize)
+        self._imageView.setImage(image, autoRange=self._fitToSize)        
 
     @pyqtSlot(int)
     def rotate(self, angle):
@@ -328,3 +332,20 @@ class ImageView(QWidget):
     def getView(self):
         """ Retuens the internal widget used for display image """
         return self._imageView.getView()
+
+    def setViewSize(self, x, y, width, height):
+        """ Sets the view size """
+        tw = self._toolBar.width() if self._showToolBar else 0
+        th = self._toolBar.height() if self._showToolBar else 0
+        hw = self._imageView.ui.histogram.item.width() \
+            if self._showHistogram else 0
+
+        plot = self._imageView.getView()
+        if isinstance(plot, pg.PlotItem):
+            if self._showXaxis:
+                height += plot.getAxis("bottom").height()
+            if self._showYaxis:
+                width += plot.getAxis("left").height()
+
+        self._imageView.setGeometry(x, y, width, height)
+        print("ImageViewSize = ", self._imageView.size())

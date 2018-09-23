@@ -192,3 +192,15 @@ class ColumnsView(AbstractView):
             return 0, 0
         else:
             return self._model.totalRowCount(), self._model.columnCount(None)
+
+    def getHeaderSize(self, columnIndex=None):
+        """
+        Returns the header size in pixels for the given column.
+        If columnIndex is None, then returns the entire header size
+        """
+        header = self._tableView.horizontalHeader()
+
+        if columnIndex is None:
+            return header.length()
+        else:
+            return header.sectionSize(columnIndex)

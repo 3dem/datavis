@@ -750,10 +750,15 @@ class ImageCache:
         """
         ret = self._imgData.get(imgId)
         if ret is None:
-            ret = self.__createThumb(imgData, index)
-            self._imgData[imgId] = ret
-            if len(self._imgData) > self._cacheSize:
-                self._imgData.popitem()
+            try:
+                ret = self.__createThumb(imgData, index)
+                self._imgData[imgId] = ret
+                if len(self._imgData) > self._cacheSize:
+                    self._imgData.popitem()
+            except Exception as ex:
+                raise ex
+            except RuntimeError as ex:
+                raise ex
         return ret
 
     def getImage(self, imgId):

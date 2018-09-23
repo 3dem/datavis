@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QSplitter, QApplication, QTreeView, QStackedLayout,
                              QFileSystemModel, QLineEdit, QVBoxLayout,
                              QListWidget, QMainWindow, QAction, QToolBar,
-                             QLabel, QPushButton, QSpacerItem, QCompleter)
+                             QLabel, QListWidgetItem, QMessageBox, QCompleter)
 from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QRect, QDir,
                           QItemSelectionModel, QEvent)
 from emqt5.views import (DataView, createVolumeModel, createTableModel,
@@ -58,23 +58,6 @@ class BrowserWindow(QMainWindow):
         :param signal: clicked signal
         """
         self.__changePath(self._model.filePath(signal))
-
-    def _onCloseButtonClicked(self):
-        """
-        This Slot is executed when a exit signal was fire. The application is
-        terminate
-        """
-        # FIXME: This shutdown the entire Python interpreter, we should only close the application
-        # if the app is invoked from other app, this will close everything
-        sys.exit()
-
-    def _onSelectButtonClicked(self):
-        """
-        This Slot is executed when select button signal was clicked.
-        Select an em-image to realize a simple data-slicing
-        """
-        if EmPath.isImage(self._imagePath):
-            self.volumeSliceView = MultiSliceView(path=self._imagePath)
 
     def _onHomeActionClicked(self):
         """
@@ -168,28 +151,6 @@ class BrowserWindow(QMainWindow):
         self._verticalLayout.addWidget(self._treeView)
         self._treeView.clicked.connect(self._onPathClick)
 
-        # Create a Select Button and Close Button
-        buttonHorizontalLayout = QHBoxLayout(self._widget)
-        buttonHorizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding,
-                                         QSizePolicy.Minimum)
-        buttonHorizontalLayout.addItem(buttonHorizontalSpacer)
-
-        self._selectButton = QPushButton(self._widget)
-        self._selectButton.setGeometry(QRect(160, 190, 101, 22))
-        self._selectButton.setIcon(qta.icon('fa.check'))
-        self._selectButton.clicked.connect(self._onSelectButtonClicked)
-
-        buttonHorizontalLayout.addWidget(self._selectButton)
-
-        self._closeButton = QPushButton(self._widget)
-        self._closeButton.setGeometry(QRect(160, 190, 101, 22))
-        self._closeButton.setIcon(qta.icon('fa.times'))
-        self._closeButton.clicked.connect(self._onCloseButtonClicked)
-
-        buttonHorizontalLayout.addWidget(self._closeButton)
-
-        self._verticalLayout.addLayout(buttonHorizontalLayout.layout())
-
         self._leftVerticalLayout.addLayout(self._verticalLayout)
 
         # Create right Panel
@@ -226,7 +187,7 @@ class BrowserWindow(QMainWindow):
         self._stackLayout.addWidget(self._imageView)
         self._stackLayout.addWidget(self._emptyWidget)
 
-        self.listWidget = QListWidget(self._imageSplitter)
+        self._infoWidget = QListWidget(self._imageSplitter)
 
         self._imageVerticalLayout.addWidget(self._imageSplitter)
 
@@ -292,9 +253,6 @@ class BrowserWindow(QMainWindow):
         self._folderUpAction.setText(_translate("MainWindow",
                                                 "Parent Directory"))
         self._label.setText(_translate("MainWindow", "Path"))
-        self._selectButton.setText(QApplication.translate("MainWindow",
-                                                          "Select"))
-        self._closeButton.setText(QApplication.translate("MainWindow", "Close"))
 
     def setLineCompleter(self, newPath):
         """
@@ -337,79 +295,107 @@ class BrowserWindow(QMainWindow):
 
         :param imagePath: the image path
         """
-        self._imagePath = imagePath
-        if EmPath.isTable(imagePath):
-            # The data constitute a Table
-            model = createTableModel(imagePath)
-            self._dataView.setModel(model)
-            self._dataView.setView(DataView.COLUMNS)
-            self.__showDataView()
+        try:
+            info = {"Type": "UNKNOWN"}
+            self._imagePath = imagePath
+            if EmPath.isTable(imagePath):
+                model = createTableModel(imagePath)
+                self._dataView.setModel(model)
+                self._dataView.setView(DataView.COLUMNS)
+                self.__showDataView()
+                # Show the Table dimensions
+                info["Type"] = "TABLE"
+                info["Dimensions (Rows x Columns)"] = \
+                    "%d x %d" % (model.totalRowCount(), model.columnCount())
 
-            # Show the Table dimensions
-            # FIXME Incorrect method
-            table = em.Table()
-            tableIO = em.TableIO()
-            tableIO.open(imagePath)
-            tableIO.read('', table)
-            tableIO.close()
-            self.listWidget.clear()
-            self.listWidget.addItem("Type: EM-Table ")
-            self.listWidget.addItem('Dimensions (Rows x Columns): ' +
-                                    str(table.getSize()) + ' x ' +
-                                    str(table.getColumnsSize()))
-        elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
-                or EmPath.isVolume(imagePath):
-            d = EmImage.getDim(imagePath)
-            if d.n == 1:  # Single image or volume
-                if d.z == 1:  # Single image
-                    self._image = EmImage.load(imagePath)
-                    data = np.array(self._image, copy=False)
-                    self._imageView.setImage(data)
-                    self.__showImageView()
-                else:  # Volume
-                    # The image has a volume. The data is a numpy 3D array. In
-                    # this case, display the Top,Front and the Right View planes
-                    self._frame.setEnabled(True)
-                    # Create an image from imagePath using em-bindings
-                    self._image = em.Image()
-                    loc2 = em.ImageLocation(imagePath)
-                    self._image.read(loc2)
-                    self._volumeView.loadPath(imagePath)
-                    self.__showVolumeSlice()
-
-                # Show the image dimension and type
-                self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " +
-                                        str(self._image.getDim()))
-                self.listWidget.addItem(
-                    "Type: " + str(self._image.getType()))
-            else:
-                # The image constitute an image stack
-                if d.z > 1:  # Volume stack
-                    self._volumeView.loadPath(self._imagePath)
-                    self.__showVolumeSlice()
+            elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
+                    or EmPath.isVolume(imagePath):
+                d = EmImage.getDim(imagePath)
+                info["Dimensions"] = str(d)
+                if d.n == 1:  # Single image or volume
+                    if d.z == 1:  # Single image
+                        self._image = EmImage.load(imagePath)
+                        data = np.array(self._image, copy=False)
+                        self._imageView.setImage(data)
+                        info["Type"] = \
+                            "SINGLE-IMAGE: " + str(self._image.getType())
+                        self.__showImageView()
+                    else:  # Volume
+                        # The image has a volume. The data is a numpy 3D array.
+                        # In this case, display the Top, Front and the Right
+                        # View planes.
+                        self._frame.setEnabled(True)
+                        # Create an image from imagePath using em-bindings
+                        self._image = em.Image()
+                        loc2 = em.ImageLocation(imagePath)
+                        self._image.read(loc2)
+                        info["Type"] = "VOLUME: " + str(self._image.getType())
+                        self._volumeView.loadPath(imagePath)
+                        self.__showVolumeSlice()
                 else:
-                    model = createStackModel(imagePath)
-                    self._dataView.setModel(model)
-                    self._dataView.setView(DataView.GALLERY)
-                    self.__showDataView()
+                    # The image constitute an image stack
+                    if d.z > 1:  # Volume stack
+                        self._volumeView.loadPath(self._imagePath)
+                        info["Type"] = "VOLUME STACK: "
+                        self.__showVolumeSlice()
+                    else:
+                        info["Type"] = "IMAGES STACK"
+                        model = createStackModel(imagePath)
+                        self._dataView.setModel(model)
+                        self._dataView.setView(DataView.GALLERY)
+                        self.__showDataView()
 
-                # Show the image dimension and type
-                self._image = em.ImageIO()
-                self._image.open(imagePath, em.File.READ_ONLY)
-                self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " +
-                                        str(self._image.getDim()))
-                self.listWidget.addItem("Type: Images Stack")
-                self._image.close()
+                    # TODO Show the image type
+            elif EmPath.isStandardImage(imagePath):
+                imgData = EmImage.loadStandardImage(imagePath)
+                if imgData is not None:
+                    self._imageView.setImage(imgData)
+                    info["Type"] = "STANDARD IMAGE"
+                    self.__showImageView()
+            else:
+                self.__showEmptyWidget()
 
-        elif EmPath.isStandardImage(imagePath):
-            imgData = EmImage.loadStandardImage(imagePath)
-            if imgData is not None:
-                self._imageView.setImage(imgData)
-                self.__showImageView()
-        else:  # No image format
-            self.listWidget.clear()
-            self._volumeView.clear()
+            self.__showInfo(info)
+        except Exception as ex:
+            self.__showMsgBox("Error opening the file", QMessageBox.Critical,
+                              str(ex))
             self.__showEmptyWidget()
-            self.listWidget.addItem("NO IMAGE FORMAT")
+        except RuntimeError as ex:
+            self.__showMsgBox("Error opening the file", QMessageBox.Critical,
+                              str(ex))
+            self.__showEmptyWidget()
+
+    def __showMsgBox(self, text, icon=None, details=None):
+        """
+        Show a message box with the given text, icon and details.
+        The icon of the message box can be specified with one of the Qt values:
+            QMessageBox.NoIcon
+            QMessageBox.Question
+            QMessageBox.Information
+            QMessageBox.Warning
+            QMessageBox.Critical
+        """
+        msgBox = QMessageBox()
+        msgBox.setText(text)
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.setDefaultButton(QMessageBox.Ok)
+        if icon is not None:
+            msgBox.setIcon(icon)
+        if details is not None:
+            msgBox.setDetailedText(details)
+
+        msgBox.exec()
+
+    def __showInfo(self, info):
+        """
+        Show the information in the corresponding widget.
+        info is a dict
+        """
+        self.__clearInfoWidget()
+        if isinstance(info, dict):
+            for key in info.keys():
+                self._infoWidget.addItem("%s: %s" % (str(key), str(info[key])))
+
+    def __clearInfoWidget(self):
+        """ Clear the info widget """
+        self._infoWidget.clear()

@@ -7,13 +7,13 @@ import argparse
 
 
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMessageBox
 
-import em
 from emqt5.utils import EmPath, EmTable, EmImage
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
-                         createVolumeModel, TableDataModel, TableViewConfig,
-                         ImageView, VolumeView, SlicesView)
+                         ColumnsView, TableDataModel, TableViewConfig,
+                         ImageView, VolumeView, SlicesView, createDataView,
+                         createVolumeView, createImageView, createSlicesView)
 from emqt5.windows import BrowserWindow
 
 import numpy as np
@@ -93,113 +93,128 @@ if __name__ == '__main__':
              'slices': DataView.SLICES}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
 
-    def getPreferedBounds():
+    def getPreferedBounds(width=None, height=None):
         size = QApplication.desktop().size()
         p = 0.8
         (w, h) = (int(p * size.width()), int(p * size.height()))
+        width = width or w
+        height = height or h
+        w = min(width, w)
+        h = min(height, h)
         return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
+    def fitViewSize(viewWidget, imageDim=None):
+        """
+        Fit the view size according to the desktop size.
+        imageDim is the image dimensions if viewWidget is ImageView
+         """
+        if view is None:
+            return
 
-    def createDataView(table, tableViewConfig, title, defaultView):
-        kwargs['view'] = defaultView
-        dataView = DataView(None, **kwargs)
-        dataView.setModel(TableDataModel(table, title=title,
-                                         tableViewConfig=tableViewConfig))
-        return dataView
+        if isinstance(viewWidget, DataView):
+            currentView = view.getViewWidget()
 
-    def createBrowserView(path):
-        bounds = getPreferedBounds()
-        browser = BrowserWindow(None, path, **kwargs)
-        browser.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
-        return browser
+            if isinstance(currentView, ColumnsView):
+                width = currentView.getHeaderSize()
+                x, y, w, h = getPreferedBounds(width, viewWidget.height())
+        elif isinstance(viewWidget, ImageView) and imageDim is not None:
+            x, y, w, h = getPreferedBounds(max(viewWidget.width(),
+                                               imageDim.x),
+                                           max(viewWidget.height(),
+                                               imageDim.y))
+        else:
+            x, y, w, h = getPreferedBounds(100000,
+                                           100000)
+        viewWidget.setGeometry(x, y, w, h)
 
-    def createVolumeView():
-        kwargs['tool_bar'] = 'off'
-        bounds = getPreferedBounds()
-        volumeView = VolumeView(None, **kwargs)
-        volumeView.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
-        return volumeView
+    def showMsgBox(text, icon=None, details=None):
+        """
+        Show a message box with the given text, icon and details.
+        The icon of the message box can be specified with one of the Qt values:
+            QMessageBox.NoIcon
+            QMessageBox.Question
+            QMessageBox.Information
+            QMessageBox.Warning
+            QMessageBox.Critical
+        """
+        msgBox = QMessageBox()
+        msgBox.setText(text)
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.setDefaultButton(QMessageBox.Ok)
+        if icon is not None:
+            msgBox.setIcon(icon)
+        if details is not None:
+            msgBox.setDetailedText(details)
 
-    def createSlicesView():
-        bounds = getPreferedBounds()
-        slicesView = SlicesView(None, **kwargs)
-        slicesView.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
-        return slicesView
-
-    def createImageView(image):
-        dim = image.getDim()
-        imgView = ImageView(None, **kwargs)
-        desc = "<html><head/><body><p><span style=\" color:#0055ff;\">" \
-               "Dimension:  </span><span style=\" color:#000000;\">" \
-               "(%d,%d,%d,%d)</span></p></body></html>"
-        data = np.array(image, copy=False)
-        imgView.setImage(data)
-        imgView.setImageDescription(desc % (dim.x, dim.y, dim.z, dim.n))
-        bounds = getPreferedBounds()
-        imgView.setGeometry(bounds[0], bounds[1], bounds[2], bounds[3])
-        return imgView
+        msgBox.exec()
 
     files = args.files or os.getcwd()  # if not files use the current dir
 
-    if not os.path.exists(files):
-        raise Exception("Input file '%s' does not exists. " % files)
+    try:
+        if not os.path.exists(files):
+            raise Exception("Input file '%s' does not exists. " % files)
 
-    # If the input is a directory, display the BrowserWindow
-    if os.path.isdir(files):
-        view = createBrowserView(files)
-    elif EmPath.isTable(files):  # Display the file as a Table:
-        if not args.view == 'slices':
-            view = createDataView(EmTable.load(files), None, 'Table',
-                                  views.get(args.view, DataView.COLUMNS))
-        else:
-            raise Exception("Invalid display mode for table: '%s'"
-                            % args.view)
-    elif EmPath.isImage(files) or EmPath.isVolume(files) \
-            or EmPath.isStack(files):
-        # *.mrc may be image, stack or volume. Ask for dim.n
-        d = EmImage.getDim(files)
-        if d.n == 1:  # Single image or volume
-            if d.z == 1:  # Single image
-                image = em.Image()
-                loc2 = em.ImageLocation(files)
-                image.read(loc2)
-                view = createImageView(image)
-            else:  # Volume
-                mode = args.view or 'slices'
-                if mode == 'slices' or mode == 'gallery':
-                    kwargs['path'] = files
-                    kwargs['view'] = views[mode]
-                    view = createVolumeView()
-                else:
-                    raise Exception("Invalid display mode for volume: '%s'"
-                                    % mode)
-        else:  # Stack
-            mode = args.view or 'slices'
-            if d.z > 1:  # volume stack
-                if mode == 'slices':
-                    kwargs['path'] = files
-                    view = createVolumeView()
-                else:
-                    view = createDataView(EmTable.fromStack(files),
-                                          TableViewConfig.createStackConfig(),
-                                          'Stack',
-                                          views.get(args.view,
-                                                    DataView.GALLERY))
+        d = None
+        # If the input is a directory, display the BrowserWindow
+        if os.path.isdir(files):
+            view = BrowserWindow(None, files, **kwargs)
+        elif EmPath.isTable(files):  # Display the file as a Table:
+            if not args.view == 'slices':
+                view = createDataView(EmTable.load(files), None, 'Table',
+                                      views.get(args.view, DataView.COLUMNS))
+                fitViewSize(view, d)
             else:
-                if mode == 'slices':
-                    kwargs['path'] = files
-                    view = createSlicesView()
+                raise Exception("Invalid display mode for table: '%s'"
+                                % args.view)
+        elif EmPath.isImage(files) or EmPath.isVolume(files) \
+                or EmPath.isStack(files):
+            # *.mrc may be image, stack or volume. Ask for dim.n
+            d = EmImage.getDim(files)
+            if d.n == 1:  # Single image or volume
+                if d.z == 1:  # Single image
+                    view = createImageView(files, **kwargs)
+                else:  # Volume
+                    mode = args.view or 'slices'
+                    if mode == 'slices' or mode == 'gallery':
+                        kwargs['view'] = views[mode]
+                        kwargs['tool_bar'] = 'off'
+                        view = createVolumeView(files, **kwargs)
+                    else:
+                        raise Exception("Invalid display mode for volume: '%s'"
+                                        % mode)
+            else:  # Stack
+                mode = args.view or 'slices'
+                if d.z > 1:  # volume stack
+                    if mode == 'slices':
+                        kwargs['tool_bar'] = 'off'
+                        view = createVolumeView(files, **kwargs)
+                    else:
+                        view = createDataView(EmTable.fromStack(files),
+                                              TableViewConfig.createStackConfig(),
+                                              'Stack',
+                                              views.get(args.view,
+                                                        DataView.GALLERY))
                 else:
-                    view = createDataView(EmTable.fromStack(files),
-                                          TableViewConfig.createStackConfig(),
-                                          'Stack',
-                                          views.get(args.view,
-                                                    DataView.GALLERY))
-    else:
-        view = None
-        raise Exception("Can't perform a view for this file.")
+                    if mode == 'slices':
+                        view = createSlicesView(files, **kwargs)
+                    else:
+                        view = createDataView(EmTable.fromStack(files),
+                                              TableViewConfig.createStackConfig(),
+                                              'Stack',
+                                              views.get(args.view,
+                                                        DataView.GALLERY))
+        else:
+            view = None
+            raise Exception("Can't perform a view for this file.")
 
-    if view:
-        view.show()
+        if view:
+            fitViewSize(view, d)
+            view.show()
+    except Exception as ex:
+        showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
+    except RuntimeError as ex:
+        showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
+    except ValueError as ex:
+        showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
 
     sys.exit(app.exec_())
