@@ -1,21 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
-                             QSplitter, QApplication, QTreeView, QStackedLayout,
+                             QSplitter, QTreeView, QStackedLayout,
                              QFileSystemModel, QLineEdit, QVBoxLayout,
                              QListWidget, QMainWindow, QAction, QToolBar,
-                             QLabel, QListWidgetItem, QMessageBox, QCompleter)
-from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QRect, QDir,
-                          QItemSelectionModel, QEvent)
-from emqt5.views import (DataView, createVolumeModel, createTableModel,
+                             QLabel, QMessageBox, QCompleter)
+from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
+                          QItemSelectionModel, QEvent, pyqtSignal, pyqtSlot)
+from PyQt5.QtGui import QResizeEvent
+
+from emqt5.views import (DataView, createTableModel,
                          createStackModel, VolumeView, ImageView)
 
 import qtawesome as qta
 
-from emqt5.utils import EmPath, EmImage, EmTable
+from emqt5.utils import EmPath, EmImage
 
 import em
 
@@ -27,6 +27,7 @@ class BrowserWindow(QMainWindow):
     Declaration of the class Browser
     This class construct a Browser User Interface
     """
+    sigTreeViewSizeChanged = pyqtSignal()  # when the treeview has been resized
 
     def __init__(self, parent, path, **kwargs):
         QMainWindow.__init__(self, parent=parent)
@@ -97,6 +98,7 @@ class BrowserWindow(QMainWindow):
         self._treeView.selectionModel().select(index,
                                             QItemSelectionModel.ClearAndSelect |
                                             QItemSelectionModel.Rows)
+
         self._treeView.expand(index)
         self._treeView.scrollTo(index)
         self._treeView.resizeColumnToContents(index.column())
@@ -109,9 +111,6 @@ class BrowserWindow(QMainWindow):
         :param event: event
         :return: True if this object has been installed, False i.o.c
         """
-        if event.type() == QEvent.Resize:
-            ret = QMainWindow.eventFilter(self, obj, event)
-            self._onExpandTreeView()
 
         if event.type() == QEvent.KeyRelease:
             ret = QMainWindow.eventFilter(self, obj, event)
@@ -121,6 +120,7 @@ class BrowserWindow(QMainWindow):
             self.setLineCompleter(self._imagePath)
             self.showFile(self._imagePath)
             return ret
+
         return QMainWindow.eventFilter(self, obj, event)
 
     def __setupUi(self):
@@ -147,6 +147,8 @@ class BrowserWindow(QMainWindow):
 
         # Create a Tree View
         self._treeView = QTreeView(self._widget)
+        self._treeView.resizeEvent = self.__treeViewResizeEvent
+        self.sigTreeViewSizeChanged.connect(self.__treeViewSizeChanged)
         self._treeView.installEventFilter(self)
         self._verticalLayout.addWidget(self._treeView)
         self._treeView.clicked.connect(self._onPathClick)
@@ -220,7 +222,6 @@ class BrowserWindow(QMainWindow):
         self._treeView.setModel(self._model)
         self._treeView.setRootIndex(self._model.index(QDir.separator()))
         self._treeView.setSortingEnabled(True)
-        self._treeView.resize(640, 380)
 
         # Config the TreeView completer
         self._completer = QCompleter()
@@ -241,9 +242,15 @@ class BrowserWindow(QMainWindow):
         self.retranslateUi(self)
         QMetaObject.connectSlotsByName(self)
 
-        # Configure the Main Window
-        #self.setGeometry(150, 100, 1000, 600)
         self.setWindowTitle('EM-BROWSER')
+
+    def __treeViewResizeEvent(self, evt):
+        QTreeView.resizeEvent(self._treeView, evt)
+        self.sigTreeViewSizeChanged.emit()
+
+    @pyqtSlot()
+    def __treeViewSizeChanged(self):
+        self._onExpandTreeView()
 
     def retranslateUi(self, MainWindow):
         _translate = QCoreApplication.translate

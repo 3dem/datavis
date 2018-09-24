@@ -4,6 +4,7 @@
 import os
 import sys
 import argparse
+import traceback
 
 
 from PyQt5.QtCore import QDir
@@ -16,7 +17,6 @@ from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
                          createVolumeView, createImageView, createSlicesView)
 from emqt5.windows import BrowserWindow
 
-import numpy as np
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -210,11 +210,15 @@ if __name__ == '__main__':
         if view:
             fitViewSize(view, d)
             view.show()
+
     except Exception as ex:
         showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
+        print(traceback.format_exc())
     except RuntimeError as ex:
         showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
+        print(traceback.format_exc())
     except ValueError as ex:
         showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
+        print(traceback.format_exc())
 
     sys.exit(app.exec_())
