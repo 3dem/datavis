@@ -11,23 +11,6 @@ from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
 
 
-class _QListViewResizable(QListView):
-    """
-    Just overwrite the resizeEvent to fire a signal
-    """
-    sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
-
-    def __init__(self, parent=None):
-        QListView.__init__(self, parent)
-
-    def resizeEvent(self, evt):
-        """
-        Reimplemented from TableWidget
-        """
-        QListView.resizeEvent(self, evt)
-        self.sigSizeChanged.emit()
-
-
 class GalleryView(AbstractView):
     """
     The GalleryView class provides some functionality for show large numbers of
@@ -36,6 +19,7 @@ class GalleryView(AbstractView):
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
     sigPageSizeChanged = QtCore.pyqtSignal()
+    sigListViewSizeChanged = QtCore.pyqtSignal()
 
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
@@ -43,11 +27,11 @@ class GalleryView(AbstractView):
         self._pRows = 0
         self._pCols = 0
         self._imgCache = ImageCache(50)
+        self._thumbCache = ImageCache(500, (100, 100))
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
-        self._listView = _QListViewResizable(self)
-        self._listView.sigSizeChanged.connect(self.__onSizeChanged)
+        self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
         self._listView.setSpacing(5)
@@ -60,9 +44,20 @@ class GalleryView(AbstractView):
         self._listView.setMovement(QListView.Static)
         self._listView.setIconSize(QSize(32, 32))
         self._listView.setModel(None)
+        self._listView.resizeEvent = self.__listViewResizeEvent
+        self.sigListViewSizeChanged.connect(self.__onSizeChanged)
         self._delegate = EMImageItemDelegate(self)
-        self._delegate.setImageCache(self._imgCache)
+        self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._listView)
+
+    def __listViewResizeEvent(self, evt):
+        """
+        Reimplemented to receive QListView resize events which are passed
+        in the event parameter. Emits sigListViewSizeChanged
+        :param evt:
+        """
+        QListView.resizeEvent(self._listView, evt)
+        self.sigListViewSizeChanged.emit()
 
     def __calcPageSize(self):
         """
@@ -146,7 +141,10 @@ class GalleryView(AbstractView):
     def setImageCache(self, imgCache):
         """ Sets the image cache """
         self._imgCache = imgCache
-        self._delegate.setImageCache(imgCache)
+
+    def setThumbCache(self, thumbCache):
+        self._thumbCache = thumbCache
+        self._delegate.setImageCache(thumbCache)
 
     def selectRow(self, row):
         """ Selects the given row """

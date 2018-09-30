@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import scipy.ndimage as ndimage
+
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
@@ -732,11 +734,12 @@ class ImageCache:
     """
     The ImageCache provide a data cache for images
     """
-    def __init__(self, cacheSize, imgSize=100):
+    def __init__(self, cacheSize, imgSize=None):
         """
         Constructor
-        :param cacheSize: max length for internal image list
-        :param imgSize: image size in percent
+        :param cacheSize : (int) max length for internal image list
+        :param imgSize: (tuple) image size. Calculates an appropriate thumbnail
+                        size to preserve the aspect of the image
         """
         self._cacheSize = cacheSize
         self._imgSize = imgSize
@@ -778,7 +781,23 @@ class ImageCache:
 
         elif EmPath.isData(path):
             img = EmImage.load(path, index)
-            return np.array(img, copy=False)
+            array = np.array(img, copy=False)
+            if self._imgSize is None:
+                return array
+
+            # preserve aspect ratio
+            x, y = array.shape[0], array.shape[1]
+            if x > self._imgSize[0]:
+                y = int(max(y * self._imgSize[0] / x, 1))
+                x = int(self._imgSize[0])
+            if y > self._imgSize[1]:
+                x = int(max(x * self._imgSize[1] / y, 1))
+                y = int(self._imgSize[1])
+
+            if x >= array.shape[0] and y >= array.shape[1]:
+                return array
+
+            return ndimage.zoom(array, x / float(array.shape[0]), order=1)
 
         return None
 

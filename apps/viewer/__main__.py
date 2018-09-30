@@ -214,11 +214,14 @@ if __name__ == '__main__':
     except Exception as ex:
         showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
         print(traceback.format_exc())
+        sys.exit(0)
     except RuntimeError as ex:
         showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
         print(traceback.format_exc())
+        sys.exit(0)
     except ValueError as ex:
         showMsgBox("Can't perform the action", QMessageBox.Critical, str(ex))
         print(traceback.format_exc())
+        sys.exit(0)
 
     sys.exit(app.exec_())

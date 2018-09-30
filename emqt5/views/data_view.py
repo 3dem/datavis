@@ -54,7 +54,8 @@ class DataView(QWidget):
         self._model = None
         self._currentRenderableColumn = 0  # for GALLERY and ITEMS mode
         self._currentRow = 0  # selected table row
-        self._imageCache = ImageCache(100, 50)
+        self._imageCache = ImageCache(100)
+        self._thumbCache = ImageCache(500, (100, 100))
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
         self.__setupCurrentViewMode()
@@ -174,6 +175,10 @@ class DataView(QWidget):
                 self._viewsDict[v] = viewWidget
                 if viewWidget is not None:
                     viewWidget.setImageCache(self._imageCache)
+                    if isinstance(viewWidget, ColumnsView) \
+                            or isinstance(viewWidget, GalleryView):
+                        viewWidget.setThumbCache(self._thumbCache)
+
                     self._stackedLayoud.addWidget(viewWidget)
                     viewWidget.sigCurrentRowChanged.connect(
                         self.__onViewRowChanged)

@@ -2,43 +2,11 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize, QRectF, QModelIndex
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction,
-                             QTableView, QSpinBox, QLabel, QStyledItemDelegate,
-                             QStyle, QAbstractItemView, QStatusBar,
-                             QApplication, QHeaderView, QComboBox, QHBoxLayout,
-                             QStackedLayout, QLineEdit, QActionGroup, QListView,
-                             QSizePolicy, QSpacerItem, QPushButton, QSplitter,
-                             QGraphicsPixmapItem)
-from PyQt5.QtGui import (QPixmap, QPen, QIcon, QPalette, QStandardItemModel,
-                         QStandardItem)
+from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
+from PyQt5.QtWidgets import QTableView
 from PyQt5 import QtCore
-import qtawesome as qta
-import pyqtgraph as pg
-
-import em
-from emqt5.utils import EmPath, EmTable, parseImagePath
-from .config import TableViewConfig
-from .model import ImageCache, TableDataModel, X_AXIS, Y_AXIS, Z_AXIS
+from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
-
-
-# FIXME: Is it really necessary to subclass to do this?
-class _QTableViewResizable(QTableView):
-    """
-    Just overwrite the resizeEvent to fire a signal
-    """
-    sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
-
-    def __init__(self, parent=None):
-        QTableView.__init__(self, parent)
-
-    def resizeEvent(self, evt):
-        """
-        Reimplemented from TableWidget
-        """
-        QTableView.resizeEvent(self, evt)
-        self.sigSizeChanged.emit()
 
 
 class ColumnsView(AbstractView):
@@ -47,26 +15,38 @@ class ColumnsView(AbstractView):
     items with simple paginate elements in columns view. """
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
+    sigTableSizeChanged = QtCore.pyqtSignal()  # when the Table has been resized
 
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
         self._imgCache = ImageCache(50)
+        self._thumbCache = ImageCache(500, (100, 100))
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
-        self._tableView = _QTableViewResizable(self)
+        self._tableView = QTableView(self)
         self._defaultDelegate = self._tableView.itemDelegate()
-        self._tableView.sigSizeChanged.connect(self.__onSizeChanged)
+        self.sigTableSizeChanged.connect(self.__onSizeChanged)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
         self._tableView.setSelectionMode(QTableView.SingleSelection)
         self._tableView.verticalHeader().hide()
         self._tableView.setSortingEnabled(False)
         self._tableView.setModel(None)
         self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._tableView.resizeEvent = self.__tableViewResizeEvent
         self._delegate = EMImageItemDelegate(self)
-        self._delegate.setImageCache(self._imgCache)
+        self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._tableView)
+
+    def __tableViewResizeEvent(self, evt):
+        """
+        Reimplemented to receive tableview resize events which are passed
+        in the event parameter. Emits sigTableSizeChanged
+        :param evt:
+        """
+        QTableView.resizeEvent(self._tableView, evt)
+        self.sigTableSizeChanged.emit()
 
     def __getPage(self, row):
         """
@@ -184,7 +164,10 @@ class ColumnsView(AbstractView):
 
     def setImageCache(self, imgCache):
         self._imgCache = imgCache
-        self._delegate.setImageCache(imgCache)
+
+    def setThumbCache(self, thumbCache):
+        self._thumbCache = thumbCache
+        self._delegate.setImageCache(thumbCache)
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """

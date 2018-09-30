@@ -1,10 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, QRect, QRectF, QSize
+from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtWidgets import (QWidget, QToolBar, QAction, QHBoxLayout, QSplitter,
                              QTextEdit)
-from PyQt5.QtGui import QColor, QPen, QTransform
 
 import qtawesome as qta
 import pyqtgraph as pg
