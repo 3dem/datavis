@@ -20,7 +20,7 @@ class EmPath:
     EXT_STD_IMAGE = 4  # Standard image extensions
 
     EXTESIONS_MAP = {
-        EXT_IMAGE: ['.mrc', '.spi', '.xmp'],
+        EXT_IMAGE: ['.mrc', '.spi', '.xmp', '.hed', '.img'],
         EXT_VOLUME: ['.mrc', '.vol', '.map'],
         EXT_STACK: ['.mrc', '.mrcs', '.stk'],
         EXT_TABLE: ['.star', '.xmd', '.sqlite'],
