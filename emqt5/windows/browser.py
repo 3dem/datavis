@@ -391,7 +391,7 @@ class BrowserWindow(QMainWindow):
         if details is not None:
             msgBox.setDetailedText(details)
 
-        msgBox.exec()
+        msgBox.exec_()
 
     def __showInfo(self, info):
         """

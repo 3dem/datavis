@@ -146,7 +146,7 @@ if __name__ == '__main__':
         if details is not None:
             msgBox.setDetailedText(details)
 
-        msgBox.exec()
+        msgBox.exec_()
 
     files = args.files or os.getcwd()  # if not files use the current dir
 

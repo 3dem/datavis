@@ -98,10 +98,11 @@ class EmImage:
 class EmTable:
     """ Helper class around em.Table class. """
     @classmethod
-    def load(cls, path, tableName=''):
+    def load(cls, path, tableName=None):
         tio = em.TableIO()
         tio.open(path, em.File.Mode.READ_ONLY)
         table = em.Table()
+        tableName = tableName or tio.getTableNames()[0]
         tio.read(tableName, table)
         return table
 
