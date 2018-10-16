@@ -5,7 +5,7 @@
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
-                             QLineEdit, QActionGroup)
+                             QLineEdit, QActionGroup, QApplication)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
@@ -64,7 +64,7 @@ class DataView(QWidget):
     def __setupUi(self, **kwargs):
         self._mainLayout = QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(1, 1, 1, 1)
+        self._mainLayout.setContentsMargins(0, 0, 0, 0)
         self._toolBar = QToolBar(self)
         self._mainLayout.addWidget(self._toolBar)
         self._stackedLayoud = QStackedLayout(self._mainLayout)
@@ -151,6 +151,8 @@ class DataView(QWidget):
         self._mainLayout.addWidget(self._statusBar)
         self.__createViews(**kwargs)
         self._statusBar.setVisible(False)  # hide for now
+        self.setMinimumWidth(700)
+        self.setGeometry(0, 0, 750, 800)
 
     def __createView(self, viewType, **kwargs):
         """ Create and return a view. The parent of the view will be self """
@@ -644,3 +646,14 @@ class DataView(QWidget):
         return -1 if self._model is None else \
             self._viewsDict.get(self._view).getModel().getPageCount()
 
+    def getPreferedSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        v = self.getViewWidget()
+        if isinstance(v, ColumnsView) or isinstance(v, GalleryView):
+            w, h = v.getPreferedSize()
+            return w, h + self._toolBar.height()
+
+        return 800, 600

@@ -112,12 +112,11 @@ if __name__ == '__main__':
             return
 
         if isinstance(viewWidget, DataView):
-            currentView = view.getViewWidget()
-
-            if isinstance(currentView, ColumnsView):
-                width = currentView.getHeaderSize()
-                x, y, w, h = getPreferedBounds(width, viewWidget.height())
-        elif isinstance(viewWidget, ImageView) and imageDim is not None:
+            size = viewWidget.getPreferedSize()
+            x, y, w, h = getPreferedBounds(size[0], size[1])
+        elif (isinstance(viewWidget, ImageView) or
+                isinstance(viewWidget, SlicesView)) and \
+                imageDim is not None:
             x, y, w, h = getPreferedBounds(max(viewWidget.width(),
                                                imageDim.x),
                                            max(viewWidget.height(),
@@ -183,8 +182,8 @@ if __name__ == '__main__':
                         raise Exception("Invalid display mode for volume: '%s'"
                                         % mode)
             else:  # Stack
-                mode = args.view or 'slices'
                 if d.z > 1:  # volume stack
+                    mode = args.view or 'slices'
                     if mode == 'slices':
                         kwargs['tool_bar'] = 'off'
                         view = createVolumeView(files, **kwargs)
@@ -193,16 +192,19 @@ if __name__ == '__main__':
                                               TableViewConfig.createStackConfig(),
                                               'Stack',
                                               views.get(args.view,
-                                                        DataView.GALLERY))
+                                                        DataView.GALLERY),
+                                              **kwargs)
                 else:
+                    mode = args.view or ('slices' if d.x > 1000 else 'gallery')
                     if mode == 'slices':
                         view = createSlicesView(files, **kwargs)
                     else:
                         view = createDataView(EmTable.fromStack(files),
                                               TableViewConfig.createStackConfig(),
                                               'Stack',
-                                              views.get(args.view,
-                                                        DataView.GALLERY))
+                                              views.get(mode,
+                                                        DataView.GALLERY),
+                                              **kwargs)
         else:
             view = None
             raise Exception("Can't perform a view for this file.")

@@ -4,7 +4,7 @@
 import numpy as np
 import scipy.ndimage as ndimage
 
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
@@ -60,6 +60,7 @@ class TableDataModel(QAbstractItemModel):
         self._pageSize = kwargs.get('pageSize', 10)
         self._pageCount = 0
         self._title = kwargs.get('title', '')
+        self._defaultFont = QFont()
         self.__setupModel()
 
     def clone(self):
@@ -102,17 +103,28 @@ class TableDataModel(QAbstractItemModel):
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
 
-        if role == Qt.EditRole:
+        if role == Qt.EditRole or role == Qt.UserRole:
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.SizeHintRole:
             if self._tableViewConfig[col]["renderable"]:
                 return self._iconSize
+            return QVariant()
 
         if role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
 
-        return QVariant(self.getTableData(row, col))
+        if role == Qt.FontRole:
+            return self._defaultFont
+
+        # Is good practice to provide data for Qt.ToolTipRole,
+        # Qt.AccessibleTextRole and Qt.AccessibleDescriptionRole
+        if role == Qt.ToolTipRole or \
+           role == Qt.AccessibleTextRole or \
+           role == Qt.AccessibleDescriptionRole:
+            return QVariant(self.getTableData(row, col))
+
+        return QVariant()
 
     def columnCount(self, index=QModelIndex()):
         """
@@ -408,6 +420,7 @@ class VolumeDataModel(QAbstractItemModel):
         self._rows = 0
         self._volumeIndex = kwargs.get('volumeIndex', 0)
         self.setAxis(kwargs.get('axis', X_AXIS))
+        self._defaultFont = QFont()
         
     def clone(self):
         """ Clone this model """
@@ -462,6 +475,7 @@ class VolumeDataModel(QAbstractItemModel):
         """ Reimplemented function from QAbstractItemModel. """
         if not qModelIndex.isValid():
             return None
+
         row = qModelIndex.row() + self._page * self._pageSize
         col = qModelIndex.column()
 
@@ -470,30 +484,44 @@ class VolumeDataModel(QAbstractItemModel):
 
         if role == TableDataModel.DataTypeRole:
             return t
+
         if role == Qt.DecorationRole:
             return QVariant()
+
         if role == Qt.DisplayRole:
             if t == TableViewConfig.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.getTableData(row, col))
+
         if role == Qt.CheckStateRole:
             if t == TableViewConfig.TYPE_BOOL:
                 return Qt.Checked \
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
 
-        if role == Qt.EditRole:
+        if role == Qt.EditRole or role == Qt.UserRole:
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.SizeHintRole:
             if self._tableViewConfig[col]["renderable"]:
                 return self._iconSize
+            return QVariant()
 
         if role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
 
-        return QVariant(self.getTableData(row, col))
+        if role == Qt.FontRole:
+            return self._defaultFont
+
+        # Is good practice to provide data for Qt.ToolTipRole,
+        # Qt.AccessibleTextRole and Qt.AccessibleDescriptionRole
+        if role == Qt.ToolTipRole or \
+                role == Qt.AccessibleTextRole or \
+                role == Qt.AccessibleDescriptionRole:
+            return QVariant(self.getTableData(row, col))
+
+        return QVariant()
 
     def columnCount(self, index=QModelIndex()):
         """

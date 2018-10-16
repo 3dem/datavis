@@ -3,7 +3,7 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
-from PyQt5.QtWidgets import QTableView
+from PyQt5.QtWidgets import QTableView, QHeaderView
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
@@ -116,6 +116,7 @@ class ColumnsView(AbstractView):
 
     def setModel(self, model):
         self._tableView.setModel(model)
+        self._tableView.resizeColumnsToContents()
         AbstractView.setModel(self, model)
         if model:
             self.__setupDelegatesForColumns()
@@ -187,3 +188,17 @@ class ColumnsView(AbstractView):
             return header.length()
         else:
             return header.sectionSize(columnIndex)
+
+    def getPreferedSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        if self._model is None or self._model.rowCount() == 0:
+            return 0, 0
+
+        rowHeight = self._tableView.verticalHeader().sectionSize(0)
+        h = rowHeight * self._model.totalRowCount() + \
+            (self._pageBar.height() if self._pageBar.isVisible() else 0) + 90
+        return self.getHeaderSize(), h
+

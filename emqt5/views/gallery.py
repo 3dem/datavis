@@ -3,7 +3,7 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
-from PyQt5.QtWidgets import QAbstractItemView, QListView
+from PyQt5.QtWidgets import QAbstractItemView, QListView, QApplication
 
 from PyQt5 import QtCore
 
@@ -169,3 +169,32 @@ class GalleryView(AbstractView):
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
         return self._pRows, self._pCols
+
+    def getPreferedSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        if self._model is None or self._model.rowCount() == 0:
+            return 0, 0
+
+        n = self._model.totalRowCount()
+        s = self._listView.iconSize()
+        spacing = self._listView.spacing()
+        size = QSize(int(n**0.5) * (spacing + s.width()) + spacing,
+                     int(n**0.5) * (spacing + s.height()) + spacing)
+
+        w = int(size.width() / (spacing + s.width()))
+        n = self._model.totalRowCount()
+        c = int(n / w)
+        rest = n % w
+
+        if c == 0:
+            w = n * (spacing + s.width())
+            h = 2 * spacing + s.height()
+        else:
+            w = w * (spacing + s.width()) + spacing
+            h = (c + (1 if rest > 0 else 0)) * (spacing + s.height()) + spacing
+
+        return w, h + (self._pageBar.height()
+                       if self._pageBar.isVisible() else 0)
