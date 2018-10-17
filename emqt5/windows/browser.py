@@ -8,10 +8,9 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
                              QLabel, QMessageBox, QCompleter)
 from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
                           QItemSelectionModel, QEvent, pyqtSignal, pyqtSlot)
-from PyQt5.QtGui import QResizeEvent
 
-from emqt5.views import (DataView, createTableModel,
-                         createStackModel, VolumeView, ImageView)
+from emqt5.views import (DataView, createTableModel, createStackModel,
+                         VolumeView, ImageView, SlicesView, MOVIE_SIZE)
 
 import qtawesome as qta
 
@@ -35,6 +34,8 @@ class BrowserWindow(QMainWindow):
         self._image = None
         self._dataView = DataView(self, **kwargs)
         self._imageView = ImageView(self, **kwargs)
+        self._slicesView = SlicesView(self, **kwargs)
+
         kwargs['tool_bar'] = 'off'
         kwargs['axis'] = 'off'
         self._volumeView = VolumeView(parent=self, **kwargs)
@@ -187,6 +188,7 @@ class BrowserWindow(QMainWindow):
         self._stackLayout.addWidget(self._volumeView)
         self._stackLayout.addWidget(self._dataView)
         self._stackLayout.addWidget(self._imageView)
+        self._stackLayout.addWidget(self._slicesView)
         self._stackLayout.addWidget(self._emptyWidget)
 
         self._infoWidget = QListWidget(self._imageSplitter)
@@ -243,6 +245,8 @@ class BrowserWindow(QMainWindow):
         QMetaObject.connectSlotsByName(self)
 
         self.setWindowTitle('EM-BROWSER')
+        self._splitter.setStretchFactor(0, 3)
+        self._splitter.setStretchFactor(1, 1)
 
     def __treeViewResizeEvent(self, evt):
         QTreeView.resizeEvent(self._treeView, evt)
@@ -281,6 +285,10 @@ class BrowserWindow(QMainWindow):
     def __showImageView(self):
         """ Show the ImageView component """
         self._stackLayout.setCurrentWidget(self._imageView)
+
+    def __showSlicesView(self):
+        """ Show the SlicesView component """
+        self._stackLayout.setCurrentWidget(self._slicesView)
 
     def __showEmptyWidget(self):
         """Show an empty widget"""
@@ -340,17 +348,22 @@ class BrowserWindow(QMainWindow):
                         self._volumeView.loadPath(imagePath)
                         self.__showVolumeSlice()
                 else:
-                    # The image constitute an image stack
+                    # Image stack
                     if d.z > 1:  # Volume stack
                         self._volumeView.loadPath(self._imagePath)
                         info["Type"] = "VOLUME STACK: "
                         self.__showVolumeSlice()
                     else:
-                        info["Type"] = "IMAGES STACK"
-                        model = createStackModel(imagePath)
-                        self._dataView.setModel(model)
-                        self._dataView.setView(DataView.GALLERY)
-                        self.__showDataView()
+                        if d.x <= MOVIE_SIZE:
+                            info["Type"] = "IMAGES STACK"
+                            model = createStackModel(imagePath)
+                            self._dataView.setModel(model)
+                            self._dataView.setView(DataView.GALLERY)
+                            self.__showDataView()
+                        else:
+                            info["Type"] = "MOVIE"
+                            self._slicesView.setPath(imagePath)
+                            self.__showSlicesView()
 
                     # TODO Show the image type
             elif EmPath.isStandardImage(imagePath):

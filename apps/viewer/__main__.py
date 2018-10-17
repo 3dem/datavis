@@ -14,7 +14,8 @@ from emqt5.utils import EmPath, EmTable, EmImage
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
                          ColumnsView, TableDataModel, TableViewConfig,
                          ImageView, VolumeView, SlicesView, createDataView,
-                         createVolumeView, createImageView, createSlicesView)
+                         createVolumeView, createImageView, createSlicesView,
+                         MOVIE_SIZE)
 from emqt5.windows import BrowserWindow
 
 
@@ -195,7 +196,8 @@ if __name__ == '__main__':
                                                         DataView.GALLERY),
                                               **kwargs)
                 else:
-                    mode = args.view or ('slices' if d.x > 1000 else 'gallery')
+                    mode = args.view or ('slices' if d.x > MOVIE_SIZE
+                                         else 'gallery')
                     if mode == 'slices':
                         view = createSlicesView(files, **kwargs)
                     else:

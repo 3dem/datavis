@@ -14,4 +14,4 @@ from .model import (TableDataModel, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS,
                     N_DIM, createStackModel, createTableModel,
                     createVolumeModel, createSingleImageModel)
 from .utils import (createDataView, createSlicesView, createVolumeView,
-                    createImageView)
+                    createImageView, MOVIE_SIZE)

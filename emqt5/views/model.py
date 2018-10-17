@@ -832,15 +832,9 @@ class ImageCache:
 
 def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
-    table = em.Table()
-    tableIO = em.TableIO()
-    tableIO.open(path)
-    tableIO.read('', table)
-    tableIO.close()
-    tableViewConfig = TableViewConfig.fromTable(table)
-
+    table = EmTable.load(path)
     return TableDataModel(table, parent=None, title="TABLE",
-                          tableViewConfig=tableViewConfig)
+                          tableViewConfig=TableViewConfig.fromTable(table))
 
 
 def createStackModel(imagePath, title='Stack'):

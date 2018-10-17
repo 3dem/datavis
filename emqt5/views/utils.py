@@ -3,7 +3,6 @@
 
 import em
 import numpy as np
-from emqt5.utils import EmTable
 
 from .image_view import ImageView
 from .slices_view import SlicesView
@@ -11,6 +10,7 @@ from .volume_view import VolumeView
 from .data_view import DataView
 from .model import TableDataModel
 
+MOVIE_SIZE = 1000
 
 def createImageView(path, **kwargs):
     """ Create an ImageView and load the image from the given path """
