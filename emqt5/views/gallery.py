@@ -26,6 +26,7 @@ class GalleryView(AbstractView):
         self._pageSize = 0
         self._pRows = 0
         self._pCols = 0
+        self._cellSpacing = 0
         self._imgCache = ImageCache(50)
         self._thumbCache = ImageCache(500, (100, 100))
         self.__setupUI(**kwargs)
@@ -34,7 +35,7 @@ class GalleryView(AbstractView):
         self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
-        self._listView.setSpacing(5)
+        self._listView.setSpacing(self._cellSpacing)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._listView.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
         self._listView.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)

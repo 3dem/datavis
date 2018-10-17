@@ -21,29 +21,15 @@ class EMImageItemDelegate(QStyledItemDelegate):
     ImageItemDelegate class provides display and editing facilities for
     em image data items from a model.
     """
-    def __init__(self, parent=None,
-                 selectedStatePen=None,
-                 borderPen=None):
-        """
-        If selectedStatePen is None then the border will not be painted when
-        the item is selected.
-        If selectedStatePen has a QPen value then a border will be painted when
-        the item is selected
-        :param parent: the parent qt object
-        :param selectedStatePen: QPen object
-        """
-        QStyledItemDelegate.__init__(self, parent)
-        if selectedStatePen is None:
-            self._selectedStatePen = QPen(Qt.red, 1, Qt.DashLine)
-        else:
-            self._selectedStatePen = selectedStatePen
+    def __init__(self, parent=None):
 
-        self._borderPen = borderPen
+        QStyledItemDelegate.__init__(self, parent)
         self._imgCache = ImageCache(50, 50)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
         self._imageRef = ImageRef()
+        self._sBorder = 3  # selected state border (px)
 
     def paint(self, painter, option, index):
         """
@@ -56,10 +42,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
             h = option.rect.height()
             rect = QRectF()
             if option.state & QStyle.State_Selected:
-                m = 5
-                self._setupView(index, w - 2 * m, h - 2 * m)
-                rect.setRect(0, 0, w - 2 * m, h - 2 * m)
-                self._imageView.ui.graphicsView.scene().setSceneRect(rect)
                 if option.state & QStyle.State_HasFocus or \
                         option.state & QStyle.State_Active:
                     colorGroup = QPalette.Active
@@ -68,20 +50,13 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
-                rect.setRect(x + m, y + m, w - 2 * m, h - 2 * m)
-                self._imageView.ui.graphicsView.scene().render(painter, rect)
-                if option.state & QStyle.State_HasFocus:
-                    painter.setPen(self._selectedStatePen)
-                    pWidth = self._selectedStatePen.width()
-                    rect.setRect(x + pWidth, y + pWidth, w - 2 * pWidth,
-                                 h - 2 * pWidth)
-                    painter.drawRect(rect)
-            else:
-                self._setupView(index, w, h)
-                rect.setRect(0, 0, w, h)
-                self._imageView.ui.graphicsView.scene().setSceneRect(rect)
-                rect.setRect(x, y, w, h)
-                self._imageView.ui.graphicsView.scene().render(painter, rect)
+            self._setupView(index, w, h)
+            rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
+                         h - 2 * self._sBorder)
+            self._imageView.ui.graphicsView.scene().setSceneRect(rect)
+            rect.setRect(x + self._sBorder, y + self._sBorder,
+                         w - 2 * self._sBorder, h - 2 * self._sBorder)
+            self._imageView.ui.graphicsView.scene().render(painter, rect)
 
     def _setupView(self, index, width, height):
         """
