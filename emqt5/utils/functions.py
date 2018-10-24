@@ -21,11 +21,11 @@ class EmPath:
 
     EXTESIONS_MAP = {
         EXT_IMAGE: ['.mrc', '.spi', '.xmp', '.hed', '.img', '.dm3', '.dm4',
-                    '.dat'],
+                    '.dat', '.png'],
         EXT_VOLUME: ['.mrc', '.vol', '.map'],
         EXT_STACK: ['.mrc', '.mrcs', '.stk', '.dm3', '.dm4', '.dat'],
         EXT_TABLE: ['.star', '.xmd', '.sqlite'],
-        EXT_STD_IMAGE: ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+        EXT_STD_IMAGE: ['.jpg', '.jpeg', '.tif', '.bmp']
     }
 
     @classmethod
