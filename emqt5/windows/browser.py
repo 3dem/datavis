@@ -324,13 +324,14 @@ class BrowserWindow(QMainWindow):
                     "%d x %d" % (model.totalRowCount(), model.columnCount())
 
             elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
-                    or EmPath.isVolume(imagePath):
+                    or EmPath.isVolume(imagePath) \
+                    or EmPath.isStandardImage(imagePath):
                 d = EmImage.getDim(imagePath)
                 info["Dimensions"] = str(d)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
                         self._image = EmImage.load(imagePath)
-                        data = np.array(self._image, copy=False)
+                        data = EmImage.getNumPyArray(self._image)
                         self._imageView.setImage(data)
                         info["Type"] = \
                             "SINGLE-IMAGE: " + str(self._image.getType())
@@ -366,12 +367,6 @@ class BrowserWindow(QMainWindow):
                             self.__showSlicesView()
 
                     # TODO Show the image type
-            elif EmPath.isStandardImage(imagePath):
-                imgData = EmImage.loadStandardImage(imagePath)
-                if imgData is not None:
-                    self._imageView.setImage(imgData)
-                    info["Type"] = "STANDARD IMAGE"
-                    self.__showImageView()
             else:
                 self.__showEmptyWidget()
 

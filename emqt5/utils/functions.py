@@ -5,7 +5,6 @@ import sys
 
 import em
 
-from PIL import Image
 import numpy as np
 
 
@@ -21,11 +20,11 @@ class EmPath:
 
     EXTESIONS_MAP = {
         EXT_IMAGE: ['.mrc', '.spi', '.xmp', '.hed', '.img', '.dm3', '.dm4',
-                    '.dat', '.png'],
+                    '.dat'],
         EXT_VOLUME: ['.mrc', '.vol', '.map'],
         EXT_STACK: ['.mrc', '.mrcs', '.stk', '.dm3', '.dm4', '.dat'],
         EXT_TABLE: ['.star', '.xmd', '.sqlite'],
-        EXT_STD_IMAGE: ['.jpg', '.jpeg', '.tif', '.bmp']
+        EXT_STD_IMAGE: ['.png', '.jpg', '.jpeg', '.tif', '.bmp']
     }
 
     @classmethod
@@ -64,6 +63,16 @@ class EmPath:
 
 class EmImage:
     """ Helper class around the em.Image class. """
+    DATA_TYPE_MAP = {
+        em.typeInt8: np.uint8,
+        em.typeUInt8: np.uint8,
+        em.typeInt16: np.uint16,
+        em.typeUInt16: np.uint16,
+        em.typeInt32: np.uint32,
+        em.typeUInt32: np.uint32,
+        em.typeInt64: np.uint64,
+        em.typeUInt64: np.uint64
+    }  # FIXME [hv] the others?
 
     @classmethod
     def load(cls, path, index=1):
@@ -79,13 +88,6 @@ class EmImage:
         return image
 
     @classmethod
-    def loadStandardImage(cls, path):
-        """ Read a standard image (.JPG, .PNG, etc.) """
-        image = Image.open(path)
-        data = np.array(image)
-        return data
-
-    @classmethod
     def getDim(cls, path):
         """ Shortcut method to return the dimensions of the given
         image path. """
@@ -94,6 +96,16 @@ class EmImage:
         dim = imageIO.getDim()
         imageIO.close()
         return dim
+
+    @classmethod
+    def getNumPyArray(cls, image, copy=False):
+        """
+        Returns the numpy array of image data according to the image type  """
+        if image is None:
+            return None
+
+        return np.array(image, copy=copy,
+                        dtype=cls.DATA_TYPE_MAP.get(image.getType()))
 
 
 class EmTable:

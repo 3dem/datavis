@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import em
-import numpy as np
 
 from .image_view import ImageView
 from .slices_view import SlicesView
 from .volume_view import VolumeView
 from .data_view import DataView
 from .model import TableDataModel
+
+from emqt5.utils import EmImage
 
 MOVIE_SIZE = 1000
 
@@ -19,7 +20,7 @@ def createImageView(path, **kwargs):
         loc2 = em.ImageLocation(path)
         image.read(loc2)
         imgView = ImageView(None, **kwargs)
-        data = np.array(image, copy=False)
+        data = EmImage.getNumPyArray(image)
         imgView.setImage(data)
 
         return imgView

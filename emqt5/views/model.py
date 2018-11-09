@@ -809,7 +809,7 @@ class ImageCache:
 
         elif EmPath.isData(path):
             img = EmImage.load(path, index)
-            array = np.array(img, copy=False)
+            array = EmImage.getNumPyArray(img)
             if self._imgSize is None:
                 return array
 
