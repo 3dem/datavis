@@ -3,16 +3,15 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import QTableView, QGraphicsPixmapItem, QSplitter
-from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem
+from PyQt5.QtWidgets import QTableView, QSplitter
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
 
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 from .base import AbstractView
-from emqt5.utils import EmPath, parseImagePath
-
-import pyqtgraph as pg
+from emqt5.utils import EmPath, parseImagePath, ImageRef
+from .image_view import ImageView
 
 
 class ItemsView(AbstractView):
@@ -22,29 +21,28 @@ class ItemsView(AbstractView):
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
-    def __init__(self, parent=None):
+    def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
+        self._disableFitToSize = False
         self._imgCache = ImageCache(50)
-        self.__setupUI()
+        self._imageRef = ImageRef()
+        self.__setupUI(**kwargs)
 
-    def __setupUI(self):
+    def __setupUI(self, **kwargs):
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Horizontal)
-        self._imageView = pg.ImageView(self._splitter)
-        self._pixMapElem = QPixmap()
-        self._pixmapItem = QGraphicsPixmapItem(self._pixMapElem)
-        self._imageView.getView().addItem(self._pixmapItem)
+        self._imageView = ImageView(self._splitter, **kwargs)
         self._itemsViewTable = QTableView(self._splitter)
         self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
         self._mainLayout.insertWidget(0, self._splitter)
-        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
         if self._model and row in range(0, self._model.totalRowCount()) and \
-                col in range(0, self._model.columnCount()):
+                col in range(0, self._model.columnCount()) and \
+                self._model.getColumnConfig(col)['renderable']:
             model = self._itemsViewTable.model()
             model.clear()
             vLabels = []
@@ -54,40 +52,36 @@ class ItemsView(AbstractView):
                              Qt.DisplayRole)
                 if i == col:
                     imgPath = self._model.getTableData(row, i)
-                    imgParams = parseImagePath(imgPath)
-                    if imgParams is not None and len(imgParams) == 3:
-                        imgPath = imgParams[2]
-                        if EmPath.isImage(imgPath):
-                            self._pixMapElem.load(imgPath)
-                            self._pixmapItem.setPixmap(self._pixMapElem)
-                            self._pixmapItem.setVisible(True)
-                            v = self._imageView.getView()
-                            if not self._disableFitToSize:
-                                v.autoRange()
+                    imgRef = parseImagePath(imgPath, self._imageRef)
+                    if imgRef is not None:
+                        if imgRef.imageType & \
+                                ImageRef.SINGLE == ImageRef.SINGLE:
+                            imgId = imgRef.path
+                            index = 0
+                        elif imgRef.imageType & \
+                                ImageRef.STACK == ImageRef.STACK:
+                            if imgRef.imageType & \
+                                    ImageRef.VOLUME == ImageRef.VOLUME:
+                                imgId = '%d-%s' % (imgRef.volumeIndex,
+                                                   imgRef.path)
+                                index = imgRef.volumeIndex
+                            else:
+                                imgId = '%d-%s' % (imgRef.index, imgRef.path)
+                                index = imgRef.index
+
+                        data = self._imgCache.addImage(imgId, imgRef.path,
+                                                       index)
+                        if data is not None:
+                            if imgRef.axis == X_AXIS:
+                                data = data[:, :, imgRef.index]
+                            elif imgRef.axis == Y_AXIS:
+                                imgRef.axis = data[:, imgRef.index, :]
+                            elif imgRef.axis == Z_AXIS:
+                                data = data[imgRef.index, :, :]
+
+                            self._imageView.setImage(data)
                         else:
-                            if self._pixmapItem:
-                                self._pixmapItem.setVisible(False)
-
-                            if EmPath.isStack(imgPath):
-                                id = str(imgParams[0]) + '_' + imgPath
-                                index = imgParams[0]
-                            else:
-                                id = imgPath
-                                index = 0
-
-                            data = self._imgCache.addImage(id, imgPath, index)
-                            if data is not None:
-                                axis = imgParams[1]
-                                if axis == X_AXIS:
-                                    data = data[:, :, imgParams[0]]
-                                elif axis == Y_AXIS:
-                                    data = data[:, imgParams[0], :]
-                                elif axis == Z_AXIS:
-                                    data = data[imgParams[0], :, :]
-
-                                self._imageView.setImage(data)
-                            else:
-                                self._imageView.clear()
+                            self._imageView.clear()
                     else:
                         self._imageView.clear()
 
@@ -117,8 +111,11 @@ class ItemsView(AbstractView):
 
     def setModel(self, model):
         """ Sets the model """
+        if self._model:
+            self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
         AbstractView.setModel(self, model)
         if self._model:
+            self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
 
     def setImageCache(self, imgCache):
@@ -129,3 +126,13 @@ class ItemsView(AbstractView):
         """ Selects the given row """
         if self._model and row in range(0, self._model.totalRowCount()):
             self._model.loadPage(row)
+
+    def currentRow(self):
+        """ Returns the current selected row """
+        if self._model is None:
+            return -1
+        return self._row
+
+    def getViewDims(self):
+        """ Returns a tuple (rows, columns) with the data size """
+        return 1, self._model.totalRowCount() if self._model else 0, 0

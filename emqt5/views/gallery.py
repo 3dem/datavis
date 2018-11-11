@@ -3,29 +3,12 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
-from PyQt5.QtWidgets import QAbstractItemView, QListView
+from PyQt5.QtWidgets import QAbstractItemView, QListView, QApplication
 
 from PyQt5 import QtCore
 
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
-
-
-class _QListViewResizable(QListView):
-    """
-    Just overwrite the resizeEvent to fire a signal
-    """
-    sigSizeChanged = QtCore.pyqtSignal()  # when the widget has been resized
-
-    def __init__(self, parent=None):
-        QListView.__init__(self, parent)
-
-    def resizeEvent(self, evt):
-        """
-        Reimplemented from TableWidget
-        """
-        QListView.resizeEvent(self, evt)
-        self.sigSizeChanged.emit()
 
 
 class GalleryView(AbstractView):
@@ -35,19 +18,24 @@ class GalleryView(AbstractView):
     """
 
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
+    sigPageSizeChanged = QtCore.pyqtSignal()
+    sigListViewSizeChanged = QtCore.pyqtSignal()
 
-    def __init__(self, parent=None):
-        AbstractView.__init__(self, parent)
+    def __init__(self, parent, **kwargs):
+        AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
+        self._pRows = 0
+        self._pCols = 0
+        self._cellSpacing = 0
         self._imgCache = ImageCache(50)
-        self.__setupUI()
+        self._thumbCache = ImageCache(500, (100, 100))
+        self.__setupUI(**kwargs)
 
-    def __setupUI(self):
-        self._listView = _QListViewResizable(self)
-        self._listView.sigSizeChanged.connect(self.__onSizeChanged)
+    def __setupUI(self, **kwargs):
+        self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setResizeMode(QListView.Adjust)
-        self._listView.setSpacing(5)
+        self._listView.setSpacing(self._cellSpacing)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._listView.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
         self._listView.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
@@ -57,9 +45,20 @@ class GalleryView(AbstractView):
         self._listView.setMovement(QListView.Static)
         self._listView.setIconSize(QSize(32, 32))
         self._listView.setModel(None)
+        self._listView.resizeEvent = self.__listViewResizeEvent
+        self.sigListViewSizeChanged.connect(self.__onSizeChanged)
         self._delegate = EMImageItemDelegate(self)
-        self._delegate.setImageCache(self._imgCache)
+        self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._listView)
+
+    def __listViewResizeEvent(self, evt):
+        """
+        Reimplemented to receive QListView resize events which are passed
+        in the event parameter. Emits sigListViewSizeChanged
+        :param evt:
+        """
+        QListView.resizeEvent(self._listView, evt)
+        self.sigListViewSizeChanged.emit()
 
     def __calcPageSize(self):
         """
@@ -74,15 +73,16 @@ class GalleryView(AbstractView):
 
         if size.width() > 0 and size.height() > 0 \
                 and s.width() > 0 and s.height() > 0:
-            pCols = int((size.width() - spacing - 1) / (s.width() + spacing))
-            pRows = int((size.height() - 1) / (s.height() + spacing))
+            self._pCols = int((size.width() - spacing - 1) /
+                              (s.width() + spacing))
+            self._pRows = int((size.height() - 1) / (s.height() + spacing))
             # if size.width() < iconSize.width() pRows may be 0
-            if pRows == 0:
-                pRows = 1
-            if pCols == 0:
-                pCols = 1
+            pRows = 1 if self._pRows == 0 else self._pRows
+            pCols = 1 if self._pCols == 0 else self._pCols
 
             self._pageSize = pRows * pCols
+        else:
+            self._pRows = self._pCols = 0
 
     def __getPage(self, row):
         """
@@ -99,6 +99,8 @@ class GalleryView(AbstractView):
             index = self._listView.currentIndex()
             row = index.row() if index and index.isValid() else 0
             self._model.setupPage(self._pageSize, self.__getPage(row))
+
+        self.sigPageSizeChanged.emit()
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -135,18 +137,65 @@ class GalleryView(AbstractView):
             self._model.setupPage(self._pageSize, self._model.getPage())
             self._model.setIconSize(s)
 
+        self.sigPageSizeChanged.emit()
+
     def setImageCache(self, imgCache):
         """ Sets the image cache """
         self._imgCache = imgCache
-        self._delegate.setImageCache(imgCache)
+
+    def setThumbCache(self, thumbCache):
+        self._thumbCache = thumbCache
+        self._delegate.setImageCache(thumbCache)
 
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model and row in range(0, self._model.totalRowCount()):
-            page = self.__getPage(row)
-            self._model.loadPage(page)
+        if self._model:
+            if not row == self.currentRow() \
+                    and row in range(0, self._model.totalRowCount()):
+                page = self.__getPage(row)
+                self._model.loadPage(page)
             index = self._model.createIndex(
                 0 if row == 0 else row % self._pageSize,
                 self._listView.modelColumn())
 
             self._listView.setCurrentIndex(index)
+
+    def currentRow(self):
+        """ Returns the current selected row """
+        if self._model is None:
+            return -1
+        r = self._listView.currentIndex().row()
+        return r if r <= 0 else r + self._pageSize * self._model.getPage()
+
+    def getViewDims(self):
+        """ Returns a tuple (rows, columns) with the data size """
+        return self._pRows, self._pCols
+
+    def getPreferedSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        if self._model is None or self._model.rowCount() == 0:
+            return 0, 0
+
+        n = self._model.totalRowCount()
+        s = self._listView.iconSize()
+        spacing = self._listView.spacing()
+        size = QSize(int(n**0.5) * (spacing + s.width()) + spacing,
+                     int(n**0.5) * (spacing + s.height()) + spacing)
+
+        w = int(size.width() / (spacing + s.width()))
+        n = self._model.totalRowCount()
+        c = int(n / w)
+        rest = n % w
+
+        if c == 0:
+            w = n * (spacing + s.width())
+            h = 2 * spacing + s.height()
+        else:
+            w = w * (spacing + s.width()) + spacing
+            h = (c + (1 if rest > 0 else 0)) * (spacing + s.height()) + spacing
+
+        return w, h + (self._pageBar.height()
+                       if self._pageBar.isVisible() else 0)

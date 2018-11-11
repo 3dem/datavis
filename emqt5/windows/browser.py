@@ -1,25 +1,24 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
-                             QSplitter, QApplication, QTreeView, QStackedLayout,
+                             QSplitter, QTreeView, QStackedLayout,
                              QFileSystemModel, QLineEdit, QVBoxLayout,
                              QListWidget, QMainWindow, QAction, QToolBar,
-                             QLabel, QPushButton, QSpacerItem, QCompleter)
-from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QRect, QDir,
-                         QItemSelectionModel, QEvent)
+                             QLabel, QMessageBox, QCompleter)
+from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
+                          QItemSelectionModel, QEvent, pyqtSignal, pyqtSlot)
 
-from PyQt5.QtGui import QImage
-from emqt5.views import (DataView, createVolumeModel, createTableModel,
-                         createStackModel, createSingleImageModel,
-                         MultiSliceView)
+from emqt5.views import (DataView, createTableModel, createStackModel,
+                         VolumeView, ImageView, SlicesView, MOVIE_SIZE)
+
 import qtawesome as qta
 
-from emqt5.utils import EmPath
+from emqt5.utils import EmPath, EmImage
 
 import em
+
+import numpy as np
 
 
 class BrowserWindow(QMainWindow):
@@ -27,15 +26,21 @@ class BrowserWindow(QMainWindow):
     Declaration of the class Browser
     This class construct a Browser User Interface
     """
+    sigTreeViewSizeChanged = pyqtSignal()  # when the treeview has been resized
 
-    def __init__(self, path, **kwargs):
-        super(QMainWindow, self).__init__(kwargs.get('parent', None))
+    def __init__(self, parent, path, **kwargs):
+        QMainWindow.__init__(self, parent=parent)
         self._imagePath = path
         self._image = None
-        self._volumeSlice = MultiSliceView(parent=self)
-        self._tableView = DataView(parent=self)
+        self._dataView = DataView(self, **kwargs)
+        self._imageView = ImageView(self, **kwargs)
+        self._slicesView = SlicesView(self, **kwargs)
+
+        kwargs['tool_bar'] = 'off'
+        kwargs['axis'] = 'off'
+        self._volumeView = VolumeView(parent=self, **kwargs)
         self._emptyWidget = QWidget(parent=self)
-        self.__initGUI()
+        self.__setupUi()
 
     def __changePath(self, newPath):
         self._imagePath = newPath
@@ -55,23 +60,6 @@ class BrowserWindow(QMainWindow):
         :param signal: clicked signal
         """
         self.__changePath(self._model.filePath(signal))
-
-    def _onCloseButtonClicked(self):
-        """
-        This Slot is executed when a exit signal was fire. The application is
-        terminate
-        """
-        # FIXME: This shutdown the entire Python interpreter, we should only close the application
-        # if the app is invoked from other app, this will close everything
-        sys.exit()
-
-    def _onSelectButtonClicked(self):
-        """
-        This Slot is executed when select button signal was clicked.
-        Select an em-image to realize a simple data-slicing
-        """
-        if EmPath.isImage(self._imagePath):
-            self.volumeSliceView = MultiSliceView(path=self._imagePath)
 
     def _onHomeActionClicked(self):
         """
@@ -111,36 +99,10 @@ class BrowserWindow(QMainWindow):
         self._treeView.selectionModel().select(index,
                                             QItemSelectionModel.ClearAndSelect |
                                             QItemSelectionModel.Rows)
+
         self._treeView.expand(index)
         self._treeView.scrollTo(index)
         self._treeView.resizeColumnToContents(index.column())
-
-    def _onVolumeSliceButtonClicked(self):
-        """
-        This Slot is executed when volume slice button was clicked.
-        Select an em-image to display the slice views
-        """
-        self.__showVolumeSlice()
-        self._galeryViewButton.setEnabled(True)
-        self._volumeSliceButton.setEnabled(False)
-
-    def _onGalleryViewButtonClicked(self):
-        """
-        This Slot is executed when gallery view button was clicked.
-        Select an em-image to display as gallery view
-        """
-        models, delegates = createVolumeModel(self._lineCompleter.text())
-        galleryKwargs = {}
-        galleryKwargs['defaultRowHeight'] = 100
-        galleryKwargs['defaultView'] = DataView.GALLERY
-        galleryKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                  DataView.ITEMS]
-        self._tableView.setup(**galleryKwargs)
-        self._tableView.setModel(models, delegates)
-        self.__showTableView()
-
-        self._galeryViewButton.setEnabled(False)
-        self._volumeSliceButton.setEnabled(True)
 
     def eventFilter(self, obj, event):
         """
@@ -150,9 +112,6 @@ class BrowserWindow(QMainWindow):
         :param event: event
         :return: True if this object has been installed, False i.o.c
         """
-        if event.type() == QEvent.Resize:
-            ret = QMainWindow.eventFilter(self, obj, event)
-            self._onExpandTreeView()
 
         if event.type() == QEvent.KeyRelease:
             ret = QMainWindow.eventFilter(self, obj, event)
@@ -162,9 +121,10 @@ class BrowserWindow(QMainWindow):
             self.setLineCompleter(self._imagePath)
             self.showFile(self._imagePath)
             return ret
+
         return QMainWindow.eventFilter(self, obj, event)
 
-    def __initGUI(self):
+    def __setupUi(self):
 
         self._centralWidget = QWidget(self)
         self._horizontalLayout = QHBoxLayout(self._centralWidget)
@@ -188,31 +148,11 @@ class BrowserWindow(QMainWindow):
 
         # Create a Tree View
         self._treeView = QTreeView(self._widget)
+        self._treeView.resizeEvent = self.__treeViewResizeEvent
+        self.sigTreeViewSizeChanged.connect(self.__treeViewSizeChanged)
         self._treeView.installEventFilter(self)
         self._verticalLayout.addWidget(self._treeView)
         self._treeView.clicked.connect(self._onPathClick)
-
-        # Create a Select Button and Close Button
-        buttonHorizontalLayout = QHBoxLayout(self._widget)
-        buttonHorizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding,
-                                         QSizePolicy.Minimum)
-        buttonHorizontalLayout.addItem(buttonHorizontalSpacer)
-
-        self._selectButton = QPushButton(self._widget)
-        self._selectButton.setGeometry(QRect(160, 190, 101, 22))
-        self._selectButton.setIcon(qta.icon('fa.check'))
-        self._selectButton.clicked.connect(self._onSelectButtonClicked)
-
-        buttonHorizontalLayout.addWidget(self._selectButton)
-
-        self._closeButton = QPushButton(self._widget)
-        self._closeButton.setGeometry(QRect(160, 190, 101, 22))
-        self._closeButton.setIcon(qta.icon('fa.times'))
-        self._closeButton.clicked.connect(self._onCloseButtonClicked)
-
-        buttonHorizontalLayout.addWidget(self._closeButton)
-
-        self._verticalLayout.addLayout(buttonHorizontalLayout.layout())
 
         self._leftVerticalLayout.addLayout(self._verticalLayout)
 
@@ -245,39 +185,13 @@ class BrowserWindow(QMainWindow):
         self._imageLayout = QHBoxLayout(self._frame)
         self._stackLayout = QStackedLayout(self._imageLayout)
 
-        self._stackLayout.addWidget(self._volumeSlice)
-        self._stackLayout.addWidget(self._tableView)
+        self._stackLayout.addWidget(self._volumeView)
+        self._stackLayout.addWidget(self._dataView)
+        self._stackLayout.addWidget(self._imageView)
+        self._stackLayout.addWidget(self._slicesView)
         self._stackLayout.addWidget(self._emptyWidget)
 
-        self.listWidget = QListWidget(self._imageSplitter)
-
-        # Create Gallery View and Volume Slice Buttons
-        self._changeViewFrame = QFrame()
-        self._gridLayoutViews = QHBoxLayout()
-        self._changeViewFrame.setLayout(self._gridLayoutViews.layout())
-
-        self._galeryViewButton = QPushButton(self)
-        self._galeryViewButton.setIcon(qta.icon('fa.th'))
-        self._galeryViewButton.setMaximumSize(25, 25)
-        self._galeryViewButton.setEnabled(True)
-        self._galeryViewButton.clicked.connect(self._onGalleryViewButtonClicked)
-
-        self._volumeSliceButton = QPushButton(self)
-        self._volumeSliceButton.setIcon(qta.icon('fa.sliders'))
-        self._volumeSliceButton.setMaximumSize(25, 25)
-        self._volumeSliceButton.setEnabled(False)
-        self._volumeSliceButton.clicked.connect(self._onVolumeSliceButtonClicked)
-
-        self._buttonsSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding,
-                                          QSizePolicy.Minimum)
-
-        self._gridLayoutViews.addItem(self._buttonsSpacer)
-
-        self._gridLayoutViews.addWidget(self._volumeSliceButton)
-        self._gridLayoutViews.addWidget(self._galeryViewButton)
-
-        self._imageVerticalLayout.addWidget(self._changeViewFrame)
-        self._changeViewFrame.setVisible(False)
+        self._infoWidget = QListWidget(self._imageSplitter)
 
         self._imageVerticalLayout.addWidget(self._imageSplitter)
 
@@ -310,7 +224,6 @@ class BrowserWindow(QMainWindow):
         self._treeView.setModel(self._model)
         self._treeView.setRootIndex(self._model.index(QDir.separator()))
         self._treeView.setSortingEnabled(True)
-        self._treeView.resize(640, 380)
 
         # Config the TreeView completer
         self._completer = QCompleter()
@@ -331,9 +244,17 @@ class BrowserWindow(QMainWindow):
         self.retranslateUi(self)
         QMetaObject.connectSlotsByName(self)
 
-        # Configure the Main Window
-        self.setGeometry(150, 100, 1000, 600)
         self.setWindowTitle('EM-BROWSER')
+        self._splitter.setStretchFactor(0, 3)
+        self._splitter.setStretchFactor(1, 1)
+
+    def __treeViewResizeEvent(self, evt):
+        QTreeView.resizeEvent(self._treeView, evt)
+        self.sigTreeViewSizeChanged.emit()
+
+    @pyqtSlot()
+    def __treeViewSizeChanged(self):
+        self._onExpandTreeView()
 
     def retranslateUi(self, MainWindow):
         _translate = QCoreApplication.translate
@@ -343,9 +264,6 @@ class BrowserWindow(QMainWindow):
         self._folderUpAction.setText(_translate("MainWindow",
                                                 "Parent Directory"))
         self._label.setText(_translate("MainWindow", "Path"))
-        self._selectButton.setText(QApplication.translate("MainWindow",
-                                                          "Select"))
-        self._closeButton.setText(QApplication.translate("MainWindow", "Close"))
 
     def setLineCompleter(self, newPath):
         """
@@ -358,11 +276,19 @@ class BrowserWindow(QMainWindow):
 
     def __showVolumeSlice(self):
         """Show the Volume Slicer component"""
-        self._stackLayout.setCurrentWidget(self._volumeSlice)
+        self._stackLayout.setCurrentWidget(self._volumeView)
 
-    def __showTableView(self):
+    def __showDataView(self):
         """Show the Table View component"""
-        self._stackLayout.setCurrentWidget(self._tableView)
+        self._stackLayout.setCurrentWidget(self._dataView)
+
+    def __showImageView(self):
+        """ Show the ImageView component """
+        self._stackLayout.setCurrentWidget(self._imageView)
+
+    def __showSlicesView(self):
+        """ Show the SlicesView component """
+        self._stackLayout.setCurrentWidget(self._slicesView)
 
     def __showEmptyWidget(self):
         """Show an empty widget"""
@@ -384,150 +310,107 @@ class BrowserWindow(QMainWindow):
 
         :param imagePath: the image path
         """
-
-        if EmPath.isVolume(imagePath):
-            # The image has a volume. The data is a numpy 3D array. In
-            # this case, display the Top, Front and the Right View planes
-
-            self._frame.setEnabled(True)
+        try:
+            info = {"Type": "UNKNOWN"}
             self._imagePath = imagePath
+            if EmPath.isTable(imagePath):
+                model = createTableModel(imagePath)
+                self._dataView.setModel(model)
+                self._dataView.setView(DataView.COLUMNS)
+                self.__showDataView()
+                # Show the Table dimensions
+                info["Type"] = "TABLE"
+                info["Dimensions (Rows x Columns)"] = \
+                    "%d x %d" % (model.totalRowCount(), model.columnCount())
 
-            # Create an image from imagePath using em-bindings
-            self._image = em.Image()
-            loc2 = em.ImageLocation(imagePath)
-            self._image.read(loc2)
-
-            if self._galeryViewButton.isEnabled():
-                self._volumeSlice.clearComponent()
-                self._volumeSlice.loadPath(imagePath)
-                self.__showVolumeSlice()
-                self._changeViewFrame.setVisible(True)
-            else:
-                model = createVolumeModel(imagePath)
-                galleryKwargs = {}
-                galleryKwargs['defaultRowHeight'] = 100
-                galleryKwargs['defaultView'] = DataView.GALLERY
-                galleryKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                          DataView.ITEMS]
-                self._tableView.setup(**galleryKwargs)
-                self._tableView.setModel(model)
-                self.__showTableView()
-                self._changeViewFrame.setVisible(True)
-
-            # Show the image dimension and type
-            self.listWidget.clear()
-            self.listWidget.addItem("Dimension: " +
-                                    str(self._image.getDim()))
-            self.listWidget.addItem("Type: " + str(self._image.getType()))
-
-        elif EmPath.isStandardImage(imagePath) or EmPath.isImage(imagePath):
-
-                self._frame.setEnabled(True)
-
-                models, delegates = createSingleImageModel(imagePath)
-                imageKwargs = {}
-                imageKwargs['defaultRowHeight'] = 50
-                imageKwargs['defaultView'] = 'ELEMENT'
-                imageKwargs['views'] = ['ELEMENT']
-                img = EmPath.isStandardImage(imagePath)
-                imageKwargs['disableHistogram'] = img
-                imageKwargs['disableMenu'] = img
-                imageKwargs['disableROI'] = img
-                imageKwargs['disablePopupMenu'] = img
-                imageKwargs['disableFitToSize'] = img
-
-                self._tableView.setup(**imageKwargs)
-                self._tableView.setModel(models)
-                self.__showTableView()
-
-                self._changeViewFrame.setVisible(False)
-
-                if img:
-                    image = QImage(imagePath)
-                    width = image.width()
-                    height = image.height()
+            elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
+                    or EmPath.isVolume(imagePath) \
+                    or EmPath.isStandardImage(imagePath):
+                d = EmImage.getDim(imagePath)
+                info["Dimensions"] = str(d)
+                if d.n == 1:  # Single image or volume
+                    if d.z == 1:  # Single image
+                        self._image = EmImage.load(imagePath)
+                        data = EmImage.getNumPyArray(self._image)
+                        self._imageView.setImage(data)
+                        info["Type"] = \
+                            "SINGLE-IMAGE: " + str(self._image.getType())
+                        self.__showImageView()
+                    else:  # Volume
+                        # The image has a volume. The data is a numpy 3D array.
+                        # In this case, display the Top, Front and the Right
+                        # View planes.
+                        self._frame.setEnabled(True)
+                        # Create an image from imagePath using em-bindings
+                        self._image = em.Image()
+                        loc2 = em.ImageLocation(imagePath)
+                        self._image.read(loc2)
+                        info["Type"] = "VOLUME: " + str(self._image.getType())
+                        self._volumeView.loadPath(imagePath)
+                        self.__showVolumeSlice()
                 else:
-                    # Create an image from imagePath using em-bindings
-                    self._image = em.Image()
-                    loc2 = em.ImageLocation(imagePath)
-                    self._image.read(loc2)
-                    width = self._image.getDim().x
-                    height = self._image.getDim().y
+                    # Image stack
+                    if d.z > 1:  # Volume stack
+                        self._volumeView.loadPath(self._imagePath)
+                        info["Type"] = "VOLUME STACK: "
+                        self.__showVolumeSlice()
+                    else:
+                        if d.x <= MOVIE_SIZE:
+                            info["Type"] = "IMAGES STACK"
+                            model = createStackModel(imagePath)
+                            self._dataView.setModel(model)
+                            self._dataView.setView(DataView.GALLERY)
+                            self.__showDataView()
+                        else:
+                            info["Type"] = "MOVIE"
+                            self._slicesView.setPath(imagePath)
+                            self.__showSlicesView()
 
-                # Show the image dimension
-                self.listWidget.clear()
-                self.listWidget.addItem("Dimension: " + str(width) + " x "
-                                        + str(height))
+                    # TODO Show the image type
+            else:
+                self.__showEmptyWidget()
 
-        elif EmPath.isTable(imagePath):  # The data constitute a Table
-
-            # Hide Volume Slice and Gallery View Buttons
-            self._changeViewFrame.setVisible(False)
-
-            models = [createTableModel(imagePath)]
-            tableKwargs = {}
-            tableKwargs['defaultRowHeight'] = 40
-            tableKwargs['defaultView'] = DataView.COLUMNS
-            tableKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                    DataView.ITEMS]
-            self._tableView.setup(**tableKwargs)
-            self._tableView.setModel(models)
-            self.__showTableView()
-
-            # Hide Volume Slice and Gallery View Buttons
-            self._changeViewFrame.setVisible(False)
-
-            # Show the Table dimensions
-            table = em.Table()
-            tableIO = em.TableIO()
-            tableIO.open(imagePath)
-            tableIO.read('', table)
-            tableIO.close()
-            self.listWidget.clear()
-            self.listWidget.addItem("Type: EM-Table ")
-            self.listWidget.addItem('Dimensions (Rows x Columns): ' +
-                                    str(table.getSize()) + ' x ' +
-                                    str(table.getColumnsSize()))
-
-        elif EmPath.isStack(imagePath):
-            # The image constitute an image stack
-
-            # Hide Volume Slice and Gallery View Buttons
-            self._changeViewFrame.setVisible(False)
-            models, delegates = createStackModel(imagePath)
-            stackKwargs = {}
-            stackKwargs['defaultRowHeight'] = 100
-            stackKwargs['defaultView'] = DataView.GALLERY
-            stackKwargs['views'] = [DataView.GALLERY, DataView.COLUMNS,
-                                    DataView.ITEMS]
-
-            self._tableView.setup(**stackKwargs)
-            self._tableView.setModel(models, delegates)
-
-            self.__showTableView()
-
-            # Show the image dimension and type
-            self._image = em.ImageIO()
-            self._image.open(imagePath, em.File.READ_ONLY)
-            self.listWidget.clear()
-            self.listWidget.addItem("Dimension: " +
-                                    str(self._image.getDim()))
-            self.listWidget.addItem("Type: Images Stack")
-            self._image.close()
-
-        else:  # No image format
-
-            self.listWidget.clear()
-            self._volumeSlice.clearComponent()
+            self.__showInfo(info)
+        except Exception as ex:
+            self.__showMsgBox("Error opening the file", QMessageBox.Critical,
+                              str(ex))
             self.__showEmptyWidget()
-            # Hide Volume Slice and Gallery View Buttons
-            self._changeViewFrame.setVisible(False)
-            self.listWidget.addItem("NO IMAGE FORMAT")
+        except RuntimeError as ex:
+            self.__showMsgBox("Error opening the file", QMessageBox.Critical,
+                              str(ex))
+            self.__showEmptyWidget()
 
+    def __showMsgBox(self, text, icon=None, details=None):
+        """
+        Show a message box with the given text, icon and details.
+        The icon of the message box can be specified with one of the Qt values:
+            QMessageBox.NoIcon
+            QMessageBox.Question
+            QMessageBox.Information
+            QMessageBox.Warning
+            QMessageBox.Critical
+        """
+        msgBox = QMessageBox()
+        msgBox.setText(text)
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.setDefaultButton(QMessageBox.Ok)
+        if icon is not None:
+            msgBox.setIcon(icon)
+        if details is not None:
+            msgBox.setDetailedText(details)
 
+        msgBox.exec_()
 
+    def __showInfo(self, info):
+        """
+        Show the information in the corresponding widget.
+        info is a dict
+        """
+        self.__clearInfoWidget()
+        if isinstance(info, dict):
+            for key in info.keys():
+                self._infoWidget.addItem("%s: %s" % (str(key), str(info[key])))
 
-
-
-
-
+    def __clearInfoWidget(self):
+        """ Clear the info widget """
+        self._infoWidget.clear()

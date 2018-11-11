@@ -7,12 +7,12 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout,
                              QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import QPixmap, QPalette
+from PyQt5.QtGui import QPixmap, QPalette, QPen
 
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.utils import EmPath, parseImagePath
+from emqt5.utils import EmPath, parseImagePath, ImageRef
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 
 
@@ -21,55 +21,46 @@ class EMImageItemDelegate(QStyledItemDelegate):
     ImageItemDelegate class provides display and editing facilities for
     em image data items from a model.
     """
-    def __init__(self, parent=None,
-                 selectedStatePen=None,
-                 borderPen=None,
-                 iconWidth=150,
-                 iconHeight=150):
-        """
-        If selectedStatePen is None then the border will not be painted when
-        the item is selected.
-        If selectedStatePen has a QPen value then a border will be painted when
-        the item is selected
-        :param parent: the parent qt object
-        :param selectedStatePen: QPen object
-        """
+    def __init__(self, parent=None):
+
         QStyledItemDelegate.__init__(self, parent)
-        self._selectedStatePen = selectedStatePen
-        self._borderPen = borderPen
         self._imgCache = ImageCache(50, 50)
         self._imageView = pg.ImageView(view=pg.ViewBox())
-        self._iconWidth = iconWidth
-        self._iconHeight = iconHeight
-        self._disableFitToSize = True
+        self._imageView.getView().invertY(False)
         self._pixmapItem = None
+        self._imageRef = ImageRef()
+        self._sBorder = 3  # selected state border (px)
 
     def paint(self, painter, option, index):
         """
         Reimplemented from QStyledItemDelegate
         """
         if index.isValid():
-            self._setupView(index)
-
+            x = option.rect.x()
+            y = option.rect.y()
+            w = option.rect.width()
+            h = option.rect.height()
+            rect = QRectF()
             if option.state & QStyle.State_Selected:
                 if option.state & QStyle.State_HasFocus or \
-                     option.state & QStyle.State_Active:
+                        option.state & QStyle.State_Active:
                     colorGroup = QPalette.Active
                 else:
                     colorGroup = QPalette.Inactive
-
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
-            self._imageView.ui.graphicsView.scene().setSceneRect(
-                QRectF(0, 0, option.rect.width(),
-                       option.rect.height()))
-            self._imageView.ui.graphicsView.scene().render(painter,
-                                                           QRectF(option.rect))
+            self._setupView(index, w, h)
+            rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
+                         h - 2 * self._sBorder)
+            self._imageView.ui.graphicsView.scene().setSceneRect(rect)
+            rect.setRect(x + self._sBorder, y + self._sBorder,
+                         w - 2 * self._sBorder, h - 2 * self._sBorder)
+            self._imageView.ui.graphicsView.scene().render(painter, rect)
 
-    def _setupView(self, index):
+    def _setupView(self, index, width, height):
         """
-        Configure the widget used as view to shoe the image
+        Configure the widget used as view to show the image
         """
         imgData = self._getThumb(index)
 
@@ -83,7 +74,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         (cw, ch) = (v.width(), v.height())
 
         if not (w, h) == (cw, ch):
-            v.setGeometry(0, 0, w, h)
+            v.setGeometry(0, 0, width, height)
             v.resizeEvent(None)
 
         if not isinstance(imgData, QPixmap):  # QPixmap or np.array
@@ -98,7 +89,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
             else:
                 self._pixmapItem.setPixmap(imgData)
             self._pixmapItem.setVisible(True)
-            v.autoRange()
+        v.autoRange(padding=0)
 
     def _getThumb(self, index, height=100):
         """
@@ -108,33 +99,40 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         imgPath = index.data(Qt.UserRole)
 
-        imgParams = parseImagePath(imgPath)
+        imgRef = parseImagePath(imgPath, self._imageRef)
 
-        if imgParams is None or not len(imgParams) == 3:
+        if imgRef is None:
             return None
-        else:
-            imgPath = imgParams[2]
 
-            if EmPath.isStack(imgParams[2]):
-                id = str(imgParams[0]) + '_' + imgPath
+        if imgRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
+            imgId = imgRef.path
+        elif imgRef.imageType & ImageRef.STACK == ImageRef.STACK:
+            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
+                imgId = '%d-%s' % (imgRef.volumeIndex, imgRef.path)
             else:
-                id = imgPath
+                imgId = '%d-%s' % (imgRef.index, imgRef.path)
+        else:
+            return None
 
-        imgData = self._imgCache.getImage(id)
+        imgData = self._imgCache.getImage(imgId)
 
-        if imgData is None:
-            imgData = self._imgCache.addImage(id, imgPath, imgParams[0])
+        if imgData is None:  # the add the image to Cache
+            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
+                imgData = self._imgCache.addImage(imgId, imgRef.path,
+                                                  imgRef.volumeIndex)
+            else:
+                imgData = self._imgCache.addImage(imgId, imgRef.path,
+                                                  imgRef.index)
 
         if imgData is None:
             return None
         else:
-            axis = imgParams[1]
-            if axis == X_AXIS:
-                imgData = imgData[:, :, imgParams[0]]
-            elif axis == Y_AXIS:
-                imgData = imgData[:, imgParams[0], :]
-            elif axis == Z_AXIS:
-                 imgData = imgData[imgParams[0], :, :]
+            if imgRef.axis == X_AXIS:
+                imgData = imgData[:, :, imgRef.index]
+            elif imgRef.axis == Y_AXIS:
+                imgData = imgData[:, imgRef.index, :]
+            elif imgRef.axis == Z_AXIS:
+                 imgData = imgData[imgRef.index, :, :]
 
         return imgData
 
@@ -310,3 +308,7 @@ class AbstractView(QWidget):
     def getPageBar(self):
         """ Returns the page bar widget """
         return self._pageBar
+
+    def getViewDims(self):
+        """ Returns a tuple (rows, columns) with the data size """
+        return 0, 0

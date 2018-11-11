@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from PyQt5.QtGui import QPixmap
+import scipy.ndimage as ndimage
+
+from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
 from emqt5.views.config import TableViewConfig
-from emqt5.utils import EmPath, EmImage
+from emqt5.utils import EmPath, EmImage, EmTable
 
 import em
 
@@ -58,7 +60,16 @@ class TableDataModel(QAbstractItemModel):
         self._pageSize = kwargs.get('pageSize', 10)
         self._pageCount = 0
         self._title = kwargs.get('title', '')
+        self._defaultFont = QFont()
         self.__setupModel()
+
+    def clone(self):
+        """ Clone this Model """
+        clo = TableDataModel(self._emTable,
+                             tableViewConfig=self._tableViewConfig,
+                             pageSize=self._pageSize,
+                             title=self._title)
+        return clo
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """
@@ -92,17 +103,28 @@ class TableDataModel(QAbstractItemModel):
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
 
-        if role == Qt.EditRole:
+        if role == Qt.EditRole or role == Qt.UserRole:
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.SizeHintRole:
             if self._tableViewConfig[col]["renderable"]:
                 return self._iconSize
+            return QVariant()
 
         if role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
 
-        return QVariant(self.getTableData(row, col))
+        if role == Qt.FontRole:
+            return self._defaultFont
+
+        # Is good practice to provide data for Qt.ToolTipRole,
+        # Qt.AccessibleTextRole and Qt.AccessibleDescriptionRole
+        if role == Qt.ToolTipRole or \
+           role == Qt.AccessibleTextRole or \
+           role == Qt.AccessibleDescriptionRole:
+            return QVariant(self.getTableData(row, col))
+
+        return QVariant()
 
     def columnCount(self, index=QModelIndex()):
         """
@@ -303,12 +325,8 @@ class TableDataModel(QAbstractItemModel):
         """ Return the page count for this model """
         return self._pageCount
 
-    # FIXME Check if this is in use, duplicated of getCurrentPage
     def getPage(self):
         """ Return the current page for this model """
-        return self._page
-
-    def getCurrentPage(self):
         return self._page
 
     def getPageSize(self):
@@ -318,6 +336,13 @@ class TableDataModel(QAbstractItemModel):
     def getTitle(self):
         """ Return the title for this model """
         return self._title
+
+    def hasRenderableColumn(self):
+        """ Return True if the model has renderable columns """
+        if self._tableViewConfig is None:
+            return False
+        else:
+            return self._tableViewConfig.hasRenderableColumn()
 
     def __setupModel(self):
         """
@@ -354,6 +379,19 @@ class VolumeDataModel(QAbstractItemModel):
     emit (page)
     """
     sigPageChanged = pyqtSignal(int)
+    """ 
+    Signal emitted when change the current axis
+    emit (axis) 
+    X: 0
+    Y: 1
+    Z: 2
+    """
+    sigAxisChanged = pyqtSignal(int)
+    """ 
+    Signal emitted when change the current volume index
+    emit (modelIndex)
+    """
+    sigVolumeIndexChanged = pyqtSignal(int)
 
     def __init__(self, path, **kwargs):
         """
@@ -378,10 +416,46 @@ class VolumeDataModel(QAbstractItemModel):
         self._pageCount = 0
         self._title = kwargs.get('title', '')
         self._dim = EmImage.getDim(path)
-        self._axis = X_AXIS
+        self._axis = kwargs.get('axis', X_AXIS)
         self._rows = 0
+        self._volumeIndex = kwargs.get('volumeIndex', 0)
         self.setAxis(kwargs.get('axis', X_AXIS))
+        self._defaultFont = QFont()
         
+    def clone(self):
+        """ Clone this model """
+        clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
+                              pageSize=self._pageSize, title=self._title,
+                              axis=self._axis, volumeIndex=self._volumeIndex)
+        return clo
+
+    def getVolumeIndex(self):
+        """ Return the volume index """
+        return self._volumeIndex
+
+    def setVolumeIndex(self, index):
+        """
+        Sets the volume index.
+        For volume stacks: 0 <= index < em-image.dim.n
+        """
+        if self._dim is None:
+            self._volumeIndex = 0
+        elif index in range(0, self._dim.n):
+            self._volumeIndex = index
+        else:
+            self._volumeIndex = 0
+
+        self.sigVolumeIndexChanged.emit(self._volumeIndex)
+        self.setupPage(self._pageSize, 0)
+
+    def getVolumeCount(self):
+        """
+        Return the volumes count for this model
+        """
+        if self._dim is None:
+            return 0
+        return self._dim.n
+
     def setAxis(self, axis):
         """ Sets the current axis """
         if axis == X_AXIS:
@@ -394,12 +468,14 @@ class VolumeDataModel(QAbstractItemModel):
             self._rows = 0
 
         self._axis = axis
-        self.__setupModel()
+        self.setupPage(self._pageSize, 0)
+        self.sigAxisChanged.emit(self._axis)
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """ Reimplemented function from QAbstractItemModel. """
         if not qModelIndex.isValid():
             return None
+
         row = qModelIndex.row() + self._page * self._pageSize
         col = qModelIndex.column()
 
@@ -408,30 +484,44 @@ class VolumeDataModel(QAbstractItemModel):
 
         if role == TableDataModel.DataTypeRole:
             return t
+
         if role == Qt.DecorationRole:
             return QVariant()
+
         if role == Qt.DisplayRole:
             if t == TableViewConfig.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.getTableData(row, col))
+
         if role == Qt.CheckStateRole:
             if t == TableViewConfig.TYPE_BOOL:
                 return Qt.Checked \
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
 
-        if role == Qt.EditRole:
+        if role == Qt.EditRole or role == Qt.UserRole:
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.SizeHintRole:
             if self._tableViewConfig[col]["renderable"]:
                 return self._iconSize
+            return QVariant()
 
         if role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
 
-        return QVariant(self.getTableData(row, col))
+        if role == Qt.FontRole:
+            return self._defaultFont
+
+        # Is good practice to provide data for Qt.ToolTipRole,
+        # Qt.AccessibleTextRole and Qt.AccessibleDescriptionRole
+        if role == Qt.ToolTipRole or \
+                role == Qt.AccessibleTextRole or \
+                role == Qt.AccessibleDescriptionRole:
+            return QVariant(self.getTableData(row, col))
+
+        return QVariant()
 
     def columnCount(self, index=QModelIndex()):
         """
@@ -518,8 +608,8 @@ class VolumeDataModel(QAbstractItemModel):
             if col == 1:
                 return True
             if col == 2:
-                return str(row) + '@' + str(self._axis) + '@' + self._path
-
+                return '%d@%d@%d@%s' % (row, self._axis, self._volumeIndex,
+                                        self._path)
         return None
 
     @pyqtSlot(int)
@@ -640,6 +730,17 @@ class VolumeDataModel(QAbstractItemModel):
         """ Return the title for this model """
         return self._title
 
+    def hasRenderableColumn(self):
+        """ Return True if the model has renderable columns """
+        if self._tableViewConfig is None:
+            return False
+        else:
+            return self._tableViewConfig.hasRenderableColumn()
+
+    def getPath(self):
+        """ Return the path of this volume model """
+        return self._path
+
     def __setupModel(self):
         """
         Configure the model according to the pageSize and current page
@@ -661,11 +762,12 @@ class ImageCache:
     """
     The ImageCache provide a data cache for images
     """
-    def __init__(self, cacheSize, imgSize=100):
+    def __init__(self, cacheSize, imgSize=None):
         """
         Constructor
-        :param cacheSize: max length for internal image list
-        :param imgSize: image size in percent
+        :param cacheSize : (int) max length for internal image list
+        :param imgSize: (tuple) image size. Calculates an appropriate thumbnail
+                        size to preserve the aspect of the image
         """
         self._cacheSize = cacheSize
         self._imgSize = imgSize
@@ -679,10 +781,15 @@ class ImageCache:
         """
         ret = self._imgData.get(imgId)
         if ret is None:
-            ret = self.__createThumb(imgData, index)
-            self._imgData[imgId] = ret
-            if len(self._imgData) > self._cacheSize:
-                self._imgData.popitem()
+            try:
+                ret = self.__createThumb(imgData, index)
+                self._imgData[imgId] = ret
+                if len(self._imgData) > self._cacheSize:
+                    self._imgData.popitem()
+            except Exception as ex:
+                raise ex
+            except RuntimeError as ex:
+                raise ex
         return ret
 
     def getImage(self, imgId):
@@ -702,44 +809,40 @@ class ImageCache:
 
         elif EmPath.isData(path):
             img = EmImage.load(path, index)
-            return np.array(img, copy=False)
+            array = EmImage.getNumPyArray(img)
+            if self._imgSize is None:
+                return array
+
+            # preserve aspect ratio
+            x, y = array.shape[0], array.shape[1]
+            if x > self._imgSize[0]:
+                y = int(max(y * self._imgSize[0] / x, 1))
+                x = int(self._imgSize[0])
+            if y > self._imgSize[1]:
+                x = int(max(x * self._imgSize[1] / y, 1))
+                y = int(self._imgSize[1])
+
+            if x >= array.shape[0] and y >= array.shape[1]:
+                return array
+
+            return ndimage.zoom(array, x / float(array.shape[0]), order=1)
 
         return None
 
 
 def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
-    table = em.Table()
-    tableIO = em.TableIO()
-    tableIO.open(path)
-    tableIO.read('', table)
-    tableIO.close()
-    tableViewConfig = TableViewConfig.fromTable(table)
-
+    table = EmTable.load(path)
     return TableDataModel(table, parent=None, title="TABLE",
-                          tableViewConfig=tableViewConfig)
+                          tableViewConfig=TableViewConfig.fromTable(table))
 
 
-def createStackModel(imagePath):
+def createStackModel(imagePath, title='Stack'):
     """ Return a stack model for the given image """
-    xTable = em.Table([em.Table.Column(0, "index",
-                                       em.typeInt32,
-                                       "Image index"),
-                       em.Table.Column(1, "Stack",
-                                       em.typeString,
-                                       "Image stack")])
-    imageIO = em.ImageIO()
-    loc2 = em.ImageLocation(imagePath)
-    imageIO.open(loc2.path, em.File.Mode.READ_ONLY)
-    dim = imageIO.getDim()
+    table = EmTable.fromStack(imagePath)
 
-    for i in range(0, dim.n):
-        row = xTable.createRow()
-        row['Stack'] = str(i) + '@' + imagePath
-        row['index'] = i
-        xTable.addRow(row)
-
-    return [TableDataModel(xTable, title='Stack')], None
+    return TableDataModel(table, title=title,
+                          tableViewConfig=TableViewConfig.createStackConfig())
 
 
 def createVolumeModel(imagePath, axis=X_AXIS, title="Volume"):

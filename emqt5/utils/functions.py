@@ -5,6 +5,8 @@ import sys
 
 import em
 
+import numpy as np
+
 
 class EmPath:
     """
@@ -17,11 +19,12 @@ class EmPath:
     EXT_STD_IMAGE = 4  # Standard image extensions
 
     EXTESIONS_MAP = {
-        EXT_IMAGE: ['.mrc', '.spi', '.xmp'],
+        EXT_IMAGE: ['.mrc', '.spi', '.xmp', '.hed', '.img', '.dm3', '.dm4',
+                    '.dat'],
         EXT_VOLUME: ['.mrc', '.vol', '.map'],
-        EXT_STACK: ['.mrc', '.mrcs', '.stk'],
+        EXT_STACK: ['.mrc', '.mrcs', '.stk', '.dm3', '.dm4', '.dat'],
         EXT_TABLE: ['.star', '.xmd', '.sqlite'],
-        EXT_STD_IMAGE: ['.jpg', '.jpeg', '.png', '.tif', '.bmp']
+        EXT_STD_IMAGE: ['.png', '.jpg', '.jpeg', '.tif', '.bmp']
     }
 
     @classmethod
@@ -60,12 +63,22 @@ class EmPath:
 
 class EmImage:
     """ Helper class around the em.Image class. """
+    DATA_TYPE_MAP = {
+        em.typeInt8: np.uint8,
+        em.typeUInt8: np.uint8,
+        em.typeInt16: np.uint16,
+        em.typeUInt16: np.uint16,
+        em.typeInt32: np.uint32,
+        em.typeUInt32: np.uint32,
+        em.typeInt64: np.uint64,
+        em.typeUInt64: np.uint64
+    }  # FIXME [hv] the others?
 
     @classmethod
     def load(cls, path, index=1):
         """ Read an image from the path and return the object.
          Params:
-         loc: can be either a path or a tupe (path, index)
+         loc: can be either a path or a tuple (path, index)
         """
         if not os.path.exists(path):
             raise Exception("Path does not exists: %s" % path)
@@ -84,14 +97,25 @@ class EmImage:
         imageIO.close()
         return dim
 
+    @classmethod
+    def getNumPyArray(cls, image, copy=False):
+        """
+        Returns the numpy array of image data according to the image type  """
+        if image is None:
+            return None
+
+        return np.array(image, copy=copy,
+                        dtype=cls.DATA_TYPE_MAP.get(image.getType()))
+
 
 class EmTable:
     """ Helper class around em.Table class. """
     @classmethod
-    def load(cls, path, tableName=''):
+    def load(cls, path, tableName=None):
         tio = em.TableIO()
         tio.open(path, em.File.Mode.READ_ONLY)
         table = em.Table()
+        tableName = tableName or tio.getTableNames()[0]
         tio.read(tableName, table)
         return table
 
@@ -113,12 +137,43 @@ class EmTable:
         return table
 
 
-def parseImagePath(imgPath):
-    """ Return the index, the axis and the image path: [index, axis, image_path]
-        If a stack index has been specified (index@some/img_path), or no index
-        was specified (some/img_path) then return [0, -1, some/img_path].
-        An image within a EM volume must be specified as:
-         'imageIndex@axis@some_img_path'
+class ImageRef:
+    """
+    The ImageRef class is used to describe the referenced image in a stack
+    or volume. For performance reasons, the access to the member variables
+    is direct.
+    """
+    SINGLE = 1
+    STACK = 2
+    VOLUME = 4
+
+    def __init__(self, path=None, index=0, volumeIndex=0, axis=-1):
+        """
+        Constructor:
+        path (str): the image path
+        index (int): the image index in the stack
+        volumeIndex (int): volume index in the volume stack
+        axis (int): the axis
+        axis = 0: X
+        axis = 1: Y
+        axis = 2: Z
+        axis = -1: Undefined
+        """
+        self.path = path
+        self.index = index
+        self.volumeIndex = volumeIndex
+        self.axis = axis
+        self.imageType = ImageRef.SINGLE
+
+
+def parseImagePath(imgPath, imgRef=None):
+    """
+    Return the image reference, parsing the str image path.
+    imgPath specification:
+     - some/img_path for single image
+     - index@some/img_path for image in stack
+     - index@axis@some/img_path for image in volume
+     - index@axis@volIndex@some/img_path for image in volume stack
         axis = 0: X
         axis = 1: Y
         axis = 2: Z
@@ -126,14 +181,34 @@ def parseImagePath(imgPath):
     """
     p = imgPath.split('@')
     size = len(p)
-
+    if imgRef is None:
+        imgRef = ImageRef()
     try:
-        if size == 1:
-            return [0, -1, p[0]]
-        elif size == 2:
-            return [int(p[0]), -1, p[1]]
-        elif size == 3:
-            return [int(p[0]), int(p[1]), p[2]]
+        if size == 1:  # Single image: 'image-path'
+            imgRef.path = p[0]
+            imgRef.index = 0
+            imgRef.axis = -1
+            imgRef.volumeIndex = 0
+            imgRef.imageType = ImageRef.SINGLE
+        elif size == 2:  # One image in stack: 'index@image-path'
+            imgRef.path = p[1]
+            imgRef.index = int(p[0])
+            imgRef.axis = -1
+            imgRef.volumeIndex = 0
+            imgRef.imageType = ImageRef.STACK
+        elif size == 3:  # One image in volume: 'index@axis@image-path'
+            imgRef.path = p[2]
+            imgRef.index = int(p[0])
+            imgRef.axis = int(p[1])
+            imgRef.volumeIndex = 0
+            imgRef.imageType = ImageRef.VOLUME
+        elif size == 4:  # One image in volume stack:
+            # 'index@axis@volIndex@image-path'
+            imgRef.path = p[3]
+            imgRef.index = int(p[0])
+            imgRef.axis = int(p[1])
+            imgRef.volumeIndex = int(p[2])
+            imgRef.imageType = ImageRef.STACK | ImageRef.VOLUME
         else:
             raise Exception("Invalid specification")
     except Exception:
@@ -142,3 +217,5 @@ def parseImagePath(imgPath):
         print("--------------------------------------------------------------")
         traceback.print_exception(*sys.exc_info())
         return None
+
+    return imgRef
