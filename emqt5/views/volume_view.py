@@ -118,11 +118,13 @@ class VolumeView(QWidget):
             model = QStandardItemModel(self._comboBoxCurrentVolume)
 
         model.clear()
-        s = ['X', 'Y', 'Z']
-        for axis in s:
-            item = QStandardItem("Axis-(%s)" % axis)
-            item.setData(0, Qt.UserRole)  # use UserRole for store
-            model.appendRow([item])
+
+        t = None if self._model is None else self._model.getTitles()
+        if t is not None:
+            for axis in self._model.getTitles():
+                item = QStandardItem(axis)
+                item.setData(0, Qt.UserRole)  # use UserRole for store
+                model.appendRow([item])
 
         self._comboBoxCurrentAxis.blockSignals(blocked)
 

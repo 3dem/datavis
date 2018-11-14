@@ -347,4 +347,3 @@ class ImageView(QWidget):
                 width += plot.getAxis("left").height()
 
         self._imageView.setGeometry(x, y, width, height)
-        print("ImageViewSize = ", self._imageView.size())

@@ -38,6 +38,7 @@ class ColumnsView(AbstractView):
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._tableView)
+        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __tableViewResizeEvent(self, evt):
         """
@@ -106,6 +107,13 @@ class ColumnsView(AbstractView):
             row = index.row() if index and index.isValid() else 0
             self._model.setupPage(self._pageSize, self.__getPage(row))
 
+    @pyqtSlot(int)
+    def __onCurrentPageChanged(self, page):
+        """ Invoked when change current page """
+        if self._model is not None:
+            size = self._model.getPageSize()
+            self.selectRow(page * size)
+
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
@@ -126,6 +134,7 @@ class ColumnsView(AbstractView):
             model.setupPage(self._pageSize, 0)
             self._tableView.selectionModel().currentRowChanged.connect(
                 self.__onCurrentRowChanged)
+
 
     def setRowHeight(self, height):
         """ Sets the heigth for all rows """
@@ -148,13 +157,13 @@ class ColumnsView(AbstractView):
     def selectRow(self, row):
         """ Selects the given row """
         if self._model:
-            r = self.currentRow()
 
-            if not r == row and row in range(0, self._model.totalRowCount()):
+            if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
-                self._model.loadPage(page)
-                self._tableView.selectRow(
-                    0 if row == 0 else row % self._pageSize)
+                if not page == self._model.getPage():
+                    self._model.loadPage(page)
+                self._tableView.selectRow(0 if row == 0 else
+                                          row % self._pageSize)
 
     def currentRow(self):
         """ Returns the current selected row """

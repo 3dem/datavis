@@ -111,13 +111,21 @@ class EmImage:
 class EmTable:
     """ Helper class around em.Table class. """
     @classmethod
-    def load(cls, path, tableName=None):
+    def load(cls, path, tableName=None, table=None):
+        """
+        Load the table from the specified file and return a tuple
+        ([table-names], em-table).
+        If the specified table is None then create new em.Table,
+        otherwise the data is loaded in the specified table
+        """
         tio = em.TableIO()
         tio.open(path, em.File.Mode.READ_ONLY)
-        table = em.Table()
-        tableName = tableName or tio.getTableNames()[0]
+        if table is None:
+            table = em.Table()
+        names = tio.getTableNames()
+        tableName = tableName or names[0]
         tio.read(tableName, table)
-        return table
+        return names, table
 
     @classmethod
     def fromStack(cls, path):

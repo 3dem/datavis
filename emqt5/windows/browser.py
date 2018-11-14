@@ -316,7 +316,10 @@ class BrowserWindow(QMainWindow):
             if EmPath.isTable(imagePath):
                 model = createTableModel(imagePath)
                 self._dataView.setModel(model)
-                self._dataView.setView(DataView.COLUMNS)
+
+                if model is not None and not model.totalRowCount() == 1:
+                    self._dataView.setView(DataView.COLUMNS)
+
                 self.__showDataView()
                 # Show the Table dimensions
                 info["Type"] = "TABLE"

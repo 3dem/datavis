@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import numpy as np
 import scipy.ndimage as ndimage
 
 from PyQt5.QtGui import QPixmap, QFont
@@ -45,7 +44,8 @@ class TableDataModel(QAbstractItemModel):
         :param table: input em.Table from where the data will be read
         :param **kwargs: Optional arguments:
             - parent: a parent QObject of the model (NOTE: see Qt framework)
-            - title: a title that will be display (FIXME: should this be here in the model?)
+            - titles: the titles that will be display
+            FIXME: should this be here in the model?
             - tableViewConfig: specify a config how we want to display the
                 data in the em.Table. If it is None, a default one will be
                 created from the table.
@@ -59,7 +59,8 @@ class TableDataModel(QAbstractItemModel):
         self._page = 0
         self._pageSize = kwargs.get('pageSize', 10)
         self._pageCount = 0
-        self._title = kwargs.get('title', '')
+        self._titles = kwargs.get('titles', [''])
+        self._dataSource = kwargs.get('dataSource', None)
         self._defaultFont = QFont()
         self.__setupModel()
 
@@ -68,7 +69,8 @@ class TableDataModel(QAbstractItemModel):
         clo = TableDataModel(self._emTable,
                              tableViewConfig=self._tableViewConfig,
                              pageSize=self._pageSize,
-                             title=self._title)
+                             titles=self._titles.copy(),
+                             dataSource=self._dataSource)
         return clo
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
@@ -219,17 +221,29 @@ class TableDataModel(QAbstractItemModel):
 
         return None
 
+    def getEmTable(self):
+        """ Returns the em.Table that contains the data """
+        return self._emTable
+
+    def getDataSource(self):
+        """
+        Returns the data source for this model.
+        For now we use the path of the table file.
+        """
+        return self._dataSource
+
     @pyqtSlot(int)
-    def loadPage(self, pageIndex=-1):
+    def loadPage(self, pageIndex=-1, force=False):
         """
         Load the page specified by pageIndex. If pageIndex is not within
         the page range then load the current page.
         """
-        self.beginResetModel()
-        if pageIndex in range(0, self._pageCount):
+        if force or (not self._page == pageIndex and pageIndex
+                     in range(0, self._pageCount)):
+            self.beginResetModel()
             self._page = pageIndex
-        self.endResetModel()
-        self.sigPageChanged.emit(self._page)
+            self.endResetModel()
+            self.sigPageChanged.emit(self._page)
 
     def prevPage(self):
         self._page = self._page - 1 \
@@ -238,8 +252,8 @@ class TableDataModel(QAbstractItemModel):
 
     def nextPage(self):
         self._page = self._page + 1 \
-            if (self._page + 1) * self._pageSize <= len(self._emTable)\
-             else self._page
+            if (self._page + 1) * self._pageSize <= len(self._emTable) else \
+            self._page
         self.loadPage()
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
@@ -271,7 +285,7 @@ class TableDataModel(QAbstractItemModel):
         self._pageSize = pageSize
         self._page = currentPage if currentPage >= 0 else 0
         self.__setupModel()
-        self.loadPage()
+        self.loadPage(currentPage, force=True)
         self.sigPageConfigChanged.emit(self._page, self._pageCount,
                                        self._pageSize)
 
@@ -333,9 +347,9 @@ class TableDataModel(QAbstractItemModel):
         """ Return the items per page for this model """
         return self._pageSize
 
-    def getTitle(self):
+    def getTitles(self):
         """ Return the title for this model """
-        return self._title
+        return self._titles
 
     def hasRenderableColumn(self):
         """ Return True if the model has renderable columns """
@@ -414,7 +428,8 @@ class VolumeDataModel(QAbstractItemModel):
         self._pageSize = kwargs.get('pageSize', 10)
         self._page = 0
         self._pageCount = 0
-        self._title = kwargs.get('title', '')
+        t = kwargs.get('title', 'Axis-') + "(%s)"
+        self._titles = [t % 'X', t % 'Y', t % 'Z']
         self._dim = EmImage.getDim(path)
         self._axis = kwargs.get('axis', X_AXIS)
         self._rows = 0
@@ -425,8 +440,9 @@ class VolumeDataModel(QAbstractItemModel):
     def clone(self):
         """ Clone this model """
         clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
-                              pageSize=self._pageSize, title=self._title,
-                              axis=self._axis, volumeIndex=self._volumeIndex)
+                              pageSize=self._pageSize, axis=self._axis,
+                              volumeIndex=self._volumeIndex)
+        clo._titles = self._titles.copy()
         return clo
 
     def getVolumeIndex(self):
@@ -613,16 +629,17 @@ class VolumeDataModel(QAbstractItemModel):
         return None
 
     @pyqtSlot(int)
-    def loadPage(self, pageIndex=-1):
+    def loadPage(self, pageIndex=-1, force=False):
         """
         Load the page specified by pageIndex. If pageIndex is not within
         the page range then load the current page.
         """
-        self.beginResetModel()
-        if pageIndex in range(0, self._pageCount):
+        if force or (not self._page == pageIndex and pageIndex
+                     in range(0, self._pageCount)):
+            self.beginResetModel()
             self._page = pageIndex
-        self.endResetModel()
-        self.sigPageChanged.emit(self._page)
+            self.endResetModel()
+            self.sigPageChanged.emit(self._page)
 
     def prevPage(self):
         self._page = self._page - 1 \
@@ -631,8 +648,8 @@ class VolumeDataModel(QAbstractItemModel):
 
     def nextPage(self):
         self._page = self._page + 1 \
-            if (self._page + 1) * self._pageSize <= len(self._emTable)\
-             else self._page
+            if (self._page + 1) * self._pageSize <= len(self._emTable) else \
+            self._page
         self.loadPage()
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
@@ -664,7 +681,7 @@ class VolumeDataModel(QAbstractItemModel):
         self._pageSize = pageSize
         self._page = currentPage if currentPage >= 0 else 0
         self.__setupModel()
-        self.loadPage()
+        self.loadPage(self._page, force=True)
         self.sigPageConfigChanged.emit(self._page, self._pageCount,
                                        self._pageSize)
 
@@ -726,9 +743,9 @@ class VolumeDataModel(QAbstractItemModel):
         """ Return the items per page for this model """
         return self._pageSize
 
-    def getTitle(self):
-        """ Return the title for this model """
-        return self._title
+    def getTitles(self):
+        """ Return the titles for this model """
+        return self._titles
 
     def hasRenderableColumn(self):
         """ Return True if the model has renderable columns """
@@ -832,22 +849,23 @@ class ImageCache:
 
 def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
-    table = EmTable.load(path)
-    return TableDataModel(table, parent=None, title="TABLE",
-                          tableViewConfig=TableViewConfig.fromTable(table))
+    t = EmTable.load(path)  # [names], table
+    return TableDataModel(t[1], parent=None, titles=t[0],
+                          tableViewConfig=TableViewConfig.fromTable(t[1]),
+                          dataSource=path)
 
 
 def createStackModel(imagePath, title='Stack'):
     """ Return a stack model for the given image """
     table = EmTable.fromStack(imagePath)
 
-    return TableDataModel(table, title=title,
+    return TableDataModel(table, titles=[title],
                           tableViewConfig=TableViewConfig.createStackConfig())
 
 
-def createVolumeModel(imagePath, axis=X_AXIS, title="Volume"):
+def createVolumeModel(imagePath, axis=X_AXIS, titles=["Volume"]):
 
-    return VolumeDataModel(imagePath, parent=None, axis=axis, title=title)
+    return VolumeDataModel(imagePath, parent=None, axis=axis, titles=titles)
 
 
 def createSingleImageModel(imagePath):

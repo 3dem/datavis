@@ -5,15 +5,17 @@
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
-                             QLineEdit, QActionGroup, QApplication)
+                             QLineEdit, QActionGroup)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
-from .model import ImageCache, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
+from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
+                    Z_AXIS)
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
 
+from emqt5.utils.functions import EmTable
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
@@ -136,7 +138,7 @@ class DataView(QWidget):
         self._toolBar.addWidget(self._comboBoxCurrentTable)
         self._toolBar.addSeparator()
 
-        #gallery view
+        # gallery view
         self._labelCurrentColumn = QLabel(parent=self._toolBar,
                                           text="Gallery in ")
         self._actLabelCurrentColumn = self._toolBar.addWidget(
@@ -217,18 +219,26 @@ class DataView(QWidget):
         if view not in self._views or view == self._view:
             return False
         if self._view == self.COLUMNS:
-            if view == self.GALLERY or view == self.ITEMS:
+            if view == self.GALLERY:
                 if self._model:
                     for colConfig in self._model.getColumnConfig():
                         if colConfig["renderable"] and colConfig["visible"]:
                             return True
                 return False
+            elif view == self.ITEMS:
+                return True
         elif self._view == self.GALLERY:
             if view == self.COLUMNS or view == self.ITEMS:
                 return True
         elif self._view == self.ITEMS:
-            if view == self.COLUMNS or view == self.GALLERY:
+            if view == self.COLUMNS:
                 return True
+            elif view == self.GALLERY:
+                if self._model:
+                    for colConfig in self._model.getColumnConfig():
+                        if colConfig["renderable"] and colConfig["visible"]:
+                            return True
+                return False
 
         return False
 
@@ -274,14 +284,8 @@ class DataView(QWidget):
 
         model.clear()
         if self._model:
-            if isinstance(self._model, VolumeDataModel):
-                s = ['X', 'Y', 'Z']
-                for axis in s:
-                    item = QStandardItem(self._model.getTitle() + "(%s)" % axis)
-                    item.setData(0, Qt.UserRole)  # use UserRole for store
-                    model.appendRow([item])
-            else:
-                item = QStandardItem(self._model.getTitle())
+            for t in self._model.getTitles():
+                item = QStandardItem(t)
                 item.setData(0, Qt.UserRole)  # use UserRole for store
                 model.appendRow([item])
 
@@ -425,22 +429,30 @@ class DataView(QWidget):
     @pyqtSlot(int)
     def _onAxisChanged(self, index):
         """ Invoked when user change the axis in volumes """
-        if self._model and isinstance(self._model, VolumeDataModel):
-            t = self._comboBoxCurrentTable.currentText().split("(")
-            if len(t) > 1:
-                s = t[len(t)-1]
-                axis = X_AXIS
-                if s == "X)":
+        if self._model:
+            if isinstance(self._model, VolumeDataModel):
+                t = self._comboBoxCurrentTable.currentText().split("(")
+                l = len(t)
+                if l > 1:
+                    s = t[l-1]
                     axis = X_AXIS
-                elif s == "Y)":
-                    axis = Y_AXIS
-                elif s == "Z)":
-                    axis = Z_AXIS
+                    if s == "X)":
+                        axis = X_AXIS
+                    elif s == "Y)":
+                        axis = Y_AXIS
+                    elif s == "Z)":
+                        axis = Z_AXIS
 
-                for viewWidget in self._viewsDict.values():
-                    model = viewWidget.getModel()
-                    model.setAxis(axis)
-                self._selectRow(1)
+                    for viewWidget in self._viewsDict.values():
+                        model = viewWidget.getModel()
+                        model.setAxis(axis)
+                    self._selectRow(1)
+            elif isinstance(self._model, TableDataModel):
+                t = self._comboBoxCurrentTable.currentText()
+                path = self._model.getDataSource()
+                if path is not None:
+                    EmTable.load(path, t, self._model.getEmTable())
+                    self.__setupModel()
 
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
@@ -551,6 +563,11 @@ class DataView(QWidget):
         self._model = model
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
+        if model is not None and model.totalRowCount() == 1 \
+                and self.ITEMS in self._views:
+            self._view = self.ITEMS
+            self.__setupCurrentViewMode()
+
 
     def getModel(self):
         """

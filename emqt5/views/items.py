@@ -40,9 +40,11 @@ class ItemsView(AbstractView):
 
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
+        self._imageView.clear()
         if self._model and row in range(0, self._model.totalRowCount()) and \
-                col in range(0, self._model.columnCount()) and \
-                self._model.getColumnConfig(col)['renderable']:
+                col in range(0, self._model.columnCount()):
+            self._imageView.setVisible(self._model
+                                       and self._model.hasRenderableColumn())
             model = self._itemsViewTable.model()
             model.clear()
             vLabels = []
@@ -50,7 +52,7 @@ class ItemsView(AbstractView):
                 item = QStandardItem()
                 item.setData(self._model.getTableData(row, i),
                              Qt.DisplayRole)
-                if i == col:
+                if i == col and self._model.getColumnConfig(col)['renderable']:
                     imgPath = self._model.getTableData(row, i)
                     imgRef = parseImagePath(imgPath, self._imageRef)
                     if imgRef is not None:
@@ -80,10 +82,6 @@ class ItemsView(AbstractView):
                                 data = data[imgRef.index, :, :]
 
                             self._imageView.setImage(data)
-                        else:
-                            self._imageView.clear()
-                    else:
-                        self._imageView.clear()
 
                 model.appendRow([item])
                 label = self._model.headerData(i, Qt.Horizontal)

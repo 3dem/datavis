@@ -50,6 +50,7 @@ class GalleryView(AbstractView):
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._listView)
+        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __listViewResizeEvent(self, evt):
         """
@@ -102,6 +103,13 @@ class GalleryView(AbstractView):
 
         self.sigPageSizeChanged.emit()
 
+    @pyqtSlot(int)
+    def __onCurrentPageChanged(self, page):
+        """ Invoked when change current page """
+        if self._model is not None:
+            size = self._model.getPageSize()
+            self.selectRow(page * size)
+
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
@@ -150,8 +158,7 @@ class GalleryView(AbstractView):
     def selectRow(self, row):
         """ Selects the given row """
         if self._model:
-            if not row == self.currentRow() \
-                    and row in range(0, self._model.totalRowCount()):
+            if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._model.loadPage(page)
             index = self._model.createIndex(
