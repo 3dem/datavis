@@ -69,7 +69,7 @@ class TableDataModel(QAbstractItemModel):
         clo = TableDataModel(self._emTable,
                              tableViewConfig=self._tableViewConfig,
                              pageSize=self._pageSize,
-                             titles=self._titles.copy(),
+                             titles=self._titles[:],
                              dataSource=self._dataSource)
         return clo
 
@@ -442,7 +442,7 @@ class VolumeDataModel(QAbstractItemModel):
         clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
                               pageSize=self._pageSize, axis=self._axis,
                               volumeIndex=self._volumeIndex)
-        clo._titles = self._titles.copy()
+        clo._titles = self._titles[:]
         return clo
 
     def getVolumeIndex(self):
