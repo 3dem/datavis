@@ -1,11 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import traceback
 
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
-                             QLineEdit, QActionGroup)
+                             QLineEdit, QActionGroup, QMessageBox)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
@@ -14,6 +15,7 @@ from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
+from .config import TableViewConfig
 
 from emqt5.utils.functions import EmTable
 
@@ -30,8 +32,11 @@ class DataView(QWidget):
     ITEMS = 4
     SLICES = 8
 
-    """ This signal is emitted when the current item change """
+    """ This signal is emitted when the current item is changed """
     sigCurrentItemChanged = pyqtSignal(int, int)
+
+    """ This signal is emitted when the current table is changed """
+    sigCurrentTableChanged = pyqtSignal()
 
     def __init__(self, parent, **kwargs):
         QWidget.__init__(self, parent=parent)
@@ -159,7 +164,9 @@ class DataView(QWidget):
     def __createView(self, viewType, **kwargs):
         """ Create and return a view. The parent of the view will be self """
         if viewType == self.COLUMNS:
-            return ColumnsView(self, **kwargs)
+            columns = ColumnsView(self, **kwargs)
+            columns.sigTableSizeChanged.connect(self._showViewDims)
+            return columns
         if viewType == self.GALLERY:
             gallery = GalleryView(self, **kwargs)
             gallery.sigPageSizeChanged.connect(self._showViewDims)
@@ -188,6 +195,8 @@ class DataView(QWidget):
                         self.__onViewRowChanged)
                     viewWidget.getPageBar().sigPageConfigChanged.connect(
                         self.__onPageConfigChanged)
+                    viewWidget.getPageBar().sigPageChanged.connect(
+                        self.__onCurrentPageChanged)
 
                 a = self._viewActions[v]
                 a["view"] = viewWidget
@@ -259,6 +268,7 @@ class DataView(QWidget):
         self._spinBoxCurrentRow.setValue(1)
         self.__setupComboBoxCurrentColumn()
         self.__initCurrentRenderableColumn()
+        self.__setupActions()
         if self._model is not None:
             for w in self._viewsDict.values():
                 w.setModel(self._model.clone())
@@ -413,12 +423,19 @@ class DataView(QWidget):
 
     def __setupActions(self):
         for v in self._actionGroupViews.actions():
-            v.setVisible(self._viewTypes[v.objectName()] in self._views)
+            view = self._viewTypes[v.objectName()]
+            v.setVisible(view in self._views)
+            if self._model and view == DataView.GALLERY:
+                v.setVisible(self._model.hasRenderableColumn())
 
     @pyqtSlot(int, int, int, int)
     def __onPageConfigChanged(self, page, fist, last, step):
         """ Invoked when views change his page configuration """
         self._selectRow(self._currentRow + 1)
+
+    @pyqtSlot(int)
+    def __onCurrentPageChanged(self, page):
+        self._showViewDims()
 
     @pyqtSlot(int)
     def __onViewRowChanged(self, row):
@@ -429,30 +446,70 @@ class DataView(QWidget):
     @pyqtSlot(int)
     def _onAxisChanged(self, index):
         """ Invoked when user change the axis in volumes """
-        if self._model:
-            if isinstance(self._model, VolumeDataModel):
-                t = self._comboBoxCurrentTable.currentText().split("(")
-                l = len(t)
-                if l > 1:
-                    s = t[l-1]
-                    axis = X_AXIS
-                    if s == "X)":
+        try:
+            if self._model:
+                if isinstance(self._model, VolumeDataModel):
+                    t = self._comboBoxCurrentTable.currentText().split("(")
+                    l = len(t)
+                    if l > 1:
+                        s = t[l-1]
                         axis = X_AXIS
-                    elif s == "Y)":
-                        axis = Y_AXIS
-                    elif s == "Z)":
-                        axis = Z_AXIS
+                        if s == "X)":
+                            axis = X_AXIS
+                        elif s == "Y)":
+                            axis = Y_AXIS
+                        elif s == "Z)":
+                            axis = Z_AXIS
 
-                    for viewWidget in self._viewsDict.values():
-                        model = viewWidget.getModel()
-                        model.setAxis(axis)
-                    self._selectRow(1)
-            elif isinstance(self._model, TableDataModel):
-                t = self._comboBoxCurrentTable.currentText()
-                path = self._model.getDataSource()
-                if path is not None:
-                    EmTable.load(path, t, self._model.getEmTable())
-                    self.__setupModel()
+                        for viewWidget in self._viewsDict.values():
+                            model = viewWidget.getModel()
+                            model.setAxis(axis)
+                        self._selectRow(1)
+                elif isinstance(self._model, TableDataModel):
+                    name = self._comboBoxCurrentTable.currentText()
+                    path = self._model.getDataSource()
+                    if path is not None:
+                        t = self._model.getEmTable()
+                        EmTable.load(path, name, t)
+                        self._model.setColumnConfig(TableViewConfig.fromTable(t))
+                        self.__clearViews()
+                        self.__setupModel()
+                        self.sigCurrentTableChanged.emit()
+        except Exception as ex:
+            self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
+                              str(ex))
+            print(traceback.format_exc())
+
+        except RuntimeError as ex:
+            self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
+                              str(ex))
+            print(traceback.format_exc())
+        except ValueError as ex:
+            self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
+                              str(ex))
+            print(traceback.format_exc())
+
+    @pyqtSlot()
+    def __showMsgBox(self, text, icon=None, details=None):
+        """
+        Show a message box with the given text, icon and details.
+        The icon of the message box can be specified with one of the Qt values:
+            QMessageBox.NoIcon
+            QMessageBox.Question
+            QMessageBox.Information
+            QMessageBox.Warning
+            QMessageBox.Critical
+        """
+        msgBox = QMessageBox()
+        msgBox.setText(text)
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.setDefaultButton(QMessageBox.Ok)
+        if icon is not None:
+            msgBox.setIcon(icon)
+        if details is not None:
+            msgBox.setDetailedText(details)
+
+        msgBox.exec_()
 
     @pyqtSlot(int)
     def _onGalleryViewColumnChanged(self, index):
@@ -475,6 +532,10 @@ class DataView(QWidget):
                 viewWidget = self._viewsDict.get(self.ITEMS)
                 if viewWidget is not None:
                     viewWidget.setModelColumn(self._currentRenderableColumn)
+            else:
+                viewWidget = self._viewsDict.get(self.ITEMS)
+                if viewWidget is not None:
+                    viewWidget.setModelColumn(0)
 
     @pyqtSlot()
     def _onChangeCellSize(self):
@@ -564,10 +625,9 @@ class DataView(QWidget):
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
         if model is not None and model.totalRowCount() == 1 \
-                and self.ITEMS in self._views:
+                and not self._view == self.ITEMS and self.ITEMS in self._views:
             self._view = self.ITEMS
             self.__setupCurrentViewMode()
-
 
     def getModel(self):
         """

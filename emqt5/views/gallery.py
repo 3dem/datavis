@@ -176,7 +176,16 @@ class GalleryView(AbstractView):
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        return self._pRows, self._pCols
+        if self._model is None or self._pCols == 0:
+            return 0, 0
+        size = self._model.rowCount()
+
+        if size <= self._pCols:
+            return 1, size
+
+        r = size % self._pCols
+
+        return int(size / self._pCols) + (1 if r > 0 else 0), self._pCols
 
     def getPreferedSize(self):
         """

@@ -41,6 +41,8 @@ class ItemsView(AbstractView):
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
         self._imageView.clear()
+        model = self._itemsViewTable.model()
+        model.clear()
         if self._model and row in range(0, self._model.totalRowCount()) and \
                 col in range(0, self._model.columnCount()):
             self._imageView.setVisible(self._model
@@ -133,4 +135,4 @@ class ItemsView(AbstractView):
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        return 1, self._model.totalRowCount() if self._model else 0, 0
+        return 1, self._model.columnCount() if self._model else 0, 0

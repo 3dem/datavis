@@ -248,6 +248,9 @@ class BrowserWindow(QMainWindow):
         self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 1)
 
+        self._dataView.sigCurrentTableChanged.connect(
+            self.__onDataViewTableChanged)
+
     def __treeViewResizeEvent(self, evt):
         QTreeView.resizeEvent(self._treeView, evt)
         self.sigTreeViewSizeChanged.emit()
@@ -255,6 +258,16 @@ class BrowserWindow(QMainWindow):
     @pyqtSlot()
     def __treeViewSizeChanged(self):
         self._onExpandTreeView()
+
+    @pyqtSlot()
+    def __onDataViewTableChanged(self):
+        model = self._dataView.getModel()
+        if model is not None:
+            info = dict()
+            info["Type"] = "TABLE"
+            info["Dimensions (Rows x Columns)"] = \
+                "%d x %d" % (model.totalRowCount(), model.columnCount())
+            self.__showInfo(info)
 
     def retranslateUi(self, MainWindow):
         _translate = QCoreApplication.translate

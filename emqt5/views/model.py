@@ -358,6 +358,12 @@ class TableDataModel(QAbstractItemModel):
         else:
             return self._tableViewConfig.hasRenderableColumn()
 
+    def setTableViewConfig(self, config):
+        """
+        Sets the config how we want to display the data
+        """
+        self._tableViewConfig = config
+
     def __setupModel(self):
         """
         Configure the model according to the pageSize and current page

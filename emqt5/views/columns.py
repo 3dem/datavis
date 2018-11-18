@@ -135,7 +135,6 @@ class ColumnsView(AbstractView):
             self._tableView.selectionModel().currentRowChanged.connect(
                 self.__onCurrentRowChanged)
 
-
     def setRowHeight(self, height):
         """ Sets the heigth for all rows """
         self._tableView.verticalHeader().setDefaultSectionSize(height)
@@ -184,7 +183,7 @@ class ColumnsView(AbstractView):
         if self._model is None:
             return 0, 0
         else:
-            return self._model.totalRowCount(), self._model.columnCount(None)
+            return self._model.rowCount(), self._model.columnCount(None)
 
     def getHeaderSize(self, columnIndex=None):
         """
