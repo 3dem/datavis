@@ -31,6 +31,7 @@ class TableViewConfig:
     def __init__(self):
         # Store a list of ColumnConfig objects
         self._cols = []
+        self._rowIndex = True
 
     def addColumnConfig(self, *args, **kwargs):
         """ Add a new column config. """
@@ -42,6 +43,14 @@ class TableViewConfig:
             if colConfig["renderable"]:
                 return True
         return False
+
+    def isShowRowIndex(self):
+        """ Returns True if the row index should be displayed. By default,
+        this property is always True """
+        return self._rowIndex
+
+    def setShowRowIndex(self, s):
+        self._rowIndex = s
 
     def __iter__(self):
         """ Iterate through all the column configs. """
@@ -107,11 +116,7 @@ class TableViewConfig:
     def createStackConfig(cls):
         """ Create a TableViewConfig instance for a stack """
         tableViewConfig = TableViewConfig()
-        tableViewConfig.addColumnConfig(name='index',
-                                        dataType=TableViewConfig.TYPE_INT,
-                                        label='Index',
-                                        editable=False,
-                                        visible=True)
+
         tableViewConfig.addColumnConfig(name='Image',
                                         dataType=TableViewConfig.TYPE_STRING,
                                         label='Image',

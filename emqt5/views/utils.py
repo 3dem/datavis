@@ -64,6 +64,7 @@ def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
         dataView.setModel(TableDataModel(table, titles=titles,
                                          tableViewConfig=tableViewConfig,
                                          dataSource=kwargs.get('dataSource')))
+        dataView.setView(defaultView)
         return dataView
     except Exception as ex:
         raise ex

@@ -45,10 +45,6 @@ class ItemsView(AbstractView):
         model.clear()
         if self._model and row in range(0, self._model.totalRowCount()) and \
                 col in range(0, self._model.columnCount()):
-            self._imageView.setVisible(self._model
-                                       and self._model.hasRenderableColumn())
-            model = self._itemsViewTable.model()
-            model.clear()
             vLabels = []
             for i in range(0, self._model.columnCount()):
                 item = QStandardItem()
@@ -111,12 +107,19 @@ class ItemsView(AbstractView):
 
     def setModel(self, model):
         """ Sets the model """
+        self._row = 0
+        self._column = 0
         if self._model:
             self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
+
         AbstractView.setModel(self, model)
+
         if self._model:
+            self._imageView.setVisible(self._model.hasRenderableColumn())
             self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
+        else:
+            self._imageView.setVisible(False)
 
     def setImageCache(self, imgCache):
         """ Sets the image cache """
@@ -135,4 +138,6 @@ class ItemsView(AbstractView):
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        return 1, self._model.columnCount() if self._model else 0, 0
+        if self._model is not None:
+            return self._model.columnCount(), 1
+        return 0, 0

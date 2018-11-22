@@ -63,6 +63,8 @@ class DataView(QWidget):
         self._currentRow = 0  # selected table row
         self._imageCache = ImageCache(100)
         self._thumbCache = ImageCache(500, (100, 100))
+
+        self._tablePref = dict()
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
         self.__setupCurrentViewMode()
@@ -76,6 +78,15 @@ class DataView(QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._stackedLayoud = QStackedLayout(self._mainLayout)
         self._stackedLayoud.setSpacing(0)
+
+        # combobox current table
+        self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
+        self._toolBar.addWidget(self._labelCurrentTable)
+        self._comboBoxCurrentTable = QComboBox(self._toolBar)
+        self._comboBoxCurrentTable.currentIndexChanged. \
+            connect(self._onAxisChanged)
+        self._toolBar.addWidget(self._comboBoxCurrentTable)
+        self._toolBar.addSeparator()
 
         # actions
         self._actionGroupViews = QActionGroup(self._toolBar)
@@ -93,12 +104,44 @@ class DataView(QWidget):
             a.setVisible(view in self._views)
 
         self._toolBar.addSeparator()
+        # table rows and columns
+        self._labelElements = QLabel(self._toolBar)
+        self._labelElements.setText(" Elements ")
+        self._toolBar.addWidget(self._labelElements)
+        self._toolBar.addSeparator()
+        self._labelRows = QLabel(self._toolBar)
+        self._labelRows.setText(" Rows ")
+        self._actLabelRows = self._toolBar.addWidget(self._labelRows)
+        self._lineEditRows = QLineEdit(self._toolBar)
+        self._lineEditRows.setMaximumSize(70, 22)
+        self._lineEditRows.setEnabled(False)
+        self._actLineEditRows = self._toolBar.addWidget(self._lineEditRows)
+        self._labelCols = QLabel(self._toolBar)
+        self._labelCols.setText(" Cols ")
+        self._actLabelCols = self._toolBar.addWidget(self._labelCols)
+        self._lineEditCols = QLineEdit(self._toolBar)
+        self._lineEditCols.setMaximumSize(70, 22)
+        self._lineEditCols.setEnabled(False)
+        self._actLineEditCols = self._toolBar.addWidget(self._lineEditCols)
+        self._toolBar.addSeparator()
+        # cell navigator
+        self._labelCurrentRow = QLabel(self._toolBar)
+        self._labelCurrentRow.setPixmap(qta.icon(
+            'fa.level-down').pixmap(28, QIcon.Normal, QIcon.On))
+        self._spinBoxCurrentRow = QSpinBox(self._toolBar)
+        self._spinBoxCurrentRow.setMaximumWidth(50)
+        self._spinBoxCurrentRow.valueChanged[int].connect(self._selectRow)
+        self._actLabelCurrentRow = self._toolBar.addWidget(
+            self._labelCurrentRow)
+        self._actSpinBoxCurrentRow = self._toolBar.addWidget(
+            self._spinBoxCurrentRow)
+        self._toolBar.addSeparator()
         # cell resizing
         self._labelLupe = QLabel(self._toolBar)
         self._labelLupe.setPixmap(qta.icon('fa.search').pixmap(28,
                                                                QIcon.Normal,
                                                                QIcon.On))
-        self._toolBar.addWidget(self._labelLupe)
+        self._actLabelLupe = self._toolBar.addWidget(self._labelLupe)
         self._spinBoxRowHeight = QSpinBox(self._toolBar)
         self._spinBoxRowHeight.setSuffix(' px' if self._zoomUnits == PIXEL_UNITS
                                          else ' %')
@@ -107,42 +150,8 @@ class DataView(QWidget):
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
         self._spinBoxRowHeight.editingFinished.connect(self._onChangeCellSize)
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
-        self._toolBar.addWidget(self._spinBoxRowHeight)
+        self._actSpinBoxHeight = self._toolBar.addWidget(self._spinBoxRowHeight)
         self._toolBar.addSeparator()
-        # cell navigator
-        self._labelCurrentRow = QLabel(self._toolBar)
-        self._labelCurrentRow.setPixmap(qta.icon(
-            'fa.level-down').pixmap(28, QIcon.Normal, QIcon.On))
-        self._spinBoxCurrentRow = QSpinBox(self._toolBar)
-        self._spinBoxCurrentRow.valueChanged[int].connect(self._selectRow)
-        self._toolBar.addWidget(self._labelCurrentRow)
-        self._toolBar.addWidget(self._spinBoxCurrentRow)
-        self._toolBar.addSeparator()
-        # table rows and columns
-        self._labelRows = QLabel(self._toolBar)
-        self._labelRows.setText(" Rows ")
-        self._toolBar.addWidget(self._labelRows)
-        self._lineEditRows = QLineEdit(self._toolBar)
-        self._lineEditRows.setMaximumSize(80, 22)
-        self._lineEditRows.setEnabled(False)
-        self._toolBar.addWidget(self._lineEditRows)
-        self._labelCols = QLabel(self._toolBar)
-        self._labelCols.setText(" Cols ")
-        self._toolBar.addWidget(self._labelCols)
-        self._lineEditCols = QLineEdit(self._toolBar)
-        self._lineEditCols.setMaximumSize(80, 22)
-        self._lineEditCols.setEnabled(False)
-        self._toolBar.addWidget(self._lineEditCols)
-        self._toolBar.addSeparator()
-
-        self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
-        self._toolBar.addWidget(self._labelCurrentTable)
-        self._comboBoxCurrentTable = QComboBox(self._toolBar)
-        self._comboBoxCurrentTable.currentIndexChanged.\
-            connect(self._onAxisChanged)
-        self._toolBar.addWidget(self._comboBoxCurrentTable)
-        self._toolBar.addSeparator()
-
         # gallery view
         self._labelCurrentColumn = QLabel(parent=self._toolBar,
                                           text="Gallery in ")
@@ -160,6 +169,47 @@ class DataView(QWidget):
         self._statusBar.setVisible(False)  # hide for now
         self.setMinimumWidth(700)
         self.setGeometry(0, 0, 750, 800)
+
+    def __createPreferencesForCurrentTable(self):
+        """
+        Creates a dict with the preferences for the current table(model).
+        """
+        pref = dict()
+        pref["view"] = self._view  # Preferred view
+
+        if self._model is not None and self._model.totalRowCount() == 1 \
+                and self.ITEMS in self._views:
+            pref["view"] = self.ITEMS
+        elif self.COLUMNS in self._views:
+            pref["view"] = self.COLUMNS
+        else:
+            pref["view"] = self._views[0] if self._views else None
+        print("Preferences = ", pref)
+        return pref
+
+    def __savePreferencesForCurrentTable(self):
+        """ Save preferences for the current table """
+        tName = self._comboBoxCurrentTable.currentText()
+        pref = self._tablePref.get(tName)
+
+        if pref is None:
+            self._tablePref[tName] = self.__createPreferencesForCurrentTable()
+        else:
+            pref["view"] = self._view
+
+    def __loadPreferencesForCurrentTable(self):
+        """ Load preferences for the current table """
+        tName = self._comboBoxCurrentTable.currentText()
+        pref = self._tablePref.get(tName)
+
+        if pref is not None:
+            self._view = pref["view"]
+        else:
+            self._tablePref[tName] = self.__createPreferencesForCurrentTable()
+            pref = self._tablePref.get(tName)
+            self._view = pref["view"]
+
+        self.__setupCurrentViewMode()
 
     def __createView(self, viewType, **kwargs):
         """ Create and return a view. The parent of the view will be self """
@@ -262,6 +312,7 @@ class DataView(QWidget):
         Example: when setting new model in the table view
         """
         self._showViewDims()
+        self.__showTableSize()
         self.__setupSpinBoxRowHeigth()
         self._onChangeCellSize()
         self.__setupSpinBoxCurrentRow()
@@ -272,7 +323,15 @@ class DataView(QWidget):
         if self._model is not None:
             for w in self._viewsDict.values():
                 w.setModel(self._model.clone())
+        self.__loadPreferencesForCurrentTable()
         self._onGalleryViewColumnChanged(0)
+
+    def __showTableSize(self):
+        if self._model is not None:
+            self._labelElements.setText(" Elements: %d " %
+                                        self._model.totalRowCount())
+        else:
+            self._labelElements.setText("")
 
     def __setupSpinBoxRowHeigth(self):
         """ Configure the row height spinbox """
@@ -330,6 +389,24 @@ class DataView(QWidget):
         self._actLabelCurrentColumn.setVisible(visible)
         self._actComboBoxCurrentColumn.setVisible(visible)
 
+    def __setupToolBarForView(self, view):
+        """ Show/Hide relevant info/actions for the given view """
+        # row height
+        rColumn = self._model is not None and self._model.hasRenderableColumn()
+
+        self._actLabelLupe.setVisible((view == self.GALLERY or
+                                      view == self.COLUMNS) and
+                                      rColumn)
+        self._actSpinBoxHeight.setVisible(self._actLabelLupe.isVisible())
+        # dims
+        self._actLabelCols.setVisible(not view == self.ITEMS)
+        self._actLineEditCols.setVisible(self._actLabelCols.isVisible())
+        self._lineEditCols.setEnabled(False)
+        # render column in gallery
+        self.__showCurrentColumnWidgets(
+            not view == self.COLUMNS and
+            rColumn and self._comboBoxCurrentColumn.model().rowCount() > 1)
+
     def __setupCurrentViewMode(self):
         """
         Configure current view mode: COLUMNS or GALLERY or ITEMS
@@ -345,13 +422,15 @@ class DataView(QWidget):
 
         self._selectRow(self._currentRow + 1)
         self._showViewDims()
+        self.__setupToolBarForView(self._view)
+        self.__savePreferencesForCurrentTable()
 
     def __setupModel(self):
         """
         Configure the current table model in all view modes
         """
         self.__setupAllWidgets()
-        self.__setupCurrentViewMode()
+        #self.__setupCurrentViewMode()
 
     def __setupSpinBoxCurrentRow(self):
         """
@@ -622,12 +701,9 @@ class DataView(QWidget):
         """ Set the table model for display. """
         self.__clearViews()
         self._model = model
+        self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
-        if model is not None and model.totalRowCount() == 1 \
-                and not self._view == self.ITEMS and self.ITEMS in self._views:
-            self._view = self.ITEMS
-            self.__setupCurrentViewMode()
 
     def getModel(self):
         """

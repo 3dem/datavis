@@ -57,11 +57,12 @@ class TableDataModel(QAbstractItemModel):
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or TableViewConfig.fromTable(table))
         self._page = 0
-        self._pageSize = kwargs.get('pageSize', 10)
+        self._pageSize = kwargs.get('pageSize', 1)
         self._pageCount = 0
         self._titles = kwargs.get('titles', [''])
         self._dataSource = kwargs.get('dataSource', None)
         self._defaultFont = QFont()
+        self._indexWidth = 50
         self.__setupModel()
 
     def clone(self):
@@ -242,6 +243,7 @@ class TableDataModel(QAbstractItemModel):
                      in range(0, self._pageCount)):
             self.beginResetModel()
             self._page = pageIndex
+            self.headerDataChanged.emit(Qt.Vertical, 0, 0)
             self.endResetModel()
             self.sigPageChanged.emit(self._page)
 
@@ -257,10 +259,24 @@ class TableDataModel(QAbstractItemModel):
         self.loadPage()
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
-        if self._tableViewConfig and \
-                column in range(0, len(self._tableViewConfig)) \
-                and orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self._tableViewConfig[column].getLabel()
+
+        if self._tableViewConfig:
+            if role == Qt.DisplayRole:
+                if orientation == Qt.Horizontal \
+                        and column in range(0, len(self._tableViewConfig)):
+                    return self._tableViewConfig[column].getLabel()
+                elif orientation == Qt.Vertical \
+                        and self._tableViewConfig.isShowRowIndex():
+                    return column + self._page * self._pageSize + 1
+            elif role == Qt.SizeHintRole and orientation == Qt.Vertical:
+                if self._iconSize:
+                    size = QSize(self._indexWidth,
+                                 self._iconSize.height())
+                else:
+                    size = QSize(50, 20)
+                return size
+
+        return QVariant()
 
     def setItemsPerPage(self, pageSize):
         """
