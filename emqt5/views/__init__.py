@@ -15,3 +15,4 @@ from .model import (TableDataModel, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS,
                     createVolumeModel, createSingleImageModel)
 from .utils import (createDataView, createSlicesView, createVolumeView,
                     createImageView, MOVIE_SIZE)
+from .toolbar import ToolBar

@@ -184,7 +184,6 @@ class DataView(QWidget):
             pref["view"] = self.COLUMNS
         else:
             pref["view"] = self._views[0] if self._views else None
-        print("Preferences = ", pref)
         return pref
 
     def __savePreferencesForCurrentTable(self):
