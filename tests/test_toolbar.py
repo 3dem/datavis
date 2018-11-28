@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction,
                              QLineEdit, QTreeView, QVBoxLayout, QHBoxLayout,
                              QToolButton, QMenu, QSpacerItem, QSizePolicy,
-                             QListView, QTableWidget)
+                             QListView, QTableWidget, QLabel, QPushButton)
 
 from emqt5.views.toolbar import ToolBar
 
@@ -29,21 +29,31 @@ l.addWidget(toolBar)
 l.addWidget(QTreeView(centralWidget))
 
 a = QAction(None)
-a.setIcon(qta.icon('fa.table'))
-a.setText("Action1")
+a.setIcon(qta.icon('fa.sliders'))
+a.setText("Display")
 
 widgetA = QWidget()
 l = QVBoxLayout(widgetA)
 l.addWidget(QLineEdit("Hello World", widgetA))
-l.addWidget(QListView(widgetA))
+w1 = QWidget()
+l1 = QHBoxLayout(w1)
+l1.setAlignment(Qt.AlignLeft)
+l1.addWidget(QLabel("Histogram"))
+#l1.addWidget(QPushButton(qta.icon('fa.area-chart'), "", w1))
+label = QLabel()
+label.setPixmap(qta.icon('fa.area-chart').pixmap(16, 16))
+l1.addWidget(label)
+
+l.addWidget(w1)
+
 
 l.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 toolBar.addAction(a, widgetA)
 toolBar.addSeparator()
 
 b = QAction(None)
-b.setIcon(qta.icon('fa.th'))
-b.setText("Action2")
+b.setIcon(qta.icon('fa.info-circle'))
+b.setText("File Info")
 
 toolBar.addAction(b)
 toolBar.addSeparator()
