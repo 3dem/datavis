@@ -40,17 +40,17 @@ class ItemsView(AbstractView):
 
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
+        self._imageView.clear()
+        model = self._itemsViewTable.model()
+        model.clear()
         if self._model and row in range(0, self._model.totalRowCount()) and \
-                col in range(0, self._model.columnCount()) and \
-                self._model.getColumnConfig(col)['renderable']:
-            model = self._itemsViewTable.model()
-            model.clear()
+                col in range(0, self._model.columnCount()):
             vLabels = []
             for i in range(0, self._model.columnCount()):
                 item = QStandardItem()
                 item.setData(self._model.getTableData(row, i),
                              Qt.DisplayRole)
-                if i == col:
+                if i == col and self._model.getColumnConfig(col)['renderable']:
                     imgPath = self._model.getTableData(row, i)
                     imgRef = parseImagePath(imgPath, self._imageRef)
                     if imgRef is not None:
@@ -80,10 +80,6 @@ class ItemsView(AbstractView):
                                 data = data[imgRef.index, :, :]
 
                             self._imageView.setImage(data)
-                        else:
-                            self._imageView.clear()
-                    else:
-                        self._imageView.clear()
 
                 model.appendRow([item])
                 label = self._model.headerData(i, Qt.Horizontal)
@@ -111,12 +107,19 @@ class ItemsView(AbstractView):
 
     def setModel(self, model):
         """ Sets the model """
+        self._row = 0
+        self._column = 0
         if self._model:
             self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
+
         AbstractView.setModel(self, model)
+
         if self._model:
+            self._imageView.setVisible(self._model.hasRenderableColumn())
             self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
+        else:
+            self._imageView.setVisible(False)
 
     def setImageCache(self, imgCache):
         """ Sets the image cache """
@@ -135,4 +138,6 @@ class ItemsView(AbstractView):
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        return 1, self._model.totalRowCount() if self._model else 0, 0
+        if self._model is not None:
+            return self._model.columnCount(), 1
+        return 0, 0

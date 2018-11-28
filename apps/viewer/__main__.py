@@ -160,8 +160,11 @@ if __name__ == '__main__':
             view = BrowserWindow(None, files, **kwargs)
         elif EmPath.isTable(files):  # Display the file as a Table:
             if not args.view == 'slices':
-                view = createDataView(EmTable.load(files), None, 'Table',
-                                      views.get(args.view, DataView.COLUMNS))
+                t = EmTable.load(files)  # name, table
+                view = createDataView(t[1], None,
+                                      t[0],
+                                      views.get(args.view, DataView.COLUMNS),
+                                      dataSource=files)
                 fitViewSize(view, d)
             else:
                 raise Exception("Invalid display mode for table: '%s'"
@@ -191,7 +194,7 @@ if __name__ == '__main__':
                     else:
                         view = createDataView(EmTable.fromStack(files),
                                               TableViewConfig.createStackConfig(),
-                                              'Stack',
+                                              ['Stack'],
                                               views.get(args.view,
                                                         DataView.GALLERY),
                                               **kwargs)
@@ -203,7 +206,7 @@ if __name__ == '__main__':
                     else:
                         view = createDataView(EmTable.fromStack(files),
                                               TableViewConfig.createStackConfig(),
-                                              'Stack',
+                                              ['Stack'],
                                               views.get(mode,
                                                         DataView.GALLERY),
                                               **kwargs)

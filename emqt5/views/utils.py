@@ -56,13 +56,15 @@ def createVolumeView(path, **kwargs):
         raise ex
 
 
-def createDataView(table, tableViewConfig, title, defaultView, **kwargs):
+def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
     """ Create an DataView and load the volume from the given path """
     try:
         kwargs['view'] = defaultView
         dataView = DataView(None, **kwargs)
-        dataView.setModel(TableDataModel(table, title=title,
-                                         tableViewConfig=tableViewConfig))
+        dataView.setModel(TableDataModel(table, titles=titles,
+                                         tableViewConfig=tableViewConfig,
+                                         dataSource=kwargs.get('dataSource')))
+        dataView.setView(defaultView)
         return dataView
     except Exception as ex:
         raise ex

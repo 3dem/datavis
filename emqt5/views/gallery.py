@@ -50,6 +50,7 @@ class GalleryView(AbstractView):
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._listView)
+        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __listViewResizeEvent(self, evt):
         """
@@ -102,6 +103,13 @@ class GalleryView(AbstractView):
 
         self.sigPageSizeChanged.emit()
 
+    @pyqtSlot(int)
+    def __onCurrentPageChanged(self, page):
+        """ Invoked when change current page """
+        if self._model is not None:
+            size = self._model.getPageSize()
+            self.selectRow(page * size)
+
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
@@ -150,8 +158,7 @@ class GalleryView(AbstractView):
     def selectRow(self, row):
         """ Selects the given row """
         if self._model:
-            if not row == self.currentRow() \
-                    and row in range(0, self._model.totalRowCount()):
+            if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._model.loadPage(page)
             index = self._model.createIndex(
@@ -169,7 +176,16 @@ class GalleryView(AbstractView):
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        return self._pRows, self._pCols
+        if self._model is None or self._pCols == 0:
+            return 0, 0
+        size = self._model.rowCount()
+
+        if size <= self._pCols:
+            return 1, size
+
+        r = size % self._pCols
+
+        return int(size / self._pCols) + (1 if r > 0 else 0), self._pCols
 
     def getPreferedSize(self):
         """
