@@ -349,6 +349,9 @@ class BrowserWindow(QMainWindow):
                         self._image = EmImage.load(imagePath)
                         data = EmImage.getNumPyArray(self._image)
                         self._imageView.setImage(data)
+                        self._imageView.setImageInfo(
+                            path=imagePath, format=EmPath.getExt(imagePath),
+                            data_type=str(self._image.getType()))
                         info["Type"] = \
                             "SINGLE-IMAGE: " + str(self._image.getType())
                         self.__showImageView()

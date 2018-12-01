@@ -35,6 +35,13 @@ class EmPath:
         return ext in cls.EXTESIONS_MAP[extType]
 
     @classmethod
+    def getExt(cls, path):
+        if not path:
+            return None
+        _, ext = os.path.splitext(path)
+        return ext
+
+    @classmethod
     def isImage(cls, path):
         """ Return True if imagePath has an extension recognized as supported
         EM-image """

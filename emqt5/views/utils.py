@@ -9,9 +9,10 @@ from .volume_view import VolumeView
 from .data_view import DataView
 from .model import TableDataModel
 
-from emqt5.utils import EmImage
+from emqt5.utils import EmImage, EmPath
 
 MOVIE_SIZE = 1000
+
 
 def createImageView(path, **kwargs):
     """ Create an ImageView and load the image from the given path """
@@ -22,6 +23,8 @@ def createImageView(path, **kwargs):
         imgView = ImageView(None, **kwargs)
         data = EmImage.getNumPyArray(image)
         imgView.setImage(data)
+        imgView.setImageInfo(path=path, format=EmPath.getExt(path),
+                             data_type=str(image.getType()))
 
         return imgView
     except Exception as ex:

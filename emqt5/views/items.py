@@ -33,9 +33,9 @@ class ItemsView(AbstractView):
     def __setupUI(self, **kwargs):
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Horizontal)
-        self._imageView = ImageView(self._splitter, **kwargs)
         self._itemsViewTable = QTableView(self._splitter)
         self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
+        self._imageView = ImageView(self._splitter, **kwargs)
         self._mainLayout.insertWidget(0, self._splitter)
 
     def __loadItem(self, row, col):
@@ -71,6 +71,9 @@ class ItemsView(AbstractView):
 
                         data = self._imgCache.addImage(imgId, imgRef.path,
                                                        index)
+                        self._imageView.setImageInfo(
+                            path=imgRef.path, format=EmPath.getExt(imgRef.path),
+                            data_type=' ')
                         if data is not None:
                             if imgRef.axis == X_AXIS:
                                 data = data[:, :, imgRef.index]
@@ -141,3 +144,12 @@ class ItemsView(AbstractView):
         if self._model is not None:
             return self._model.columnCount(), 1
         return 0, 0
+
+    def setInfo(self, **kwargs):
+        """
+        Sets the image info that will be displayed.
+        kwargs  arguments:
+        path : (str) the image path
+        format: (str) the image format
+        data_type: (str) the image data type"""
+        self._imageView.setImageInfo(**kwargs)

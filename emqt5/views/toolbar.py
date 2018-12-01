@@ -3,7 +3,7 @@
 
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
-                             QAction, QStackedLayout, QActionGroup)
+                             QAction, QStackedLayout, QActionGroup, QSizePolicy)
 
 
 class ToolBar(QWidget):
@@ -28,6 +28,8 @@ class ToolBar(QWidget):
         else:
             self._mainLayout = QVBoxLayout(self)
 
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
+                                       QSizePolicy.MinimumExpanding))
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(0, 0, 0, 0)
         self._toolBar = QToolBar(self)
@@ -127,4 +129,39 @@ class ToolBar(QWidget):
         """ Hide the side panel."""
         if self._lastAction is not None:
             self.__actionTriggered(self._lastAction)
+
+
+class MultiAction(QAction):
+    """ Action for multiple states """
+
+    def __init__(self, parent=None):
+        QAction.__init__(self, parent)
+        self._stateIndex = -1
+        self._icons = dict()
+        self._states = list()
+
+    def addState(self, state, icon):
+        self._states.append(state)
+        self._icons[state] = icon, len(self._states) - 1
+
+    def getCurrentState(self):
+        return self._states[self._stateIndex] if self._stateIndex >= 0 else -1
+
+    def setState(self, state):
+        s = self._icons.get(state)
+
+        if s is not None:
+            self._stateIndex = s[1]
+            self.setIcon(self._icons[self._states[self._stateIndex]][0])
+
+    def changeToNextState(self):
+        if self._stateIndex >= 0:
+            self._stateIndex = (self._stateIndex + 1) % len(self._states)
+            self.setIcon(self._icons[self._states[self._stateIndex]][0])
+
+    def changeToPreviousState(self):
+        if self._states:
+            n = len(self._states)
+            self._stateIndex = (n - self._stateIndex - 1) % n
+            self.setIcon(self._icons[self._states[self._stateIndex]][0])
 

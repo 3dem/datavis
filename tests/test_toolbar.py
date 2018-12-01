@@ -19,7 +19,7 @@ app = QApplication(sys.argv)
 win = QMainWindow()
 win.resize(800, 800)
 
-centralWidget = QWidget(win)
+centralWidget = QWidget()
 l = QHBoxLayout(centralWidget)
 win.setCentralWidget(centralWidget)
 
