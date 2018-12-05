@@ -35,7 +35,7 @@ class ColumnsView(AbstractView):
         self.sigTableSizeChanged.connect(self.__onSizeChanged)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
         self._tableView.setSelectionMode(QTableView.SingleSelection)
-        self._tableView.setSortingEnabled(False)
+        self._tableView.setSortingEnabled(True)
         self._tableView.setModel(None)
         self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._tableView.resizeEvent = self.__tableViewResizeEvent

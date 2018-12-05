@@ -105,6 +105,24 @@ class EmImage:
         return dim
 
     @classmethod
+    def getInfo(cls, path):
+        """
+        Return some specified info from the given image path.
+        dim : Image dimensions
+        ext : File extension
+        data_type: Image data type
+        """
+        imageIO = em.ImageIO()
+        imageIO.open(path, em.File.Mode.READ_ONLY)
+        dim = imageIO.getDim()
+        dataType = imageIO.type
+        imageIO.close()
+
+        return {'dim': dim,
+                'ext': EmPath.getExt(path),
+                'data_type': dataType}
+
+    @classmethod
     def getNumPyArray(cls, image, copy=False):
         """
         Returns the numpy array of image data according to the image type  """

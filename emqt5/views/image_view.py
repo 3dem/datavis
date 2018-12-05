@@ -121,22 +121,6 @@ class ImageView(QWidget):
                                                  {'offset': (0, -0.3),
                                                   'scale_factor': 0.8}
                                                  ]))
-        self._actAxis.addState(self.AXIS_TOP_RIGHT,
-                               qta.icon('fa.long-arrow-down',
-                                        'fa.long-arrow-left',
-                                        options=[{'offset': (0.3, 0),
-                                                  'scale_factor': 0.8},
-                                                 {'offset': (0, -0.3),
-                                                  'scale_factor': 0.8}
-                                                 ]))
-        self._actAxis.addState(self.AXIS_BOTTOM_RIGHT,
-                               qta.icon('fa.long-arrow-up',
-                                        'fa.long-arrow-left',
-                                        options=[{'offset': (0.3, 0),
-                                                  'scale_factor': 0.8},
-                                                 {'offset': (0, 0.3),
-                                                  'scale_factor': 0.8}
-                                                 ]))
         self._actAxis.setText('Axis origin')
         self._actAxis.setState(self.AXIS_BOTTOM_LEFT)
         self._actAxis.triggered.connect(self.__actAxisTriggered)
@@ -157,11 +141,11 @@ class ImageView(QWidget):
                                                actionName="HFlip",
                                                text="Horizontal Flip",
                                                icon=qta.icon(
-                                                   'fa.long-arrow-up',
-                                                   'fa.long-arrow-down',
+                                                   'fa.long-arrow-right',
+                                                   'fa.long-arrow-left',
                                                    options=[
-                                                       {'offset': (0.2, 0)},
-                                                       {'offset': (-0.2, 0)}]),
+                                                       {'offset': (0, 0.2)},
+                                                       {'offset': (0, -0.2)}]),
                                                checkable=True,
                                                slot=self.horizontalFlip)
 
@@ -170,11 +154,11 @@ class ImageView(QWidget):
                                                actionName="VFlip",
                                                text="Vertical Flip",
                                                icon=qta.icon(
-                                                   'fa.long-arrow-right',
-                                                   'fa.long-arrow-left',
+                                                   'fa.long-arrow-up',
+                                                   'fa.long-arrow-down',
                                                    options=[
-                                                       {'offset': (0, 0.2)},
-                                                       {'offset': (0, -0.2)}]),
+                                                       {'offset': (0.2, 0)},
+                                                       {'offset': (-0.2, 0)}]),
                                                checkable=True,
                                                slot=self.verticalFlip)
         toolbar.addAction(self._actVerFlip)
@@ -230,20 +214,26 @@ class ImageView(QWidget):
             'QWidget#fileInfoPanel{border-left: 1px solid lightgray;}')
         vLayout = QVBoxLayout(self._fileInfoPanel)
         hLayout = QHBoxLayout()
-        hLayout.addWidget(QLabel('Path ', self._fileInfoPanel))
-        self._lineEditPath = QLineEdit(self._fileInfoPanel)
-        self._lineEditPath.setReadOnly(True)
-        hLayout.addWidget(self._lineEditPath)
+        hLayout.addWidget(QLabel('<strong>Path </strong>', self._fileInfoPanel))
         vLayout.addItem(hLayout)
+        self._labelPath = QLabel('       ', self._fileInfoPanel)
+        self._labelPath.setWordWrap(True)
+        self._labelPath.setTextInteractionFlags(Qt.TextSelectableByKeyboard |
+                                                Qt.TextSelectableByMouse)
+        vLayout.addWidget(self._labelPath)
         hLayout = QHBoxLayout()
-        hLayout.addWidget(QLabel('Format ', self._fileInfoPanel))
+        hLayout.addWidget(QLabel('<strong>Format </strong>',
+                                 self._fileInfoPanel))
         self._labelFormat = QLabel('', self._fileInfoPanel)
+        self._labelFormat.setWordWrap(True)
         self._labelFormat.font().setBold(True)
         hLayout.addWidget(self._labelFormat)
         vLayout.addItem(hLayout)
         hLayout = QHBoxLayout()
-        hLayout.addWidget(QLabel('Data type ', self._fileInfoPanel))
+        hLayout.addWidget(QLabel('<strong>Data type </strong>',
+                                 self._fileInfoPanel))
         self._labelDataType = QLabel('', self._fileInfoPanel)
+        self._labelDataType.setWordWrap(True)
         self._labelDataType.font().setBold(True)
         hLayout.addWidget(self._labelDataType)
         vLayout.addItem(hLayout)
@@ -258,7 +248,6 @@ class ImageView(QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._imageView = pg.ImageView(parent=self,
                                        view=pg.PlotItem())
-        self._yInverted = True
         self._mainLayout.addWidget(self._imageView)
 
     def __createHLine(self, parent):
@@ -466,10 +455,18 @@ class ImageView(QWidget):
                                 self.AXIS_BOTTOM_LEFT)
         self.__setupImageView()
 
+    def getViewBox(self):
+        """ Return the pyqtgraph.ViewBox """
+        view = self._imageView.getView()
+        if isinstance(view, pg.PlotItem):
+            view = view.getViewBox()
+        return view
+
     def setImage(self, image):
         """ Set the image to be displayed """
         self.clear()
-        self._imageView.setImage(image, autoRange=self._fitToSize)        
+        self._imageView.setImage(image, autoRange=self._fitToSize)
+        self.fitToSize()
 
     @pyqtSlot(int)
     def rotate(self, angle):
@@ -478,8 +475,9 @@ class ImageView(QWidget):
         Does not modify the image.
         """
         imgItem = self._imageView.getImageItem()
+
         if imgItem is not None:
-            angle *= 1 if self._yInverted else -1
+            angle *= 1 if self.getViewBox().yInverted() else -1
             self._oddRotations = not self._oddRotations
             # When only one of the flip is activated, we need to change
             # the rotation angle (XOR)
@@ -567,7 +565,7 @@ class ImageView(QWidget):
         format: (str) the image format
         data_type: (str) the image data type
         """
-        self._lineEditPath.setText(kwargs.get('path', ''))
+        self._labelPath.setText(kwargs.get('path', ''))
         self._labelFormat.setText(kwargs.get('format', ''))
         self._labelDataType.setText(kwargs.get('data_type', ''))
 
