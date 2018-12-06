@@ -64,10 +64,14 @@ def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
     try:
         kwargs['view'] = defaultView
         dataView = DataView(None, **kwargs)
+        path = kwargs.get('dataSource')
         dataView.setModel(TableDataModel(table, titles=titles,
                                          tableViewConfig=tableViewConfig,
-                                         dataSource=kwargs.get('dataSource')))
+                                         dataSource=path))
         dataView.setView(defaultView)
+        if not (path is None or EmPath.isTable(path)):
+            dataView.setDataInfo(EmImage.getInfo(path))
+
         return dataView
     except Exception as ex:
         raise ex

@@ -300,8 +300,6 @@ class ImageView(QWidget):
 
         if isinstance(plotItem, pg.PlotItem):
             viewBox = viewBox.getViewBox()
-            print('viewBox.yInverted() = ', viewBox.yInverted())
-            print('viewBox.xInverted() = ', viewBox.xInverted())
             if self._axisPos == self.AXIS_BOTTOM_LEFT:
                 if viewBox.yInverted():
                     plotItem.invertY(False)

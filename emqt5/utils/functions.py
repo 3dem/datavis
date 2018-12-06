@@ -115,7 +115,7 @@ class EmImage:
         imageIO = em.ImageIO()
         imageIO.open(path, em.File.Mode.READ_ONLY)
         dim = imageIO.getDim()
-        dataType = imageIO.type
+        dataType = imageIO.getType()
         imageIO.close()
 
         return {'dim': dim,
@@ -156,14 +156,12 @@ class EmTable:
     def fromStack(cls, path):
         """ Create a table from a given stack. """
         table = em.Table([
-            #em.Table.Column(1, "index", em.typeInt32, "Image index"),
             em.Table.Column(1, "path", em.typeString, "Image location")
         ])
         row = table.createRow()
         n = EmImage.getDim(path).n
 
         for i in range(1, n+1):
-            #row['index'] = i
             row['path'] = '%d@%s' % (i, path)
             table.addRow(row)
 

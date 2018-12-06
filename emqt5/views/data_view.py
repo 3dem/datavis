@@ -549,7 +549,8 @@ class DataView(QWidget):
                     if path is not None:
                         t = self._model.getEmTable()
                         EmTable.load(path, name, t)
-                        self._model.setColumnConfig(TableViewConfig.fromTable(t))
+                        self._model.setColumnConfig(
+                            TableViewConfig.fromTable(t))
                         self.__clearViews()
                         self.__setupModel()
                         self.sigCurrentTableChanged.emit()
@@ -809,3 +810,9 @@ class DataView(QWidget):
             return w, h + self._toolBar.height()
 
         return 800, 600
+
+    def setDataInfo(self, **kwargs):
+        """ Sets the data info """
+        widget = self.getViewWidget(self.ITEMS)
+        if widget is not None:
+            widget.setInfo(**kwargs)
