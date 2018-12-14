@@ -1,0 +1,186 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
+                             QAction, QActionGroup, QSizePolicy,QMainWindow,
+                             QDockWidget)
+
+
+class ToolBar(QWidget):
+    """ Toolbar tha can contain a drop-down panel with additional options """
+
+    def __init__(self, parent, **kwargs):
+        """
+        Construct an Toolbar to be used as part of any widget
+        **kwargs: Optional arguments.
+             - orientation: one of Qt.Orientation values (default=Qt.Horizontal)
+        """
+        QWidget.__init__(self, parent=parent)
+
+        self._panelsDict = dict()
+        self.__setupUi(**kwargs)
+
+    def __setupUi(self, **kwargs):
+
+        orientation = kwargs.get("orientation", Qt.Horizontal)
+        if orientation == Qt.Vertical:
+            self._mainLayout = QHBoxLayout(self)
+        else:
+            self._mainLayout = QVBoxLayout(self)
+
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
+                                       QSizePolicy.MinimumExpanding))
+        self._mainLayout.setSpacing(0)
+        self._mainLayout.setContentsMargins(0, 0, 0, 0)
+        self._toolBar = QToolBar(self)
+        self._toolBar.setOrientation(orientation)
+        self._mainLayout.addWidget(self._toolBar)
+        self._sidePanel = QMainWindow(None)
+        self._mainLayout.addWidget(self._sidePanel)
+        # TODO[hv]: review the next lines
+        #s = kwargs.get("show_panel", False)
+        #self._sidePanel.setVisible(s)
+
+        self._actionGroup = QActionGroup(self)
+        self._actionGroup.setExclusive(True)
+        self._lastAction = None
+
+        self.destroyed.connect(self.__destroySidePanel)
+
+    def __visibilityChanged(self, action, dock):
+        action.setChecked(dock.isVisible())
+
+    @pyqtSlot(QObject)
+    def __destroySidePanel(self, obj):
+        self._sidePanel.deleteLater()
+
+    @pyqtSlot(bool)
+    def __actionTriggered(self, checked):
+        action = self.sender()
+        if isinstance(action, QAction):
+            dock = self._panelsDict.get(action)
+            if dock is not None:
+                dock.setVisible(checked)
+
+    @pyqtSlot(bool)
+    def __groupActionTriggered(self, checked):
+        action = self.sender()
+        dock = self._panelsDict.get(action)
+        if action.isCheckable():
+            if self._lastAction:
+                d = self._panelsDict.get(self._lastAction)
+                if d is not None:
+                    d.setVisible(False)
+
+            if action == self._lastAction:
+                action.setChecked(False)
+                self._lastAction = None
+            else:
+                self._lastAction = action
+
+            if dock is not None:
+                dock.setVisible(checked)
+
+    @pyqtSlot(Qt.ToolButtonStyle)
+    def setToolButtonStyle(self, toolButtonStyle):
+        self._toolBar.setToolButtonStyle(toolButtonStyle)
+
+    def addAction(self, action, widget=None, exclusive=True, showTitle=True):
+        """
+        Add a new action with the associated widget. This widget will be shown
+        in the side panel when the action is active.
+        If exclusive=True then the action will be exclusive respect to other
+        actions
+        if showTitle=True then the action text will be visible as title in the
+        side panel
+
+        * Ownership of the widget is transferred to the toolbar.
+        * Ownership of the action is transferred to the toolbar.
+
+        Rise: Exception when action is None.
+        """
+        if action is None:
+            raise Exception("Can't add a null action.")
+
+        self._toolBar.addAction(action)
+        action.setParent(self._toolBar)
+
+        if exclusive:
+            action.triggered.connect(self.__groupActionTriggered)
+
+        if widget is not None:
+            dock = QDockWidget(action.text() if showTitle else "",
+                               self._sidePanel)
+            dock.setWidget(widget)
+            dock.setFloating(False)
+            dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+            dock.setFeatures(QDockWidget.DockWidgetClosable)
+            dock.hide()
+            dock.visibilityChanged.connect(
+                lambda visible: self.__visibilityChanged(action, dock))
+            self._sidePanel.addDockWidget(Qt.LeftDockWidgetArea, dock)
+            self._panelsDict[action] = dock
+            action.setCheckable(True)
+            action.triggered.connect(self.__actionTriggered)
+            widget.setParent(dock)
+
+    def addSeparator(self):
+        """ Adds a separator to the end of the toolbar. """
+        self._toolBar.addSeparator()
+
+    def addWidget(self, widget):
+        """
+        Adds the given widget to the toolbar as the toolbar's last item.
+        The toolbar takes ownership of widget.
+        Returns the action associated to the widget.
+        Rise an exception when widget is None.
+        """
+        if widget is None:
+            raise Exception("Can' add a null widget.")
+        return self._toolBar.addWidget(widget)
+
+    def getCurrentAction(self):
+        """ Returns the current active action """
+        return self._lastAction
+
+    def hideSidePanel(self):
+        """ Hide the side panel."""
+        if self._lastAction is not None:
+            self.__groupActionTriggered(self._lastAction)
+
+
+class MultiAction(QAction):
+    """ Action for multiple states """
+
+    def __init__(self, parent=None):
+        QAction.__init__(self, parent)
+        self._stateIndex = -1
+        self._icons = dict()
+        self._states = list()
+
+    def addState(self, state, icon):
+        self._states.append(state)
+        self._icons[state] = icon, len(self._states) - 1
+
+    def getCurrentState(self):
+        return self._states[self._stateIndex] if self._stateIndex >= 0 else -1
+
+    def setState(self, state):
+        s = self._icons.get(state)
+
+        if s is not None:
+            self._stateIndex = s[1]
+            self.setIcon(self._icons[self._states[self._stateIndex]][0])
+
+    def changeToNextState(self):
+        if self._stateIndex >= 0:
+            self._stateIndex = (self._stateIndex + 1) % len(self._states)
+            self.setIcon(self._icons[self._states[self._stateIndex]][0])
+
+    def changeToPreviousState(self):
+        if self._states:
+            n = len(self._states)
+            self._stateIndex = (n - self._stateIndex - 1) % n
+            self.setIcon(self._icons[self._states[self._stateIndex]][0])
+

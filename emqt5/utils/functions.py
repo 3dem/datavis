@@ -35,6 +35,13 @@ class EmPath:
         return ext in cls.EXTESIONS_MAP[extType]
 
     @classmethod
+    def getExt(cls, path):
+        if not path:
+            return None
+        _, ext = os.path.splitext(path)
+        return ext
+
+    @classmethod
     def isImage(cls, path):
         """ Return True if imagePath has an extension recognized as supported
         EM-image """
@@ -98,6 +105,24 @@ class EmImage:
         return dim
 
     @classmethod
+    def getInfo(cls, path):
+        """
+        Return some specified info from the given image path.
+        dim : Image dimensions
+        ext : File extension
+        data_type: Image data type
+        """
+        imageIO = em.ImageIO()
+        imageIO.open(path, em.File.Mode.READ_ONLY)
+        dim = imageIO.getDim()
+        dataType = imageIO.getType()
+        imageIO.close()
+
+        return {'dim': dim,
+                'ext': EmPath.getExt(path),
+                'data_type': dataType}
+
+    @classmethod
     def getNumPyArray(cls, image, copy=False):
         """
         Returns the numpy array of image data according to the image type  """
@@ -131,14 +156,12 @@ class EmTable:
     def fromStack(cls, path):
         """ Create a table from a given stack. """
         table = em.Table([
-            #em.Table.Column(1, "index", em.typeInt32, "Image index"),
             em.Table.Column(1, "path", em.typeString, "Image location")
         ])
         row = table.createRow()
         n = EmImage.getDim(path).n
 
         for i in range(1, n+1):
-            #row['index'] = i
             row['path'] = '%d@%s' % (i, path)
             table.addRow(row)
 

@@ -31,7 +31,6 @@ class BrowserWindow(QMainWindow):
     def __init__(self, parent, path, **kwargs):
         QMainWindow.__init__(self, parent=parent)
         self._imagePath = path
-        self._image = None
         self._dataView = DataView(self, **kwargs)
         self._imageView = ImageView(self, **kwargs)
         self._slicesView = SlicesView(self, **kwargs)
@@ -342,43 +341,47 @@ class BrowserWindow(QMainWindow):
             elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
                     or EmPath.isVolume(imagePath) \
                     or EmPath.isStandardImage(imagePath):
-                d = EmImage.getDim(imagePath)
+                inf = EmImage.getInfo(imagePath)
+                d = inf['dim']
                 info["Dimensions"] = str(d)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
-                        self._image = EmImage.load(imagePath)
-                        data = EmImage.getNumPyArray(self._image)
+                        image = EmImage.load(imagePath)
+                        data = EmImage.getNumPyArray(image)
                         self._imageView.setImage(data)
-                        info["Type"] = \
-                            "SINGLE-IMAGE: " + str(self._image.getType())
+                        self._imageView.setImageInfo(
+                            path=imagePath, format=inf['ext'],
+                            data_type=str(inf['data_type']))
+                        info["Type"] = "SINGLE-IMAGE: " + str(inf['data_type'])
                         self.__showImageView()
                     else:  # Volume
                         # The image has a volume. The data is a numpy 3D array.
                         # In this case, display the Top, Front and the Right
                         # View planes.
                         self._frame.setEnabled(True)
-                        # Create an image from imagePath using em-bindings
-                        self._image = em.Image()
-                        loc2 = em.ImageLocation(imagePath)
-                        self._image.read(loc2)
-                        info["Type"] = "VOLUME: " + str(self._image.getType())
+                        info["Type"] = "VOLUME: " + str(inf['data_type'])
                         self._volumeView.loadPath(imagePath)
                         self.__showVolumeSlice()
                 else:
                     # Image stack
                     if d.z > 1:  # Volume stack
                         self._volumeView.loadPath(self._imagePath)
-                        info["Type"] = "VOLUME STACK: "
+                        info["Type"] = "VOLUME STACK: " + str(inf['data_type'])
                         self.__showVolumeSlice()
                     else:
                         if d.x <= MOVIE_SIZE:
-                            info["Type"] = "IMAGES STACK"
+                            info["Type"] = "IMAGES STACK: " + \
+                                           str(inf['data_type'])
                             model = createStackModel(imagePath)
                             self._dataView.setModel(model)
                             self._dataView.setView(DataView.GALLERY)
+                            self._dataView.setDataInfo(
+                                path=imagePath,
+                                format=inf['ext'],
+                                data_type=str(inf['data_type']))
                             self.__showDataView()
                         else:
-                            info["Type"] = "MOVIE"
+                            info["Type"] = "MOVIE: " + str(inf['data_type'])
                             self._slicesView.setPath(imagePath)
                             self.__showSlicesView()
 

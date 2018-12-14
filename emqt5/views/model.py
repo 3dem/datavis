@@ -56,6 +56,7 @@ class TableDataModel(QAbstractItemModel):
         self._emTable = table
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or TableViewConfig.fromTable(table))
+        self._pageData = []
         self._page = 0
         self._pageSize = kwargs.get('pageSize', 1)
         self._pageCount = 0
@@ -64,6 +65,24 @@ class TableDataModel(QAbstractItemModel):
         self._defaultFont = QFont()
         self._indexWidth = 50
         self.__setupModel()
+
+    def __getPageData(self, row, col):
+        """ Return the data for specified column and row in the current page """
+        if self._pageData:
+            emRow = self._pageData[row]
+            emCol = self._emTable.getColumnByIndex(col)
+            t = self._tableViewConfig[col].getType()
+
+            if t == TableViewConfig.TYPE_STRING:
+                return emRow[emCol.getName()].toString()
+            elif t == TableViewConfig.TYPE_BOOL:
+                return bool(int(emRow[emCol.getName()]))
+            elif t == TableViewConfig.TYPE_INT:
+                return int(emRow[emCol.getName()])
+            elif t == TableViewConfig.TYPE_FLOAT:
+                return float(emRow[emCol.getName()])
+
+            return emRow[emCol.getId()]
 
     def clone(self):
         """ Clone this Model """
@@ -83,9 +102,9 @@ class TableDataModel(QAbstractItemModel):
               So, we need to define what to do with Renderable data
               (may be return a QIcon or QPixmap)
         """
-        if not qModelIndex.isValid():
+        if not qModelIndex.isValid() or not self._pageData:
             return None
-        row = qModelIndex.row() + self._page * self._pageSize
+        row = qModelIndex.row()
         col = qModelIndex.column()
 
         t = self._tableViewConfig[col].getType() \
@@ -99,15 +118,15 @@ class TableDataModel(QAbstractItemModel):
             if t == TableViewConfig.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
-            return QVariant(self.getTableData(row, col))
+            return QVariant(self.__getPageData(row, col))
         if role == Qt.CheckStateRole:
             if t == TableViewConfig.TYPE_BOOL:
                 return Qt.Checked \
-                    if self.getTableData(row, col) else Qt.Unchecked
+                    if self.__getPageData(row, col) else Qt.Unchecked
             return QVariant()
 
         if role == Qt.EditRole or role == Qt.UserRole:
-            return QVariant(self.getTableData(row, col))
+            return QVariant(self.__getPageData(row, col))
 
         if role == Qt.SizeHintRole:
             if self._tableViewConfig[col]["renderable"]:
@@ -125,7 +144,7 @@ class TableDataModel(QAbstractItemModel):
         if role == Qt.ToolTipRole or \
            role == Qt.AccessibleTextRole or \
            role == Qt.AccessibleDescriptionRole:
-            return QVariant(self.getTableData(row, col))
+            return QVariant(self.__getPageData(row, col))
 
         return QVariant()
 
@@ -243,6 +262,14 @@ class TableDataModel(QAbstractItemModel):
                      in range(0, self._pageCount)):
             self.beginResetModel()
             self._page = pageIndex
+            self._pageData = []
+            first = self._page * self._pageSize
+            last = first + self._pageSize
+            size = self._emTable.getSize()
+            if last > size:
+                last = size
+            for i in range(first, last):
+                self._pageData.append(self._emTable[i])
             self.headerDataChanged.emit(Qt.Vertical, 0, 0)
             self.endResetModel()
             self.sigPageChanged.emit(self._page)
@@ -379,6 +406,14 @@ class TableDataModel(QAbstractItemModel):
         Sets the config how we want to display the data
         """
         self._tableViewConfig = config
+
+    def sort(self, column, order=Qt.AscendingOrder):
+        self.beginResetModel()
+        print("sort by column ", column)
+        print("Order",
+              "Ascending" if order == Qt.AscendingOrder else "Descending")
+
+        self.endResetModel()
 
     def __setupModel(self):
         """
@@ -882,30 +917,10 @@ def createStackModel(imagePath, title='Stack'):
     table = EmTable.fromStack(imagePath)
 
     return TableDataModel(table, titles=[title],
-                          tableViewConfig=TableViewConfig.createStackConfig())
+                          tableViewConfig=TableViewConfig.createStackConfig(),
+                          dataSource=imagePath)
 
 
 def createVolumeModel(imagePath, axis=X_AXIS, titles=["Volume"]):
 
     return VolumeDataModel(imagePath, parent=None, axis=axis, titles=titles)
-
-
-def createSingleImageModel(imagePath):
-    """ Return a single image model """
-    if EmPath.isImage(imagePath) or EmPath.isStandardImage(imagePath):
-        table = em.Table([em.Table.Column(0, "Image", em.typeString,
-                                          "Image path")])
-        tableViewConfig = TableViewConfig()
-        tableViewConfig.addColumnConfig(name='Image',
-                                        dataType=TableViewConfig.TYPE_STRING,
-                                         **{'label': 'Image',
-                                            'renderable': True,
-                                            'editable': False,
-                                            'visible': True})
-        row = table.createRow()
-        row['Image'] = '0@' + imagePath
-        table.addRow(row)
-        return [TableDataModel(table, title='IMAGE',
-                               tableViewConfig=tableViewConfig)], None
-
-

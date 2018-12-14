@@ -210,6 +210,8 @@ if __name__ == '__main__':
                                               views.get(mode,
                                                         DataView.GALLERY),
                                               **kwargs)
+        elif EmPath.isStandardImage(files):
+            view = createImageView(files, **kwargs)
         else:
             view = None
             raise Exception("Can't perform a view for this file.")
