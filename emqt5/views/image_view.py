@@ -206,7 +206,8 @@ class ImageView(QWidget):
         self._actDisplay = QAction(None)
         self._actDisplay.setIcon(qta.icon('fa.sliders'))
         self._actDisplay.setText('Display')
-        self._toolBar.addAction(self._actDisplay, self._displayPanel)
+        self._toolBar.addAction(self._actDisplay, self._displayPanel,
+                                exclusive=False)
         # --File-Info--
         self._fileInfoPanel = QWidget()
         self._fileInfoPanel.setObjectName('fileInfoPanel')
@@ -242,7 +243,8 @@ class ImageView(QWidget):
         self._actFileInfo = QAction(None)
         self._actFileInfo.setIcon(qta.icon('fa.info-circle'))
         self._actFileInfo.setText('File Info')
-        self._toolBar.addAction(self._actFileInfo, self._fileInfoPanel)
+        self._toolBar.addAction(self._actFileInfo, self._fileInfoPanel,
+                                exclusive=False)
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._toolBar)
