@@ -1,9 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
-                             QAction, QStackedLayout, QActionGroup, QSizePolicy)
+                             QAction, QActionGroup, QSizePolicy,QMainWindow,
+                             QDockWidget)
 
 
 class ToolBar(QWidget):
@@ -35,56 +36,64 @@ class ToolBar(QWidget):
         self._toolBar = QToolBar(self)
         self._toolBar.setOrientation(orientation)
         self._mainLayout.addWidget(self._toolBar)
-        self._sidePanel = QWidget(self)
-        self._stackedLayoud = QStackedLayout(self._sidePanel)
-        self._stackedLayoud.setSpacing(0)
-        self._emptyWidget = QWidget(self._sidePanel)
-        self._stackedLayoud.addWidget(self._emptyWidget)
-
+        self._sidePanel = QMainWindow(None)
         self._mainLayout.addWidget(self._sidePanel)
-
-        s = kwargs.get("show_panel", False)
-        self._sidePanel.setVisible(s)
+        # TODO[hv]: review the next lines
+        #s = kwargs.get("show_panel", False)
+        #self._sidePanel.setVisible(s)
 
         self._actionGroup = QActionGroup(self)
         self._actionGroup.setExclusive(True)
-        self._actionGroup.triggered.connect(self.__actionTriggered)
         self._lastAction = None
 
-    @pyqtSlot(QAction)
-    def __actionTriggered(self, action):
-        widget = self._panelsDict.get(action)
+        self.destroyed.connect(self.__destroySidePanel)
 
+    def __visibilityChanged(self, action, dock):
+        action.setChecked(dock.isVisible())
+
+    @pyqtSlot(QObject)
+    def __destroySidePanel(self, obj):
+        self._sidePanel.deleteLater()
+
+    @pyqtSlot(bool)
+    def __actionTriggered(self, checked):
+        action = self.sender()
+        if isinstance(action, QAction):
+            dock = self._panelsDict.get(action)
+            if dock is not None:
+                dock.setVisible(checked)
+
+    @pyqtSlot(bool)
+    def __groupActionTriggered(self, checked):
+        action = self.sender()
+        dock = self._panelsDict.get(action)
         if action.isCheckable():
+            if self._lastAction:
+                d = self._panelsDict.get(self._lastAction)
+                if d is not None:
+                    d.setVisible(False)
+
             if action == self._lastAction:
                 action.setChecked(False)
                 self._lastAction = None
             else:
                 self._lastAction = action
 
-            if widget is not None:
-                current = self._stackedLayoud.currentWidget()
-                v = not widget == current
-                self._sidePanel.setVisible(v)
-                if v:
-                    self._stackedLayoud.setCurrentWidget(widget)
-                else:
-                    self._stackedLayoud.setCurrentWidget(self._emptyWidget)
-            elif self._sidePanel.isVisible():
-                self._sidePanel.setVisible(False)
-                self._stackedLayoud.setCurrentWidget(self._emptyWidget)
+            if dock is not None:
+                dock.setVisible(checked)
 
     @pyqtSlot(Qt.ToolButtonStyle)
     def setToolButtonStyle(self, toolButtonStyle):
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
-    def addAction(self, action, widget=None, exclusive=False):
+    def addAction(self, action, widget=None, exclusive=True, showTitle=True):
         """
         Add a new action with the associated widget. This widget will be shown
         in the side panel when the action is active.
-        If widget!=None then the action will be forced to be checkable.
-        If exclusive==True then the action will be exclusive respect to other
-        actions with associated widgets.
+        If exclusive=True then the action will be exclusive respect to other
+        actions
+        if showTitle=True then the action text will be visible as title in the
+        side panel
 
         * Ownership of the widget is transferred to the toolbar.
         * Ownership of the action is transferred to the toolbar.
@@ -97,14 +106,24 @@ class ToolBar(QWidget):
         self._toolBar.addAction(action)
         action.setParent(self._toolBar)
 
+        if exclusive:
+            action.triggered.connect(self.__groupActionTriggered)
+
         if widget is not None:
-            self._stackedLayoud.addWidget(widget)
-            self._panelsDict[action] = widget
+            dock = QDockWidget(action.text() if showTitle else "",
+                               self._sidePanel)
+            dock.setWidget(widget)
+            dock.setFloating(False)
+            dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+            dock.setFeatures(QDockWidget.DockWidgetClosable)
+            dock.hide()
+            dock.visibilityChanged.connect(
+                lambda visible: self.__visibilityChanged(action, dock))
+            self._sidePanel.addDockWidget(Qt.LeftDockWidgetArea, dock)
+            self._panelsDict[action] = dock
             action.setCheckable(True)
-            action.setActionGroup(self._actionGroup)
-            widget.setParent(self._sidePanel)
-        elif exclusive:
-            action.setActionGroup(self._actionGroup)
+            action.triggered.connect(self.__actionTriggered)
+            widget.setParent(dock)
 
     def addSeparator(self):
         """ Adds a separator to the end of the toolbar. """
@@ -128,7 +147,7 @@ class ToolBar(QWidget):
     def hideSidePanel(self):
         """ Hide the side panel."""
         if self._lastAction is not None:
-            self.__actionTriggered(self._lastAction)
+            self.__groupActionTriggered(self._lastAction)
 
 
 class MultiAction(QAction):

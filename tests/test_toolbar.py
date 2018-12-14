@@ -30,11 +30,11 @@ l.addWidget(QTreeView(centralWidget))
 
 a = QAction(None)
 a.setIcon(qta.icon('fa.sliders'))
-a.setText("Display")
+a.setText("Exclusive 1")
 
 widgetA = QWidget()
 l = QVBoxLayout(widgetA)
-l.addWidget(QLineEdit("Hello World", widgetA))
+l.addWidget(QLineEdit("Exclusive 1", widgetA))
 w1 = QWidget()
 l1 = QHBoxLayout(w1)
 l1.setAlignment(Qt.AlignLeft)
@@ -43,13 +43,43 @@ l1.addWidget(QLabel("Histogram"))
 label = QLabel()
 label.setPixmap(qta.icon('fa.area-chart').pixmap(16, 16))
 l1.addWidget(label)
-
 l.addWidget(w1)
 
-
 l.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
-toolBar.addAction(a, widgetA)
+toolBar.addAction(a, widgetA, exclusive=True)
+
+c = QAction(None)
+c.setIcon(qta.icon('fa.gift'))
+c.setText("Exclusive 2")
+
+widgetC = QWidget()
+l = QVBoxLayout(widgetC)
+l.addWidget(QLineEdit("Exclusive 2", widgetC))
+l.addWidget(QTableWidget(widgetC))
+
+toolBar.addAction(c, widgetC)
+
+e = QAction(None)
+e.setIcon(qta.icon('fa.flash'))
+e.setText("Exclusive 3")
+
+widgetE = QWidget()
+l = QVBoxLayout(widgetE)
+l.addWidget(QLineEdit("Exclusive 3", widgetE))
+l.addWidget(QTableWidget(widgetE))
+
+toolBar.addAction(e, widgetE)
 toolBar.addSeparator()
+
+e = QAction(None)
+e.setIcon(qta.icon('fa.optin-monster'))
+e.setText("Not Exclusive")
+widgetE = QWidget()
+l = QVBoxLayout(widgetE)
+l.addWidget(QLineEdit("Not Exclusive", widgetE))
+l.addWidget(QTableWidget(widgetE))
+
+toolBar.addAction(e, widgetE, False)
 
 b = QAction(None)
 b.setIcon(qta.icon('fa.info-circle'))
@@ -70,28 +100,6 @@ toolButton.setPopupMode(QToolButton.MenuButtonPopup)
 
 toolBar.addWidget(toolButton)
 toolBar.addSeparator()
-
-c = QAction(None)
-c.setIcon(qta.icon('fa.gift'))
-c.setText("Gift")
-
-widgetC = QWidget()
-l = QVBoxLayout(widgetC)
-l.addWidget(QLineEdit("Gift action", widgetC))
-l.addWidget(QTableWidget(widgetC))
-
-toolBar.addAction(c, widgetC)
-
-e = QAction(None)
-e.setIcon(qta.icon('fa.flash'))
-e.setText("Flash")
-
-widgetE = QWidget()
-l = QVBoxLayout(widgetE)
-l.addWidget(QLineEdit("Flash action", widgetE))
-l.addWidget(QTableWidget(widgetE))
-
-toolBar.addAction(e, widgetE)
 
 f = QAction(None)
 f.setIcon(qta.icon('fa.bicycle'))
