@@ -2,67 +2,56 @@ import sys
 import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex, QItemSelectionModel,
+from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QItemSelectionModel,
                           QFile, QIODevice, QJsonDocument, QJsonParseError)
-from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QCompleter,
+from PyQt5.QtWidgets import (QSplitter, QFileDialog, QMessageBox, QCompleter,
                              QPushButton, QActionGroup, QButtonGroup, QLabel,
-                             QSpinBox, QAbstractItemView, QSizePolicy)
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+                             QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
+                             QLineEdit, QTreeView, QToolBar, QAction,
+                             QSizePolicy, QSpacerItem, QFrame)
+from PyQt5.QtGui import (QStandardItemModel, QStandardItem,
+                         QGuiApplication as QtGuiApp)
 import pyqtgraph as pg
 import qtawesome as qta
-import numpy as np
-import em
 
-
-from model import Micrograph, Coordinate
-from utils import ImageElemParser
+from .picker_model import Micrograph, Coordinate
+from .utils import ImageElemParser
+from .image_view import ImageView
+from ..utils import EmImage, EmPath
 
 SHAPE_RECT = 0
 SHAPE_CIRCLE = 1
 
 
-class PickerWindow(QMainWindow):
-    def __init__(self, model, parent=None, **kwargs):
+class PickerView(QWidget):
+    def __init__(self, parent, model, **kwargs):
         """ Constructor
         @param parent reference to the parent widget
         @model input PickerDataModel
         """
-        QMainWindow.__init__(self, parent)
+        QWidget.__init__(self, parent)
         self._model = model
-        self.__setupUi__()
+        self.__setupUi(**kwargs)
         self._setupTreeView()
 
         # Completer init
-        self.completer = QCompleter()
-        self.lineEdit.setCompleter(self.completer)
+        self._completer = QCompleter()
+        self._lineEdit.setCompleter(self._completer)
         # self.completer.setFilterMode(Qt.MatchCaseSensitive)
-        self.completer.setModel(self._tvImages.model())
+        self._completer.setModel(self._tvImages.model())
         # self.completer.activated[QModelIndex].connect(self.on_treeViewImages_clicked)
 
         self._currentMic = None
         self._roiList = []
+        self._roiAspectLocked = True
+        self._roiCentered = True
+        self._shape = SHAPE_RECT
         self.currentLabelName = None
-        self.removeROIKeyModifier = QtCore.Qt.ControlModifier
+        self.removeROIKeyModifier = Qt.ControlModifier
 
-        self.disableZoom = kwargs.get('--disable-zoom', False)
-        self.disableHistogram = kwargs.get('--disable-histogram', False)
-        self.disableROI = kwargs.get('--disable-roi', True)
-        self.disableMenu = kwargs.get('--disable-menu', True)
-        self.disableRemoveROIs = kwargs.get('--disable-remove-rois', False)
-        self.aspectLocked = not kwargs.get('--disable-roi-aspect-locked', False)
-        self.disableROICentered = kwargs.get('--disable-roi-centered', False)
-        self.disableXAxis = kwargs.get('--disable-x-axis', False)
-        self.disableYAxis = kwargs.get('--disable-y-axis', False)
-
-        self._shape = kwargs.get('--shape', SHAPE_RECT)
-        if self._shape == SHAPE_RECT:
-            self.actionPickRect.setChecked(True)
-        else:
-            self.actionPickEllipse.setChecked(True)
-
-        self._setupImageView()
-        self.spinBoxBoxSize.setValue(self._model.getBoxSize())
-        self.spinBoxBoxSize.editingFinished.connect(self._boxSizeEditingFinished)
+        self.__setup(**kwargs)
+        self._spinBoxBoxSize.editingFinished.connect(
+            self._boxSizeEditingFinished)
 
         # Load the input model and check there is at least one micrograph
         if len(self._model) == 0:
@@ -71,11 +60,27 @@ class PickerWindow(QMainWindow):
         for mic in self._model:
             self._addMicToTreeView(mic)
 
+        self._setupViewBox()
         # By default select the first micrograph in the list
         self._changeTreeViewMic(lambda i: self._tvImages.model().index(0, 0))
         #self._showMicrograph(self._model.images[0])
 
-    def showError(self, msg):
+    def __setup(self, **kwargs):
+        """ Configure the PickerView. """
+        v = kwargs.get("remove_rois", "on") == "on"
+        self._actionErasePickBox.setEnabled(v)
+        self._roiAspectLocked = kwargs.get("roi_aspect_locked", "on") == "on"
+        self._roiCentered = kwargs.get("roi_centered", "on") == "on"
+
+        self._shape = kwargs.get('shape', SHAPE_RECT)
+        if self._shape == SHAPE_RECT:
+            self._actionPickRect.setChecked(True)
+        else:
+            self._actionPickEllipse.setChecked(True)
+
+        self._spinBoxBoxSize.setValue(kwargs.get("boxsize", 100))
+
+    def _showError(self, msg):
         """
         Popup the error msg
         :param msg: The message for the user
@@ -157,26 +162,36 @@ class PickerWindow(QMainWindow):
         self._updateROIs()
 
     def _onTreeViewSeleccionChanged(self, newIndex, oldIndex=None):
-        """ This should be triggered when the selection changes in the TreeView. """
+        """ This should be triggered when the selection changes
+        in the TreeView. """
         indexes = self._tvImages.selectedIndexes()
         if indexes:
             item = self._tvModel.itemFromIndex(indexes[0])
-            self._showMicrograph(item.getMicrograph())
+            try:
+                self._showMicrograph(item.getMicrograph())
+            except RuntimeError as ex:
+                self._showError(ex.message)
 
     def _showMicrograph(self, mic):
         """
         Show the an image in the ImageView
         :param mic: the ImageElem
         """
-        self._destroyROIs()
-        self.imageView.clear()
-        self._currentMic = mic
-        img = em.Image()
-        loc2 = em.ImageLocation(mic.getPath())
-        img.read(loc2)
-        array = np.array(img, copy=False)
-        self.imageView.setImage(array)
-        self._createROIs()
+        try:
+            self._destroyROIs()
+            self._imageView.clear()
+            self._currentMic = mic
+            path = mic.getPath()
+            image = EmImage.load(path)
+            self._imageView.setImage(EmImage.getNumPyArray(image))
+            self._imageView.setImageInfo(path=path,
+                                         format=EmPath.getExt(path),
+                                         data_type=str(image.getType()))
+            self._createROIs()
+        except RuntimeError as ex:
+            raise ex
+        except Exception as ex:
+            raise ex
 
     def _destroyROIs(self):
         """
@@ -217,7 +232,7 @@ class PickerWindow(QMainWindow):
                 self._addMicToTreeView(imgElem)
             except:
                 print(sys.exc_info())
-                self.showError(sys.exc_info()[2])
+                self._showError(sys.exc_info()[2])
 
     def openPickingFile(self, path):
         """
@@ -235,8 +250,8 @@ class PickerWindow(QMainWindow):
                     json = QJsonDocument.fromJson(file.readAll(), error)
 
                     if not error.error == QJsonParseError.NoError:
-                        self.showError("Parsing pick file: " +
-                                       error.errorString())
+                        self._showError("Parsing pick file: " +
+                                        error.errorString())
                     else:
                         parser = ImageElemParser()
                         imgElem = parser.parseImage(json.object())
@@ -245,7 +260,7 @@ class PickerWindow(QMainWindow):
                             self._model.addMicrograph(imgElem)
                             self._addMicToTreeView(imgElem)
                 else:
-                    self.showError("Error opening file.")
+                    self._showError("Error opening file.")
                     file = None
 
             except:
@@ -292,29 +307,6 @@ class PickerWindow(QMainWindow):
 
         return pg.mkPen(color="#FF0004")
 
-    def _setupImageView(self):
-        """
-        Setup the ImageView widget used to show the images
-        """
-        if self.imageView:
-            self._setupViewBox()
-
-            if self.disableHistogram:
-                self.imageView.ui.histogram.hide()
-            if self.disableMenu:
-                self.imageView.ui.menuBtn.hide()
-            if self.disableROI:
-                self.imageView.ui.roiBtn.hide()
-            if self.disableZoom:
-                self.imageView.getView().setMouseEnabled(False, False)
-
-            plotItem = self.imageView.getView()
-
-            if isinstance(plotItem, pg.PlotItem):
-                plotItem.showAxis('bottom', not self.disableXAxis)
-                plotItem.showAxis('left', not self.disableYAxis)
-                plotItem.showAxis('top', False)
-
     def _setupTreeView(self):
         """
         Setup the treeview
@@ -328,48 +320,36 @@ class PickerWindow(QMainWindow):
         sModel = self._tvImages.selectionModel()
         sModel.selectionChanged.connect(self._onTreeViewSeleccionChanged)
 
-    def __setupUi__(self):
-        self.setObjectName("MainWindow")
+    def __setupUi(self, **kwargs):
         self.resize(1097, 741)
-        self.centralWidget = QtWidgets.QWidget(self)
-        self.centralWidget.setObjectName("centralWidget")
-        self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralWidget)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.splitter = QtWidgets.QSplitter(self.centralWidget)
-        self.splitter.setObjectName("splitter")
-        self.splitter.setOrientation(QtCore.Qt.Horizontal)
-        self.widget = QtWidgets.QWidget(self.splitter)
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.widget)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.lineEdit = QtWidgets.QLineEdit(self.widget)
-        self.lineEdit.setObjectName("lineEdit")
-        self.verticalLayout.addWidget(self.lineEdit)
-        self._tvImages = QtWidgets.QTreeView(self.widget)
+        self._horizontalLayout = QtWidgets.QHBoxLayout(self)
+        self._splitter = QSplitter(self)
+        self._splitter.setObjectName("splitter")
+        self._splitter.setOrientation(Qt.Horizontal)
+        self._leftPanel = QWidget(self._splitter)
+        self._verticalLayout = QVBoxLayout(self._leftPanel)
+        self._verticalLayout.setContentsMargins(0, 0, 0, 0)
+        toolBarMic = QToolBar(self)
+        toolBarMic.setObjectName("toolBarMic")
+        self._verticalLayout.addWidget(toolBarMic)
+        self._lineEdit = QLineEdit(self._leftPanel)
+        self._lineEdit.setObjectName("lineEdit")
+        self._verticalLayout.addWidget(self._lineEdit)
+        self._tvImages = QTreeView(self._leftPanel)
         self._tvImages.setObjectName("treeViewImages")
-        self.verticalLayout.addWidget(self._tvImages)
-        self.imageView = pg.ImageView(self, view=pg.PlotItem())
-        self.imageView.setObjectName("imageView")
-        self.viewWidget = QtWidgets.QWidget(self)
-        self.viewLayout = QtWidgets.QVBoxLayout(self.viewWidget)
-        self.viewLayout.setContentsMargins(1, 1, 1, 1)
-        self.viewLayout.addWidget(self.imageView)
-        self.labelMouseCoord = QLabel(self)
-        self.labelMouseCoord.setMaximumHeight(22)
-        self.labelMouseCoord.setAlignment(Qt.AlignRight)
-        self.viewLayout.addWidget(self.labelMouseCoord)
-        self.splitter.addWidget(self.viewWidget)
-        self.splitter.setStretchFactor(1, 3)
-        self.horizontalLayout.addWidget(self.splitter)
-        self.setCentralWidget(self.centralWidget)
-        self.toolBar = QtWidgets.QToolBar(self)
-        self.toolBar.setObjectName("toolBar")
-        self.addToolBar(QtCore.Qt.TopToolBarArea, self.toolBar)
-        self.menuBar = QtWidgets.QMenuBar(self)
-        self.menuBar.setObjectName("menuBar")
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1097, 26))
-        self.menuFile = QtWidgets.QMenu(self.menuBar)
-        self.menuFile.setObjectName("menuFile")
-        self.setMenuBar(self.menuBar)
+        self._verticalLayout.addWidget(self._tvImages)
+        self._imageView = ImageView(self, **kwargs)
+        self._imageView.setObjectName("imageView")
+        self._viewWidget = QWidget(self)
+        self._viewLayout = QVBoxLayout(self._viewWidget)
+        self._viewLayout.setContentsMargins(1, 1, 1, 1)
+        self._viewLayout.addWidget(self._imageView)
+        self._labelMouseCoord = QLabel(self)
+        self._labelMouseCoord.setMaximumHeight(22)
+        self._labelMouseCoord.setAlignment(Qt.AlignRight)
+        self._viewLayout.addWidget(self._labelMouseCoord)
+        self._splitter.addWidget(self._viewWidget)
+        self._splitter.setStretchFactor(1, 3)
 
         def _createNewAction(parent, actionName, text="", faIconName=None,
                              checkable=False):
@@ -381,94 +361,112 @@ class PickerWindow(QMainWindow):
             a.setText(text)
             return a
 
-        self.actionPickRect = _createNewAction(self, "actionPickRect", "",
-                                               "fa.square-o",
-                                               checkable=True)
-        self.actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
-        self.actionPickRect.setChecked(True)
+        imgViewToolBar = self._imageView.getToolBar()
 
-        self.actionPickEllipse = _createNewAction(self, "actionPickEllipse", "",
-                                                  "fa.circle-o",
-                                                  checkable=True)
-        self.actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                              Qt.Key_2))
-        self.actionPickEllipse.setChecked(False)
+        # picker operations
+        actPickerROIS = QAction(imgViewToolBar)
+        actPickerROIS.setIcon(qta.icon('fa.object-group'))
+        actPickerROIS.setText('Picker Tools')
 
-        self.actionErasePickBox = _createNewAction(self, "actionErasePickBox",
-                                                   "",
-                                                   "fa.eraser",
+        boxPanel = QWidget()
+        boxPanel.setObjectName('boxPanel')
+        boxPanel.setStyleSheet(
+            'QWidget#boxPanel{border-left: 1px solid lightgray;}')
+        vLayout = QVBoxLayout(boxPanel)
+        toolbar = QToolBar(boxPanel)
+
+        self._actionPickRect = _createNewAction(self, "actionPickRect",
+                                                "", "fa.square-o",
+                                                checkable=True)
+        self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
+        self._actionPickRect.setChecked(True)
+
+        self._actionPickEllipse = _createNewAction(self, "actionPickEllipse",
+                                                   "", "fa.circle-o",
                                                    checkable=True)
-        self.actionErasePickBox.setShortcut(
+        self._actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.CTRL +
+                                                               Qt.Key_2))
+        self._actionPickEllipse.setChecked(False)
+
+        self._actionErasePickBox = _createNewAction(self, "actionErasePickBox",
+                                                    "", "fa.eraser",
+                                                    checkable=True)
+        self._actionErasePickBox.setShortcut(
             QtGui.QKeySequence(Qt.CTRL + Qt.Key_0))
-        self.actionErasePickBox.setChecked(False)
+        self._actionErasePickBox.setChecked(False)
 
-        self.actionOpenPick = _createNewAction(self, "actionOpenPick",
-                                               "Open Pick File",
-                                               "fa.folder-open")
-        self.actionNextImage = _createNewAction(self, "actionNextImage",
-                                                "",
-                                                "fa.arrow-right")
-        self.actionPrevImage = _createNewAction(self, "actionPrevImage", "",
-                                                "fa.arrow-left")
+        toolbar.addAction(self._actionErasePickBox)
+        toolbar.addSeparator()
+        toolbar.addAction(self._actionPickRect)
+        toolbar.addAction(self._actionPickEllipse)
 
-        self.labelBoxSize = QLabel("Size (px)", self)
-        self.spinBoxBoxSize = QSpinBox(self)
-        self.spinBoxBoxSize.setRange(3, 65535)
+        vLayout.addWidget(toolbar)
 
-        self.toolBar.addAction(self.actionOpenPick)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.actionPrevImage)
-        self.toolBar.addAction(self.actionNextImage)
-        self.toolBar.addSeparator()
-        self.toolBar.addWidget(self.labelBoxSize)
-        self.toolBar.addWidget(self.spinBoxBoxSize)
-        self.toolBar.addSeparator()
+        self._labelBoxSize = QLabel("Size (px)", toolbar)
+        self._spinBoxBoxSize = QSpinBox(toolbar)
+        self._spinBoxBoxSize.setRange(3, 65535)
+        vLayout.addWidget(self._labelBoxSize)
+        vLayout.addWidget(self._spinBoxBoxSize)
+        vLayout.addWidget(self.__createHLine(boxPanel))
 
-        self.buttonGroup = QButtonGroup(self)
-        self.buttonGroup.setExclusive(True)
-        hasLabels = False
+        self._buttonGroup = QButtonGroup(self)
+        self._buttonGroup.setExclusive(True)
+
         for label in self._model.getLabels().values():
-            hasLabels = True
             btn = QPushButton(self)
             btn.setText(label["name"])
             btn.setStyleSheet("color: %s;" % label["color"])
             btn.setCheckable(True)
             btn.setChecked(True)
-            self.buttonGroup.addButton(btn)
+            self._buttonGroup.addButton(btn)
             btn.clicked.connect(self._labelAction_triggered)
 
-            self.toolBar.addWidget(btn)
-            self.toolBar.addSeparator()
+            vLayout.addWidget(btn)
 
-        if not hasLabels:
-            self.toolBar.addSeparator()
-        self.toolBar.addAction(self.actionErasePickBox)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.actionPickRect)
-        self.toolBar.addAction(self.actionPickEllipse)
-        self.menuFile.addAction(self.actionOpenPick)
-        self.menuFile.addSeparator()
-        self.menuBar.addAction(self.menuFile.menuAction())
+        vLayout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum,
+                                    QSizePolicy.Expanding))
+        imgViewToolBar.addAction(actPickerROIS, boxPanel, exclusive=False)
+        # End-picker operations
 
-        self.actionGroupPick = QActionGroup(self)
-        self.actionGroupPick.setExclusive(True)
-        self.actionGroupPick.addAction(self.actionPickRect)
-        self.actionGroupPick.addAction(self.actionPickEllipse)
+        self._actionOpenPick = _createNewAction(self, "actionOpenPick",
+                                                "Open Pick File",
+                                                "fa.folder-open")
+        self._actionNextImage = _createNewAction(self, "actionNextImage",
+                                                 "",
+                                                 "fa.arrow-right")
+        self._actionPrevImage = _createNewAction(self, "actionPrevImage", "",
+                                                 "fa.arrow-left")
+
+        self._actionGroupPick = QActionGroup(self)
+        self._actionGroupPick.setExclusive(True)
+        self._actionGroupPick.addAction(self._actionPickRect)
+        self._actionGroupPick.addAction(self._actionPickEllipse)
+
+        toolBarMic.addAction(self._actionOpenPick)
+        toolBarMic.addSeparator()
+        toolBarMic.addAction(self._actionPrevImage)
+        toolBarMic.addAction(self._actionNextImage)
+
+        self._horizontalLayout.addWidget(self._splitter)
 
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
 
+    def __createHLine(self, parent):
+        line = QFrame(parent)
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        return line
+
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))
-        self.menuFile.setTitle(_translate("MainWindow", "File"))
-        self.actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
-        self.actionPickEllipse.setText(_translate("MainWindow", "Pick Ellipse"))
-        self.actionOpenPick.setText(_translate("MainWindow", "Open Pick"))
-        self.actionNextImage.setText(_translate("MainWindow", "Next Image"))
-        self.actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
-        self.actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
+        self._actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
+        self._actionPickEllipse.setText(_translate("MainWindow", "Pick Ellipse"))
+        self._actionOpenPick.setText(_translate("MainWindow", "Open Pick"))
+        self._actionNextImage.setText(_translate("MainWindow", "Next Image"))
+        self._actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
+        self._actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
 
     def _handleViewBoxClick(self, event):
         """ Invoked when the user clicks on the ViewBox
@@ -479,13 +477,14 @@ class PickerWindow(QMainWindow):
             return
 
         if (event.button() == QtCore.Qt.LeftButton and
-            not self.actionErasePickBox.isChecked()):
-            pos = self._getViewBox().mapToView(event.pos())
+            not self._actionErasePickBox.isChecked()):
+            pos = self._imageView.getViewBox().mapToView(event.pos())
             # Create coordinate with event click coordinates and add it
             coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
             self._currentMic.addCoordinate(coord)
             self._createCoordROI(coord)
-            item = self._tvModel.itemFromIndex(self._tvImages.selectedIndexes()[2])
+            item = self._tvModel.itemFromIndex(
+                self._tvImages.selectedIndexes()[2])
             item.setText("%i" % len(self._currentMic))
 
     @pyqtSlot(object)
@@ -495,8 +494,8 @@ class PickerWindow(QMainWindow):
         :param pos: The mouse pos
         """
         if pos:
-            pos = self._getViewBox().mapSceneToView(pos)
-            imgItem = self.imageView.getImageItem()
+            pos = self._imageView.getViewBox().mapSceneToView(pos)
+            imgItem = self._imageView.getImageItem()
             (x, y) = (pos.x(), pos.y())
             value = "x"
             (w, h) = (imgItem.width(), imgItem.height())
@@ -512,7 +511,7 @@ class PickerWindow(QMainWindow):
                    "<td width=\"46\" align=\"right\">value=</td>" \
                    "<td width=\"67\" align=\"left\">%s</td></tr>" \
                    "</tbody></table>"
-            self.labelMouseCoord.setText(text % (pos.x(), pos.y(), value))
+            self._labelMouseCoord.setText(text % (pos.x(), pos.y(), value))
 
     @pyqtSlot()
     def completerSelection(self):
@@ -531,14 +530,14 @@ class PickerWindow(QMainWindow):
         """
         This slot is invoked when spinBoxBoxSize editing is finished
         """
-        self._updateBoxSize(self.spinBoxBoxSize.value())
+        self._updateBoxSize(self._spinBoxBoxSize.value())
 
     @pyqtSlot(bool)
     def _labelAction_triggered(self, checked):
         """
         This slot is invoked when clicks on label
         """
-        btn = self.buttonGroup.checkedButton()
+        btn = self._buttonGroup.checkedButton()
 
         if checked and btn:
             self.currentLabelName = btn.text()
@@ -555,7 +554,7 @@ class PickerWindow(QMainWindow):
         """
         :return: The selected pen(PPSystem label depending)
         """
-        btn = self.buttonGroup.checkedButton()
+        btn = self._buttonGroup.checkedButton()
 
         if btn:
             return pg.mkPen(color=self._model.getLabel(btn.text())["color"])
@@ -591,7 +590,7 @@ class PickerWindow(QMainWindow):
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         roi.sigClicked.connect(self._roiMouseClicked)
 
-        self._getViewBox().addItem(roi)
+        self._imageView.getViewBox().addItem(roi)
         self._roiList.append(coordROI)
 
         coordROI.showHandlers(False)  # initially hide ROI handlers
@@ -602,7 +601,7 @@ class PickerWindow(QMainWindow):
         """ Remove a ROI from the view, from our list and
         disconnect all related slots.
         """
-        view = self._getViewBox()
+        view = self._imageView.getViewBox()
         view.removeItem(roi)
         # Disconnect from roi the slots.
         roi.sigHoverEvent.disconnect(self._roiMouseHover)
@@ -610,11 +609,11 @@ class PickerWindow(QMainWindow):
         roi.sigClicked.disconnect(self._roiMouseClicked)
 
     @pyqtSlot(object, object)
-    def _roiMouseClicked(self, roi, event):
+    def _roiMouseClicked(self, roi, ev):
         """ This slot is invoked when the user clicks on a ROI. """
-        if (event.button() == QtCore.Qt.LeftButton
-            and self.actionErasePickBox.isChecked()
-            or QtGui.QGuiApplication.keyboardModifiers() == self.removeROIKeyModifier):
+        if (ev.button() == Qt.LeftButton and
+                self._actionErasePickBox.isChecked() or
+                QtGuiApp.keyboardModifiers() == self.removeROIKeyModifier):
             self._destroyCoordROI(roi)
             self._roiList.remove(roi.parent)  # remove the coordROI
             self._currentMic.removeCoordinate(roi.coordinate)
@@ -628,21 +627,13 @@ class PickerWindow(QMainWindow):
         """ Handler invoked when the roi is hovered by the mouse. """
         roi.parent.showHandlers(False)
 
-    def _getViewBox(self):
-        """
-        :return: The ViewBox for the self.imageView
-        """
-        v = self.imageView.getView()
-        return v.getViewBox() if isinstance(v, pg.PlotItem) else v
-
     def _setupViewBox(self):
         """
         Configures the View Widget for self.imageView
         """
-        v = self._getViewBox()
+        v = self._imageView.getViewBox()
 
         if v:
-            v.invertY(False)
             v.mouseClickEvent = self._handleViewBoxClick
             scene = v.scene()
             if scene:

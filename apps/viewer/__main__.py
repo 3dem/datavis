@@ -11,11 +11,11 @@ from PyQt5.QtCore import QDir
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 from emqt5.utils import EmPath, EmTable, EmImage
-from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS,
-                         ColumnsView, TableDataModel, TableViewConfig,
-                         ImageView, VolumeView, SlicesView, createDataView,
+from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
+                         ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
-                         MOVIE_SIZE)
+                         MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, PickerView,
+                         createPickerModel)
 from emqt5.windows import BrowserWindow
 
 
@@ -33,7 +33,7 @@ if __name__ == '__main__':
                                         argument_default=None)
 
     # GLOBAL PARAMETERS
-    argParser.add_argument('files', type=str, nargs='?', default=[],
+    argParser.add_argument('files', type=str, nargs='+', default=[],
                            help='3D image path or a list of image files or'
                            ' specific directory')
 
@@ -64,15 +64,43 @@ if __name__ == '__main__':
                            help=' The default size of the displayed image, '
                                 'either in pixels or in percentage')
 
+    # Picker arguments
+    argParser.add_argument('--picker', default=False,
+                           required=False, action='store_true',
+                           help=' Show the Picker tool.')
+    argParser.add_argument('--boxsize', type=int, default=100,
+                           required=False,
+                           help=' an integer for pick size(Default=100).')
+    argParser.add_argument('--shape', default='RECT',
+                           required=False, choices=['RECT', 'CIRCLE'],
+                           help=' the shape type [CIRCLE or RECT]')
+    argParser.add_argument('--remove-rois', type=str, default='on',
+                           required=False, choices=on_off,
+                           help=' Enable/disable the option. '
+                                'The user will be able to eliminate rois')
+    argParser.add_argument('--roi-aspect-locked', type=str, default='on',
+                           required=False, choices=on_off,
+                           help=' Enable/disable the option. '
+                                'The rois will retain the aspect ratio')
+    argParser.add_argument('--roi-centered', type=str, default='on',
+                           required=False, choices=on_off,
+                           help=' Enable/disable the option. '
+                                'The rois will work accordance with its center')
+
     args = argParser.parse_args()
 
     models = None
     delegates = None
 
     # ARGS
-    kwargs['files'] = QDir.toNativeSeparators(args.files) if len(args.files) \
-        else QDir.currentPath()
+    files = []
+    for f in args.files:
+        files.append(QDir.toNativeSeparators(f))
 
+    if not files:
+        files = [str(os.getcwd())]  # if not files use the current dir
+
+    kwargs['files'] = files
     kwargs['zoom'] = args.zoom
     kwargs['histogram'] = args.histogram
     kwargs['roi'] = on_off[1]
@@ -93,6 +121,13 @@ if __name__ == '__main__':
              'items': DataView.ITEMS,
              'slices': DataView.SLICES}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
+
+    # Picker params
+    kwargs['boxsize'] = args.boxsize
+    kwargs['shape'] = SHAPE_RECT if args.shape == 'RECT' else SHAPE_CIRCLE
+    kwargs['remove_rois'] = args.remove_rois
+    kwargs['roi_aspect_locked'] = args.roi_aspect_locked
+    kwargs['roi_centered'] = args.roi_centered
 
     def getPreferedBounds(width=None, height=None):
         size = QApplication.desktop().size()
@@ -148,73 +183,79 @@ if __name__ == '__main__':
 
         msgBox.exec_()
 
-    files = args.files or os.getcwd()  # if not files use the current dir
-
     try:
-        if not os.path.exists(files):
-            raise Exception("Input file '%s' does not exists. " % files)
-
         d = None
-        # If the input is a directory, display the BrowserWindow
-        if os.path.isdir(files):
-            view = BrowserWindow(None, files, **kwargs)
-        elif EmPath.isTable(files):  # Display the file as a Table:
-            if not args.view == 'slices':
-                t = EmTable.load(files)  # name, table
-                view = createDataView(t[1], None,
-                                      t[0],
-                                      views.get(args.view, DataView.COLUMNS),
-                                      dataSource=files)
-                fitViewSize(view, d)
-            else:
-                raise Exception("Invalid display mode for table: '%s'"
-                                % args.view)
-        elif EmPath.isImage(files) or EmPath.isVolume(files) \
-                or EmPath.isStack(files):
-            # *.mrc may be image, stack or volume. Ask for dim.n
-            d = EmImage.getDim(files)
-            if d.n == 1:  # Single image or volume
-                if d.z == 1:  # Single image
-                    view = createImageView(files, **kwargs)
-                else:  # Volume
-                    mode = args.view or 'slices'
-                    if mode == 'slices' or mode == 'gallery':
-                        kwargs['view'] = views[mode]
-                        kwargs['tool_bar'] = 'off'
-                        view = createVolumeView(files, **kwargs)
-                    else:
-                        raise Exception("Invalid display mode for volume: '%s'"
-                                        % mode)
-            else:  # Stack
-                if d.z > 1:  # volume stack
-                    mode = args.view or 'slices'
-                    if mode == 'slices':
-                        kwargs['tool_bar'] = 'off'
-                        view = createVolumeView(files, **kwargs)
-                    else:
-                        view = createDataView(EmTable.fromStack(files),
-                                              TableViewConfig.createStackConfig(),
-                                              ['Stack'],
-                                              views.get(args.view,
-                                                        DataView.GALLERY),
-                                              **kwargs)
-                else:
-                    mode = args.view or ('slices' if d.x > MOVIE_SIZE
-                                         else 'gallery')
-                    if mode == 'slices':
-                        view = createSlicesView(files, **kwargs)
-                    else:
-                        view = createDataView(EmTable.fromStack(files),
-                                              TableViewConfig.createStackConfig(),
-                                              ['Stack'],
-                                              views.get(mode,
-                                                        DataView.GALLERY),
-                                              **kwargs)
-        elif EmPath.isStandardImage(files):
-            view = createImageView(files, **kwargs)
+        if args.picker:
+            view = PickerView(None, createPickerModel(files, args.boxsize),
+                              **kwargs)
         else:
-            view = None
-            raise Exception("Can't perform a view for this file.")
+            # If the input is a directory, display the BrowserWindow
+            if len(files) > 1:
+                raise Exception("Multiple files are not supported")
+            else:
+                files = files[0]
+
+            if not os.path.exists(files):
+                raise Exception("Input file '%s' does not exists. " % files)
+
+            if os.path.isdir(files):
+                view = BrowserWindow(None, files, **kwargs)
+            elif EmPath.isTable(files):  # Display the file as a Table:
+                if not args.view == 'slices':
+                    t = EmTable.load(files)  # name, table
+                    view = createDataView(t[1], None, t[0],
+                                          views.get(args.view,
+                                                    DataView.COLUMNS),
+                                          dataSource=files)
+                    fitViewSize(view, d)
+                else:
+                    raise Exception("Invalid display mode for table: '%s'"
+                                    % args.view)
+            elif EmPath.isImage(files) or EmPath.isVolume(files) \
+                    or EmPath.isStack(files):
+                # *.mrc may be image, stack or volume. Ask for dim.n
+                d = EmImage.getDim(files)
+                if d.n == 1:  # Single image or volume
+                    if d.z == 1:  # Single image
+                        view = createImageView(files, **kwargs)
+                    else:  # Volume
+                        mode = args.view or 'slices'
+                        if mode == 'slices' or mode == 'gallery':
+                            kwargs['view'] = views[mode]
+                            kwargs['tool_bar'] = 'off'
+                            view = createVolumeView(files, **kwargs)
+                        else:
+                            raise Exception("Invalid display mode for volume: "
+                                            "'%s'" % mode)
+                else:  # Stack
+                    if d.z > 1:  # volume stack
+                        mode = args.view or 'slices'
+                        if mode == 'slices':
+                            kwargs['tool_bar'] = 'off'
+                            view = createVolumeView(files, **kwargs)
+                        else:
+                            view = createDataView(
+                                EmTable.fromStack(files),
+                                TableViewConfig.createStackConfig(),
+                                ['Stack'], views.get(args.view,
+                                                     DataView.GALLERY),
+                                **kwargs)
+                    else:
+                        mode = args.view or ('slices' if d.x > MOVIE_SIZE
+                                             else 'gallery')
+                        if mode == 'slices':
+                            view = createSlicesView(files, **kwargs)
+                        else:
+                            view = createDataView(
+                                EmTable.fromStack(files),
+                                TableViewConfig.createStackConfig(),
+                                ['Stack'], views.get(mode, DataView.GALLERY),
+                                **kwargs)
+            elif EmPath.isStandardImage(files):
+                view = createImageView(files, **kwargs)
+            else:
+                view = None
+                raise Exception("Can't perform a view for this file.")
 
         if view:
             fitViewSize(view, d)

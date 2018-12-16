@@ -597,3 +597,10 @@ class ImageView(QWidget):
                 width += plot.getAxis("left").height()
 
         self._imageView.setGeometry(x, y, width, height)
+
+    def getImageItem(self):
+        """ See pyqtgraph.ImageView.getImageItem """
+        return self._imageView.getImageItem()
+
+    def getToolBar(self):
+        return self._toolBar

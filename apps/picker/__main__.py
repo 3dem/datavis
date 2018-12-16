@@ -3,8 +3,8 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from picker_window import PickerWindow
-from model import PickerDataModel
+from emqt5.views.picker_view import PickerWindow
+from emqt5.views.picker_model import PickerDataModel
 import argparse
 
 
@@ -27,20 +27,6 @@ if __name__ == '__main__':
     argParser.add_argument('--shape', default='RECT',
                            required=False, choices=['RECT', 'CIRCLE'],
                            help=' the shape type [CIRCLE or RECT]')
-    argParser.add_argument('--disable-histogram', default=False,
-                           required=False, action='store_true',
-                           help=' hide the histogram widget')
-    argParser.add_argument('--disable-zoom', default=False, required=False,
-                           action='store_true',
-                           help=' disable the zoom operation')
-    argParser.add_argument('--disable-roi', default=False,
-                           required=False, action='store_true',
-                           help=' disable the ROI button in the image view '
-                                'widget')
-    argParser.add_argument('--disable-menu', default=False,
-                           required=False, action='store_true',
-                           help=' disable the MENU button in the image view '
-                                'widget')
     argParser.add_argument('--disable-remove-rois', default=False,
                            required=False, action='store_true',
                            help=' the user will not be able to eliminate rois')
@@ -51,12 +37,6 @@ if __name__ == '__main__':
                            required=False, action='store_true',
                            help=' the rois will work accordance with its '
                                 'center')
-    argParser.add_argument('--disable-x-axis', default=False,
-                           required=False, action='store_true',
-                           help=' hide the X axis')
-    argParser.add_argument('--disable-y-axis', default=False,
-                           required=False, action='store_true',
-                           help=' hide the Y axis')
 
     args = argParser.parse_args()
 
