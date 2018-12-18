@@ -65,9 +65,8 @@ if __name__ == '__main__':
                                 'either in pixels or in percentage')
 
     # Picker arguments
-    argParser.add_argument('--picker', default=False,
-                           required=False, action='store_true',
-                           help=' Show the Picker tool.')
+    argParser.add_argument('--picker', type=str, default='off', required=False,
+                           choices=on_off, help=' Show the Picker tool.')
     argParser.add_argument('--boxsize', type=int, default=100,
                            required=False,
                            help=' an integer for pick size(Default=100).')
@@ -185,7 +184,7 @@ if __name__ == '__main__':
 
     try:
         d = None
-        if args.picker:
+        if args.picker == 'on':
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               **kwargs)
         else:

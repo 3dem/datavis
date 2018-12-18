@@ -96,12 +96,15 @@ class PickerDataModel:
         self._lastId = 0
 
     def __len__(self):
-        """ The lenght of the model is the number of Micrographs. """
+        """ The length of the model is the number of Micrographs. """
         return len(self._micrographs)
 
     def __iter__(self):
         """ Iterate over all Micrographs in the model. """
         return iter(self._micrographs)
+
+    def __getitem__(self, index):
+        return self._micrographs[index]
 
     def _initLabels(self):
         """

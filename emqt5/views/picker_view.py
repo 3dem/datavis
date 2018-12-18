@@ -31,6 +31,7 @@ class PickerView(QWidget):
         """
         QWidget.__init__(self, parent)
         self._model = model
+        self.currentLabelName = None
         self.__setupUi(**kwargs)
         self._setupTreeView()
 
@@ -46,7 +47,6 @@ class PickerView(QWidget):
         self._roiAspectLocked = True
         self._roiCentered = True
         self._shape = SHAPE_RECT
-        self.currentLabelName = None
         self.removeROIKeyModifier = Qt.ControlModifier
 
         self.__setup(**kwargs)
@@ -130,21 +130,25 @@ class PickerView(QWidget):
         nextIndex = nextIndexFunc(selectedIndex)
 
         if nextIndex:
-            mode = QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows
+            mode = QItemSelectionModel.ClearAndSelect | \
+                   QItemSelectionModel.Rows
             self._tvImages.selectionModel().select(nextIndex, mode)
 
     @pyqtSlot()
     def on_actionNextImage_triggered(self):
         """ Select the next node in the treeview. """
-        self._changeTreeViewMic(lambda i: self._tvImages.indexBelow(i) or
-                                          self._tvImages.model().index(0, 0))
+        self._changeTreeViewMic(
+            lambda i: self._tvImages.indexBelow(i)
+            if i and i.row() < len(self._model) - 1 else
+            self._tvImages.model().index(0, 0))
 
     @pyqtSlot()
     def on_actionPrevImage_triggered(self):
         """ Select the previous micrograph in the treeview. """
         model = self._tvImages.model()
-        self._changeTreeViewMic(lambda i: self._tvImages.indexAbove(i) or
-                                          model.index(model.rowCount()-1, 0))
+        self._changeTreeViewMic(
+            lambda i: self._tvImages.indexAbove(i) if i and i.row() > 0 else
+            model.index(model.rowCount()-1, 0))
 
     @pyqtSlot()
     def on_actionPickEllipse_triggered(self):
@@ -336,6 +340,7 @@ class PickerView(QWidget):
         self._lineEdit.setObjectName("lineEdit")
         self._verticalLayout.addWidget(self._lineEdit)
         self._tvImages = QTreeView(self._leftPanel)
+        self._tvImages.setSortingEnabled(True)
         self._tvImages.setObjectName("treeViewImages")
         self._verticalLayout.addWidget(self._tvImages)
         self._imageView = ImageView(self, **kwargs)
@@ -417,9 +422,11 @@ class PickerView(QWidget):
             btn.setText(label["name"])
             btn.setStyleSheet("color: %s;" % label["color"])
             btn.setCheckable(True)
-            btn.setChecked(True)
             self._buttonGroup.addButton(btn)
             btn.clicked.connect(self._labelAction_triggered)
+            if self.currentLabelName is None:
+                self.currentLabelName = label["name"]
+                btn.setChecked(True)
 
             vLayout.addWidget(btn)
 
@@ -611,8 +618,9 @@ class PickerView(QWidget):
     @pyqtSlot(object, object)
     def _roiMouseClicked(self, roi, ev):
         """ This slot is invoked when the user clicks on a ROI. """
-        if (ev.button() == Qt.LeftButton and
-                self._actionErasePickBox.isChecked() or
+        e = self._actionErasePickBox.isEnabled() and \
+            ev.button() == Qt.LeftButton
+        if (e and self._actionErasePickBox.isChecked() or e and
                 QtGuiApp.keyboardModifiers() == self.removeROIKeyModifier):
             self._destroyCoordROI(roi)
             self._roiList.remove(roi.parent)  # remove the coordROI
