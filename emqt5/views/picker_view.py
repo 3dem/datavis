@@ -2,8 +2,9 @@ import sys
 import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QItemSelectionModel,
-                          QFile, QIODevice, QJsonDocument, QJsonParseError)
+from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QItemSelectionModel, QModelIndex,
+                          QFile, QIODevice, QJsonDocument, QJsonParseError,
+                          QItemSelection)
 from PyQt5.QtWidgets import (QSplitter, QFileDialog, QMessageBox, QCompleter,
                              QPushButton, QActionGroup, QButtonGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
@@ -40,8 +41,9 @@ class PickerView(QWidget):
         self._lineEdit.setCompleter(self._completer)
         # self.completer.setFilterMode(Qt.MatchCaseSensitive)
         self._completer.setModel(self._tvImages.model())
-        # self.completer.activated[QModelIndex].connect(self.on_treeViewImages_clicked)
-
+        self._completer.setCompletionColumn(1)
+        self._completer.activated[QModelIndex].connect(
+            self._onCompleterItemActivated)
         self._currentMic = None
         self._roiList = []
         self._roiAspectLocked = True
@@ -79,250 +81,6 @@ class PickerView(QWidget):
             self._actionPickEllipse.setChecked(True)
 
         self._spinBoxBoxSize.setValue(kwargs.get("boxsize", 100))
-
-    def _showError(self, msg):
-        """
-        Popup the error msg
-        :param msg: The message for the user
-        """
-        QMessageBox.critical(self, "Particle Picking", msg)
-
-    def _addMicToTreeView(self, mic):
-        """
-        Add an image to the treeview widget. The user can invoke this method
-        when he wants to add an image or connect it to a signal that notifies
-        the action of add an ImageElem.
-        """
-        column1 = MicrographItem(mic, qta.icon("fa.file-o"))
-
-        column2 = MicrographItem(mic)
-        column2.setText(os.path.basename(mic.getPath()))
-
-        column3 = MicrographItem(mic)
-        column3.setText("%i" % len(mic))
-
-        self._tvModel.appendRow([column1, column2, column3])
-
-        self._tvImages.resizeColumnToContents(0)
-
-    @pyqtSlot()
-    def on_actionOpenPick_triggered(self):
-        """
-        Show a FileDialog for the picking file (.json) selection.
-        Open the file, if was selected, and add a new node corresponding
-        to the image specified in the file.
-        """
-        fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
-                                                  QDir.currentPath())
-        if fileName:
-            self._openFile(fileName)
-
-    def _changeTreeViewMic(self, nextIndexFunc):
-        """ This method will change to a different micrograph in the
-        TreeView. It should be invoked both for move 'next' or 'back'.
-        Params:
-           nextIndexFunc: function to return the next index based on
-                the current selected index. If None is returned, no
-                change will be done
-        """
-        indexes = self._tvImages.selectedIndexes()
-        selectedIndex = indexes[0] if indexes else None
-        nextIndex = nextIndexFunc(selectedIndex)
-
-        if nextIndex:
-            mode = QItemSelectionModel.ClearAndSelect | \
-                   QItemSelectionModel.Rows
-            self._tvImages.selectionModel().select(nextIndex, mode)
-
-    @pyqtSlot()
-    def on_actionNextImage_triggered(self):
-        """ Select the next node in the treeview. """
-        self._changeTreeViewMic(
-            lambda i: self._tvImages.indexBelow(i)
-            if i and i.row() < len(self._model) - 1 else
-            self._tvImages.model().index(0, 0))
-
-    @pyqtSlot()
-    def on_actionPrevImage_triggered(self):
-        """ Select the previous micrograph in the treeview. """
-        model = self._tvImages.model()
-        self._changeTreeViewMic(
-            lambda i: self._tvImages.indexAbove(i) if i and i.row() > 0 else
-            model.index(model.rowCount()-1, 0))
-
-    @pyqtSlot()
-    def on_actionPickEllipse_triggered(self):
-        """ Activate the coordinates to ellipse ROI. """
-        self._shape = SHAPE_CIRCLE
-        self._updateROIs()
-
-    @pyqtSlot()
-    def on_actionPickRect_triggered(self):
-        """
-        Activate the pick rect ROI.
-        Change all boxes to rect ROI
-        """
-        self._shape = SHAPE_RECT
-        self._updateROIs()
-
-    def _onTreeViewSeleccionChanged(self, newIndex, oldIndex=None):
-        """ This should be triggered when the selection changes
-        in the TreeView. """
-        indexes = self._tvImages.selectedIndexes()
-        if indexes:
-            item = self._tvModel.itemFromIndex(indexes[0])
-            try:
-                self._showMicrograph(item.getMicrograph())
-            except RuntimeError as ex:
-                self._showError(ex.message)
-
-    def _showMicrograph(self, mic):
-        """
-        Show the an image in the ImageView
-        :param mic: the ImageElem
-        """
-        try:
-            self._destroyROIs()
-            self._imageView.clear()
-            self._currentMic = mic
-            path = mic.getPath()
-            image = EmImage.load(path)
-            self._imageView.setImage(EmImage.getNumPyArray(image))
-            self._imageView.setImageInfo(path=path,
-                                         format=EmPath.getExt(path),
-                                         data_type=str(image.getType()))
-            self._createROIs()
-        except RuntimeError as ex:
-            raise ex
-        except Exception as ex:
-            raise ex
-
-    def _destroyROIs(self):
-        """
-        Remove and destroy all ROIs from the imageView
-        """
-        for coordROI in self._roiList:
-            self._destroyCoordROI(coordROI.getROI())
-
-    def _createROIs(self):
-        """ Create the ROIs for current micrograph
-        """
-        # Create new ROIs and add to the list
-        self._roiList = [self._createCoordROI(coord)
-                         for coord in self._currentMic] if self._currentMic \
-            else []
-
-    def _updateROIs(self):
-        """ Update all ROIs that need to be shown in the current micrographs.
-        Remove first the old ones and then create new ones.
-        """
-        # First destroy the ROIs
-        self._destroyROIs()
-        # then create new ones
-        self._createROIs()
-
-    def openImageFile(self, path):
-        """
-        Open an em image for picking
-        :param path: file path
-        """
-        if path:
-            try:
-                imgElem = Micrograph(0,
-                                     path,
-                                     [])
-                imgElem.setId(self._model.getImgCount()+1)
-                self._model.addMicrograph(imgElem)
-                self._addMicToTreeView(imgElem)
-            except:
-                print(sys.exc_info())
-                self._showError(sys.exc_info()[2])
-
-    def openPickingFile(self, path):
-        """
-        Open the picking specification file an add the ImageElem
-        to the treeview widget
-        :param path: file path
-        """
-        file = None
-        if path:
-            try:
-                file = QFile(path)
-
-                if file.open(QIODevice.ReadOnly):
-                    error = QJsonParseError()
-                    json = QJsonDocument.fromJson(file.readAll(), error)
-
-                    if not error.error == QJsonParseError.NoError:
-                        self._showError("Parsing pick file: " +
-                                        error.errorString())
-                    else:
-                        parser = ImageElemParser()
-                        imgElem = parser.parseImage(json.object())
-                        if imgElem:
-                            imgElem.setId(self._model.getImgCount()+1)
-                            self._model.addMicrograph(imgElem)
-                            self._addMicToTreeView(imgElem)
-                else:
-                    self._showError("Error opening file.")
-                    file = None
-
-            except:
-                print(sys.exc_info())
-            finally:
-                if file:
-                    file.close()
-
-    def _loadMicCoordinates(self, path, parserFunc):
-        """ Load coordinates for the current selected micrograph.
-        Params:
-            path: Path that will be parsed and search for coordinates.
-            parserFunc: function that will parse the file and yield
-                all coordinates.
-        """
-        self._currentMic.clear()  # remove all coordinates
-        for (x, y) in parserFunc(path):
-            coord = Coordinate(x, y)
-            self._currentMic.addCoordinate(coord)
-
-        self._showMicrograph(self._currentMic)
-
-    def _openFile(self, path):
-        _, ext = os.path.splitext(path)
-
-        if ext == '.json':
-            self.openPickingFile(path)
-        elif ext == '.box':
-            from utils import parseTextCoordinates
-            self._loadMicCoordinates(path, parserFunc=parseTextCoordinates)
-        else:
-            self.openImageFile(path)
-
-    def _makePen(self, labelName):
-        """
-        Make the Pen for labelName
-        :param labelName: the label name
-        :return: pg.makePen
-        """
-        label = self._model.getLabel(labelName)
-
-        if label:
-            return pg.mkPen(color=label["color"])
-
-        return pg.mkPen(color="#FF0004")
-
-    def _setupTreeView(self):
-        """
-        Setup the treeview
-        """
-        self._tvModel = QStandardItemModel()
-        self._tvModel.setHorizontalHeaderLabels(["Id",
-                                                 "Micrograph",
-                                                 "Coordinates"])
-        self._tvImages.setModel(self._tvModel)
-        self._tvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
-        sModel = self._tvImages.selectionModel()
-        sModel.selectionChanged.connect(self._onTreeViewSeleccionChanged)
 
     def __setupUi(self, **kwargs):
         self.resize(1097, 741)
@@ -456,6 +214,7 @@ class PickerView(QWidget):
 
         self._horizontalLayout.addWidget(self._splitter)
 
+        self.setWindowTitle("Picker")
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
 
@@ -465,15 +224,143 @@ class PickerView(QWidget):
         line.setFrameShadow(QFrame.Sunken)
         return line
 
-    def retranslateUi(self):
-        _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self._actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
-        self._actionPickEllipse.setText(_translate("MainWindow", "Pick Ellipse"))
-        self._actionOpenPick.setText(_translate("MainWindow", "Open Pick"))
-        self._actionNextImage.setText(_translate("MainWindow", "Next Image"))
-        self._actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
-        self._actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
+    def _showError(self, msg):
+        """
+        Popup the error msg
+        :param msg: The message for the user
+        """
+        QMessageBox.critical(self, "Particle Picking", msg)
+
+    def _addMicToTreeView(self, mic):
+        """
+        Add an image to the treeview widget. The user can invoke this method
+        when he wants to add an image or connect it to a signal that notifies
+        the action of add an ImageElem.
+        """
+        column1 = MicrographItem(mic, qta.icon("fa.file-o"))
+
+        column2 = MicrographItem(mic)
+        column2.setText(os.path.basename(mic.getPath()))
+
+        column3 = MicrographItem(mic)
+        column3.setText("%i" % len(mic))
+
+        self._tvModel.appendRow([column1, column2, column3])
+
+        self._tvImages.resizeColumnToContents(0)
+
+    def _changeTreeViewMic(self, nextIndexFunc):
+        """ This method will change to a different micrograph in the
+        TreeView. It should be invoked both for move 'next' or 'back'.
+        Params:
+           nextIndexFunc: function to return the next index based on
+                the current selected index. If None is returned, no
+                change will be done
+        """
+        indexes = self._tvImages.selectedIndexes()
+        selectedIndex = indexes[0] if indexes else None
+        nextIndex = nextIndexFunc(selectedIndex)
+
+        if nextIndex:
+            mode = QItemSelectionModel.ClearAndSelect | \
+                   QItemSelectionModel.Rows
+            self._tvImages.selectionModel().select(nextIndex, mode)
+
+    def _showMicrograph(self, mic):
+        """
+        Show the an image in the ImageView
+        :param mic: the ImageElem
+        """
+        try:
+            self._destroyROIs()
+            self._imageView.clear()
+            self._currentMic = mic
+            path = mic.getPath()
+            image = EmImage.load(path)
+            self._imageView.setImage(EmImage.getNumPyArray(image))
+            self._imageView.setImageInfo(path=path,
+                                         format=EmPath.getExt(path),
+                                         data_type=str(image.getType()))
+            self._createROIs()
+        except RuntimeError as ex:
+            raise ex
+        except Exception as ex:
+            raise ex
+
+    def _destroyROIs(self):
+        """
+        Remove and destroy all ROIs from the imageView
+        """
+        for coordROI in self._roiList:
+            self._destroyCoordROI(coordROI.getROI())
+
+    def _createROIs(self):
+        """ Create the ROIs for current micrograph
+        """
+        # Create new ROIs and add to the list
+        self._roiList = [self._createCoordROI(coord)
+                         for coord in self._currentMic] if self._currentMic \
+            else []
+
+    def _updateROIs(self):
+        """ Update all ROIs that need to be shown in the current micrographs.
+        Remove first the old ones and then create new ones.
+        """
+        # First destroy the ROIs
+        self._destroyROIs()
+        # then create new ones
+        self._createROIs()
+
+    def _loadMicCoordinates(self, path, parserFunc):
+        """ Load coordinates for the current selected micrograph.
+        Params:
+            path: Path that will be parsed and search for coordinates.
+            parserFunc: function that will parse the file and yield
+                all coordinates.
+        """
+        self._currentMic.clear()  # remove all coordinates
+        for (x, y) in parserFunc(path):
+            coord = Coordinate(x, y)
+            self._currentMic.addCoordinate(coord)
+
+        self._showMicrograph(self._currentMic)
+
+    def _openFile(self, path):
+        _, ext = os.path.splitext(path)
+
+        if ext == '.json':
+            self.openPickingFile(path)
+        elif ext == '.box':
+            from utils import parseTextCoordinates
+            self._loadMicCoordinates(path, parserFunc=parseTextCoordinates)
+        else:
+            self.openImageFile(path)
+
+    def _makePen(self, labelName):
+        """
+        Make the Pen for labelName
+        :param labelName: the label name
+        :return: pg.makePen
+        """
+        label = self._model.getLabel(labelName)
+
+        if label:
+            return pg.mkPen(color=label["color"])
+
+        return pg.mkPen(color="#FF0004")
+
+    def _setupTreeView(self):
+        """
+        Setup the treeview
+        """
+        self._tvModel = QStandardItemModel()
+        self._tvModel.setHorizontalHeaderLabels(["Id",
+                                                 "Micrograph",
+                                                 "Coordinates"])
+        self._tvImages.setModel(self._tvModel)
+        self._tvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
+        sModel = self._tvImages.selectionModel()
+        sModel.selectionChanged.connect(self._onTreeViewSeleccionChanged)
 
     def _handleViewBoxClick(self, event):
         """ Invoked when the user clicks on the ViewBox
@@ -493,61 +380,6 @@ class PickerView(QWidget):
             item = self._tvModel.itemFromIndex(
                 self._tvImages.selectedIndexes()[2])
             item.setText("%i" % len(self._currentMic))
-
-    @pyqtSlot(object)
-    def viewBoxMouseMoved(self, pos):
-        """
-        This slot is invoked when the mouse is moved hover de View
-        :param pos: The mouse pos
-        """
-        if pos:
-            pos = self._imageView.getViewBox().mapSceneToView(pos)
-            imgItem = self._imageView.getImageItem()
-            (x, y) = (pos.x(), pos.y())
-            value = "x"
-            (w, h) = (imgItem.width(), imgItem.height())
-
-            if w and h:
-                if x>=0 and x<w and y>=0 and y<h:
-                    value = "%0.4f" % imgItem.image[int(x), int(y)]
-            text = "<table width=\"279\" border=\"0\" align=\"right\">" \
-                   "<tbody><tr><td width=\"18\" align=\"right\">x=</td>" \
-                   "<td width=\"38\" align=\"left\" nowrap>%i</td>" \
-                   "<td width=\"28\" align=\"right\">y=</td>" \
-                   "<td width=\"42\" nowrap>%i</td>" \
-                   "<td width=\"46\" align=\"right\">value=</td>" \
-                   "<td width=\"67\" align=\"left\">%s</td></tr>" \
-                   "</tbody></table>"
-            self._labelMouseCoord.setText(text % (pos.x(), pos.y(), value))
-
-    @pyqtSlot()
-    def completerSelection(self):
-        QMessageBox.information(self, "Information", "Not yet implemented")
-
-    @pyqtSlot(int)
-    def _boxSizeChanged(self, value):
-        """
-        This slot is invoked when de value of spinBoxBoxSize is changed
-        :param value: The value
-        """
-        self._updateBoxSize(value)
-
-    @pyqtSlot()
-    def _boxSizeEditingFinished(self):
-        """
-        This slot is invoked when spinBoxBoxSize editing is finished
-        """
-        self._updateBoxSize(self._spinBoxBoxSize.value())
-
-    @pyqtSlot(bool)
-    def _labelAction_triggered(self, checked):
-        """
-        This slot is invoked when clicks on label
-        """
-        btn = self._buttonGroup.checkedButton()
-
-        if checked and btn:
-            self.currentLabelName = btn.text()
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
@@ -574,8 +406,8 @@ class PickerView(QWidget):
         and other global properties.
         """
         roiDict = {
-            #'centered': not self.disableROICentered,
-            #'aspectLocked': self.aspectLocked,
+            # 'centered': not self.disableROICentered,
+            # 'aspectLocked': self.aspectLocked,
             'pen': self._makePen(coord.getLabel())
         }
 
@@ -615,6 +447,130 @@ class PickerView(QWidget):
         # roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
         roi.sigClicked.disconnect(self._roiMouseClicked)
 
+    def _setupViewBox(self):
+        """
+        Configures the View Widget for self.imageView
+        """
+        v = self._imageView.getViewBox()
+
+        if v:
+            v.mouseClickEvent = self._handleViewBoxClick
+            scene = v.scene()
+            if scene:
+                scene.sigMouseMoved.connect(self.viewBoxMouseMoved)
+
+    @pyqtSlot(object)
+    def viewBoxMouseMoved(self, pos):
+        """
+        This slot is invoked when the mouse is moved hover de View
+        :param pos: The mouse pos
+        """
+        if pos:
+            pos = self._imageView.getViewBox().mapSceneToView(pos)
+            imgItem = self._imageView.getImageItem()
+            (x, y) = (pos.x(), pos.y())
+            value = "x"
+            (w, h) = (imgItem.width(), imgItem.height())
+
+            if w and h:
+                if x >= 0 and x < w and y >= 0 and y < h:
+                    value = "%0.4f" % imgItem.image[int(x), int(y)]
+            text = "<table width=\"279\" border=\"0\" align=\"right\">" \
+                   "<tbody><tr><td width=\"18\" align=\"right\">x=</td>" \
+                   "<td width=\"38\" align=\"left\" nowrap>%i</td>" \
+                   "<td width=\"28\" align=\"right\">y=</td>" \
+                   "<td width=\"42\" nowrap>%i</td>" \
+                   "<td width=\"46\" align=\"right\">value=</td>" \
+                   "<td width=\"67\" align=\"left\">%s</td></tr>" \
+                   "</tbody></table>"
+            self._labelMouseCoord.setText(text % (pos.x(), pos.y(), value))
+
+    @pyqtSlot()
+    def on_actionOpenPick_triggered(self):
+        """
+        Show a FileDialog for the picking file (.json) selection.
+        Open the file, if was selected, and add a new node corresponding
+        to the image specified in the file.
+        """
+        fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
+                                                  QDir.currentPath())
+        if fileName:
+            self._openFile(fileName)
+
+    @pyqtSlot()
+    def on_actionNextImage_triggered(self):
+        """ Select the next node in the treeview. """
+        self._changeTreeViewMic(
+            lambda i: self._tvImages.indexBelow(i)
+            if i and i.row() < len(self._model) - 1 else
+            self._tvImages.model().index(0, 0))
+
+    @pyqtSlot()
+    def on_actionPrevImage_triggered(self):
+        """ Select the previous micrograph in the treeview. """
+        model = self._tvImages.model()
+        self._changeTreeViewMic(
+            lambda i: self._tvImages.indexAbove(i) if i and i.row() > 0 else
+            model.index(model.rowCount()-1, 0))
+
+    @pyqtSlot()
+    def on_actionPickEllipse_triggered(self):
+        """ Activate the coordinates to ellipse ROI. """
+        self._shape = SHAPE_CIRCLE
+        self._updateROIs()
+
+    @pyqtSlot()
+    def on_actionPickRect_triggered(self):
+        """
+        Activate the pick rect ROI.
+        Change all boxes to rect ROI
+        """
+        self._shape = SHAPE_RECT
+        self._updateROIs()
+
+    @pyqtSlot(QModelIndex)
+    def _onCompleterItemActivated(self, index):
+        self._tvImages.setCurrentIndex(
+            self._completer.completionModel().mapToSource(index))
+
+    @pyqtSlot(QItemSelection, QItemSelection)
+    def _onTreeViewSeleccionChanged(self, selected, deselected):
+        """ This should be triggered when the selection changes
+        in the TreeView. """
+
+        indexes = self._tvImages.selectedIndexes()
+        if indexes:
+            item = self._tvModel.itemFromIndex(indexes[0])
+            try:
+                self._showMicrograph(item.getMicrograph())
+            except RuntimeError as ex:
+                self._showError(ex.message)
+
+    @pyqtSlot(int)
+    def _boxSizeChanged(self, value):
+        """
+        This slot is invoked when de value of spinBoxBoxSize is changed
+        :param value: The value
+        """
+        self._updateBoxSize(value)
+
+    @pyqtSlot()
+    def _boxSizeEditingFinished(self):
+        """
+        This slot is invoked when spinBoxBoxSize editing is finished
+        """
+        self._updateBoxSize(self._spinBoxBoxSize.value())
+
+    @pyqtSlot(bool)
+    def _labelAction_triggered(self, checked):
+        """
+        This slot is invoked when clicks on label
+        """
+        btn = self._buttonGroup.checkedButton()
+
+        if checked and btn:
+            self.currentLabelName = btn.text()
+
     @pyqtSlot(object, object)
     def _roiMouseClicked(self, roi, ev):
         """ This slot is invoked when the user clicks on a ROI. """
@@ -635,17 +591,67 @@ class PickerView(QWidget):
         """ Handler invoked when the roi is hovered by the mouse. """
         roi.parent.showHandlers(False)
 
-    def _setupViewBox(self):
+    def openImageFile(self, path):
         """
-        Configures the View Widget for self.imageView
+        Open an em image for picking
+        :param path: file path
         """
-        v = self._imageView.getViewBox()
+        if path:
+            try:
+                imgElem = Micrograph(0,
+                                     path,
+                                     [])
+                imgElem.setId(self._model.getImgCount()+1)
+                self._model.addMicrograph(imgElem)
+                self._addMicToTreeView(imgElem)
+            except:
+                print(sys.exc_info())
+                self._showError(sys.exc_info()[2])
 
-        if v:
-            v.mouseClickEvent = self._handleViewBoxClick
-            scene = v.scene()
-            if scene:
-                scene.sigMouseMoved.connect(self.viewBoxMouseMoved)
+    def openPickingFile(self, path):
+        """
+        Open the picking specification file an add the ImageElem
+        to the treeview widget
+        :param path: file path
+        """
+        file = None
+        if path:
+            try:
+                file = QFile(path)
+
+                if file.open(QIODevice.ReadOnly):
+                    error = QJsonParseError()
+                    json = QJsonDocument.fromJson(file.readAll(), error)
+
+                    if not error.error == QJsonParseError.NoError:
+                        self._showError("Parsing pick file: " +
+                                        error.errorString())
+                    else:
+                        parser = ImageElemParser()
+                        imgElem = parser.parseImage(json.object())
+                        if imgElem:
+                            imgElem.setId(self._model.getImgCount()+1)
+                            self._model.addMicrograph(imgElem)
+                            self._addMicToTreeView(imgElem)
+                else:
+                    self._showError("Error opening file.")
+                    file = None
+
+            except:
+                print(sys.exc_info())
+            finally:
+                if file:
+                    file.close()
+
+    def retranslateUi(self):
+        _translate = QtCore.QCoreApplication.translate
+        self.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self._actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
+        self._actionPickEllipse.setText(_translate("MainWindow", "Pick Ellipse"))
+        self._actionOpenPick.setText(_translate("MainWindow", "Open Pick"))
+        self._actionNextImage.setText(_translate("MainWindow", "Next Image"))
+        self._actionPrevImage.setText(_translate("MainWindow", "Prev Image"))
+        self._actionErasePickBox.setText(_translate("MainWindow", "Erase pick"))
 
 
 class MicrographItem(QStandardItem):

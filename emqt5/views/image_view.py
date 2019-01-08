@@ -3,8 +3,7 @@
 
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout,
-                             QToolBar, QVBoxLayout, QFrame, QSpacerItem,
-                             QSizePolicy, QPushButton, QLineEdit)
+                             QToolBar, QVBoxLayout, QFrame, QPushButton)
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -201,8 +200,9 @@ class ImageView(QWidget):
         self._btnReset.pressed.connect(self.__resetView)
         vLayout.addWidget(self._btnReset)
         # --End-Reset--
-        vLayout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum,
-                                    QSizePolicy.Expanding))
+        vLayout.addStretch()
+        self._displayPanel.setMaximumHeight(260)
+        self._displayPanel.setMinimumHeight(260)
         self._actDisplay = QAction(None)
         self._actDisplay.setIcon(qta.icon('fa.sliders'))
         self._actDisplay.setText('Display')
@@ -238,8 +238,7 @@ class ImageView(QWidget):
         self._labelDataType.font().setBold(True)
         hLayout.addWidget(self._labelDataType)
         vLayout.addItem(hLayout)
-        vLayout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum,
-                                    QSizePolicy.Expanding))
+        vLayout.addStretch()
         self._actFileInfo = QAction(None)
         self._actFileInfo.setIcon(qta.icon('fa.info-circle'))
         self._actFileInfo.setText('File Info')

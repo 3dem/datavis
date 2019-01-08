@@ -187,6 +187,7 @@ if __name__ == '__main__':
         if args.picker == 'on':
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               **kwargs)
+            view.setWindowTitle("EM-PICKER")
         else:
             # If the input is a directory, display the BrowserWindow
             if len(files) > 1:

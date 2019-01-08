@@ -4,12 +4,10 @@
 from math import log10
 
 from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
-from PyQt5.QtWidgets import QTableView, QHeaderView, QAction, QMenu
+from PyQt5.QtWidgets import QTableView, QHeaderView
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
-
-import qtawesome as qta
 
 
 class ColumnsView(AbstractView):

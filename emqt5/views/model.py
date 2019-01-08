@@ -10,8 +10,6 @@ from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
 from emqt5.views.config import TableViewConfig
 from emqt5.utils import EmPath, EmImage, EmTable
 
-import em
-
 
 X_AXIS = 0
 Y_AXIS = 1

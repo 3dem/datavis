@@ -16,10 +16,6 @@ import qtawesome as qta
 
 from emqt5.utils import EmPath, EmImage
 
-import em
-
-import numpy as np
-
 
 class BrowserWindow(QMainWindow):
     """

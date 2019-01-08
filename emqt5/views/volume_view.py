@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
+from PyQt5.QtCore import Qt, pyqtSlot, QSize
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QComboBox, QStackedLayout, QActionGroup)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
-from .model import ImageCache, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
+from .model import VolumeDataModel
 from .base import PageBar
 from .multislice_view import MultiSliceView
 from .gallery import GalleryView

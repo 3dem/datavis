@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, pyqtSlot, QObject
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
-                             QAction, QActionGroup, QSizePolicy,QMainWindow,
+                             QAction, QActionGroup, QSizePolicy, QMainWindow,
                              QDockWidget)
 
 
@@ -112,6 +112,8 @@ class ToolBar(QWidget):
         if widget is not None:
             dock = QDockWidget(action.text() if showTitle else "",
                                self._sidePanel)
+            dock.setMaximumWidth(140)
+            dock.setMinimumWidth(140)
             dock.setWidget(widget)
             dock.setFloating(False)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
