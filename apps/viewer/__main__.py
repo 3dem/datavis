@@ -3,6 +3,7 @@
 
 import os
 import sys
+from glob import glob
 import argparse
 import traceback
 
@@ -21,10 +22,50 @@ from emqt5.windows import BrowserWindow
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    kwargs = {}
     paramCount = 0
 
     kwargs = {}
+
+    class ValidateMics(argparse.Action):
+        """
+        Class that allows the validation of the values corresponding to
+        the "picker" parameter
+        """
+        def __init__(self, option_strings, dest, **kwargs):
+            argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            """
+            Validate the maximum number of values corresponding to the
+            picker parameter. Try to matching a path pattern for micrographs
+            and another for coordinates.
+
+            Return a list of tuples [mic_path, pick_path].
+            """
+            length = len(values)
+            result = dict()
+            if length > 2:
+                raise ValueError("Invalid number of arguments for %s. Only 2 "
+                                 "arguments are supported." % option_string)
+
+            if length > 0:
+                mics = self.__ls(values[0])
+                for i in mics:
+                    basename = os.path.splitext(os.path.basename(i))[0]
+                    result[basename] = (i, None)
+
+            if length > 1:
+                coords = self.__ls(values[1])
+                for i in coords:
+                    basename = os.path.splitext(os.path.basename(i))[0]
+                    t = result.get(basename)
+                    if t:
+                        result[basename] = (t[0], i)
+
+            setattr(namespace, self.dest, result)
+
+        def __ls(self, pattern):
+            return glob(pattern)
 
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
@@ -33,7 +74,7 @@ if __name__ == '__main__':
                                         argument_default=None)
 
     # GLOBAL PARAMETERS
-    argParser.add_argument('files', type=str, nargs='+', default=[],
+    argParser.add_argument('files', type=str, nargs='*', default=[],
                            help='3D image path or a list of image files or'
                            ' specific directory')
 
@@ -65,8 +106,11 @@ if __name__ == '__main__':
                                 'either in pixels or in percentage')
 
     # Picker arguments
-    argParser.add_argument('--picker', type=str, default='off', required=False,
-                           choices=on_off, help=' Show the Picker tool.')
+    argParser.add_argument('--picker', type=str, nargs='*', default=[],
+                           required=False, action=ValidateMics,
+                           help='Show the Picker tool. '
+                                '2 path pattern for micrograph and coordinates '
+                                'files.')
     argParser.add_argument('--boxsize', type=int, default=100,
                            required=False,
                            help=' an integer for pick size(Default=100).')
@@ -184,9 +228,11 @@ if __name__ == '__main__':
 
     try:
         d = None
-        if args.picker == 'on':
+        if args.picker == 'on' or isinstance(args.picker, dict):
+            if files[0] == str(os.getcwd()):
+                files = None
             view = PickerView(None, createPickerModel(files, args.boxsize),
-                              **kwargs)
+                              sources=args.picker, **kwargs)
             view.setWindowTitle("EM-PICKER")
         else:
             # If the input is a directory, display the BrowserWindow

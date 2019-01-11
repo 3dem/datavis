@@ -173,13 +173,15 @@ def createPickerModel(files, boxsize):
     """ Create the PickerDataModel from the given files """
     model = PickerDataModel()
 
-    for f in files:
-        if not os.path.exists(f):
-            raise Exception("Input file '%s' does not exists. " % f)
-        if not os.path.isdir(f):
-            model.addMicrograph(f)
-        else:
-            raise Exception('Directories are not supported for picker model.')
+    if isinstance(files, list):
+        for f in files:
+            if not os.path.exists(f):
+                raise Exception("Input file '%s' does not exists. " % f)
+            if not os.path.isdir(f):
+                model.addMicrograph(f)
+            else:
+                raise Exception('Directories are not supported for '
+                                'picker model.')
 
     model.setBoxSize(boxsize)
     return model

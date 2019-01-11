@@ -42,7 +42,7 @@ class Micrograph:
     def __init__(self, micId, path, coordinates=None):
         self._micId = micId
         self._path = path
-        self._coordinates = coordinates or []
+        self._coordinates = list(coordinates) if coordinates else []
 
     def __len__(self):
         """ The lenght of the Micrograph is the number of coordinates. """
@@ -157,5 +157,12 @@ class PickerDataModel:
         :return: dict value
         """
         return self._labels.get(labelName)
+
+    def nextId(self):
+        """
+        Generates the next id.
+        """
+        self._lastId += 1
+        return self._lastId
 
 

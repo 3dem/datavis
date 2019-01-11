@@ -29,6 +29,10 @@ class PickerView(QWidget):
         """ Constructor
         @param parent reference to the parent widget
         @model input PickerDataModel
+        kwargs:
+           UI config params.
+           sources (dict): dict with tuples (mic-path, coordinates-path) or
+                           (mic-path, list) where list contains the coordinates
         """
         QWidget.__init__(self, parent)
         self._model = model
@@ -56,13 +60,22 @@ class PickerView(QWidget):
             self._boxSizeEditingFinished)
 
         # Load the input model and check there is at least one micrograph
-        if len(self._model) == 0:
-            raise Exception("There are not micrographs in the current model.")
+        #if len(self._model) == 0:
+        #    raise Exception("There are not micrographs in the current model.")
 
-        for mic in self._model:
-            self._addMicToTreeView(mic)
+        if len(self._model) > 0:
+            for mic in self._model:
+                self._addMicToTreeView(mic)
 
         self._setupViewBox()
+
+        sources = kwargs.get("sources", None)
+        if isinstance(sources, dict):
+            for k in sources.keys():
+                mic_path, coord = sources.get(k)
+                self._openFile(mic_path, coord=coord, showMic=False,
+                               appendCoord=True)
+
         # By default select the first micrograph in the list
         self._changeTreeViewMic(lambda i: self._tvImages.model().index(0, 0))
         #self._showMicrograph(self._model.images[0])
@@ -311,30 +324,53 @@ class PickerView(QWidget):
         # then create new ones
         self._createROIs()
 
-    def _loadMicCoordinates(self, path, parserFunc):
+    def _loadMicCoordinates(self, path, parserFunc, clear=True, showMic=True):
         """ Load coordinates for the current selected micrograph.
         Params:
             path: Path that will be parsed and search for coordinates.
             parserFunc: function that will parse the file and yield
                 all coordinates.
+            clear: Remove all previous coordinates.
+            showMic: Show current mic
         """
-        self._currentMic.clear()  # remove all coordinates
+        if clear:
+            self._currentMic.clear()  # remove all coordinates
         for (x, y) in parserFunc(path):
             coord = Coordinate(x, y)
             self._currentMic.addCoordinate(coord)
 
-        self._showMicrograph(self._currentMic)
+        if showMic:
+            self._showMicrograph(self._currentMic)
 
-    def _openFile(self, path):
+    def _openFile(self, path, **kwargs):
+        """
+        Open de given file.
+        kwargs:
+             showMic (boolean): True if you want to show the micrograph
+                                immediately. False for add to the micrographs
+                                list. Default=True.
+             coord (path or list): The path to the coordinates file or a list of
+                                   tuples for coordinates.
+             appendCoord (boolean): True if you want to append the coordinates
+                                    to the current coordinates. False to clear
+                                    the current coordinates and add.
+                                    Default=False.
+        """
         _, ext = os.path.splitext(path)
 
         if ext == '.json':
             self.openPickingFile(path)
         elif ext == '.box':
-            from utils import parseTextCoordinates
-            self._loadMicCoordinates(path, parserFunc=parseTextCoordinates)
+            from .utils import parseTextCoordinates
+            self._loadMicCoordinates(path, parserFunc=parseTextCoordinates,
+                                     clear=not kwargs.get("appendCoord", False),
+                                     showMic=kwargs.get("showMic", True))
         else:
-            self.openImageFile(path)
+            from .utils import parseTextCoordinates
+            c = kwargs.get("coord", None)
+            coord = parseTextCoordinates(c) if isinstance(c, str) else c
+
+            self.openImageFile(path, coord)
 
     def _makePen(self, labelName):
         """
@@ -405,6 +441,8 @@ class PickerView(QWidget):
         This function will take into account the selected ROI shape
         and other global properties.
         """
+        if isinstance(coord, tuple):
+            coord = Coordinate(coord[0], coord[1], self.currentLabelName)
         roiDict = {
             # 'centered': not self.disableROICentered,
             # 'aspectLocked': self.aspectLocked,
@@ -591,17 +629,18 @@ class PickerView(QWidget):
         """ Handler invoked when the roi is hovered by the mouse. """
         roi.parent.showHandlers(False)
 
-    def openImageFile(self, path):
+    def openImageFile(self, path, coord=None):
         """
         Open an em image for picking
         :param path: file path
+        :param coord: coordinate list ([(x1,y1), (x2,y2)...])
         """
         if path:
             try:
                 imgElem = Micrograph(0,
                                      path,
-                                     [])
-                imgElem.setId(self._model.getImgCount()+1)
+                                     coord)
+                imgElem.setId(self._model.nextId())
                 self._model.addMicrograph(imgElem)
                 self._addMicToTreeView(imgElem)
             except:
@@ -668,6 +707,7 @@ class MicrographItem(QStandardItem):
     def getMicrograph(self):
         """ Return the micrographs corresponding to this node (or item). """
         return self._micrograph
+
 
 class CoordROI:
     """ Class to match between ROI objects and corresponding coordinate """
