@@ -42,10 +42,21 @@ class Micrograph:
     def __init__(self, micId, path, coordinates=None):
         self._micId = micId
         self._path = path
-        self._coordinates = list(coordinates) if coordinates else []
+        self._coordinates = []
+        if coordinates:
+            for c in coordinates:
+                if isinstance(c, tuple):
+                    self._coordinates.append(
+                        Coordinate(c[0], c[1],
+                                   c[2] if not c[2] == "" else "Default"))
+                elif isinstance(c, Coordinate):
+                    self._coordinates.append(c)
+                else:
+                    raise Exception("Invalid coordinate type. Only tupple or "
+                                    "Coordinate types are supported.")
 
     def __len__(self):
-        """ The lenght of the Micrograph is the number of coordinates. """
+        """ The length of the Micrograph is the number of coordinates. """
         return len(self._coordinates)
 
     def __iter__(self):
@@ -91,6 +102,7 @@ class PickerDataModel:
     def __init__(self):
         self._micrographs = []
         self._labels = {}
+        self._privateLabels = {}
         self._initLabels()
         self._boxsize = None
         self._lastId = 0
@@ -114,16 +126,19 @@ class PickerDataModel:
         automatic["name"] = "Auto"
         automatic["color"] = "#FF0004"  # #AARRGGBB
         self._labels["Auto"] = automatic
+        self._privateLabels["A"] = automatic
 
         manual = dict()
         manual["name"] = "Manual"
         manual["color"] = "#1500FF"  # #AARRGGBB
         self._labels["Manual"] = manual
+        self._privateLabels["M"] = manual
 
         default = dict()
         default["name"] = "Default"
         default["color"] = "#74ea00"  # #AARRGGBB
         self._labels["Default"] = default
+        self._privateLabels["D"] = default
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
@@ -152,11 +167,14 @@ class PickerDataModel:
 
     def getLabel(self, labelName):
         """
-        Returns the label with name=labelName in Labels List
+        Returns the label with name=labelName in Labels list (first) or Private
+        Labels list
         :param labelName: The label name
         :return: dict value
         """
-        return self._labels.get(labelName)
+        ret = self._labels.get(labelName)
+
+        return ret if ret else self._privateLabels.get(labelName)
 
     def nextId(self):
         """

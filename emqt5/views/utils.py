@@ -81,6 +81,7 @@ def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
     except RuntimeError as ex:
         raise ex
 
+
 class ImageElemParser:
     """
     This class is responsible for building an ImageElem according to a specification format.
@@ -166,7 +167,8 @@ def parseTextCoordinates(path):
             l = line.strip()
             if l:
                 parts = l.strip().split()
-                yield int(parts[0]), int(parts[1])
+                yield int(parts[0]), int(parts[1]), str(parts[2]) \
+                    if len(parts) > 2 else ""
 
 
 def createPickerModel(files, boxsize):

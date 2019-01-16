@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout,
-                             QToolBar, QVBoxLayout, QFrame, QPushButton)
+from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
+                             QToolBar, QVBoxLayout, QFrame, QPushButton,
+                             QSizePolicy)
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -78,10 +79,19 @@ class ImageView(QWidget):
         self.setup(**kwargs)
 
     def __setupUI(self, **kwargs):
+
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
+
+        self._imageView = pg.ImageView(parent=self,
+                                       view=pg.PlotItem())
+        self._splitter = QSplitter(self)
         self._toolBar = ToolBar(self, orientation=Qt.Vertical)
+        self._splitter.addWidget(self._toolBar)
+        self._splitter.setCollapsible(0, False)
+        self._splitter.addWidget(self._imageView)
+
         self._toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self._displayPanel = QWidget()
         self._displayPanel.setObjectName('displayPanel')
@@ -236,6 +246,9 @@ class ImageView(QWidget):
         self._labelDataType = QLabel('', self._fileInfoPanel)
         self._labelDataType.setWordWrap(True)
         self._labelDataType.font().setBold(True)
+        self._labelDataType.setSizePolicy(QSizePolicy.Minimum,
+                                          QSizePolicy.Minimum)
+        self._labelDataType.setScaledContents(True)
         hLayout.addWidget(self._labelDataType)
         vLayout.addItem(hLayout)
         vLayout.addStretch()
@@ -246,10 +259,7 @@ class ImageView(QWidget):
                                 exclusive=False)
         # --End-File-Info--
 
-        self._mainLayout.addWidget(self._toolBar)
-        self._imageView = pg.ImageView(parent=self,
-                                       view=pg.PlotItem())
-        self._mainLayout.addWidget(self._imageView)
+        self._mainLayout.addWidget(self._splitter)
 
     def __createHLine(self, parent):
         line = QFrame(parent)

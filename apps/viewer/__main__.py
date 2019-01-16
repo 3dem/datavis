@@ -140,7 +140,7 @@ if __name__ == '__main__':
     for f in args.files:
         files.append(QDir.toNativeSeparators(f))
 
-    if not files:
+    if not files and not args.picker:
         files = [str(os.getcwd())]  # if not files use the current dir
 
     kwargs['files'] = files
@@ -229,7 +229,7 @@ if __name__ == '__main__':
     try:
         d = None
         if args.picker == 'on' or isinstance(args.picker, dict):
-            if files[0] == str(os.getcwd()):
+            if files and files[0] == str(os.getcwd()):
                 files = None
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               sources=args.picker, **kwargs)

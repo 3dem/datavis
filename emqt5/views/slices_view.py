@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSlider, QSizePolicy,
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS, N_DIM
 from .image_view import ImageView
 
-from emqt5.utils import EmImage
+from emqt5.utils import EmImage, EmPath
 
 
 class SlicesView(QWidget):
@@ -52,7 +52,10 @@ class SlicesView(QWidget):
         self._mainLayout = QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(0, 0, 0, 0)
+        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding,
+                                 QSizePolicy.MinimumExpanding)
         self._imageView = ImageView(self, **kwargs)
+        self._imageView.setSizePolicy(sizePolicy)
         self._imageView.installEventFilter(self)
         self._mainLayout.addWidget(self._imageView)
         self._slider = QSlider(self)
@@ -175,6 +178,13 @@ class SlicesView(QWidget):
         self.setAxis(kwargs.get('volume_axis', None))
         self.setPath(kwargs.get('path', None))
         self.setViewName(kwargs.get('view_name', ''))
+        if self._imagePath:
+            info = EmImage.getInfo(self._imagePath)
+            if info:
+                dt = info.get("data_type")
+                self._imageView.setImageInfo(path=self._imagePath,
+                                             format=info.get("ext", ""),
+                                             data_type=dt.toString())
 
     def setViewName(self, text):
         """ Sets the view name """

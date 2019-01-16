@@ -197,9 +197,11 @@ class TableDataModel(QAbstractItemModel):
         if not qModelIndex.isValid():
             return False
 
-        if self.flags(qModelIndex) & Qt.ItemIsEditable:
-            return self.setTableData(qModelIndex.row(),
-                                     qModelIndex.column(),
+        if role == Qt.EditRole and self.flags(qModelIndex) & Qt.ItemIsEditable:
+            col = qModelIndex.column()
+            row = self._page * self._pageSize + qModelIndex.row()
+            return self.setTableData(row,
+                                     col,
                                      value)
 
         return False
@@ -208,10 +210,17 @@ class TableDataModel(QAbstractItemModel):
         """
         Set table data
         """
-        if self.flags(self.createIndex(row, column)) & Qt.ItemIsEditable:
-            tableRow = self._emTable[row]
+        if self.flags(self.createIndex(0, column)) & Qt.ItemIsEditable:
+            self.beginResetModel()
             tableColumn = self._emTable.getColumnByIndex(column)
+            tableRow = self._emTable[row]
             tableRow[tableColumn.getName()] = value
+            v2 = tableRow[tableColumn.getName()]
+            print(v2)
+            # FIXME [hv]: review the method test_TableBasic in pytest_table.py
+            # from em-core. Check the set new values for a row (line 148)
+
+            self.endResetModel()
             return True
 
         return False

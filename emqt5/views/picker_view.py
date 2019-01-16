@@ -403,7 +403,7 @@ class PickerView(QWidget):
         (ImageView contains a ViewBox).
         """
         if self._currentMic is None:
-            print ("not selected micrograph....")
+            print("not selected micrograph....")
             return
 
         if (event.button() == QtCore.Qt.LeftButton and
