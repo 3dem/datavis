@@ -5,7 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QItemSelectionModel, QModelIndex,
                           QFile, QIODevice, QJsonDocument, QJsonParseError,
                           QItemSelection)
-from PyQt5.QtWidgets import (QSplitter, QFileDialog, QMessageBox, QCompleter,
+from PyQt5.QtWidgets import (QHBoxLayout, QFileDialog, QMessageBox, QCompleter,
                              QPushButton, QActionGroup, QButtonGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
                              QLineEdit, QTreeView, QToolBar, QAction,
@@ -59,10 +59,6 @@ class PickerView(QWidget):
         self._spinBoxBoxSize.editingFinished.connect(
             self._boxSizeEditingFinished)
 
-        # Load the input model and check there is at least one micrograph
-        #if len(self._model) == 0:
-        #    raise Exception("There are not micrographs in the current model.")
-
         if len(self._model) > 0:
             for mic in self._model:
                 self._addMicToTreeView(mic)
@@ -97,14 +93,18 @@ class PickerView(QWidget):
 
     def __setupUi(self, **kwargs):
         self.resize(1097, 741)
-        self._horizontalLayout = QtWidgets.QHBoxLayout(self)
-        self._splitter = QSplitter(self)
-        self._splitter.setObjectName("splitter")
-        self._splitter.setOrientation(Qt.Horizontal)
-        self._leftPanel = QWidget(self._splitter)
+        self._horizontalLayout = QHBoxLayout(self)
+        self._horizontalLayout.setContentsMargins(1, 1, 1, 1)
+        self._imageView = ImageView(self, **kwargs)
+        self._imageView.setObjectName("imageView")
+        imgViewToolBar = self._imageView.getToolBar()
+
+        self._leftPanel = imgViewToolBar.createSidePanel()
+        self._leftPanel.setSizePolicy(QSizePolicy.Ignored,
+                                      QSizePolicy.Minimum)
         self._verticalLayout = QVBoxLayout(self._leftPanel)
         self._verticalLayout.setContentsMargins(0, 0, 0, 0)
-        toolBarMic = QToolBar(self)
+        toolBarMic = QToolBar(self._leftPanel)
         toolBarMic.setObjectName("toolBarMic")
         self._verticalLayout.addWidget(toolBarMic)
         self._lineEdit = QLineEdit(self._leftPanel)
@@ -114,8 +114,7 @@ class PickerView(QWidget):
         self._tvImages.setSortingEnabled(True)
         self._tvImages.setObjectName("treeViewImages")
         self._verticalLayout.addWidget(self._tvImages)
-        self._imageView = ImageView(self, **kwargs)
-        self._imageView.setObjectName("imageView")
+
         self._viewWidget = QWidget(self)
         self._viewLayout = QVBoxLayout(self._viewWidget)
         self._viewLayout.setContentsMargins(1, 1, 1, 1)
@@ -124,8 +123,6 @@ class PickerView(QWidget):
         self._labelMouseCoord.setMaximumHeight(22)
         self._labelMouseCoord.setAlignment(Qt.AlignRight)
         self._viewLayout.addWidget(self._labelMouseCoord)
-        self._splitter.addWidget(self._viewWidget)
-        self._splitter.setStretchFactor(1, 3)
 
         def _createNewAction(parent, actionName, text="", faIconName=None,
                              checkable=False):
@@ -137,17 +134,16 @@ class PickerView(QWidget):
             a.setText(text)
             return a
 
-        imgViewToolBar = self._imageView.getToolBar()
-
         # picker operations
         actPickerROIS = QAction(imgViewToolBar)
         actPickerROIS.setIcon(qta.icon('fa.object-group'))
         actPickerROIS.setText('Picker Tools')
 
-        boxPanel = QWidget()
+        boxPanel = imgViewToolBar.createSidePanel()
         boxPanel.setObjectName('boxPanel')
         boxPanel.setStyleSheet(
             'QWidget#boxPanel{border-left: 1px solid lightgray;}')
+
         vLayout = QVBoxLayout(boxPanel)
         toolbar = QToolBar(boxPanel)
 
@@ -225,7 +221,12 @@ class PickerView(QWidget):
         toolBarMic.addAction(self._actionPrevImage)
         toolBarMic.addAction(self._actionNextImage)
 
-        self._horizontalLayout.addWidget(self._splitter)
+        self._horizontalLayout.addWidget(self._viewWidget)
+
+        actMics = QAction(imgViewToolBar)
+        actMics.setIcon(qta.icon('fa.list-alt'))
+        actMics.setText('Micrographs')
+        imgViewToolBar.addAction(actMics, self._leftPanel, exclusive=False)
 
         self.setWindowTitle("Picker")
         self.retranslateUi()

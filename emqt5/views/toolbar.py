@@ -21,6 +21,7 @@ class ToolBar(QWidget):
 
         self._panelsDict = dict()
         self._panelWidth = kwargs.get("panel_width", 160)
+        self._docks = []
         self.__setupUi(**kwargs)
 
     def __setupUi(self, **kwargs):
@@ -32,7 +33,7 @@ class ToolBar(QWidget):
             self._mainLayout = QVBoxLayout(self)
 
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
-                                       QSizePolicy.MinimumExpanding))
+                                       QSizePolicy.Fixed))
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(0, 0, 0, 0)
         self._toolBar = QToolBar(self)
@@ -56,7 +57,7 @@ class ToolBar(QWidget):
         self.__dockShowHide(dock)
 
     def __dockShowHide(self, dock):
-        if not dock.isVisible() and self._visibleDocks:
+        if not dock.isVisible() and dock in self._visibleDocks:
             self._visibleDocks.remove(dock)
         else:
             self._visibleDocks.append(dock)
@@ -127,16 +128,19 @@ class ToolBar(QWidget):
         if widget is not None:
             dock = QDockWidget(action.text() if showTitle else "",
                                self._sidePanel)
-            dock.setWidget(widget)
             dock.setFloating(False)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-            dock.setFeatures(QDockWidget.DockWidgetClosable)
+            dock.setFeatures(
+                QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable)
+            dock.setWidget(widget)
             dock.setMinimumWidth(self._panelWidth)
+            dock.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
             dock.hide()
             dock.visibilityChanged.connect(
                 lambda visible: self.__visibilityChanged(action, dock))
             self._sidePanel.addDockWidget(Qt.LeftDockWidgetArea, dock)
             self._panelsDict[action] = dock
+            self._docks.append(dock)
             action.setCheckable(True)
             action.triggered.connect(self.__actionTriggered)
             widget.setParent(dock)
@@ -172,6 +176,12 @@ class ToolBar(QWidget):
     def getSidePanelMinimumWidth(self):
         """ Returns the side panel minimum width """
         return self._panelWidth
+
+    def createSidePanel(self):
+        """ Create a widget with the preferred width"""
+        widget = QWidget()
+        widget.setGeometry(0, 0, self._panelWidth, widget.height())
+        return widget
 
 
 class MultiAction(QAction):

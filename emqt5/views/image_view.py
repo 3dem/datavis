@@ -4,7 +4,7 @@
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QFrame, QPushButton,
-                             QSizePolicy)
+                             QSizePolicy, QPlainTextEdit)
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -93,10 +93,12 @@ class ImageView(QWidget):
         self._splitter.addWidget(self._imageView)
 
         self._toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self._displayPanel = QWidget()
+        self._displayPanel = self._toolBar.createSidePanel()
         self._displayPanel.setObjectName('displayPanel')
         self._displayPanel.setStyleSheet(
             'QWidget#displayPanel{border-left: 1px solid lightgray;}')
+        self._displayPanel.setSizePolicy(QSizePolicy.Ignored,
+                                         QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._displayPanel)
         # --Histogram--
         toolbar = QToolBar(self._displayPanel)
@@ -211,26 +213,26 @@ class ImageView(QWidget):
         vLayout.addWidget(self._btnReset)
         # --End-Reset--
         vLayout.addStretch()
-        self._displayPanel.setMaximumHeight(260)
-        self._displayPanel.setMinimumHeight(260)
+        self._displayPanel.setFixedHeight(260)
         self._actDisplay = QAction(None)
         self._actDisplay.setIcon(qta.icon('fa.sliders'))
         self._actDisplay.setText('Display')
         self._toolBar.addAction(self._actDisplay, self._displayPanel,
                                 exclusive=False)
         # --File-Info--
-        self._fileInfoPanel = QWidget()
+        self._fileInfoPanel = self._toolBar.createSidePanel()
         self._fileInfoPanel.setObjectName('fileInfoPanel')
         self._fileInfoPanel.setStyleSheet(
             'QWidget#fileInfoPanel{border-left: 1px solid lightgray;}')
+        self._fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
+                                          QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._fileInfoPanel)
         hLayout = QHBoxLayout()
         hLayout.addWidget(QLabel('<strong>Path </strong>', self._fileInfoPanel))
         vLayout.addItem(hLayout)
-        self._labelPath = QLabel('       ', self._fileInfoPanel)
-        self._labelPath.setWordWrap(True)
-        self._labelPath.setTextInteractionFlags(Qt.TextSelectableByKeyboard |
-                                                Qt.TextSelectableByMouse)
+        self._labelPath = QPlainTextEdit(self._fileInfoPanel)
+        self._labelPath.viewport().setAutoFillBackground(False)
+
         vLayout.addWidget(self._labelPath)
         hLayout = QHBoxLayout()
         hLayout.addWidget(QLabel('<strong>Format </strong>',
@@ -574,7 +576,7 @@ class ImageView(QWidget):
         format: (str) the image format
         data_type: (str) the image data type
         """
-        self._labelPath.setText(kwargs.get('path', ''))
+        self._labelPath.setPlainText(kwargs.get('path', ''))
         self._labelFormat.setText(kwargs.get('format', ''))
         self._labelDataType.setText(kwargs.get('data_type', ''))
 
