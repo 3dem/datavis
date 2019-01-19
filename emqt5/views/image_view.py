@@ -609,6 +609,22 @@ class ImageView(QWidget):
 
         self._imageView.setGeometry(x, y, width, height)
 
+    def getViewSize(self):
+        """ Returns the image view size. """
+        hw = self._imageView.ui.histogram.item.width() \
+            if self._showHistogram else 0
+
+        plot = self._imageView.getView()
+        width = plot.width() - hw
+        height = plot.height()
+        if isinstance(plot, pg.PlotItem):
+            if self._showXaxis:
+                height -= plot.getAxis("bottom").height()
+            if self._showYaxis:
+                width -= plot.getAxis("left").height()
+
+        return width, height
+
     def getImageItem(self):
         """ See pyqtgraph.ImageView.getImageItem """
         return self._imageView.getImageItem()

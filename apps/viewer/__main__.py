@@ -8,7 +8,7 @@ import argparse
 import traceback
 
 
-from PyQt5.QtCore import QDir
+from PyQt5.QtCore import QDir, QSize, Qt
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
 from emqt5.utils import EmPath, EmTable, EmImage
@@ -194,12 +194,17 @@ if __name__ == '__main__':
             size = viewWidget.getPreferedSize()
             x, y, w, h = getPreferedBounds(size[0], size[1])
         elif (isinstance(viewWidget, ImageView) or
-                isinstance(viewWidget, SlicesView)) and \
+                isinstance(viewWidget, SlicesView) or
+                isinstance(viewWidget, PickerView)) and \
                 imageDim is not None:
             x, y, w, h = getPreferedBounds(max(viewWidget.width(),
                                                imageDim.x),
                                            max(viewWidget.height(),
                                                imageDim.y))
+            size = QSize(imageDim.x, imageDim.y).scaled(w, h,
+                                                        Qt.KeepAspectRatio)
+            dw, dh = w - size.width(), h - size.height()
+            x, y, w, h = x + dw/2, y + dh/2, size.width(), size.height()
         else:
             x, y, w, h = getPreferedBounds(100000,
                                            100000)
@@ -234,6 +239,7 @@ if __name__ == '__main__':
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               sources=args.picker, **kwargs)
             view.setWindowTitle("EM-PICKER")
+            d = view.getImageDim()
         else:
             # If the input is a directory, display the BrowserWindow
             if len(files) > 1:

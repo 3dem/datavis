@@ -49,6 +49,7 @@ class PickerView(QWidget):
         self._completer.activated[QModelIndex].connect(
             self._onCompleterItemActivated)
         self._currentMic = None
+        self._currentImageDim = None
         self._roiList = []
         self._roiAspectLocked = True
         self._roiCentered = True
@@ -291,6 +292,7 @@ class PickerView(QWidget):
             self._currentMic = mic
             path = mic.getPath()
             image = EmImage.load(path)
+            self._currentImageDim = image.getDim()
             self._imageView.setImage(EmImage.getNumPyArray(image))
             self._imageView.setImageInfo(path=path,
                                          format=EmPath.getExt(path),
@@ -682,6 +684,10 @@ class PickerView(QWidget):
             finally:
                 if file:
                     file.close()
+
+    def getImageDim(self):
+        """ Returns the current image dimentions """
+        return self._currentImageDim
 
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
