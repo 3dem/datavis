@@ -103,6 +103,8 @@ class PickerView(QWidget):
         self._leftPanel = imgViewToolBar.createSidePanel()
         self._leftPanel.setSizePolicy(QSizePolicy.Ignored,
                                       QSizePolicy.Minimum)
+        #  setting a reasonable panel width for micrographs table
+        self._leftPanel.setGeometry(0, 0, 350, self._leftPanel.height())
         self._verticalLayout = QVBoxLayout(self._leftPanel)
         self._verticalLayout.setContentsMargins(0, 0, 0, 0)
         toolBarMic = QToolBar(self._leftPanel)
@@ -200,7 +202,8 @@ class PickerView(QWidget):
 
         vLayout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum,
                                     QSizePolicy.Expanding))
-        imgViewToolBar.addAction(actPickerROIS, boxPanel, exclusive=False)
+        imgViewToolBar.addAction(actPickerROIS, boxPanel, exclusive=False,
+                                 checked=True)
         # End-picker operations
 
         self._actionOpenPick = _createNewAction(self, "actionOpenPick",
@@ -227,7 +230,8 @@ class PickerView(QWidget):
         actMics = QAction(imgViewToolBar)
         actMics.setIcon(qta.icon('fa.list-alt'))
         actMics.setText('Micrographs')
-        imgViewToolBar.addAction(actMics, self._leftPanel, exclusive=False)
+        imgViewToolBar.addAction(actMics, self._leftPanel, exclusive=False,
+                                 checked=True)
 
         self.setWindowTitle("Picker")
         self.retranslateUi()
@@ -447,7 +451,7 @@ class PickerView(QWidget):
         if isinstance(coord, tuple):
             coord = Coordinate(coord[0], coord[1], self.currentLabelName)
         roiDict = {
-            # 'centered': not self.disableROICentered,
+            # 'centered': True,
             # 'aspectLocked': self.aspectLocked,
             'pen': self._makePen(coord.getLabel())
         }
@@ -469,6 +473,7 @@ class PickerView(QWidget):
         roi.sigHoverEvent.connect(self._roiMouseHover)
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         roi.sigClicked.connect(self._roiMouseClicked)
+        roi.sigRegionChangeFinished.connect(self._roiRegionChanged)
 
         self._imageView.getViewBox().addItem(roi)
         self._roiList.append(coordROI)
@@ -487,6 +492,7 @@ class PickerView(QWidget):
         roi.sigHoverEvent.disconnect(self._roiMouseHover)
         # roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
         roi.sigClicked.disconnect(self._roiMouseClicked)
+        roi.sigRegionChangeFinished.disconnect(self._roiRegionChanged)
 
     def _setupViewBox(self):
         """
@@ -632,6 +638,20 @@ class PickerView(QWidget):
         """ Handler invoked when the roi is hovered by the mouse. """
         roi.parent.showHandlers(False)
 
+    @pyqtSlot(object)
+    def _roiRegionChanged(self, roi):
+        """
+        Handler invoked when the roi region is changed.
+        For example:
+           When the user stops dragging the ROI (or one of its handles)
+           or if the ROI is changed programatically.
+        """
+        pos = roi.pos()
+        size = roi.size()
+        if roi.coordinate is not None:
+            roi.coordinate.set(int(pos.x() + size[0]/2.0),
+                               int(pos.y() + size[1]/2.0))
+
     def openImageFile(self, path, coord=None):
         """
         Open an em image for picking
@@ -740,5 +760,3 @@ class CoordROI:
         funcName = 'show' if show else 'hide'
         for h in self._roi.getHandles():
             getattr(h, funcName)()  # show/hide
-
-

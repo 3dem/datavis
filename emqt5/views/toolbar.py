@@ -102,7 +102,8 @@ class ToolBar(QWidget):
     def setToolButtonStyle(self, toolButtonStyle):
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
-    def addAction(self, action, widget=None, exclusive=True, showTitle=True):
+    def addAction(self, action, widget=None, exclusive=True, showTitle=True,
+                  checked=False):
         """
         Add a new action with the associated widget. This widget will be shown
         in the side panel when the action is active.
@@ -110,6 +111,8 @@ class ToolBar(QWidget):
         actions
         if showTitle=True then the action text will be visible as title in the
         side panel
+        if checked=True then it will be activated and the corresponding  action
+        will be executed.
 
         * Ownership of the widget is transferred to the toolbar.
         * Ownership of the action is transferred to the toolbar.
@@ -126,6 +129,12 @@ class ToolBar(QWidget):
             action.triggered.connect(self.__groupActionTriggered)
 
         if widget is not None:
+            width = widget.width()
+            if width > self._panelWidth:
+                self._panelWidth = width
+                for d in self._docks:
+                    d.setMinimumWidth(self._panelWidth)
+
             dock = QDockWidget(action.text() if showTitle else "",
                                self._sidePanel)
             dock.setFloating(False)
@@ -144,6 +153,8 @@ class ToolBar(QWidget):
             action.setCheckable(True)
             action.triggered.connect(self.__actionTriggered)
             widget.setParent(dock)
+        if checked:
+            action.triggered.emit(True)
 
     def addSeparator(self):
         """ Adds a separator to the end of the toolbar. """
