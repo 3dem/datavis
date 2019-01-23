@@ -215,11 +215,6 @@ class TableDataModel(QAbstractItemModel):
             tableColumn = self._emTable.getColumnByIndex(column)
             tableRow = self._emTable[row]
             tableRow[tableColumn.getName()] = value
-            v2 = tableRow[tableColumn.getName()]
-            print(v2)
-            # FIXME [hv]: review the method test_TableBasic in pytest_table.py
-            # from em-core. Check the set new values for a row (line 148)
-
             self.endResetModel()
             return True
 
