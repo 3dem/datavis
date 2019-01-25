@@ -410,12 +410,10 @@ class TableDataModel(QAbstractItemModel):
         self._tableViewConfig = config
 
     def sort(self, column, order=Qt.AscendingOrder):
-        self.beginResetModel()
-        print("sort by column ", column)
-        print("Order",
-              "Ascending" if order == Qt.AscendingOrder else "Descending")
-
-        self.endResetModel()
+        if order == Qt.AscendingOrder:
+            self.beginResetModel()
+            self._emTable.sort([self._tableViewConfig[column].getName()])
+            self.endResetModel()
 
     def __setupModel(self):
         """

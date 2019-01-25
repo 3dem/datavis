@@ -27,7 +27,9 @@ class ColumnsView(AbstractView):
 
     def __setupUI(self, **kwargs):
         self._tableView = QTableView(self)
-        self._tableView.setHorizontalHeader(HeaderView(self._tableView))
+        hHeader = HeaderView(self._tableView)
+        hHeader.sortIndicatorChanged.connect(self.__onSortIndicatorChanged)
+        self._tableView.setHorizontalHeader(hHeader)
         self._tableView.verticalHeader().setTextElideMode(QtCore.Qt.ElideRight)
         self._defaultDelegate = self._tableView.itemDelegate()
         self.sigTableSizeChanged.connect(self.__onSizeChanged)
@@ -100,6 +102,16 @@ class ColumnsView(AbstractView):
             else:
                 self._tableView.showColumn(i)
 
+    @pyqtSlot(int, Qt.SortOrder)
+    def __onSortIndicatorChanged(self, logicalIndex, order):
+        """
+        Invoked when horizontal header change any sort indicator.
+        NOTE: Until DESC ORDER is implemented 
+        """
+        if logicalIndex >= 0 and order == Qt.DescendingOrder:
+            self._tableView.horizontalHeader().\
+                setSortIndicator(logicalIndex, Qt.AscendingOrder)
+
     @pyqtSlot()
     def __onSizeChanged(self):
         """ Invoked when the table widget is resized """
@@ -126,6 +138,7 @@ class ColumnsView(AbstractView):
 
     @pyqtSlot(Qt.Orientation, int, int)
     def __onHeaderDataChanged(self, orientation, first, last):
+
         if self._model is not None and orientation == Qt.Vertical:
             row = self._model.headerData(0, orientation, Qt.DisplayRole)
             if row < 10:
@@ -141,6 +154,9 @@ class ColumnsView(AbstractView):
             self._model.headerDataChanged.disconnect(self.__onHeaderDataChanged)
 
         self._tableView.setModel(model)
+        #  remove sort indicator from all columns
+        self._tableView.horizontalHeader().setSortIndicator(-1,
+                                                            Qt.AscendingOrder)
         self._tableView.resizeColumnsToContents()
         AbstractView.setModel(self, model)
         if model:
