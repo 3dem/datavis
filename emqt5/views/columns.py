@@ -4,7 +4,7 @@
 from math import log10
 
 from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
-from PyQt5.QtWidgets import QTableView, QHeaderView
+from PyQt5.QtWidgets import QTableView, QHeaderView, QAbstractItemView
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
@@ -18,6 +18,11 @@ class ColumnsView(AbstractView):
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
     sigTableSizeChanged = QtCore.pyqtSignal()  # when the Table has been resized
 
+    #  Selection Behavior
+    SELECT_ROWS = 1  # Selecting single items.
+    SELECT_COLUMNS = 2  # Selecting only rows.
+    SELECT_ITEMS = 3  # Selecting only columns.
+
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
@@ -28,7 +33,6 @@ class ColumnsView(AbstractView):
     def __setupUI(self, **kwargs):
         self._tableView = QTableView(self)
         hHeader = HeaderView(self._tableView)
-        hHeader.sortIndicatorChanged.connect(self.__onSortIndicatorChanged)
         self._tableView.setHorizontalHeader(hHeader)
         self._tableView.verticalHeader().setTextElideMode(QtCore.Qt.ElideRight)
         self._defaultDelegate = self._tableView.itemDelegate()
@@ -51,7 +55,10 @@ class ColumnsView(AbstractView):
         :param evt:
         """
         QTableView.resizeEvent(self._tableView, evt)
+        row = self.currentRow()
         self.sigTableSizeChanged.emit()
+        if row >=0:
+            self.selectRow(row)
 
     def __getPage(self, row):
         """
@@ -101,16 +108,6 @@ class ColumnsView(AbstractView):
                 self._tableView.hideColumn(i)
             else:
                 self._tableView.showColumn(i)
-
-    @pyqtSlot(int, Qt.SortOrder)
-    def __onSortIndicatorChanged(self, logicalIndex, order):
-        """
-        Invoked when horizontal header change any sort indicator.
-        NOTE: Until DESC ORDER is implemented 
-        """
-        if logicalIndex >= 0 and order == Qt.DescendingOrder:
-            self._tableView.horizontalHeader().\
-                setSortIndicator(logicalIndex, Qt.AscendingOrder)
 
     @pyqtSlot()
     def __onSizeChanged(self):
@@ -189,9 +186,7 @@ class ColumnsView(AbstractView):
 
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model:
-
-            if row in range(0, self._model.totalRowCount()):
+        if self._model and row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
@@ -203,7 +198,7 @@ class ColumnsView(AbstractView):
         if self._model is None:
             return -1
         r = self._tableView.currentIndex().row()
-        return r if r <= 0 else r + self._pageSize * self._model.getPage()
+        return r if r < 0 else r + self._pageSize * self._model.getPage()
 
     def setImageCache(self, imgCache):
         self._imgCache = imgCache
@@ -243,6 +238,58 @@ class ColumnsView(AbstractView):
         h = rowHeight * self._model.totalRowCount() + \
             (self._pageBar.height() if self._pageBar.isVisible() else 0) + 90
         return self.getHeaderSize(), h
+
+    def setSelectionBehavior(self, selectionBehavior):
+        """
+        This property holds which selection behavior the view uses.
+        This property holds whether selections are done in terms of
+        single items, rows or columns.
+
+        Possible values:
+                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        """
+        if selectionBehavior == self.SELECT_ITEMS:
+            self._tableView.setSelectionBehavior(QAbstractItemView.SelectItems)
+        elif selectionBehavior == self.SELECT_COLUMNS:
+            self._tableView.setSelectionBehavior(
+                QAbstractItemView.SelectColumns)
+        else:
+            self._tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
+
+    def getSelectionModel(self):
+        """ Returns the current selection model. """
+        self._tableView.selectionModel()
+
+    def resizeColumnToContents(self, row):
+        """
+        From QTableView:
+        Resizes the given row based on the size hints of the delegate used
+        to render each item in the row.
+        """
+        self._tableView.resizeColumnToContents(row)
+
+    def selectedIndexes(self):
+        """
+        From QTableView:
+        This convenience function returns a list of all selected and non-hidden
+        item indexes in the view. The list contains no duplicates,
+        and is not sorted.
+        """
+        return self._tableView.selectedIndexes()
+
+    def currentIndex(self):
+        """
+        From QTableView:
+        Returns the model index of the current item.
+        """
+        return self._tableView.currentIndex()
+
+    def getHorizontalHeader(self):
+        """
+        From QTableView:
+        Returns the table view's horizontal header.
+        """
+        return self._tableView.horizontalHeader()
 
 
 class HeaderView(QHeaderView):

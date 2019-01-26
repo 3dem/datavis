@@ -1,11 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSlot, QEvent
 from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QTextEdit)
-from PyQt5.QtGui import QKeySequence
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -90,6 +89,7 @@ class ImageView(QWidget):
 
         self._imageView = pg.ImageView(parent=self,
                                        view=pg.PlotItem())
+        self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
         self._toolBar = ToolBar(self, orientation=Qt.Vertical)
         self._splitter.addWidget(self._toolBar)
@@ -110,8 +110,6 @@ class ImageView(QWidget):
         self._actHistOnOff = MultiAction(toolbar)
         self._actHistOnOff.addState(self.HIST_ON, qta.icon('fa.toggle-on'))
         self._actHistOnOff.addState(self.HIST_OFF, qta.icon('fa.toggle-off'))
-        self._actHistOnOff.setShortcut(QKeySequence(Qt.Key_H))
-        self._actHistOnOff.setShortcutContext(Qt.ApplicationShortcut)
         if self._showHistogram:
             self._actHistOnOff.setToolTip("On")
             self._actHistOnOff.setState(self.HIST_ON)
@@ -152,8 +150,6 @@ class ImageView(QWidget):
         self._actAxisOnOff = MultiAction(toolbar)
         self._actAxisOnOff.addState(self.AXIS_ON, qta.icon('fa.toggle-on'))
         self._actAxisOnOff.addState(self.AXIS_OFF, qta.icon('fa.toggle-off'))
-        self._actAxisOnOff.setShortcut(QKeySequence(Qt.Key_A))
-        self._actAxisOnOff.setShortcutContext(Qt.ApplicationShortcut)
 
         if self._showXaxis:
             self._actAxisOnOff.setState(self.AXIS_ON)
@@ -253,13 +249,13 @@ class ImageView(QWidget):
         self._fileInfoPanel.setStyleSheet(
             'QWidget#fileInfoPanel{border-left: 1px solid lightgray;}')
         self._fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
-                                          QSizePolicy.Ignored)
+                                          QSizePolicy.Minimum)
         vLayout = QVBoxLayout(self._fileInfoPanel)
         self._textEditPath = QTextEdit(self._fileInfoPanel)
         self._textEditPath.viewport().setAutoFillBackground(False)
 
         vLayout.addWidget(self._textEditPath)
-        vLayout.addStretch()
+        self._fileInfoPanel.setMinimumHeight(30)
 
         self._actFileInfo = QAction(None)
         self._actFileInfo.setIcon(qta.icon('fa.info-circle'))
@@ -385,6 +381,13 @@ class ImageView(QWidget):
                 axis.setZValue(0)
                 axis.setAutoFillBackground(self._autoFill)
                 axis.linkedViewChanged(viewBox)
+
+    def __imageViewKeyPressEvent(self, ev):
+        if ev.key() == Qt.Key_H:
+            self.__actHistogramOnOffTriggered(True)
+
+        if ev.key() == Qt.Key_A:
+            self.__actAxisOnOffTriggered(True)
 
     def __setupImageView(self):
         """ Configure the pg.ImageView widget """
@@ -550,6 +553,7 @@ class ImageView(QWidget):
         self.__resetOperationParams()
         self._imageView.clear()
         self.fitToSize()
+        self._textEditPath.setText("")
 
     @pyqtSlot()
     def fitToSize(self):
@@ -640,3 +644,18 @@ class ImageView(QWidget):
 
     def getToolBar(self):
         return self._toolBar
+
+    def eventFilter(self, obj, event):
+        """
+        Filters events if this object has been installed as an event filter for
+        the watched object
+        :param obj: watched object
+        :param event: event
+        :return: True if this object has been installed, False i.o.c
+        """
+
+        if event.type() == QEvent.KeyPress:
+            self.__imageViewKeyPressEvent(event)
+            return True
+
+        return QWidget.eventFilter(self, obj, event)

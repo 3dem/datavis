@@ -100,9 +100,9 @@ class PickerDataModel:
     of Coordinates (x, y positions in the Micrograph).
     """
     def __init__(self):
-        self._micrographs = []
-        self._labels = {}
-        self._privateLabels = {}
+        self._micrographs = dict()
+        self._labels = dict()
+        self._privateLabels = dict()
         self._initLabels()
         self._boxsize = None
         self._lastId = 0
@@ -115,8 +115,8 @@ class PickerDataModel:
         """ Iterate over all Micrographs in the model. """
         return iter(self._micrographs)
 
-    def __getitem__(self, index):
-        return self._micrographs[index]
+    def __getitem__(self, micId):
+        return self._micrographs[micId]
 
     def _initLabels(self):
         """
@@ -157,7 +157,7 @@ class PickerDataModel:
             self._lastId += 1
             mic = Micrograph(self._lastId, mic)
 
-        self._micrographs.append(mic)
+        self._micrographs[self._lastId] = mic
 
     def getLabels(self):
         """

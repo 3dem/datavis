@@ -200,22 +200,21 @@ class TableDataModel(QAbstractItemModel):
         if role == Qt.EditRole and self.flags(qModelIndex) & Qt.ItemIsEditable:
             col = qModelIndex.column()
             row = self._page * self._pageSize + qModelIndex.row()
-            return self.setTableData(row,
-                                     col,
-                                     value)
+            if self.setTableData(row, col, value):
+                self.dataChanged.emit(qModelIndex, qModelIndex, [role])
+                return True
 
         return False
 
     def setTableData(self, row, column, value):
         """
-        Set table data
+        Set table data.
+        NOTE: Using this function, no view will be notified
         """
         if self.flags(self.createIndex(0, column)) & Qt.ItemIsEditable:
-            self.beginResetModel()
             tableColumn = self._emTable.getColumnByIndex(column)
             tableRow = self._emTable[row]
             tableRow[tableColumn.getName()] = value
-            self.endResetModel()
             return True
 
         return False
@@ -410,10 +409,10 @@ class TableDataModel(QAbstractItemModel):
         self._tableViewConfig = config
 
     def sort(self, column, order=Qt.AscendingOrder):
-        if order == Qt.AscendingOrder:
-            self.beginResetModel()
-            self._emTable.sort([self._tableViewConfig[column].getName()])
-            self.endResetModel()
+        self.beginResetModel()
+        od = " DESC" if order == Qt.DescendingOrder else ""
+        self._emTable.sort([self._tableViewConfig[column].getName() + od])
+        self.endResetModel()
 
     def __setupModel(self):
         """
@@ -430,6 +429,34 @@ class TableDataModel(QAbstractItemModel):
                               (1 if s % self._pageSize else 0)
 
         self._page = int(offset / self._pageSize)
+
+    def insertRows(self, row, count, parent=QModelIndex()):
+        """ Reimplemented from QAbstractItemModel """
+
+        if row < self._emTable.getSize():
+            self.beginInsertRows(parent, row, row + count)
+            for index in range(row, row + count):
+                r = self._emTable.createRow()
+                self._emTable.addRow(r)
+            self.endInsertRows()
+            self.__setupModel()
+            self.sigPageConfigChanged.emit(self._page, self._pageCount,
+                                           self._pageSize)
+            self.loadPage(self._page, force=True)
+            return True
+        return False
+
+    def appendRow(self, row):
+        """ Append a new row to the end of the model """
+        self.beginResetModel()
+        tr = self._emTable.getSize() - 1
+        self.insertRow(self._emTable.getSize() - 1)
+        tc = 0
+        tr = tr + 1
+        for value in row:
+            self.setTableData(tr, tc, value)
+            tc = tc + 1
+        self.endResetModel()
 
 
 class VolumeDataModel(QAbstractItemModel):
