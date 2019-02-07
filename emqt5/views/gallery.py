@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
+from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
+                          QItemSelectionModel, QItemSelectionRange)
 from PyQt5.QtWidgets import QAbstractItemView, QListView
 
 from PyQt5 import QtCore
@@ -29,11 +30,15 @@ class GalleryView(AbstractView):
         self._cellSpacing = 0
         self._imgCache = ImageCache(50)
         self._thumbCache = ImageCache(500, (100, 100))
+        self._selection = QItemSelection()
+        self._currentRow = 0
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
         self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
+        self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
         self._listView.setResizeMode(QListView.Adjust)
         self._listView.setSpacing(self._cellSpacing)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -92,23 +97,48 @@ class GalleryView(AbstractView):
         return int(row / self._pageSize) \
             if self._pageSize > 0 and row >= 0 else -1
 
+    def __updateSelectionInView(self, page):
+        """ Makes the current selection in the view """
+
+        if self._model is not None:
+            selModel = self._listView.selectionModel()
+            if selModel is not None:
+                pageSize = self._model.getPageSize()
+                selPage = QItemSelection(self._model.index(page * pageSize, 0),
+                                         self._model.index(
+                                             (page + 1) * pageSize - 1,
+                                             self._model.columnCount() - 1))
+                sel = QItemSelection()
+                for index in selPage.indexes():
+                    if self._selection.contains(index):
+                        sel.append(
+                            QItemSelectionRange(
+                                self._model.index(index.row() % pageSize,
+                                                  index.column())))
+                allSel = QItemSelection(self._model.index(0, 0),
+                                        self._model.index(
+                                            pageSize - 1,
+                                            self._model.columnCount() - 1))
+                selModel.select(allSel, QItemSelectionModel.Deselect)
+                if not sel.isEmpty():
+                    selModel.select(sel, QItemSelectionModel.Select)
+
     @pyqtSlot()
     def __onSizeChanged(self):
         """ Invoked when the gallery widget is resized """
         self.__calcPageSize()
         if self._model:
-            index = self._listView.currentIndex()
-            row = index.row() if index and index.isValid() else 0
-            self._model.setupPage(self._pageSize, self.__getPage(row))
-
-        self.sigPageSizeChanged.emit()
+            self._model.setupPage(self._pageSize,
+                                  self.__getPage(self._currentRow))
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """ Invoked when change current page """
         if self._model is not None:
             size = self._model.getPageSize()
-            self.selectRow(page * size)
+            self._currentRow = page * size
+            self.__updateSelectionInView(page)
+            self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -118,15 +148,54 @@ class GalleryView(AbstractView):
             self.sigCurrentRowChanged.emit(
                 row + self._pageSize * self._model.getPage())
 
+    @pyqtSlot(QItemSelection)
+    def changeSelection(self, selection):
+        """ Invoked when the selection """
+        self._selection.clear()
+        if selection is not None:
+            self._selection.merge(selection, QItemSelectionModel.Select)
+        if self._model is not None:
+            self.__updateSelectionInView(self._model.getPage())
+
+    @pyqtSlot(QItemSelection, QItemSelection)
+    def __onInternalSelectionChanged(self, selected, deselected):
+        """ Invoked when the internal selection is changed """
+        selected1 = QItemSelection()
+        page = self._model.getPage()
+        pageSize = self._model.getPageSize()
+
+        for sRange in selected:
+            top = sRange.top() + page * pageSize
+            bottom = sRange.bottom() + page * pageSize
+            selected1.append(QItemSelectionRange(
+                self._model.createIndex(top, 0),
+                self._model.createIndex(bottom, self._model.columnCount() - 1)))
+
+        deselected1 = QItemSelection()
+        for sRange in deselected:
+            top = sRange.top() + page * pageSize
+            bottom = sRange.bottom() + page * pageSize
+            deselected1.append(QItemSelectionRange(
+                self._model.createIndex(top, 0),
+                self._model.createIndex(bottom, self._model.columnCount() - 1)))
+
+        if not selected1.isEmpty() or not deselected1.isEmpty():
+            self._selection.merge(selected1, QItemSelectionModel.Select)
+            self._selection.merge(deselected1, QItemSelectionModel.Deselect)
+            self.sigSelectionChanged.emit(selected1, deselected1)
+
     def setModel(self, model):
         """ Sets the model """
         self._listView.setModel(model)
+        self._selection.clear()
+        self._currentRow = 0
         AbstractView.setModel(self, model)
         if model:
             model.setIconSize(self._listView.iconSize())
             model.setupPage(self._pageSize, 0)
-            self._listView.selectionModel().currentRowChanged.connect(
-                self.__onCurrentRowChanged)
+            sModel = self._listView.selectionModel()
+            sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
+            sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
 
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
@@ -160,12 +229,9 @@ class GalleryView(AbstractView):
         if self._model:
             if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
+                self._currentRow = row
                 self._model.loadPage(page)
-            index = self._model.createIndex(
-                0 if row == 0 else row % self._pageSize,
-                self._listView.modelColumn())
-
-            self._listView.setCurrentIndex(index)
+            self.__updateSelectionInView(page)
 
     def currentRow(self):
         """ Returns the current selected row """
@@ -215,3 +281,31 @@ class GalleryView(AbstractView):
 
         return w, h + (self._pageBar.height()
                        if self._pageBar.isVisible() else 0)
+
+    def setSelectionMode(self, selectionMode):
+        """
+        Indicates how the view responds to user selections:
+        SINGLE_SELECTION, EXTENDED_SELECTION
+        """
+        if selectionMode == self.SINGLE_SELECTION:
+            self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
+        elif selectionMode == self.EXTENDED_SELECTION:
+            self._tableView.setSelectionMode(
+                QAbstractItemView.ExtendedSelection)
+
+    def setSelectionBehavior(self, selectionBehavior):
+        """
+        This property holds which selection behavior the view uses.
+        This property holds whether selections are done in terms of
+        single items, rows or columns.
+
+        Possible values:
+                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        """
+        if selectionBehavior == self.SELECT_ITEMS:
+            self._listView.setSelectionBehavior(QAbstractItemView.SelectItems)
+        elif selectionBehavior == self.SELECT_COLUMNS:
+            self._listView.setSelectionBehavior(
+                QAbstractItemView.SelectColumns)
+        elif selectionBehavior == self.SELECT_ROWS:
+            self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)

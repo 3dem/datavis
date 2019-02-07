@@ -262,7 +262,8 @@ class TableDataModel(QAbstractItemModel):
         if force or (not self._page == pageIndex and pageIndex
                      in range(0, self._pageCount)):
             self.beginResetModel()
-            self._page = pageIndex
+            if not pageIndex == -1:
+                self._page = pageIndex
             self._pageData = []
             first = self._page * self._pageSize
             last = first + self._pageSize

@@ -3,7 +3,8 @@
 
 from math import log10
 
-from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
+from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
+                          QItemSelectionModel, QItemSelectionRange)
 from PyQt5.QtWidgets import QTableView, QHeaderView, QAbstractItemView
 from PyQt5 import QtCore
 from .model import ImageCache
@@ -18,16 +19,13 @@ class ColumnsView(AbstractView):
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
     sigTableSizeChanged = QtCore.pyqtSignal()  # when the Table has been resized
 
-    #  Selection Behavior
-    SELECT_ROWS = 1  # Selecting single items.
-    SELECT_COLUMNS = 2  # Selecting only rows.
-    SELECT_ITEMS = 3  # Selecting only columns.
-
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
         self._imgCache = ImageCache(50)
         self._thumbCache = ImageCache(500, (100, 100))
+        self._selection = QItemSelection()
+        self._currentRow = 0
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
@@ -38,7 +36,7 @@ class ColumnsView(AbstractView):
         self._defaultDelegate = self._tableView.itemDelegate()
         self.sigTableSizeChanged.connect(self.__onSizeChanged)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
-        self._tableView.setSelectionMode(QTableView.SingleSelection)
+        self._tableView.setSelectionMode(QTableView.MultiSelection)
         self._tableView.setSortingEnabled(True)
         self._tableView.setModel(None)
         self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -57,8 +55,8 @@ class ColumnsView(AbstractView):
         QTableView.resizeEvent(self._tableView, evt)
         row = self.currentRow()
         self.sigTableSizeChanged.emit()
-        if row >=0:
-            self.selectRow(row)
+        #if row >= 0:
+        #    self.selectRow(row)
 
     def __getPage(self, row):
         """
@@ -109,21 +107,49 @@ class ColumnsView(AbstractView):
             else:
                 self._tableView.showColumn(i)
 
+    def __updateSelectionInView(self, page):
+        """ Makes the current selection in the view """
+        if self._model is not None:
+            selModel = self._tableView.selectionModel()
+            if selModel is not None:
+                pageSize = self._model.getPageSize()
+                selPage = QItemSelection(
+                    self._model.index(page * pageSize, 0),
+                    self._model.index(
+                        (page + 1) * pageSize - 1,
+                        self._model.columnCount() - 1))
+                sel = QItemSelection()
+                for index in selPage.indexes():
+                    if self._selection.contains(index):
+                        sel.append(
+                            QItemSelectionRange(
+                                self._model.index(index.row() % pageSize,
+                                                  index.column())))
+
+               # blocked = selModel.blockSignals(True)
+                allSel = QItemSelection(self._model.index(0, 0),
+                                        self._model.index(
+                                            pageSize - 1,
+                                            self._model.columnCount() - 1))
+                selModel.select(allSel, QItemSelectionModel.Deselect)
+                if not sel.isEmpty():
+                    selModel.select(sel, QItemSelectionModel.Select)
+
     @pyqtSlot()
     def __onSizeChanged(self):
         """ Invoked when the table widget is resized """
         self.__calcPageSize()
         if self._model:
-            index = self._tableView.currentIndex()
-            row = index.row() if index and index.isValid() else 0
-            self._model.setupPage(self._pageSize, self.__getPage(row))
+            self._model.setupPage(self._pageSize,
+                                  self.__getPage(self._currentRow))
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """ Invoked when change current page """
         if self._model is not None:
             size = self._model.getPageSize()
-            self.selectRow(page * size)
+            self._currentRow = page * size
+            self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -145,8 +171,47 @@ class ColumnsView(AbstractView):
             vHeader.setFixedWidth(w)
             vHeader.geometriesChanged.emit()
 
-    def setModel(self, model):
+    @pyqtSlot(QItemSelection)
+    def changeSelection(self, selection):
+        """ Invoked when the selection is changed """
+        """ Invoked when the selection """
+        self._selection.clear()
+        if selection is not None:
+            self._selection.merge(selection, QItemSelectionModel.Select)
+        if self._model is not None:
+            self.__updateSelectionInView(self._model.getPage())
 
+    @pyqtSlot(QItemSelection, QItemSelection)
+    def __onInternalSelectionChanged(self, selected, deselected):
+        """ Invoked when the internal selection is changed """
+        selected1 = QItemSelection()
+        page = self._model.getPage()
+        pageSize = self._model.getPageSize()
+
+        for sRange in selected:
+            top = sRange.top() + page * pageSize
+            bottom = sRange.bottom() + page * pageSize
+            selected1.append(QItemSelectionRange(
+                self._model.createIndex(top, 0),
+                self._model.createIndex(bottom, self._model.columnCount() - 1)))
+
+        deselected1 = QItemSelection()
+        for sRange in deselected:
+            top = sRange.top() + page * pageSize
+            bottom = sRange.bottom() + page * pageSize
+            deselected1.append(QItemSelectionRange(
+                self._model.createIndex(top, 0),
+                self._model.createIndex(bottom, self._model.columnCount() - 1)))
+
+        if not selected1.isEmpty() or not deselected1.isEmpty():
+            self._selection.merge(selected1, QItemSelectionModel.Select)
+            self._selection.merge(deselected1, QItemSelectionModel.Deselect)
+            self.sigSelectionChanged.emit(selected1, deselected1)
+
+    def setModel(self, model):
+        """ Sets the model for this view """
+        self._selection.clear()
+        self._currentRow = 0
         if self._model is not None:
             self._model.headerDataChanged.disconnect(self.__onHeaderDataChanged)
 
@@ -162,8 +227,9 @@ class ColumnsView(AbstractView):
             s = self._tableView.verticalHeader().defaultSectionSize()
             model.setIconSize(QSize(s, s))
             model.setupPage(self._pageSize, 0)
-            self._tableView.selectionModel().currentRowChanged.connect(
-                self.__onCurrentRowChanged)
+            selModel = self._tableView.selectionModel()
+            selModel.currentRowChanged.connect(self.__onCurrentRowChanged)
+            selModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
 
     def setRowHeight(self, height):
@@ -188,10 +254,10 @@ class ColumnsView(AbstractView):
         """ Selects the given row """
         if self._model and row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
+                self._currentRow = row
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
-                self._tableView.selectRow(0 if row == 0 else
-                                          row % self._pageSize)
+                self.__updateSelectionInView(page)
 
     def currentRow(self):
         """ Returns the current selected row """
@@ -239,6 +305,17 @@ class ColumnsView(AbstractView):
             (self._pageBar.height() if self._pageBar.isVisible() else 0) + 90
         return self.getHeaderSize(), h
 
+    def setSelectionMode(self, selectionMode):
+        """
+        Indicates how the view responds to user selections:
+        SINGLE_SELECTION, EXTENDED_SELECTION
+        """
+        if selectionMode == self.SINGLE_SELECTION:
+            self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
+        elif selectionMode == self.EXTENDED_SELECTION:
+            self._tableView.setSelectionMode(
+                QAbstractItemView.ExtendedSelection)
+
     def setSelectionBehavior(self, selectionBehavior):
         """
         This property holds which selection behavior the view uses.
@@ -253,12 +330,8 @@ class ColumnsView(AbstractView):
         elif selectionBehavior == self.SELECT_COLUMNS:
             self._tableView.setSelectionBehavior(
                 QAbstractItemView.SelectColumns)
-        else:
+        elif selectionBehavior == self.SELECT_ROWS:
             self._tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
-
-    def getSelectionModel(self):
-        """ Returns the current selection model. """
-        self._tableView.selectionModel()
 
     def resizeColumnToContents(self, row):
         """
