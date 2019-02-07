@@ -4,7 +4,7 @@
 import traceback
 
 from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange)
+                          QItemSelectionModel, QItemSelectionRange, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
@@ -17,6 +17,7 @@ from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
+from .base import AbstractView
 from .config import TableViewConfig
 from .toolbar import ToolBar, MultiAction
 
@@ -40,6 +41,9 @@ class DataView(QWidget):
 
     """ This signal is emitted when the current table is changed """
     sigCurrentTableChanged = pyqtSignal()
+
+    """ This signal is emitted when the current row is changed """
+    sigCurrentRowChanged = pyqtSignal(int)
 
     def __init__(self, parent, **kwargs):
         QWidget.__init__(self, parent=parent)
@@ -73,6 +77,7 @@ class DataView(QWidget):
         self.__setupUi(**kwargs)
         self.__setupCurrentViewMode()
         self.__setupActions()
+        self.setSelectionMode(AbstractView.MULTI_SELECTION)
 
     def __setupUi(self, **kwargs):
 
@@ -508,7 +513,6 @@ class DataView(QWidget):
         Configure the current table model in all view modes
         """
         self.__setupAllWidgets()
-        #self.__setupCurrentViewMode()
 
     def __setupSpinBoxCurrentRow(self):
         """
@@ -708,6 +712,7 @@ class DataView(QWidget):
             block = self._spinBoxCurrentRow.blockSignals(True)
             self._spinBoxCurrentRow.setValue(row + 1)
             self._spinBoxCurrentRow.blockSignals(block)
+            self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(int)
     def _onAxisChanged(self, index):
@@ -756,6 +761,31 @@ class DataView(QWidget):
             self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
                               str(ex))
             print(traceback.format_exc())
+
+    @pyqtSlot(QModelIndex, int, int)
+    def __onRowsInserted(self, parent, first, last):
+        """ Invoked when rows are inserted """
+        for viewWidget in self._viewsDict.values():
+            model = viewWidget.getModel()
+            if model is not None:
+                model.setupPage(model.getPageSize(), model.getPage())
+                self._showViewDims()
+                self.__showTableSize()
+                self.__setupSpinBoxRowHeigth()
+                self.__setupSpinBoxCurrentRow()
+
+    @pyqtSlot(QModelIndex, QModelIndex)
+    def __onDataChanged(self, topLeft, bottomRight):
+        """ Invoked whenever the data in an existing item changes."""
+        viewWidget = self._viewsDict.get(self._view)
+
+        if viewWidget is not None:
+            model = viewWidget.getModel()
+            if model is not None:
+                model.dataChanged.emit(model.createIndex(topLeft.row(),
+                                                         topLeft.column()),
+                                       model.createIndex(bottomRight.row(),
+                                                         bottomRight.column()))
 
     @pyqtSlot()
     def __showMsgBox(self, text, icon=None, details=None):
@@ -875,6 +905,7 @@ class DataView(QWidget):
 
                 if not row == self._spinBoxCurrentRow.value():
                     self._spinBoxCurrentRow.setValue(row)
+                self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -899,8 +930,15 @@ class DataView(QWidget):
     def setModel(self, model):
         """ Set the table model for display. """
         self.__clearViews()
+        if self._model is not None:
+            self._model.rowsInserted.disconnect(self.__onRowsInserted)
+            self._model.dataChanged.disconnect(self.__onDataChanged)
         self._model = model
-        self._selection.clear()
+        if self._model is not None:
+            self._model.rowsInserted.connect(self.__onRowsInserted)
+            self._model.dataChanged.connect(self.__onDataChanged)
+
+        self.__clearSelections()
         if model is not None:
             self._selection.select(
                 model.createIndex(0, 0),
@@ -908,7 +946,6 @@ class DataView(QWidget):
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
-        self.__clearSelections()
 
     def getModel(self):
         """
@@ -977,6 +1014,38 @@ class DataView(QWidget):
         if view in self._views and self.__canChangeToView(view):
             self._view = view
             self.__setupCurrentViewMode()
+
+    def selectRow(self, row):
+        """
+        Sets the given row as the current row for all views.
+        0 will be considered as the first row.
+        """
+        r = self._spinBoxCurrentRow.value()
+        if r == row + 1:
+            self.sigCurrentRowChanged.emit(self._currentRow)
+        else:
+            self._spinBoxCurrentRow.setValue(row + 1)
+
+    def setSelectionMode(self, selectionMode):
+        """
+        Indicates how the view responds to user selections:
+        AbstractView:
+                    SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
+        """
+        for viewWidget in self._viewsDict.values():
+            viewWidget.setSelectionMode(selectionMode)
+
+    def setSelectionBehavior(self, selectionBehavior):
+        """
+        This property holds which selection behavior the view uses.
+        This property holds whether selections are done in terms of
+        single items, rows or columns.
+
+        AbstractView:
+                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        """
+        for viewWidget in self._viewsDict.values():
+            viewWidget.setSelectionMode(selectionBehavior)
 
     def getAvailableViews(self):
         """ Return the available views """

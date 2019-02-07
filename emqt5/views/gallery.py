@@ -38,7 +38,7 @@ class GalleryView(AbstractView):
         self._listView = QListView(self)
         self._listView.setViewMode(QListView.IconMode)
         self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
+        self._listView.setSelectionMode(QAbstractItemView.SingleSelection)
         self._listView.setResizeMode(QListView.Adjust)
         self._listView.setSpacing(self._cellSpacing)
         self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -285,13 +285,15 @@ class GalleryView(AbstractView):
     def setSelectionMode(self, selectionMode):
         """
         Indicates how the view responds to user selections:
-        SINGLE_SELECTION, EXTENDED_SELECTION
+        SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
         if selectionMode == self.SINGLE_SELECTION:
-            self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
+            self._listView.setSelectionMode(QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
-            self._tableView.setSelectionMode(
+            self._listView.setSelectionMode(
                 QAbstractItemView.ExtendedSelection)
+        elif selectionMode == self.MULTI_SELECTION:
+            self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
         """

@@ -2,7 +2,7 @@ import sys
 import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QItemSelectionModel, QModelIndex,
+from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex,
                           QFile, QIODevice, QJsonDocument, QJsonParseError)
 from PyQt5.QtWidgets import (QHBoxLayout, QFileDialog, QMessageBox, QCompleter,
                              QPushButton, QActionGroup, QButtonGroup, QLabel,
@@ -21,7 +21,8 @@ from .picker_model import Micrograph, Coordinate
 from .utils import ImageElemParser
 from .image_view import ImageView
 from .config import TableViewConfig
-from .columns import ColumnsView
+from .data_view import DataView
+from .base import AbstractView
 from ..utils import EmImage, EmPath
 
 SHAPE_RECT = 0
@@ -79,7 +80,7 @@ class PickerView(QWidget):
 
         # By default select the first micrograph in the list
         if self._tvModel.rowCount() > 0:
-            self._tvImages.selectRow(0)
+            self._dvImages.selectRow(0)
 
     def __setup(self, **kwargs):
         """ Configure the PickerView. """
@@ -117,9 +118,10 @@ class PickerView(QWidget):
         self._lineEdit = QLineEdit(self._leftPanel)
         self._lineEdit.setObjectName("lineEdit")
         self._verticalLayout.addWidget(self._lineEdit)
-        self._tvImages = ColumnsView(self._leftPanel)
+        self._dvImages = DataView(self._leftPanel, **kwargs)
+        self._tvImages = self._dvImages.getViewWidget(DataView.COLUMNS)#ColumnsView(self._leftPanel)
         self._tvImages.setObjectName("columnsViewImages")
-        self._verticalLayout.addWidget(self._tvImages)
+        self._verticalLayout.addWidget(self._dvImages)
 
         self._viewWidget = QWidget(self)
         self._viewLayout = QVBoxLayout(self._viewWidget)
@@ -410,9 +412,11 @@ class PickerView(QWidget):
                                         visible=True)
         self._tvModel = TableDataModel(table, tableViewConfig=tableViewConfig)
 
-        self._tvImages.setModel(self._tvModel)
-        self._tvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._tvImages.sigCurrentRowChanged.connect(
+        #self._tvImages.setModel(self._tvModel)
+        self._dvImages.setModel(self._tvModel)
+        self._dvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._dvImages.setSelectionMode(AbstractView.EXTENDED_SELECTION)
+        self._dvImages.sigCurrentRowChanged.connect(
             self.__onCurrentRowChanged)
         self._tvImages.getHorizontalHeader().sectionClicked.connect(
             self.__onSectionClicked)

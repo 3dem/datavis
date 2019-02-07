@@ -36,7 +36,7 @@ class ColumnsView(AbstractView):
         self._defaultDelegate = self._tableView.itemDelegate()
         self.sigTableSizeChanged.connect(self.__onSizeChanged)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
-        self._tableView.setSelectionMode(QTableView.MultiSelection)
+        self._tableView.setSelectionMode(QTableView.SingleSelection)
         self._tableView.setSortingEnabled(True)
         self._tableView.setModel(None)
         self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -308,13 +308,15 @@ class ColumnsView(AbstractView):
     def setSelectionMode(self, selectionMode):
         """
         Indicates how the view responds to user selections:
-        SINGLE_SELECTION, EXTENDED_SELECTION
+        SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
         if selectionMode == self.SINGLE_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
             self._tableView.setSelectionMode(
                 QAbstractItemView.ExtendedSelection)
+        elif selectionMode == self.MULTI_SELECTION:
+            self._tableView.setSelectionMode(QAbstractItemView.MultiSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
         """

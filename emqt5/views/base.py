@@ -271,6 +271,7 @@ class AbstractView(QWidget):
     #  Selection Mode
     SINGLE_SELECTION = 20  # See QAbstractItemView.SingleSelection
     EXTENDED_SELECTION = 21  # See QAbstractItemView.ExtendedSelection
+    MULTI_SELECTION = 22  # See QAbstractItemView.MultiSelection
 
     """ 
         This signal is emitted when the current selection is changed
@@ -349,3 +350,22 @@ class AbstractView(QWidget):
         """ Returns a tuple (rows, columns) with the data size """
         return 0, 0
 
+    def setSelectionMode(self, selectionMode):
+        """
+        Indicates how the view responds to user selections:
+        SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
+        This method must be reimplemented in inherited classes
+        """
+        pass
+
+    def setSelectionBehavior(self, selectionBehavior):
+        """
+        This property holds which selection behavior the view uses.
+        This property holds whether selections are done in terms of
+        single items, rows or columns.
+
+        Possible values:
+                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        This method must be reimplemented in inherited classes
+        """
+        pass

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSlot, QModelIndex
 from PyQt5.QtWidgets import QTableView, QSplitter
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
@@ -93,6 +93,12 @@ class ItemsView(AbstractView):
             self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
             self.sigCurrentRowChanged.emit(row)
 
+    @pyqtSlot(QModelIndex, QModelIndex)
+    def __onDataChanged(self, topLeft, bottomRight):
+        """ Invoked whenever the data in an existing item changes."""
+        if topLeft.row() == self._row:
+            self.__loadItem(self._row, self._column)
+
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """ Invoked when change the current page """
@@ -114,6 +120,7 @@ class ItemsView(AbstractView):
         self._column = 0
         if self._model:
             self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
+            self._model.dataChanged.disconnect(self.__onDataChanged)
 
         AbstractView.setModel(self, model)
 
@@ -121,6 +128,7 @@ class ItemsView(AbstractView):
             self._imageView.setVisible(self._model.hasRenderableColumn())
             self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
+            self._model.dataChanged.connect(self.__onDataChanged)
         else:
             self._imageView.setVisible(False)
 
