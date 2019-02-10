@@ -109,34 +109,41 @@ class DataView(QWidget):
         vLayout = QVBoxLayout(self._selectionPanel)
         vLayout.addWidget(QLabel("Elems"))
         self._actSelectAll = QAction(None)
-        self._actSelectAll.setIcon(qta.icon('fa.list'))
+        self._actSelectAll.setIcon(qta.icon('fa.chevron-up',
+                                            'fa.chevron-down',
+                                           options=[{'offset': (0, -0.3),
+                                                     'scale_factor': 0.85},
+                                                    {'offset': (0, 0.3),
+                                                     'scale_factor': 0.85}
+                                                    ]
+                                           ))
         self._actSelectAll.setToolTip("Select all")
         self._actSelectAll.triggered.connect(self.__onSelectAllTriggered)
         self._toolBar1.addAction(self._actSelectAll)
 
         self._actSelectToHere = QAction(None)
-        self._actSelectToHere.setIcon(qta.icon('fa.outdent'))
+        self._actSelectToHere.setIcon(qta.icon('fa.chevron-up'))
         self._actSelectToHere.setToolTip("Select to")
         self._actSelectToHere.triggered.connect(
             self.__onToHereSelectionTriggered)
         self._toolBar1.addAction(self._actSelectToHere)
 
         self._actSelectFromHere = QAction(None)
-        self._actSelectFromHere.setIcon(qta.icon('fa.indent'))
+        self._actSelectFromHere.setIcon(qta.icon('fa.chevron-down'))
         self._actSelectFromHere.setToolTip("Select from")
         self._actSelectFromHere.triggered.connect(
             self.__onFromHereSelectionTriggered)
         self._toolBar1.addAction(self._actSelectFromHere)
 
         self._actInvSelection = QAction(None)
-        self._actInvSelection.setIcon(qta.icon('fa.align-justify'))
+        self._actInvSelection.setIcon(qta.icon('fa5s.exchange-alt'))
         self._actInvSelection.setToolTip("Invert selection")
         self._actInvSelection.triggered.connect(
             self.__onInvertSelectionTriggered)
         self._toolBar1.addAction(self._actInvSelection)
 
         self._actClearSelection = QAction(None)
-        self._actClearSelection.setIcon(qta.icon('fa.barcode'))
+        self._actClearSelection.setIcon(qta.icon('fa.eraser'))
         self._actClearSelection.setToolTip("Clear selection")
         self._actClearSelection.triggered.connect(
             self.__onClearSelectionTriggered)
