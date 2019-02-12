@@ -277,7 +277,7 @@ class AbstractView(QWidget):
         This signal is emitted when the current selection is changed
         emit(selected, deselected) 
         """
-    sigSelectionChanged = pyqtSignal(QItemSelection, QItemSelection)
+    sigSelectionChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         QWidget.__init__(self, parent=parent)
@@ -315,7 +315,7 @@ class AbstractView(QWidget):
         """ Invoked when the model change his current page """
         self._pageBar.setPage(page)
 
-    @pyqtSlot(QItemSelection)
+    @pyqtSlot(set)
     def changeSelection(self, selection):
         """
         Invoked when the selection.

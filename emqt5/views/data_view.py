@@ -70,7 +70,7 @@ class DataView(QWidget):
         self._currentRow = 0  # selected table row
         self._imageCache = ImageCache(100)
         self._thumbCache = ImageCache(500, (100, 100))
-        self._selection = QItemSelection()
+        self._selection = set()
 
         self._tablePref = dict()
         self.__initProperties(**kwargs)
@@ -107,47 +107,58 @@ class DataView(QWidget):
         self._selectionPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
-        vLayout.addWidget(QLabel("Elems"))
+        toolbar = QToolBar(self._selectionPanel)
+        self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
         self._actSelectAll = QAction(None)
         self._actSelectAll.setIcon(qta.icon('fa.chevron-up',
                                             'fa.chevron-down',
-                                           options=[{'offset': (0, -0.3),
-                                                     'scale_factor': 0.85},
-                                                    {'offset': (0, 0.3),
-                                                     'scale_factor': 0.85}
-                                                    ]
-                                           ))
+                                             options=[{'offset': (0, -0.3),
+                                                       'scale_factor': 0.85},
+                                                      {'offset': (0, 0.3),
+                                                       'scale_factor': 0.85}
+                                                      ]))
         self._actSelectAll.setToolTip("Select all")
         self._actSelectAll.triggered.connect(self.__onSelectAllTriggered)
-        self._toolBar1.addAction(self._actSelectAll)
+        toolbar.addAction(self._actSelectAll)
 
         self._actSelectToHere = QAction(None)
         self._actSelectToHere.setIcon(qta.icon('fa.chevron-up'))
         self._actSelectToHere.setToolTip("Select to")
         self._actSelectToHere.triggered.connect(
             self.__onToHereSelectionTriggered)
-        self._toolBar1.addAction(self._actSelectToHere)
+        toolbar.addAction(self._actSelectToHere)
 
         self._actSelectFromHere = QAction(None)
         self._actSelectFromHere.setIcon(qta.icon('fa.chevron-down'))
         self._actSelectFromHere.setToolTip("Select from")
         self._actSelectFromHere.triggered.connect(
             self.__onFromHereSelectionTriggered)
-        self._toolBar1.addAction(self._actSelectFromHere)
+        toolbar.addAction(self._actSelectFromHere)
 
         self._actInvSelection = QAction(None)
         self._actInvSelection.setIcon(qta.icon('fa5s.exchange-alt'))
         self._actInvSelection.setToolTip("Invert selection")
         self._actInvSelection.triggered.connect(
             self.__onInvertSelectionTriggered)
-        self._toolBar1.addAction(self._actInvSelection)
+        toolbar.addAction(self._actInvSelection)
 
         self._actClearSelection = QAction(None)
         self._actClearSelection.setIcon(qta.icon('fa.eraser'))
         self._actClearSelection.setToolTip("Clear selection")
         self._actClearSelection.triggered.connect(
             self.__onClearSelectionTriggered)
-        self._toolBar1.addAction(self._actClearSelection)
+        toolbar.addAction(self._actClearSelection)
+        maxWidth = toolbar.sizeHint().width() + toolbar.iconSize().width()
+        vLayout.addWidget(toolbar)
+        vLayout.addWidget(self._labelSelectionInfo)
+        vLayout.addStretch()
+        self._selectionPanel.setGeometry(0, 0, maxWidth,
+                                         self._selectionPanel.height())
+        self._actSelections = QAction(None)
+        self._actSelections.setIcon(qta.icon('fa.check-circle'))
+        self._actSelections.setText('Selections')
+        self._toolBar1.addAction(self._actSelections, self._selectionPanel,
+                                 exclusive=False)
 
         # combobox current table
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
@@ -409,13 +420,13 @@ class DataView(QWidget):
 
     def __showTableSize(self):
         if self._model is not None:
-            if self._selection.isEmpty():
-                text = " Elements: %d" % self._model.totalRowCount()
-            else:
-                text = " Sel: %d/%d" % (self.__getSelectionSize(),
+            text = " Selection:\n %d/%d" % (self.__getSelectionSize(),
+                                          self._model.totalRowCount())
+            self._labelSelectionInfo.setText(text.ljust(20))
+            self._labelElements.setText(" Elements: %d " %
                                         self._model.totalRowCount())
-            self._labelElements.setText(text.ljust(20))
         else:
+            self._labelSelectionInfo.setText("Selection: 0/0")
             self._labelElements.setText("")
 
     def __setupSpinBoxRowHeigth(self):
@@ -607,42 +618,11 @@ class DataView(QWidget):
 
     def __getSelectionSize(self):
         """ Returns the current selection size """
-        ret = 0
-        lastRow = -1
-        for sRange in self._selection:
-            row = sRange.bottom()
-            if not row == lastRow:
-                ret = ret + row - sRange.top() + 1
-                lastRow = row
+        return len(self._selection)
 
-        return ret
-
-
-    @pyqtSlot(QItemSelection, QItemSelection)
-    def __onCurrentViewSelectionChanged(self, selected, deselected):
+    @pyqtSlot()
+    def __onCurrentViewSelectionChanged(self):
         """ Invoked when the selection is changed in any view """
-        selected1 = QItemSelection()
-        for sRange in selected:
-            top = sRange.top()
-            bottom = sRange.bottom()
-            selected1.append(QItemSelectionRange(
-                self._model.createIndex(top, 0),
-                self._model.createIndex(bottom, self._model.columnCount() - 1)))
-
-        if not selected1.isEmpty():
-            self._selection.merge(selected1, QItemSelectionModel.Select)
-
-        deselected1 = QItemSelection()
-        for sRange in deselected:
-            top = sRange.top()
-            bottom = sRange.bottom()
-            deselected1.append(QItemSelectionRange(
-                self._model.createIndex(top, 0),
-                self._model.createIndex(bottom, self._model.columnCount() - 1)))
-
-        if not deselected1.isEmpty():
-            self._selection.merge(deselected1, QItemSelectionModel.Deselect)
-
         self.__showTableSize()
 
     @pyqtSlot(bool)
@@ -650,12 +630,7 @@ class DataView(QWidget):
         """ Invoked when the select_all action is triggered """
 
         if self._model is not None:
-            toHere = QItemSelection(
-                self._model.index(0, 0),
-                self._model.index(self._currentRow,
-                                  self._model.columnCount() - 1))
-            self._selection.clear()
-            self._selection.merge(toHere, QItemSelectionModel.Select)
+            self._selection.update(range(0, self._currentRow + 1))
             self.__makeSelectionInView(self._view)
 
     @pyqtSlot(bool)
@@ -663,13 +638,8 @@ class DataView(QWidget):
         """ Invoked when the select_all action is triggered """
 
         if self._model is not None:
-            self._selection.clear()
-            fromHere = QItemSelection(
-                self._model.index(self._currentRow,
-                                  self._model.columnCount() - 1),
-                self._model.index(self._model.totalRowCount() - 1,
-                                  self._model.columnCount() - 1))
-            self._selection.merge(fromHere, QItemSelectionModel.Select)
+            self._selection.update(range(self._currentRow,
+                                         self._model.totalRowCount()))
             self.__makeSelectionInView(self._view)
 
     @pyqtSlot(bool)
@@ -683,22 +653,15 @@ class DataView(QWidget):
         """ Invoked when the select_all action is triggered """
 
         if self._model is not None:
-            selAll = QItemSelection(
-                self._model.index(0, 0),
-                self._model.index(self._model.totalRowCount() - 1,
-                                  self._model.columnCount() - 1))
-            selAll.merge(self._selection, QItemSelectionModel.Deselect)
-            self._selection = selAll
+            allRows = set(range(self._model.totalRowCount()))
+            self._selection.symmetric_difference_update(allRows)
             self.__makeSelectionInView(self._view)
 
     @pyqtSlot(bool)
     def __onSelectAllTriggered(self, a):
         """ Invoked when the select_all action is triggered """
         if self._model is not None:
-            self._selection = QItemSelection(
-                self._model.index(0, 0),
-                self._model.index(self._model.totalRowCount() - 1,
-                                  self._model.columnCount() - 1))
+            self._selection.update(range(0, self._model.totalRowCount()))
             self.__makeSelectionInView(self._view)
 
     @pyqtSlot(int, int, int, int)
@@ -867,10 +830,7 @@ class DataView(QWidget):
             elif isinstance(viewWidget, GalleryView):
                 viewWidget.setIconSize((size, size))
 
-        if self._selection.isEmpty():
-            self._selectRow(self._currentRow + 1)
-        else:
-            self.__makeSelectionInView(self._view)
+        self.__makeSelectionInView(self._view)
 
     @pyqtSlot()
     def _showViewDims(self):
@@ -899,11 +859,7 @@ class DataView(QWidget):
         if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
                 self._selection.clear()
-                self._selection.select(self._model.createIndex(self._currentRow,
-                                                               0),
-                                       self._model.createIndex(
-                                           self._currentRow,
-                                           self._model.columnCount() - 1))
+                self._selection.add(self._currentRow)
                 viewWidget = self._viewsDict.get(self._view)
 
                 if viewWidget is not None:
@@ -913,6 +869,7 @@ class DataView(QWidget):
                 if not row == self._spinBoxCurrentRow.value():
                     self._spinBoxCurrentRow.setValue(row)
                 self.sigCurrentRowChanged.emit(self._currentRow)
+                self.__showTableSize()
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -947,9 +904,8 @@ class DataView(QWidget):
 
         self.__clearSelections()
         if model is not None:
-            self._selection.select(
-                model.createIndex(0, 0),
-                model.createIndex(0, model.columnCount() - 1))
+            self._selection.clear()
+            self._selection.add(0)
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()

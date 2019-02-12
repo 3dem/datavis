@@ -25,6 +25,7 @@ class ItemsView(AbstractView):
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
+        self._selection = set()
         self._disableFitToSize = False
         self._imgCache = ImageCache(50)
         self._imageRef = ImageRef()
@@ -139,6 +140,7 @@ class ItemsView(AbstractView):
     def selectRow(self, row):
         """ Selects the given row """
         if self._model and row in range(0, self._model.totalRowCount()):
+            self._row = row
             self._model.loadPage(row)
 
     def currentRow(self):

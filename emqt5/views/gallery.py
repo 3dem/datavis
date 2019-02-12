@@ -30,7 +30,7 @@ class GalleryView(AbstractView):
         self._cellSpacing = 0
         self._imgCache = ImageCache(50)
         self._thumbCache = ImageCache(500, (100, 100))
-        self._selection = QItemSelection()
+        self._selection = set()
         self._currentRow = 0
         self.__setupUI(**kwargs)
 
@@ -99,22 +99,20 @@ class GalleryView(AbstractView):
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
-
         if self._model is not None:
             selModel = self._listView.selectionModel()
             if selModel is not None:
                 pageSize = self._model.getPageSize()
-                selPage = QItemSelection(self._model.index(page * pageSize, 0),
-                                         self._model.index(
-                                             (page + 1) * pageSize - 1,
-                                             self._model.columnCount() - 1))
                 sel = QItemSelection()
-                for index in selPage.indexes():
-                    if self._selection.contains(index):
+                for row in range(page * pageSize, (page + 1) * pageSize):
+                    if row in self._selection:
                         sel.append(
                             QItemSelectionRange(
-                                self._model.index(index.row() % pageSize,
-                                                  index.column())))
+                                self._model.index(row % pageSize, 0),
+                                self._model.index(
+                                    row % pageSize,
+                                    self._model.columnCount() - 1)))
+
                 allSel = QItemSelection(self._model.index(0, 0),
                                         self._model.index(
                                             pageSize - 1,
@@ -148,41 +146,30 @@ class GalleryView(AbstractView):
             self.sigCurrentRowChanged.emit(
                 row + self._pageSize * self._model.getPage())
 
-    @pyqtSlot(QItemSelection)
+    @pyqtSlot(set)
     def changeSelection(self, selection):
-        """ Invoked when the selection """
-        self._selection.clear()
-        if selection is not None:
-            self._selection.merge(selection, QItemSelectionModel.Select)
-        if self._model is not None:
-            self.__updateSelectionInView(self._model.getPage())
+        """ Invoked when the selection is changed """
+        self._selection = selection
+        self.__updateSelectionInView(self._model.getPage())
 
     @pyqtSlot(QItemSelection, QItemSelection)
     def __onInternalSelectionChanged(self, selected, deselected):
         """ Invoked when the internal selection is changed """
-        selected1 = QItemSelection()
         page = self._model.getPage()
         pageSize = self._model.getPageSize()
 
         for sRange in selected:
             top = sRange.top() + page * pageSize
             bottom = sRange.bottom() + page * pageSize
-            selected1.append(QItemSelectionRange(
-                self._model.createIndex(top, 0),
-                self._model.createIndex(bottom, self._model.columnCount() - 1)))
+            self._selection.update(range(top, bottom + 1))
 
-        deselected1 = QItemSelection()
         for sRange in deselected:
             top = sRange.top() + page * pageSize
             bottom = sRange.bottom() + page * pageSize
-            deselected1.append(QItemSelectionRange(
-                self._model.createIndex(top, 0),
-                self._model.createIndex(bottom, self._model.columnCount() - 1)))
+            for row in range(top, bottom + 1):
+                self._selection.discard(row)
 
-        if not selected1.isEmpty() or not deselected1.isEmpty():
-            self._selection.merge(selected1, QItemSelectionModel.Select)
-            self._selection.merge(deselected1, QItemSelectionModel.Deselect)
-            self.sigSelectionChanged.emit(selected1, deselected1)
+        self.sigSelectionChanged.emit()
 
     def setModel(self, model):
         """ Sets the model """
@@ -230,6 +217,7 @@ class GalleryView(AbstractView):
             if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
+                self._selection.add(row)
                 self._model.loadPage(page)
             self.__updateSelectionInView(page)
 
