@@ -42,7 +42,26 @@ class Micrograph:
     def __init__(self, micId, path, coordinates=None):
         self._micId = micId
         self._path = path
-        self._coordinates = coordinates or []
+        self._coordinates = []
+        if coordinates:
+            for c in coordinates:
+                if isinstance(c, tuple):
+                    self._coordinates.append(
+                        Coordinate(c[0], c[1],
+                                   c[2] if not c[2] == "" else "Default"))
+                elif isinstance(c, Coordinate):
+                    self._coordinates.append(c)
+                else:
+                    raise Exception("Invalid coordinate type. Only tupple or "
+                                    "Coordinate types are supported.")
+
+    def __len__(self):
+        """ The length of the Micrograph is the number of coordinates. """
+        return len(self._coordinates)
+
+    def __iter__(self):
+        """ Iterates over all coordinates in the micrograph. """
+        return iter(self._coordinates)
 
     def setId(self, micId):
         """ Set the micrograph Id. """
@@ -59,14 +78,6 @@ class Micrograph:
     def getPath(self):
         """ Returns the path of the micrograph. """
         return self._path
-
-    def __len__(self):
-        """ The lenght of the Micrograph is the number of coordinates. """
-        return len(self._coordinates)
-
-    def __iter__(self):
-        """ Iterates over all coordinates in the micrograph. """
-        return iter(self._coordinates)
 
     def addCoordinate(self, coord):
         """ Add a new coordinate to this micrograph. """
@@ -85,15 +96,49 @@ class Micrograph:
 class PickerDataModel:
     """
     This class stores the basic information to the particle picking data.
-    It contains a list of Micrographs and each Micrographs contains a list
+    It contains a list of Micrographs and each Micrograph contains a list
     of Coordinates (x, y positions in the Micrograph).
     """
     def __init__(self):
-        self._micrographs = []
-        self._labels = {}
+        self._micrographs = dict()
+        self._labels = dict()
+        self._privateLabels = dict()
         self._initLabels()
         self._boxsize = None
         self._lastId = 0
+
+    def __len__(self):
+        """ The length of the model is the number of Micrographs. """
+        return len(self._micrographs)
+
+    def __iter__(self):
+        """ Iterate over all Micrographs in the model. """
+        return iter(self._micrographs)
+
+    def __getitem__(self, micId):
+        return self._micrographs[micId]
+
+    def _initLabels(self):
+        """
+        Initialize the labels for this PPSystem
+        """
+        automatic = dict()
+        automatic["name"] = "Auto"
+        automatic["color"] = "#FF0004"  # #AARRGGBB
+        self._labels["Auto"] = automatic
+        self._privateLabels["A"] = automatic
+
+        manual = dict()
+        manual["name"] = "Manual"
+        manual["color"] = "#1500FF"  # #AARRGGBB
+        self._labels["Manual"] = manual
+        self._privateLabels["M"] = manual
+
+        default = dict()
+        default["name"] = "Default"
+        default["color"] = "#74ea00"  # #AARRGGBB
+        self._labels["Default"] = default
+        self._privateLabels["D"] = default
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
@@ -108,11 +153,11 @@ class PickerDataModel:
         Params:
             mic: could be Micrograph instance or a path.
         """
-        if isinstance(mic, str):
+        if isinstance(mic, str) or isinstance(mic, unicode):
             self._lastId += 1
             mic = Micrograph(self._lastId, mic)
 
-        self._micrographs.append(mic)
+        self._micrographs[self._lastId] = mic
 
     def getLabels(self):
         """
@@ -122,36 +167,20 @@ class PickerDataModel:
 
     def getLabel(self, labelName):
         """
-        Returns the label with name=labelName in Labels List
+        Returns the label with name=labelName in Labels list (first) or Private
+        Labels list
         :param labelName: The label name
         :return: dict value
         """
-        return self._labels.get(labelName)
+        ret = self._labels.get(labelName)
 
-    def _initLabels(self):
+        return ret if ret else self._privateLabels.get(labelName)
+
+    def nextId(self):
         """
-        Initialize the labels for this PPSystem
+        Generates the next id.
         """
-        automatic = {}
-        automatic["name"] = "Auto"
-        automatic["color"] = "#FF0004"  # #AARRGGBB
-        self._labels["Auto"] = automatic
+        self._lastId += 1
+        return self._lastId
 
-        manual = {}
-        manual["name"] = "Manual"
-        manual["color"] = "#1500FF"  # #AARRGGBB
-        self._labels["Manual"] = manual
-
-        default = {}
-        default["name"] = "Default"
-        default["color"] = "#74ea00"  # #AARRGGBB
-        self._labels["Default"] = default
-
-    def __len__(self):
-        """ The lenght of the model is the number of Micrographs. """
-        return len(self._micrographs)
-
-    def __iter__(self):
-        """ Iterate over all Micrographs in the model. """
-        return iter(self._micrographs)
 

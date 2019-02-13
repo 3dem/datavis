@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, pyqtSlot, QObject
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
-                             QAction, QActionGroup, QSizePolicy,QMainWindow,
+                             QAction, QActionGroup, QSizePolicy, QMainWindow,
                              QDockWidget)
 
 
@@ -15,10 +15,13 @@ class ToolBar(QWidget):
         Construct an Toolbar to be used as part of any widget
         **kwargs: Optional arguments.
              - orientation: one of Qt.Orientation values (default=Qt.Horizontal)
+             - panel_width (int): the minimum side panel width
         """
         QWidget.__init__(self, parent=parent)
 
         self._panelsDict = dict()
+        self._panelWidth = kwargs.get("panel_width", 160)
+        self._docks = []
         self.__setupUi(**kwargs)
 
     def __setupUi(self, **kwargs):
@@ -30,7 +33,7 @@ class ToolBar(QWidget):
             self._mainLayout = QVBoxLayout(self)
 
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
-                                       QSizePolicy.MinimumExpanding))
+                                       QSizePolicy.Fixed))
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(0, 0, 0, 0)
         self._toolBar = QToolBar(self)
@@ -45,11 +48,24 @@ class ToolBar(QWidget):
         self._actionGroup = QActionGroup(self)
         self._actionGroup.setExclusive(True)
         self._lastAction = None
+        self._visibleDocks = []
 
         self.destroyed.connect(self.__destroySidePanel)
 
     def __visibilityChanged(self, action, dock):
         action.setChecked(dock.isVisible())
+        self.__dockShowHide(dock)
+
+    def __dockShowHide(self, dock):
+        if not dock.isVisible() and dock in self._visibleDocks:
+            self._visibleDocks.remove(dock)
+        else:
+            self._visibleDocks.append(dock)
+            if len(self._visibleDocks) == 1:
+                self.setMaximumWidth(1000000)
+
+        if not self._visibleDocks:
+            self.setMaximumWidth(self._toolBar.width())
 
     @pyqtSlot(QObject)
     def __destroySidePanel(self, obj):
@@ -86,7 +102,8 @@ class ToolBar(QWidget):
     def setToolButtonStyle(self, toolButtonStyle):
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
-    def addAction(self, action, widget=None, exclusive=True, showTitle=True):
+    def addAction(self, action, widget=None, exclusive=True, showTitle=True,
+                  checked=False):
         """
         Add a new action with the associated widget. This widget will be shown
         in the side panel when the action is active.
@@ -94,6 +111,8 @@ class ToolBar(QWidget):
         actions
         if showTitle=True then the action text will be visible as title in the
         side panel
+        if checked=True then it will be activated and the corresponding  action
+        will be executed.
 
         * Ownership of the widget is transferred to the toolbar.
         * Ownership of the action is transferred to the toolbar.
@@ -110,20 +129,32 @@ class ToolBar(QWidget):
             action.triggered.connect(self.__groupActionTriggered)
 
         if widget is not None:
+            width = widget.width()
+            if width > self._panelWidth:
+                self._panelWidth = width
+                for d in self._docks:
+                    d.setMinimumWidth(self._panelWidth)
+
             dock = QDockWidget(action.text() if showTitle else "",
                                self._sidePanel)
-            dock.setWidget(widget)
             dock.setFloating(False)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-            dock.setFeatures(QDockWidget.DockWidgetClosable)
+            dock.setFeatures(
+                QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable)
+            dock.setWidget(widget)
+            dock.setMinimumWidth(self._panelWidth)
+            dock.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
             dock.hide()
             dock.visibilityChanged.connect(
                 lambda visible: self.__visibilityChanged(action, dock))
             self._sidePanel.addDockWidget(Qt.LeftDockWidgetArea, dock)
             self._panelsDict[action] = dock
+            self._docks.append(dock)
             action.setCheckable(True)
             action.triggered.connect(self.__actionTriggered)
             widget.setParent(dock)
+        if checked:
+            action.triggered.emit(True)
 
     def addSeparator(self):
         """ Adds a separator to the end of the toolbar. """
@@ -148,6 +179,20 @@ class ToolBar(QWidget):
         """ Hide the side panel."""
         if self._lastAction is not None:
             self.__groupActionTriggered(self._lastAction)
+
+    def setSidePanelMinimumWidth(self, width):
+        """ Sets the side panel minimum width """
+        self._panelWidth = width
+
+    def getSidePanelMinimumWidth(self):
+        """ Returns the side panel minimum width """
+        return self._panelWidth
+
+    def createSidePanel(self):
+        """ Create a widget with the preferred width"""
+        widget = QWidget()
+        widget.setGeometry(0, 0, self._panelWidth, widget.height())
+        return widget
 
 
 class MultiAction(QAction):

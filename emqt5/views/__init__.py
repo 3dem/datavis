@@ -14,5 +14,8 @@ from .model import (TableDataModel, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS,
                     N_DIM, createStackModel, createTableModel,
                     createVolumeModel)
 from .utils import (createDataView, createSlicesView, createVolumeView,
-                    createImageView, MOVIE_SIZE)
+                    createImageView, MOVIE_SIZE, parseTextCoordinates,
+                    ImageElemParser, createPickerModel)
 from .toolbar import ToolBar, MultiAction
+from .picker_model import PickerDataModel, Micrograph, Coordinate
+from .picker_view import PickerView, SHAPE_RECT, SHAPE_CIRCLE

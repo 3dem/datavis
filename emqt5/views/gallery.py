@@ -3,7 +3,7 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot, QSize, QModelIndex
-from PyQt5.QtWidgets import QAbstractItemView, QListView, QApplication
+from PyQt5.QtWidgets import QAbstractItemView, QListView
 
 from PyQt5 import QtCore
 

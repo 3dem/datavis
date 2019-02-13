@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout,
-                             QToolBar, QVBoxLayout, QFrame, QSpacerItem,
-                             QSizePolicy, QPushButton, QLineEdit)
+from PyQt5.QtCore import Qt, pyqtSlot, QEvent
+from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
+                             QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
+                             QTextEdit)
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -22,7 +22,10 @@ class ImageView(QWidget):
     AXIS_BOTTOM_RIGHT = 2  # axis in bottom-right
     AXIS_BOTTOM_LEFT = 3  # axis in bottom-left
     AXIS_ON = 4  # axis is on (visible)
-    AXIS_OFF = 5  # axis is off (no visible)
+    AXIS_OFF = 5  # axis is off (not visible)
+
+    HIST_ON = 1  # histogram is on (visible)
+    HIST_OFF = 2  # histogram is off (not visible)
 
     def __init__(self, parent, **kwargs):
         """
@@ -79,27 +82,46 @@ class ImageView(QWidget):
         self.setup(**kwargs)
 
     def __setupUI(self, **kwargs):
+
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
+
+        self._imageView = pg.ImageView(parent=self,
+                                       view=pg.PlotItem())
+        self._imageView.installEventFilter(self)
+        self._splitter = QSplitter(self)
         self._toolBar = ToolBar(self, orientation=Qt.Vertical)
+        self._splitter.addWidget(self._toolBar)
+        self._splitter.setCollapsible(0, False)
+        self._splitter.addWidget(self._imageView)
+
         self._toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self._displayPanel = QWidget()
+        self._displayPanel = self._toolBar.createSidePanel()
         self._displayPanel.setObjectName('displayPanel')
         self._displayPanel.setStyleSheet(
             'QWidget#displayPanel{border-left: 1px solid lightgray;}')
+        self._displayPanel.setSizePolicy(QSizePolicy.Ignored,
+                                         QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._displayPanel)
         # --Histogram--
         toolbar = QToolBar(self._displayPanel)
         toolbar.addWidget(QLabel('Histogram ', toolbar))
-        self._actHistogram = QAction(toolbar)
-        self._actHistogram.setIcon(qta.icon('fa.area-chart'))
-        self._actHistogram.setCheckable(True)
-        self._actHistogram.setText('Show/Hide histogram')
-        self._actHistogram.triggered.connect(self.__actHistogramTriggered)
-        toolbar.addAction(self._actHistogram)
+        self._actHistOnOff = MultiAction(toolbar)
+        self._actHistOnOff.addState(self.HIST_ON, qta.icon('fa.toggle-on'))
+        self._actHistOnOff.addState(self.HIST_OFF, qta.icon('fa.toggle-off'))
+        if self._showHistogram:
+            self._actHistOnOff.setToolTip("On")
+            self._actHistOnOff.setState(self.HIST_ON)
+        else:
+            self._actHistOnOff.setToolTip("Off")
+            self._actHistOnOff.setState(self.HIST_OFF)
+
+        self._actHistOnOff.triggered.connect(self.__actHistogramOnOffTriggered)
+
+        toolbar.addAction(self._actHistOnOff)
+        maxWidth = toolbar.sizeHint().width() + toolbar.iconSize().width()
         vLayout.addWidget(toolbar)
-        vLayout.addWidget(self.__createHLine(self._displayPanel))
         # --End-Histogram--
         # --Axis--
         toolbar = QToolBar(self._displayPanel)
@@ -128,11 +150,19 @@ class ImageView(QWidget):
         self._actAxisOnOff = MultiAction(toolbar)
         self._actAxisOnOff.addState(self.AXIS_ON, qta.icon('fa.toggle-on'))
         self._actAxisOnOff.addState(self.AXIS_OFF, qta.icon('fa.toggle-off'))
-        self._actAxisOnOff.setState(self.AXIS_ON)
+
+        if self._showXaxis:
+            self._actAxisOnOff.setState(self.AXIS_ON)
+            self._actAxisOnOff.setToolTip("On")
+        else:
+            self._actAxisOnOff.setState(self.AXIS_OFF)
+            self._actAxisOnOff.setToolTip("Off")
+
         self._actAxisOnOff.triggered.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(self._actAxisOnOff)
+        maxWidth = max(maxWidth,
+                       toolbar.sizeHint().width() + toolbar.iconSize().width())
         vLayout.addWidget(toolbar)
-        vLayout.addWidget(self.__createHLine(self._displayPanel))
         # --End-Axis--
         # --Flip--
         toolbar = QToolBar(self._displayPanel)
@@ -162,8 +192,9 @@ class ImageView(QWidget):
                                                checkable=True,
                                                slot=self.verticalFlip)
         toolbar.addAction(self._actVerFlip)
+        maxWidth = max(maxWidth,
+                       toolbar.sizeHint().width()) + toolbar.iconSize().width()
         vLayout.addWidget(toolbar)
-        vLayout.addWidget(self.__createHLine(self._displayPanel))
         # --End-Flip--
         # --Rotate--
         toolbar = QToolBar(self._displayPanel)
@@ -182,8 +213,9 @@ class ImageView(QWidget):
                                                checkable=False,
                                                slot=self.__rotateLeft)
         toolbar.addAction(self._actLeftRot)
+        maxWidth = max(maxWidth,
+                       toolbar.sizeHint().width() + toolbar.iconSize().width())
         vLayout.addWidget(toolbar)
-        vLayout.addWidget(self.__createHLine(self._displayPanel))
         # --End-Rotate--
         # --Adjust--
         self._btnAdjust = QPushButton(self._displayPanel)
@@ -201,45 +233,30 @@ class ImageView(QWidget):
         self._btnReset.pressed.connect(self.__resetView)
         vLayout.addWidget(self._btnReset)
         # --End-Reset--
-        vLayout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum,
-                                    QSizePolicy.Expanding))
+        vLayout.addStretch()
+        self._displayPanel.setFixedHeight(260)
         self._actDisplay = QAction(None)
         self._actDisplay.setIcon(qta.icon('fa.sliders'))
         self._actDisplay.setText('Display')
+        #  setting a reasonable width for display panel
+        self._displayPanel.setGeometry(0, 0, maxWidth,
+                                       self._displayPanel.height())
         self._toolBar.addAction(self._actDisplay, self._displayPanel,
                                 exclusive=False)
         # --File-Info--
-        self._fileInfoPanel = QWidget()
+        self._fileInfoPanel = self._toolBar.createSidePanel()
         self._fileInfoPanel.setObjectName('fileInfoPanel')
         self._fileInfoPanel.setStyleSheet(
             'QWidget#fileInfoPanel{border-left: 1px solid lightgray;}')
+        self._fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
+                                          QSizePolicy.Minimum)
         vLayout = QVBoxLayout(self._fileInfoPanel)
-        hLayout = QHBoxLayout()
-        hLayout.addWidget(QLabel('<strong>Path </strong>', self._fileInfoPanel))
-        vLayout.addItem(hLayout)
-        self._labelPath = QLabel('       ', self._fileInfoPanel)
-        self._labelPath.setWordWrap(True)
-        self._labelPath.setTextInteractionFlags(Qt.TextSelectableByKeyboard |
-                                                Qt.TextSelectableByMouse)
-        vLayout.addWidget(self._labelPath)
-        hLayout = QHBoxLayout()
-        hLayout.addWidget(QLabel('<strong>Format </strong>',
-                                 self._fileInfoPanel))
-        self._labelFormat = QLabel('', self._fileInfoPanel)
-        self._labelFormat.setWordWrap(True)
-        self._labelFormat.font().setBold(True)
-        hLayout.addWidget(self._labelFormat)
-        vLayout.addItem(hLayout)
-        hLayout = QHBoxLayout()
-        hLayout.addWidget(QLabel('<strong>Data type </strong>',
-                                 self._fileInfoPanel))
-        self._labelDataType = QLabel('', self._fileInfoPanel)
-        self._labelDataType.setWordWrap(True)
-        self._labelDataType.font().setBold(True)
-        hLayout.addWidget(self._labelDataType)
-        vLayout.addItem(hLayout)
-        vLayout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum,
-                                    QSizePolicy.Expanding))
+        self._textEditPath = QTextEdit(self._fileInfoPanel)
+        self._textEditPath.viewport().setAutoFillBackground(False)
+
+        vLayout.addWidget(self._textEditPath)
+        self._fileInfoPanel.setMinimumHeight(30)
+
         self._actFileInfo = QAction(None)
         self._actFileInfo.setIcon(qta.icon('fa.info-circle'))
         self._actFileInfo.setText('File Info')
@@ -247,16 +264,7 @@ class ImageView(QWidget):
                                 exclusive=False)
         # --End-File-Info--
 
-        self._mainLayout.addWidget(self._toolBar)
-        self._imageView = pg.ImageView(parent=self,
-                                       view=pg.PlotItem())
-        self._mainLayout.addWidget(self._imageView)
-
-    def __createHLine(self, parent):
-        line = QFrame(parent)
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        return line
+        self._mainLayout.addWidget(self._splitter)
 
     def __createAction(self, parent, actionName, text="", faIconName=None,
                        icon=None, checkable=False, slot=None):
@@ -374,11 +382,17 @@ class ImageView(QWidget):
                 axis.setAutoFillBackground(self._autoFill)
                 axis.linkedViewChanged(viewBox)
 
+    def __imageViewKeyPressEvent(self, ev):
+        if ev.key() == Qt.Key_H:
+            self.__actHistogramOnOffTriggered(True)
+
+        if ev.key() == Qt.Key_A:
+            self.__actAxisOnOffTriggered(True)
+
     def __setupImageView(self):
         """ Configure the pg.ImageView widget """
         self._imageView.ui.menuBtn.setVisible(self._showMenuBtn)
         self._imageView.ui.histogram.setVisible(self._showHistogram)
-        self._actHistogram.setChecked(self._showHistogram)
         self._imageView.ui.roiBtn.setVisible(self._showRoiBtn)
         view = self._imageView.getView()
         view.setMenuEnabled(self._showPopup)
@@ -400,16 +414,19 @@ class ImageView(QWidget):
         self.setImage(self._imageView.image)
 
     @pyqtSlot(bool)
-    def __actHistogramTriggered(self, checked):
-        """ This slot is invoked when the action histogram is triggered """
-        self._showHistogram = checked
-        self._imageView.ui.histogram.setVisible(self._showHistogram)
-
-    @pyqtSlot(bool)
     def __actAxisTriggered(self, checked):
         """ This slot is invoked when the action histogram is triggered """
         self._actAxis.changeToNextState()
         self.setAxisOrientation(self._actAxis.getCurrentState())
+
+    @pyqtSlot(bool)
+    def __actHistogramOnOffTriggered(self, checked):
+        """ This slot is invoked when the action histogram is triggered """
+        self._actHistOnOff.changeToNextState()
+        self._showHistogram = \
+            self._actHistOnOff.getCurrentState() == self.HIST_ON
+        self._actHistOnOff.setToolTip("On" if self._showHistogram else "Off")
+        self._imageView.ui.histogram.setVisible(self._showHistogram)
 
     @pyqtSlot(bool)
     def __actAxisOnOffTriggered(self, checked):
@@ -417,6 +434,7 @@ class ImageView(QWidget):
         self._actAxisOnOff.changeToNextState()
         self._showXaxis = self._actAxisOnOff.getCurrentState() == self.AXIS_ON
         self._showYaxis = self._showXaxis
+        self._actAxisOnOff.setToolTip("On" if self._showXaxis else "Off")
         self.__setupAxis()
 
     @pyqtSlot()
@@ -535,6 +553,7 @@ class ImageView(QWidget):
         self.__resetOperationParams()
         self._imageView.clear()
         self.fitToSize()
+        self._textEditPath.setText("")
 
     @pyqtSlot()
     def fitToSize(self):
@@ -565,9 +584,14 @@ class ImageView(QWidget):
         format: (str) the image format
         data_type: (str) the image data type
         """
-        self._labelPath.setText(kwargs.get('path', ''))
-        self._labelFormat.setText(kwargs.get('format', ''))
-        self._labelDataType.setText(kwargs.get('data_type', ''))
+        text = "<p><strong>Path: </strong>%s</p>" \
+               "<p><strong>Format: </strong>%s</p>" \
+               "<p><strong>Type: </strong>%s</p>"
+        text = text % (kwargs.get('path', ''),
+                       kwargs.get('format', ''),
+                       kwargs.get('data_type', '').replace("<", "&lt;").
+                       replace(">", "&gt;"))
+        self._textEditPath.setText(text)
 
     def getViewRect(self):
         """ Returns the view rect area """
@@ -597,3 +621,41 @@ class ImageView(QWidget):
                 width += plot.getAxis("left").height()
 
         self._imageView.setGeometry(x, y, width, height)
+
+    def getViewSize(self):
+        """ Returns the image view size. """
+        hw = self._imageView.ui.histogram.item.width() \
+            if self._showHistogram else 0
+
+        plot = self._imageView.getView()
+        width = plot.width() - hw
+        height = plot.height()
+        if isinstance(plot, pg.PlotItem):
+            if self._showXaxis:
+                height -= plot.getAxis("bottom").height()
+            if self._showYaxis:
+                width -= plot.getAxis("left").height()
+
+        return width, height
+
+    def getImageItem(self):
+        """ See pyqtgraph.ImageView.getImageItem """
+        return self._imageView.getImageItem()
+
+    def getToolBar(self):
+        return self._toolBar
+
+    def eventFilter(self, obj, event):
+        """
+        Filters events if this object has been installed as an event filter for
+        the watched object
+        :param obj: watched object
+        :param event: event
+        :return: True if this object has been installed, False i.o.c
+        """
+
+        if event.type() == QEvent.KeyPress:
+            self.__imageViewKeyPressEvent(event)
+            return True
+
+        return QWidget.eventFilter(self, obj, event)

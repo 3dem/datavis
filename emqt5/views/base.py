@@ -7,12 +7,12 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout,
                              QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import QPixmap, QPalette, QPen
+from PyQt5.QtGui import QPixmap, QPalette
 
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.utils import EmPath, parseImagePath, ImageRef
+from emqt5.utils import parseImagePath, ImageRef
 from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 
 
