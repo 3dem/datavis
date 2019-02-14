@@ -107,6 +107,10 @@ class ColumnsView(AbstractView):
             else:
                 self._tableView.showColumn(i)
 
+    def setupColumnsWidth(self):
+        """  """
+        self._tableView.resizeColumnsToContents()
+
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
         if self._model is not None:
@@ -203,7 +207,6 @@ class ColumnsView(AbstractView):
         #  remove sort indicator from all columns
         self._tableView.horizontalHeader().setSortIndicator(-1,
                                                             Qt.AscendingOrder)
-        self._tableView.resizeColumnsToContents()
         AbstractView.setModel(self, model)
         if model:
             self.__setupDelegatesForColumns()
@@ -215,6 +218,7 @@ class ColumnsView(AbstractView):
             selModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             selModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
+            self.setupColumnsWidth()
 
     def setRowHeight(self, height):
         """ Sets the heigth for all rows """
@@ -239,7 +243,6 @@ class ColumnsView(AbstractView):
         if self._model and row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
-                self._selection.add(row)
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
                 self.__updateSelectionInView(page)

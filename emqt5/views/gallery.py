@@ -135,7 +135,6 @@ class GalleryView(AbstractView):
         if self._model is not None:
             size = self._model.getPageSize()
             self._currentRow = page * size
-            self.__updateSelectionInView(page)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
@@ -217,7 +216,6 @@ class GalleryView(AbstractView):
             if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
-                self._selection.add(row)
                 self._model.loadPage(page)
             self.__updateSelectionInView(page)
 
