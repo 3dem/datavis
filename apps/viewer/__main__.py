@@ -17,6 +17,7 @@ from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
                          createVolumeView, createImageView, createSlicesView,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, PickerView,
                          createPickerModel)
+from emqt5.views.base import AbstractView
 from emqt5.windows import BrowserWindow
 
 
@@ -66,6 +67,38 @@ if __name__ == '__main__':
 
         def __ls(self, pattern):
             return glob(pattern)
+
+    class ValidateSelectionMode(argparse.Action):
+        """
+        Class that allows the validation of the values corresponding to
+        the "selection-mode" parameter
+        """
+        OPTIONS = {
+            'single': AbstractView.SINGLE_SELECTION,
+            'extended': AbstractView.EXTENDED_SELECTION,
+            'multi': AbstractView.MULTI_SELECTION,
+            'no-select': AbstractView.NO_SELECTION
+        }
+
+        def __init__(self, option_strings, dest, **kwargs):
+            argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            """
+            Return a AbstractView selection mode value.
+            """
+            if isinstance(values, list):
+                raise ValueError("Invalid number of arguments for %s. Only one "
+                                 "argument are supported." % option_string)
+
+            v = self.OPTIONS.get(values, AbstractView.MULTI_SELECTION)
+            setattr(namespace, self.dest, v)
+
+        def __ls(self, pattern):
+            return glob(pattern)
+
+        def getOptions(self):
+            return self.__options.values()
 
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
@@ -129,6 +162,13 @@ if __name__ == '__main__':
                            required=False, choices=on_off,
                            help=' Enable/disable the option. '
                                 'The rois will work accordance with its center')
+    argParser.add_argument('--selection-mode', type=str, default='multi',
+                           required=False,
+                           choices=ValidateSelectionMode.OPTIONS,
+                           action=ValidateSelectionMode,
+                           help='Sets the selection mode for the views. '
+                                'Values:\n'
+                                'single, extended, multi, no-select')
 
     args = argParser.parse_args()
 
@@ -164,6 +204,7 @@ if __name__ == '__main__':
              'items': DataView.ITEMS,
              'slices': DataView.SLICES}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
+    kwargs['selection_mode'] = args.selection_mode
 
     # Picker params
     kwargs['boxsize'] = args.boxsize

@@ -151,13 +151,26 @@ class ColumnsView(AbstractView):
         if self._model is not None:
             size = self._model.getPageSize()
             self._currentRow = page * size
+            self._model.setCurrentRow(self._currentRow)
             self.sigCurrentRowChanged.emit(self._currentRow)
+            self._model.dataChanged.emit(self._model.createIndex(0, 0),
+                                         self._model.createIndex(
+                                             self._pageSize - 1,
+                                             self._model.columnCount()),
+                                         [Qt.ForegroundRole])
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
         if current.isValid():
             row = current.row()
+            self._currentRow = row + self._pageSize * self._model.getPage()
+            self._model.setCurrentRow(self._currentRow)
+            self._model.dataChanged.emit(self._model.createIndex(0, 0),
+                                         self._model.createIndex(
+                                         self._pageSize - 1,
+                                         self._model.columnCount()),
+                                         [Qt.ForegroundRole])
             self.sigCurrentRowChanged.emit(
                 row + self._pageSize * self._model.getPage())
 
@@ -245,9 +258,15 @@ class ColumnsView(AbstractView):
         if self._model and row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
+                self._model.setCurrentRow(row)
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
                 self.__updateSelectionInView(page)
+                self._model.dataChanged.emit(self._model.createIndex(0, 0),
+                                             self._model.createIndex(
+                                                 self._pageSize - 1,
+                                                 self._model.columnCount()),
+                                             [Qt.ForegroundRole])
 
     def currentRow(self):
         """ Returns the current selected row """
@@ -307,6 +326,8 @@ class ColumnsView(AbstractView):
                 QAbstractItemView.ExtendedSelection)
         elif selectionMode == self.MULTI_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.MultiSelection)
+        else:
+            self._tableView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
         """
@@ -355,6 +376,10 @@ class ColumnsView(AbstractView):
         Returns the table view's horizontal header.
         """
         return self._tableView.horizontalHeader()
+
+    def getTableView(self):
+        """ Return the QTableView widget used to display the items """
+        return self._tableView
 
 
 class HeaderView(QHeaderView):

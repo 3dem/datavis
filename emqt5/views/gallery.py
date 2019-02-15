@@ -142,8 +142,14 @@ class GalleryView(AbstractView):
         """ Invoked when current row change """
         if current.isValid():
             row = current.row()
-            self.sigCurrentRowChanged.emit(
-                row + self._pageSize * self._model.getPage())
+            self._currentRow = row + self._pageSize * self._model.getPage()
+            self._model.setCurrentRow(self._currentRow)
+            self.sigCurrentRowChanged.emit(self._currentRow)
+            self._model.dataChanged.emit(self._model.createIndex(0, 0),
+                                         self._model.createIndex(
+                                             self._pageSize - 1,
+                                             self._model.columnCount()),
+                                         [Qt.ForegroundRole])
 
     @pyqtSlot(set)
     def changeSelection(self, selection):
@@ -216,6 +222,12 @@ class GalleryView(AbstractView):
             if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
+                self._model.setCurrentRow(row)
+                self._model.dataChanged.emit(self._model.createIndex(0, 0),
+                                             self._model.createIndex(
+                                                 self._pageSize - 1,
+                                                 self._model.columnCount()),
+                                             [Qt.ForegroundRole])
                 self._model.loadPage(page)
             self.__updateSelectionInView(page)
 
@@ -280,6 +292,8 @@ class GalleryView(AbstractView):
                 QAbstractItemView.ExtendedSelection)
         elif selectionMode == self.MULTI_SELECTION:
             self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
+        else:
+            self._listView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
         """
@@ -297,3 +311,7 @@ class GalleryView(AbstractView):
                 QAbstractItemView.SelectColumns)
         elif selectionBehavior == self.SELECT_ROWS:
             self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
+
+    def getListView(self):
+        """ Return the QListView widget used to display the items """
+        return self._listView

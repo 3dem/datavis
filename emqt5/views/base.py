@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QItemSelection
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout,
                              QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import QPixmap, QPalette, QPen, QBrush
+from PyQt5.QtGui import QPixmap, QPalette, QPen
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -272,6 +272,7 @@ class AbstractView(QWidget):
     SINGLE_SELECTION = 20  # See QAbstractItemView.SingleSelection
     EXTENDED_SELECTION = 21  # See QAbstractItemView.ExtendedSelection
     MULTI_SELECTION = 22  # See QAbstractItemView.MultiSelection
+    NO_SELECTION = 23  # See QAbstractItemView.NoSelection
 
     """ 
         This signal is emitted when the current selection is changed

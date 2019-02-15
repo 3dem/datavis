@@ -3,7 +3,7 @@
 
 import scipy.ndimage as ndimage
 
-from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtGui import QPixmap, QFont, QBrush
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
@@ -56,12 +56,14 @@ class TableDataModel(QAbstractItemModel):
                                  or TableViewConfig.fromTable(table))
         self._pageData = []
         self._page = 0
+        self._currentRow = 0
         self._pageSize = kwargs.get('pageSize', 1)
         self._pageCount = 0
         self._titles = kwargs.get('titles', [''])
         self._dataSource = kwargs.get('dataSource', None)
         self._defaultFont = QFont()
         self._indexWidth = 50
+        self._currentRowBrush = QBrush(Qt.red)
         self.__setupModel()
 
     def __getPageData(self, row, col):
@@ -143,6 +145,11 @@ class TableDataModel(QAbstractItemModel):
            role == Qt.AccessibleTextRole or \
            role == Qt.AccessibleDescriptionRole:
             return QVariant(self.__getPageData(row, col))
+
+        if role == Qt.ForegroundRole:
+            emRow = row + self._page * self._pageSize
+            if emRow == self._currentRow:
+                return self._currentRowBrush
 
         return QVariant()
 
@@ -252,6 +259,10 @@ class TableDataModel(QAbstractItemModel):
         For now we use the path of the table file.
         """
         return self._dataSource
+
+    def setCurrentRow(self, row):
+        if row in range(0, self.totalRowCount()):
+            self._currentRow = row
 
     @pyqtSlot(int)
     def loadPage(self, pageIndex=-1, force=False):

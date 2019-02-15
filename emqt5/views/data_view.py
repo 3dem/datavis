@@ -3,12 +3,11 @@
 
 import traceback
 
-from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange, QModelIndex)
+from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
-                             QSizePolicy)
+                             QSizePolicy, QPushButton, QMenu)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
@@ -19,7 +18,7 @@ from .gallery import GalleryView
 from .items import ItemsView
 from .base import AbstractView
 from .config import TableViewConfig
-from .toolbar import ToolBar, MultiAction
+from .toolbar import ToolBar
 
 from emqt5.utils.functions import EmTable
 
@@ -77,7 +76,7 @@ class DataView(QWidget):
         self.__setupUi(**kwargs)
         self.__setupCurrentViewMode()
         self.__setupActions()
-        self.setSelectionMode(AbstractView.MULTI_SELECTION)
+        self.setSelectionMode(self._selectionMode)
 
     def __setupUi(self, **kwargs):
 
@@ -94,12 +93,13 @@ class DataView(QWidget):
 
         # toolbar
         self._toolBar1 = ToolBar(self, orientation=Qt.Vertical)
-        self._toolBar1.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._toolBar1.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self._splitter = QSplitter(self)
         self._splitter.addWidget(self._toolBar1)
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._mainContainer)
         # selection panel
+        self._selectionMenu = QMenu(self)
         self._selectionPanel = self._toolBar1.createSidePanel()
         self._selectionPanel.setObjectName('selectionPanel')
         self._selectionPanel.setStyleSheet(
@@ -107,9 +107,8 @@ class DataView(QWidget):
         self._selectionPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
-        toolbar = QToolBar(self._selectionPanel)
         self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
-        self._actSelectAll = QAction(None)
+        self._actSelectAll = QAction("Select all")
         self._actSelectAll.setIcon(qta.icon('fa.chevron-up',
                                             'fa.chevron-down',
                                              options=[{'offset': (0, -0.3),
@@ -119,37 +118,70 @@ class DataView(QWidget):
                                                       ]))
         self._actSelectAll.setToolTip("Select all")
         self._actSelectAll.triggered.connect(self.__onSelectAllTriggered)
-        toolbar.addAction(self._actSelectAll)
+        self._selectionMenu.addAction(self._actSelectAll)
+        self._selectionMenu.addSeparator()
+        self._buttonSelectAll = QPushButton(
+            qta.icon('fa.chevron-up',
+                     'fa.chevron-down',
+                     options=[{'offset': (0, -0.3),
+                               'scale_factor': 0.85},
+                              {'offset': (0, 0.3),
+                               'scale_factor': 0.85}
+                              ]),
+            'Select all',
+            self._selectionPanel)
+        self._buttonSelectAll.clicked.connect(self.__onSelectAllTriggered)
+        vLayout.addWidget(self._buttonSelectAll)
 
-        self._actSelectToHere = QAction(None)
+        self._actSelectToHere = QAction("Select to here")
         self._actSelectToHere.setIcon(qta.icon('fa.chevron-up'))
-        self._actSelectToHere.setToolTip("Select to")
+        self._actSelectToHere.setToolTip("Select to here")
         self._actSelectToHere.triggered.connect(
             self.__onToHereSelectionTriggered)
-        toolbar.addAction(self._actSelectToHere)
+        self._selectionMenu.addAction(self._actSelectToHere)
+        self._buttonSelectTo = QPushButton(qta.icon('fa.chevron-up'),
+                                           'Select to',
+                                           self._selectionPanel)
+        self._buttonSelectTo.clicked.connect(self.__onToHereSelectionTriggered)
+        vLayout.addWidget(self._buttonSelectTo)
 
-        self._actSelectFromHere = QAction(None)
+        self._actSelectFromHere = QAction("Select from here")
         self._actSelectFromHere.setIcon(qta.icon('fa.chevron-down'))
-        self._actSelectFromHere.setToolTip("Select from")
+        self._actSelectFromHere.setToolTip("Select from here")
         self._actSelectFromHere.triggered.connect(
             self.__onFromHereSelectionTriggered)
-        toolbar.addAction(self._actSelectFromHere)
+        self._selectionMenu.addAction(self._actSelectFromHere)
+        self._buttonSelectFrom = QPushButton(qta.icon('fa.chevron-down'),
+                                             'Select from here',
+                                             self._selectionPanel)
+        self._buttonSelectFrom.clicked.connect(
+            self.__onFromHereSelectionTriggered)
+        vLayout.addWidget(self._buttonSelectFrom)
 
-        self._actInvSelection = QAction(None)
+        self._actInvSelection = QAction("Invert selection")
         self._actInvSelection.setIcon(qta.icon('fa5s.exchange-alt'))
         self._actInvSelection.setToolTip("Invert selection")
         self._actInvSelection.triggered.connect(
             self.__onInvertSelectionTriggered)
-        toolbar.addAction(self._actInvSelection)
+        self._buttonInvSelection = QPushButton(qta.icon('fa5s.exchange-alt'),
+                                               'Invert selection',
+                                               self._selectionPanel)
+        self._buttonInvSelection.clicked.connect(
+            self.__onInvertSelectionTriggered)
+        vLayout.addWidget(self._buttonInvSelection)
 
-        self._actClearSelection = QAction(None)
+        self._actClearSelection = QAction("Clear selection")
         self._actClearSelection.setIcon(qta.icon('fa.eraser'))
         self._actClearSelection.setToolTip("Clear selection")
         self._actClearSelection.triggered.connect(
             self.__onClearSelectionTriggered)
-        toolbar.addAction(self._actClearSelection)
-        maxWidth = toolbar.sizeHint().width() + toolbar.iconSize().width()
-        vLayout.addWidget(toolbar)
+        self._buttonClearSelection = QPushButton(qta.icon('fa.eraser'),
+                                                 'Clear selection',
+                                                 self._selectionPanel)
+        self._buttonClearSelection.clicked.connect(
+            self.__onClearSelectionTriggered)
+        vLayout.addWidget(self._buttonClearSelection)
+        maxWidth = self._buttonClearSelection.width()
         vLayout.addWidget(self._labelSelectionInfo)
         vLayout.addStretch()
         self._selectionPanel.setGeometry(0, 0, maxWidth,
@@ -320,6 +352,17 @@ class DataView(QWidget):
                     if isinstance(viewWidget, ColumnsView) \
                             or isinstance(viewWidget, GalleryView):
                         viewWidget.setThumbCache(self._thumbCache)
+                        if isinstance(viewWidget, ColumnsView):
+                            view = viewWidget.getTableView()
+                        else:
+                            view = viewWidget.getListView()
+                    else:
+                        view = viewWidget
+
+                    view.setContextMenuPolicy(Qt.ActionsContextMenu)
+                    view.addAction(self._actSelectAll)
+                    view.addAction(self._actSelectFromHere)
+                    view.addAction(self._actSelectToHere)
 
                     self._stackedLayoud.addWidget(viewWidget)
                     viewWidget.sigCurrentRowChanged.connect(
@@ -420,13 +463,19 @@ class DataView(QWidget):
 
     def __showTableSize(self):
         if self._model is not None:
-            text = " Selection:\n %d/%d" % (self.__getSelectionSize(),
-                                          self._model.totalRowCount())
+            text = "<p><strong>%s</strong></p>" \
+                   "<p>%s%s%s</p>"
+            size = self.__getSelectionSize()
+            text = text % ("Selected items:" if size else "No selection",
+                           str(size) if size else "",
+                           "/" if size else "",
+                           str(self._model.totalRowCount()) if size else "")
             self._labelSelectionInfo.setText(text.ljust(20))
             self._labelElements.setText(" Elements: %d " %
                                         self._model.totalRowCount())
         else:
-            self._labelSelectionInfo.setText("Selection: 0/0")
+            self._labelSelectionInfo.setText(
+                "<p><strong>Selection</strong></p>")
             self._labelElements.setText("")
 
     def __setupSpinBoxRowHeigth(self):
@@ -599,6 +648,8 @@ class DataView(QWidget):
         # List of configured views
         self._views = kwargs.get("views", [self.COLUMNS, self.GALLERY,
                                            self.ITEMS])
+        self._selectionMode = kwargs.get("selection_mode",
+                                         AbstractView.MULTI_SELECTION)
 
     def __setupActions(self):
         for v in self._actionGroupViews.actions():
@@ -858,8 +909,6 @@ class DataView(QWidget):
         """
         if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
-                self._selection.clear()
-                self._selection.add(self._currentRow)
                 viewWidget = self._viewsDict.get(self._view)
 
                 if viewWidget is not None:
@@ -905,7 +954,6 @@ class DataView(QWidget):
         self.__clearSelections()
         if model is not None:
             self._selection.clear()
-            self._selection.add(0)
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
