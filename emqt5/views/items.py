@@ -3,7 +3,7 @@
 
 
 from PyQt5.QtCore import Qt, pyqtSlot, QModelIndex
-from PyQt5.QtWidgets import QTableView, QSplitter
+from PyQt5.QtWidgets import QTableView, QSplitter, QVBoxLayout, QWidget
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
@@ -32,12 +32,17 @@ class ItemsView(AbstractView):
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
+        self._mainWidget = QWidget(self)
+        self._mainWidget.setObjectName("itemsMainWidget")
+        self._layout = QVBoxLayout(self._mainWidget)
+        self._layout.setContentsMargins(2, 2, 2, 2)
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Horizontal)
         self._itemsViewTable = QTableView(self._splitter)
         self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
         self._imageView = ImageView(self._splitter, **kwargs)
-        self._mainLayout.insertWidget(0, self._splitter)
+        self._mainLayout.insertWidget(0, self._mainWidget)
+        self._layout.insertWidget(0, self._splitter)
 
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
@@ -92,7 +97,15 @@ class ItemsView(AbstractView):
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
+            self.__updateSelectionInView()
             self.sigCurrentRowChanged.emit(row)
+
+    def __updateSelectionInView(self):
+        if self._row in self._selection:
+            self._mainWidget.setStyleSheet(
+                'QWidget#itemsMainWidget{border-left: 1px solid blue;}')
+        else:
+            self._mainWidget.setStyleSheet('')
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onDataChanged(self, topLeft, bottomRight):
@@ -105,6 +118,12 @@ class ItemsView(AbstractView):
         """ Invoked when change the current page """
         self._row = page
         self.__loadItem(self._row, self._column)
+
+    @pyqtSlot(set)
+    def changeSelection(self, selection):
+        """ Invoked when the selection is changed """
+        self._selection = selection
+        self.__updateSelectionInView()
 
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """

@@ -110,6 +110,7 @@ class ColumnsView(AbstractView):
     def setupColumnsWidth(self):
         """  """
         self._tableView.resizeColumnsToContents()
+        self._tableView.horizontalHeader().setStretchLastSection(True)
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
@@ -142,6 +143,7 @@ class ColumnsView(AbstractView):
         if self._model:
             self._model.setupPage(self._pageSize,
                                   self.__getPage(self._currentRow))
+        self.setupColumnsWidth()
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
