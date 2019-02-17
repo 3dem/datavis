@@ -110,7 +110,8 @@ class ItemsView(AbstractView):
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onDataChanged(self, topLeft, bottomRight):
         """ Invoked whenever the data in an existing item changes."""
-        if topLeft.row() == self._row:
+        row = self._model.getPage() * self._model.getPageSize() + topLeft.row()
+        if row == self._row:
             self.__loadItem(self._row, self._column)
 
     @pyqtSlot(int)

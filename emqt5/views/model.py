@@ -56,19 +56,17 @@ class TableDataModel(QAbstractItemModel):
                                  or TableViewConfig.fromTable(table))
         self._pageData = []
         self._page = 0
-        self._currentRow = 0
         self._pageSize = kwargs.get('pageSize', 1)
         self._pageCount = 0
         self._titles = kwargs.get('titles', [''])
         self._dataSource = kwargs.get('dataSource', None)
         self._defaultFont = QFont()
         self._indexWidth = 50
-        self._currentRowBrush = QBrush(Qt.red)
         self.__setupModel()
 
     def __getPageData(self, row, col):
         """ Return the data for specified column and row in the current page """
-        if self._pageData:
+        if self._pageData and row < len(self._pageData):
             emRow = self._pageData[row]
             emCol = self._emTable.getColumnByIndex(col)
             t = self._tableViewConfig[col].getType()
@@ -146,11 +144,6 @@ class TableDataModel(QAbstractItemModel):
            role == Qt.AccessibleDescriptionRole:
             return QVariant(self.__getPageData(row, col))
 
-        if role == Qt.ForegroundRole:
-            emRow = row + self._page * self._pageSize
-            if emRow == self._currentRow:
-                return self._currentRowBrush
-
         return QVariant()
 
     def columnCount(self, index=QModelIndex()):
@@ -207,6 +200,7 @@ class TableDataModel(QAbstractItemModel):
         if role == Qt.EditRole and self.flags(qModelIndex) & Qt.ItemIsEditable:
             col = qModelIndex.column()
             row = self._page * self._pageSize + qModelIndex.row()
+            print("Page: ", self._page)
             if self.setTableData(row, col, value):
                 self.dataChanged.emit(qModelIndex, qModelIndex, [role])
                 return True
@@ -259,10 +253,6 @@ class TableDataModel(QAbstractItemModel):
         For now we use the path of the table file.
         """
         return self._dataSource
-
-    def setCurrentRow(self, row):
-        if row in range(0, self.totalRowCount()):
-            self._currentRow = row
 
     @pyqtSlot(int)
     def loadPage(self, pageIndex=-1, force=False):

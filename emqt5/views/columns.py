@@ -5,7 +5,8 @@ from math import log10
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
                           QItemSelectionModel, QItemSelectionRange)
-from PyQt5.QtWidgets import QTableView, QHeaderView, QAbstractItemView
+from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView,
+                             QStyleOptionViewItem)
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
@@ -53,10 +54,7 @@ class ColumnsView(AbstractView):
         :param evt:
         """
         QTableView.resizeEvent(self._tableView, evt)
-        row = self.currentRow()
         self.sigTableSizeChanged.emit()
-        #if row >= 0:
-        #    self.selectRow(row)
 
     def __getPage(self, row):
         """
@@ -109,8 +107,23 @@ class ColumnsView(AbstractView):
 
     def setupColumnsWidth(self):
         """  """
-        self._tableView.resizeColumnsToContents()
         self._tableView.horizontalHeader().setStretchLastSection(True)
+        self._tableView.resizeColumnsToContents()
+        print("calc: ", self._tableView.horizontalScrollBar().maximum())
+        if self._model is not None:
+            if self._tableView.horizontalScrollBar().maximum() > 0:
+                option = QStyleOptionViewItem()
+                for col in range(0, self._model.columnCount()):
+                    delegate = self._tableView.itemDelegateForColumn(0)
+                    w = 0
+                    for row in range(0, self._model.rowCount()):
+                        s = delegate.sizeHint(option,
+                                              self._model.createIndex(row, col))
+                        rw = s.width() + 3
+                        w = max(rw, w)
+                    self._tableView.setColumnWidth(
+                        col,
+                        min(w, self._tableView.columnWidth(col), 80))
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
@@ -140,10 +153,9 @@ class ColumnsView(AbstractView):
     def __onSizeChanged(self):
         """ Invoked when the table widget is resized """
         self.__calcPageSize()
-        if self._model:
+        if self._model is not None:
             self._model.setupPage(self._pageSize,
                                   self.__getPage(self._currentRow))
-        self.setupColumnsWidth()
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
@@ -151,7 +163,6 @@ class ColumnsView(AbstractView):
         if self._model is not None:
             size = self._model.getPageSize()
             self._currentRow = page * size
-            self._model.setCurrentRow(self._currentRow)
             self.sigCurrentRowChanged.emit(self._currentRow)
             self._model.dataChanged.emit(self._model.createIndex(0, 0),
                                          self._model.createIndex(
@@ -165,7 +176,6 @@ class ColumnsView(AbstractView):
         if current.isValid():
             row = current.row()
             self._currentRow = row + self._pageSize * self._model.getPage()
-            self._model.setCurrentRow(self._currentRow)
             self._model.dataChanged.emit(self._model.createIndex(0, 0),
                                          self._model.createIndex(
                                          self._pageSize - 1,
@@ -233,6 +243,7 @@ class ColumnsView(AbstractView):
             selModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             selModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
+
             self.setupColumnsWidth()
 
     def setRowHeight(self, height):
@@ -258,7 +269,6 @@ class ColumnsView(AbstractView):
         if self._model and row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
-                self._model.setCurrentRow(row)
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
                 self.__updateSelectionInView(page)
@@ -272,8 +282,8 @@ class ColumnsView(AbstractView):
         """ Returns the current selected row """
         if self._model is None:
             return -1
-        r = self._tableView.currentIndex().row()
-        return r if r < 0 else r + self._pageSize * self._model.getPage()
+
+        return self._currentRow
 
     def setImageCache(self, imgCache):
         self._imgCache = imgCache

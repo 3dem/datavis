@@ -143,7 +143,6 @@ class GalleryView(AbstractView):
         if current.isValid():
             row = current.row()
             self._currentRow = row + self._pageSize * self._model.getPage()
-            self._model.setCurrentRow(self._currentRow)
             self.sigCurrentRowChanged.emit(self._currentRow)
             self._model.dataChanged.emit(self._model.createIndex(0, 0),
                                          self._model.createIndex(
@@ -222,7 +221,6 @@ class GalleryView(AbstractView):
             if row in range(0, self._model.totalRowCount()):
                 page = self.__getPage(row)
                 self._currentRow = row
-                self._model.setCurrentRow(row)
                 self._model.dataChanged.emit(self._model.createIndex(0, 0),
                                              self._model.createIndex(
                                                  self._pageSize - 1,

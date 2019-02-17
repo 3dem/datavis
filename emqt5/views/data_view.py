@@ -70,7 +70,6 @@ class DataView(QWidget):
         self._imageCache = ImageCache(100)
         self._thumbCache = ImageCache(500, (100, 100))
         self._selection = set()
-
         self._tablePref = dict()
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
@@ -369,8 +368,6 @@ class DataView(QWidget):
                         self.__onViewRowChanged)
                     viewWidget.getPageBar().sigPageConfigChanged.connect(
                         self.__onPageConfigChanged)
-                    #viewWidget.getPageBar().sigPageChanged.connect(
-                    #    self.__onCurrentPageChanged)
                     viewWidget.sigSelectionChanged.connect(
                         self.__onCurrentViewSelectionChanged)
 
@@ -1037,14 +1034,29 @@ class DataView(QWidget):
         else:
             self._spinBoxCurrentRow.setValue(row + 1)
 
+    def getCurrentRow(self):
+        """ Returns the current row """
+        return self._currentRow
+
     def setSelectionMode(self, selectionMode):
         """
         Indicates how the view responds to user selections:
         AbstractView:
                     SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
         """
+        policy = Qt.NoContextMenu if selectionMode == AbstractView.NO_SELECTION\
+            else Qt.ActionsContextMenu
         for viewWidget in self._viewsDict.values():
             viewWidget.setSelectionMode(selectionMode)
+            if isinstance(viewWidget, ColumnsView):
+                viewWidget = viewWidget.getTableView()
+            elif isinstance(viewWidget, GalleryView):
+                viewWidget = viewWidget.getListView()
+
+            viewWidget.setContextMenuPolicy(policy)
+
+        self._toolBar1.setVisible(
+            not selectionMode == AbstractView.NO_SELECTION)
 
     def setSelectionBehavior(self, selectionBehavior):
         """

@@ -109,7 +109,7 @@ class TableViewConfig:
                 cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
                 if 'description' not in properties:
                     properties['description'] = col.getDescription()
-                properties['editable'] = True
+                properties['editable'] = False
                 tvConfig.addColumnConfig(name, cType, **properties)
         return tvConfig
 

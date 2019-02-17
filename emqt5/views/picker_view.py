@@ -119,7 +119,7 @@ class PickerView(QWidget):
         self._lineEdit.setObjectName("lineEdit")
         self._verticalLayout.addWidget(self._lineEdit)
         self._dvImages = DataView(self._leftPanel, **kwargs)
-        self._tvImages = self._dvImages.getViewWidget(DataView.COLUMNS)#ColumnsView(self._leftPanel)
+        self._tvImages = self._dvImages.getViewWidget(DataView.COLUMNS)
         self._tvImages.setObjectName("columnsViewImages")
         self._verticalLayout.addWidget(self._dvImages)
 
@@ -412,10 +412,8 @@ class PickerView(QWidget):
                                         visible=True)
         self._tvModel = TableDataModel(table, tableViewConfig=tableViewConfig)
 
-        #self._tvImages.setModel(self._tvModel)
         self._dvImages.setModel(self._tvModel)
         self._dvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._dvImages.setSelectionMode(AbstractView.EXTENDED_SELECTION)
         self._dvImages.sigCurrentRowChanged.connect(
             self.__onCurrentRowChanged)
         self._tvImages.getHorizontalHeader().sectionClicked.connect(
@@ -436,11 +434,14 @@ class PickerView(QWidget):
             coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
             self._currentMic.addCoordinate(coord)
             self._createCoordROI(coord)
-            index = self._tvImages.currentIndex()
-            if index.isValid():
-                    self._tvModel.setData(
-                        self._tvModel.createIndex(index.row(), 2),
-                        len(self._currentMic))
+            model = self._dvImages.getViewWidget(
+                self._dvImages.getView()).getModel()
+            if model > 0:
+                r = self._dvImages.getCurrentRow()
+                print("Row: ", r)
+                print("Page size: ", model.getPageSize())
+                model.setData(model.createIndex(r % model.getPageSize(), 2),
+                              len(self._currentMic))
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
