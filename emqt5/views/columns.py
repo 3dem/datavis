@@ -184,11 +184,6 @@ class ColumnsView(AbstractView):
             size = self._model.getPageSize()
             self._currentRow = page * size
             self.sigCurrentRowChanged.emit(self._currentRow)
-            self._model.dataChanged.emit(self._model.createIndex(0, 0),
-                                         self._model.createIndex(
-                                             self._pageSize - 1,
-                                             self._model.columnCount()),
-                                         [Qt.ForegroundRole])
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -286,12 +281,13 @@ class ColumnsView(AbstractView):
                 self._currentRow = row
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
+
+                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                    self._selection.clear()
+                    self._selection.add(row)
+
+                self.sigCurrentRowChanged.emit(row)
                 self.__updateSelectionInView(page)
-                self._model.dataChanged.emit(self._model.createIndex(0, 0),
-                                             self._model.createIndex(
-                                                 self._pageSize - 1,
-                                                 self._model.columnCount()),
-                                             [Qt.ForegroundRole])
 
     def currentRow(self):
         """ Returns the current selected row """
@@ -344,6 +340,7 @@ class ColumnsView(AbstractView):
         Indicates how the view responds to user selections:
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
+        AbstractView.setSelectionMode(self, selectionMode)
         self._selectionMode = selectionMode
         if selectionMode == self.SINGLE_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -353,7 +350,7 @@ class ColumnsView(AbstractView):
         elif selectionMode == self.MULTI_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.MultiSelection)
         else:
-            self._selectionMode = AbstractView.NO_SELECTION
+            AbstractView.setSelectionMode(self, AbstractView.NO_SELECTION)
             self._tableView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):

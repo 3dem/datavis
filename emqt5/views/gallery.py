@@ -33,6 +33,8 @@ class GalleryView(AbstractView):
         self._selection = set()
         self._currentRow = 0
         self.__setupUI(**kwargs)
+        self.setSelectionMode(kwargs.get('selection_mode',
+                                         AbstractView.SINGLE_SELECTION))
 
     def __setupUI(self, **kwargs):
         self._listView = QListView(self)
@@ -212,15 +214,13 @@ class GalleryView(AbstractView):
 
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model:
+        if self._model is not None:
+            page = self.__getPage(row)
             if row in range(0, self._model.totalRowCount()):
-                page = self.__getPage(row)
                 self._currentRow = row
-                self._model.dataChanged.emit(self._model.createIndex(0, 0),
-                                             self._model.createIndex(
-                                                 self._pageSize - 1,
-                                                 self._model.columnCount()),
-                                             [Qt.ForegroundRole])
+                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                    self._selection.clear()
+                    self._selection.add(self._currentRow)
                 self._model.loadPage(page)
             self.__updateSelectionInView(page)
 
@@ -278,6 +278,7 @@ class GalleryView(AbstractView):
         Indicates how the view responds to user selections:
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
+        AbstractView.setSelectionMode(self, selectionMode)
         if selectionMode == self.SINGLE_SELECTION:
             self._listView.setSelectionMode(QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
@@ -286,6 +287,7 @@ class GalleryView(AbstractView):
         elif selectionMode == self.MULTI_SELECTION:
             self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
         else:
+            AbstractView.setSelectionMode(self, AbstractView.NO_SELECTION)
             self._listView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):

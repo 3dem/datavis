@@ -213,12 +213,23 @@ class VolumeView(QWidget):
         if self._model is not None:
             self._model.setAxis(index)
             self._multiSlicesView.setAxis(index)
+            if self._galleryView.isVisible():
+                self._galleryView.selectRow(0)
+                self._multiSlicesView.setSlice(0)
+            else:
+                self._multiSlicesView.setSlice(
+                    self._multiSlicesView.getPreferredSliceIndex(index))
 
     @pyqtSlot(int)
     def _onVolumeChanged(self, index):
         if self._model is not None:
             self._model.setVolumeIndex(index)
             self._multiSlicesView.setModel(self._model)
+            self._multiSlicesView.setAxis(
+                self._comboBoxCurrentAxis.currentIndex())
+            if self._galleryView.isVisible():
+                self._galleryView.selectRow(0)
+                self._multiSlicesView.setSlice(0)
 
     def setup(self, path=None, model=None, **kwargs):
         """

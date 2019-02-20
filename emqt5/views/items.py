@@ -166,6 +166,13 @@ class ItemsView(AbstractView):
         self._column = column
         self.__loadItem(self._row, self._column)
 
+    def selectRow(self, row):
+        """ Selects the given row """
+        if self._model is not None and \
+                row in range(0, self._model.totalRowCount()):
+            self._row = row
+            self.__loadItem(self._row, self._column)
+
     def getModelColumn(self):
         """ Returns the column in the model that is visible. """
         return self._column

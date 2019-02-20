@@ -528,9 +528,10 @@ class DataView(QWidget):
         viewWidget = self._viewsDict.get(self._view)
 
         if viewWidget is not None:
+            row = self._currentRow
             self._stackedLayoud.setCurrentWidget(viewWidget)
             self.__makeSelectionInView(self._view)
-            viewWidget.selectRow(self._currentRow)
+            viewWidget.selectRow(row)
 
         a = self._viewActions[self._view].get("action", None)
         if a:
@@ -838,6 +839,7 @@ class DataView(QWidget):
         """
         size = self._spinBoxRowHeight.value()
 
+        row = self._currentRow
         for viewWidget in self._viewsDict.values():
             model = viewWidget.getModel()
             if model is not None:
@@ -855,6 +857,9 @@ class DataView(QWidget):
             elif isinstance(viewWidget, GalleryView):
                 viewWidget.setIconSize((size, size))
 
+        viewWidget = self._viewsDict.get(self._view)
+        if viewWidget is not None:
+            viewWidget.selectRow(row)
         self.__makeSelectionInView(self._view)
 
     @pyqtSlot()

@@ -173,6 +173,17 @@ class MultiSliceView(QWidget):
         """ Return the current slice index for the current axis """
         return self._slice
 
+    def getPreferredSliceIndex(self, axis):
+        """ Return the preferred slice for the given axis """
+        if axis == X_AXIS:
+            r = self._rightView.getSliceRange()
+        elif axis == Y_AXIS:
+            r = self._topView.getSliceRange()
+        elif axis == Z_AXIS:
+            r = self._frontView.getSliceRange()
+
+        return r[0] + int((r[1] - r[0]) / 2)
+
     def setSlice(self, sliceIndex):
         """ Sets the current slice index """
         if self._axis == X_AXIS:
