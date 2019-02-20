@@ -144,11 +144,6 @@ class GalleryView(AbstractView):
             row = current.row()
             self._currentRow = row + self._pageSize * self._model.getPage()
             self.sigCurrentRowChanged.emit(self._currentRow)
-            self._model.dataChanged.emit(self._model.createIndex(0, 0),
-                                         self._model.createIndex(
-                                             self._pageSize - 1,
-                                             self._model.columnCount()),
-                                         [Qt.ForegroundRole])
 
     @pyqtSlot(set)
     def changeSelection(self, selection):

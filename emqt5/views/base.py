@@ -283,6 +283,7 @@ class AbstractView(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self, parent=parent)
         self._model = None
+        self._selectionMode = self.NO_SELECTION
         self.__setupUI()
 
     def __setupUI(self):
@@ -357,7 +358,11 @@ class AbstractView(QWidget):
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
         This method must be reimplemented in inherited classes
         """
-        pass
+        self._selectionMode = selectionMode
+
+    def getSelectionMode(self):
+        """ Returns the selection mode """
+        return self._selectionMode
 
     def setSelectionBehavior(self, selectionBehavior):
         """

@@ -68,38 +68,6 @@ if __name__ == '__main__':
         def __ls(self, pattern):
             return glob(pattern)
 
-    class ValidateSelectionMode(argparse.Action):
-        """
-        Class that allows the validation of the values corresponding to
-        the "selection-mode" parameter
-        """
-        OPTIONS = {
-            'single': AbstractView.SINGLE_SELECTION,
-            'extended': AbstractView.EXTENDED_SELECTION,
-            'multi': AbstractView.MULTI_SELECTION,
-            'no-select': AbstractView.NO_SELECTION
-        }
-
-        def __init__(self, option_strings, dest, **kwargs):
-            argparse.Action.__init__(self, option_strings, dest, **kwargs)
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            """
-            Return a AbstractView selection mode value.
-            """
-            if isinstance(values, list):
-                raise ValueError("Invalid number of arguments for %s. Only one "
-                                 "argument are supported." % option_string)
-
-            v = self.OPTIONS.get(values, AbstractView.MULTI_SELECTION)
-            setattr(namespace, self.dest, v)
-
-        def __ls(self, pattern):
-            return glob(pattern)
-
-        def getOptions(self):
-            return self.__options.values()
-
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
                                                     'viewer app',
@@ -162,13 +130,6 @@ if __name__ == '__main__':
                            required=False, choices=on_off,
                            help=' Enable/disable the option. '
                                 'The rois will work accordance with its center')
-    argParser.add_argument('--selection-mode', type=str, default='multi',
-                           required=False,
-                           choices=ValidateSelectionMode.OPTIONS,
-                           action=ValidateSelectionMode,
-                           help='Sets the selection mode for the views. '
-                                'Values:\n'
-                                'single, extended, multi, no-select')
 
     args = argParser.parse_args()
 
@@ -204,7 +165,7 @@ if __name__ == '__main__':
              'items': DataView.ITEMS,
              'slices': DataView.SLICES}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
-    kwargs['selection_mode'] = args.selection_mode
+    kwargs['selection_mode'] = AbstractView.MULTI_SELECTION
 
     # Picker params
     kwargs['boxsize'] = args.boxsize
@@ -277,6 +238,7 @@ if __name__ == '__main__':
         if args.picker == 'on' or isinstance(args.picker, dict):
             if files and files[0] == str(os.getcwd()):
                 files = None
+            kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               sources=args.picker, **kwargs)
             view.setWindowTitle("EM-PICKER")
@@ -292,6 +254,7 @@ if __name__ == '__main__':
                 raise Exception("Input file '%s' does not exists. " % files)
 
             if os.path.isdir(files):
+                kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
                 view = BrowserWindow(None, files, **kwargs)
             elif EmPath.isTable(files):  # Display the file as a Table:
                 if not args.view == 'slices':
@@ -299,7 +262,8 @@ if __name__ == '__main__':
                     view = createDataView(t[1], None, t[0],
                                           views.get(args.view,
                                                     DataView.COLUMNS),
-                                          dataSource=files)
+                                          dataSource=files,
+                                          **kwargs)
                     fitViewSize(view, d)
                 else:
                     raise Exception("Invalid display mode for table: '%s'"
@@ -316,11 +280,14 @@ if __name__ == '__main__':
                         if mode == 'slices' or mode == 'gallery':
                             kwargs['view'] = views[mode]
                             kwargs['tool_bar'] = 'off'
+                            kwargs["selection_mode"] = \
+                                AbstractView.SINGLE_SELECTION
                             view = createVolumeView(files, **kwargs)
                         else:
                             raise Exception("Invalid display mode for volume: "
                                             "'%s'" % mode)
                 else:  # Stack
+                    kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
                     if d.z > 1:  # volume stack
                         mode = args.view or 'slices'
                         if mode == 'slices':

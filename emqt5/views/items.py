@@ -26,6 +26,7 @@ class ItemsView(AbstractView):
         self._column = 0
         self._row = 0
         self._selection = set()
+        self.__selectionItem = None
         self._disableFitToSize = False
         self._imgCache = ImageCache(50)
         self._imageRef = ImageRef()
@@ -39,7 +40,11 @@ class ItemsView(AbstractView):
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Horizontal)
         self._itemsViewTable = QTableView(self._splitter)
-        self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
+        model = QStandardItemModel(self._itemsViewTable)
+        self._itemsViewTable.setModel(model)
+        self._itemsViewTable.horizontalHeader().setHighlightSections(False)
+        self._itemsViewTable.verticalHeader().setHighlightSections(False)
+        model.itemChanged.connect(self.__onItemDataChanged)
         self._imageView = ImageView(self._splitter, **kwargs)
         self._mainLayout.insertWidget(0, self._mainWidget)
         self._layout.insertWidget(0, self._splitter)
@@ -49,13 +54,22 @@ class ItemsView(AbstractView):
         self._imageView.clear()
         model = self._itemsViewTable.model()
         model.clear()
-        if self._model and row in range(0, self._model.totalRowCount()) and \
-                col in range(0, self._model.columnCount()):
+        if self._model is not None \
+                and row in range(0, self._model.totalRowCount()) \
+                and col in range(0, self._model.columnCount()):
             vLabels = []
+            if self._selectionMode == AbstractView.MULTI_SELECTION:
+                vLabels = ["SELECTED"]
+                self.__selectionItem = QStandardItem()
+                self.__selectionItem.setCheckable(True)
+                self.__selectionItem.setEditable(False)
+                model.appendRow([self.__selectionItem])
+
             for i in range(0, self._model.columnCount()):
                 item = QStandardItem()
                 item.setData(self._model.getTableData(row, i),
                              Qt.DisplayRole)
+                item.setEditable(False)
                 if i == col and self._model.getColumnConfig(col)['renderable']:
                     imgPath = self._model.getTableData(row, i)
                     imgRef = parseImagePath(imgPath, self._imageRef)
@@ -97,15 +111,36 @@ class ItemsView(AbstractView):
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
+            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(row)
+                self.sigSelectionChanged.emit()
+
             self.__updateSelectionInView()
             self.sigCurrentRowChanged.emit(row)
 
     def __updateSelectionInView(self):
-        if self._row in self._selection:
-            self._mainWidget.setStyleSheet(
-                'QWidget#itemsMainWidget{border-left: 1px solid blue;}')
-        else:
-            self._mainWidget.setStyleSheet('')
+        if self._selectionMode == AbstractView.MULTI_SELECTION:
+            if self._row in self._selection:
+                self.__selectionItem.setCheckState(Qt.Checked)
+            else:
+                self.__selectionItem.setCheckState(Qt.Unchecked)
+
+    @pyqtSlot('QStandardItem*')
+    def __onItemDataChanged(self, item):
+        """
+        Invoked when the item data is changed. Used for selection purposes
+        """
+        if item == self.__selectionItem:
+            if self._selectionMode == AbstractView.MULTI_SELECTION:
+                if item.checkState() == Qt.Checked:
+                    self._selection.add(self._row)
+                else:
+                    self._selection.discard(self._row)
+                self.sigSelectionChanged.emit()
+            elif item.checkState() == Qt.Unchecked:
+                item.setCheckState(Qt.Checked)
+
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onDataChanged(self, topLeft, bottomRight):

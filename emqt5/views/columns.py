@@ -32,8 +32,11 @@ class ColumnsView(AbstractView):
     def __setupUI(self, **kwargs):
         self._tableView = QTableView(self)
         hHeader = HeaderView(self._tableView)
+        hHeader.setHighlightSections(False)
+        hHeader.sectionClicked.connect(self.__onHeaderClicked)
         self._tableView.setHorizontalHeader(hHeader)
-        self._tableView.verticalHeader().setTextElideMode(QtCore.Qt.ElideRight)
+        self._tableView.verticalHeader().setTextElideMode(Qt.ElideRight)
+        self._tableView.setObjectName("ColumnsViewTable")
         self._defaultDelegate = self._tableView.itemDelegate()
         self.sigTableSizeChanged.connect(self.__onSizeChanged)
         self._tableView.setSelectionBehavior(QTableView.SelectRows)
@@ -41,6 +44,10 @@ class ColumnsView(AbstractView):
         self._tableView.setSortingEnabled(True)
         self._tableView.setModel(None)
         self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        #self._tableView.setStyleSheet(
+        #    "QTableView#ColumnsViewTable::item:selected:!active{"
+        #    "selection-background-color: red;}")  # palette(light);}")
+
         self._tableView.resizeEvent = self.__tableViewResizeEvent
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageCache(self._thumbCache)
@@ -109,21 +116,21 @@ class ColumnsView(AbstractView):
         """  """
         self._tableView.horizontalHeader().setStretchLastSection(True)
         self._tableView.resizeColumnsToContents()
-        print("calc: ", self._tableView.horizontalScrollBar().maximum())
-        if self._model is not None:
-            if self._tableView.horizontalScrollBar().maximum() > 0:
-                option = QStyleOptionViewItem()
-                for col in range(0, self._model.columnCount()):
-                    delegate = self._tableView.itemDelegateForColumn(0)
-                    w = 0
-                    for row in range(0, self._model.rowCount()):
-                        s = delegate.sizeHint(option,
-                                              self._model.createIndex(row, col))
-                        rw = s.width() + 3
-                        w = max(rw, w)
-                    self._tableView.setColumnWidth(
-                        col,
-                        min(w, self._tableView.columnWidth(col), 80))
+        #print("calc: ", self._tableView.horizontalScrollBar().maximum())
+        #if self._model is not None:
+        #    if self._tableView.horizontalScrollBar().maximum() > 0:
+        #        option = QStyleOptionViewItem()
+        #       for col in range(0, self._model.columnCount()):
+        #            delegate = self._tableView.itemDelegateForColumn(0)
+        #            w = 0
+        #            for row in range(0, self._model.rowCount()):
+        #                s = delegate.sizeHint(option,
+        #                                      self._model.createIndex(row, col))
+        #                rw = s.width() + 3
+        #                w = max(rw, w)
+        #            self._tableView.setColumnWidth(
+        #                col,
+        #                min(w, self._tableView.columnWidth(col), 80))
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
@@ -148,6 +155,19 @@ class ColumnsView(AbstractView):
                 selModel.select(allSel, QItemSelectionModel.Deselect)
                 if not sel.isEmpty():
                     selModel.select(sel, QItemSelectionModel.Select)
+
+    @pyqtSlot(int)
+    def __onHeaderClicked(self, logicalIndex):
+        """
+        Invoked when a section is clicked.
+        The section's logical index is specified by logicalIndex.
+        """
+        if self._selectionMode == AbstractView.SINGLE_SELECTION or \
+                self._selectionMode == AbstractView.NO_SELECTION:
+            self.__updateSelectionInView(self._model.getPage())
+        else:
+            self._selection.clear()
+            self.sigSelectionChanged.emit()
 
     @pyqtSlot()
     def __onSizeChanged(self):
@@ -176,11 +196,6 @@ class ColumnsView(AbstractView):
         if current.isValid():
             row = current.row()
             self._currentRow = row + self._pageSize * self._model.getPage()
-            self._model.dataChanged.emit(self._model.createIndex(0, 0),
-                                         self._model.createIndex(
-                                         self._pageSize - 1,
-                                         self._model.columnCount()),
-                                         [Qt.ForegroundRole])
             self.sigCurrentRowChanged.emit(
                 row + self._pageSize * self._model.getPage())
 
@@ -329,6 +344,7 @@ class ColumnsView(AbstractView):
         Indicates how the view responds to user selections:
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
+        self._selectionMode = selectionMode
         if selectionMode == self.SINGLE_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
@@ -337,6 +353,7 @@ class ColumnsView(AbstractView):
         elif selectionMode == self.MULTI_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.MultiSelection)
         else:
+            self._selectionMode = AbstractView.NO_SELECTION
             self._tableView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):

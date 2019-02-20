@@ -82,6 +82,22 @@ class TableDataModel(QAbstractItemModel):
 
             return emRow[emCol.getId()]
 
+    def __setupModel(self):
+        """
+        Configure the model according to the pageSize and current page
+        values
+        """
+        s = self._emTable.getSize()
+        offset = self._page * self._pageSize
+
+        if s < self._pageSize:
+            self._pageCount = 1
+        else:
+            self._pageCount = int(s / self._pageSize) + \
+                              (1 if s % self._pageSize else 0)
+
+        self._page = int(offset / self._pageSize)
+
     def clone(self):
         """ Clone this Model """
         clo = TableDataModel(self._emTable,
@@ -291,7 +307,7 @@ class TableDataModel(QAbstractItemModel):
     def headerData(self, column, orientation, role=Qt.DisplayRole):
 
         if self._tableViewConfig:
-            if role == Qt.DisplayRole:
+            if role == Qt.DisplayRole or role == Qt.ToolTipRole:
                 if orientation == Qt.Horizontal \
                         and column in range(0, len(self._tableViewConfig)):
                     return self._tableViewConfig[column].getLabel()
@@ -415,22 +431,6 @@ class TableDataModel(QAbstractItemModel):
         od = " DESC" if order == Qt.DescendingOrder else ""
         self._emTable.sort([self._tableViewConfig[column].getName() + od])
         self.endResetModel()
-
-    def __setupModel(self):
-        """
-        Configure the model according to the pageSize and current page
-        values
-        """
-        s = self._emTable.getSize()
-        offset = self._page * self._pageSize
-
-        if s < self._pageSize:
-            self._pageCount = 1
-        else:
-            self._pageCount = int(s / self._pageSize) + \
-                              (1 if s % self._pageSize else 0)
-
-        self._page = int(offset / self._pageSize)
 
     def insertRows(self, row, count, parent=QModelIndex()):
         """ Reimplemented from QAbstractItemModel """

@@ -70,6 +70,7 @@ class DataView(QWidget):
         self._imageCache = ImageCache(100)
         self._thumbCache = ImageCache(500, (100, 100))
         self._selection = set()
+        self._selectionMode = AbstractView.NO_SELECTION
         self._tablePref = dict()
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
@@ -196,7 +197,7 @@ class DataView(QWidget):
         self._toolBar.addWidget(self._labelCurrentTable)
         self._comboBoxCurrentTable = QComboBox(self._toolBar)
         self._comboBoxCurrentTable.currentIndexChanged. \
-            connect(self._onAxisChanged)
+            connect(self._onCurrentTableChanged)
         self._toolBar.addWidget(self._comboBoxCurrentTable)
         self._toolBar.addSeparator()
 
@@ -457,6 +458,11 @@ class DataView(QWidget):
 
         self.__loadPreferencesForCurrentTable()
         self._onGalleryViewColumnChanged(0)
+
+        if self._model is not None and \
+                self._selectionMode == AbstractView.SINGLE_SELECTION:
+            self._selection.add(0)
+            self.__makeSelectionInView(self._view)
 
     def __showTableSize(self):
         if self._model is not None:
@@ -730,11 +736,16 @@ class DataView(QWidget):
             block = self._spinBoxCurrentRow.blockSignals(True)
             self._spinBoxCurrentRow.setValue(row + 1)
             self._spinBoxCurrentRow.blockSignals(block)
+            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
+                self.__makeSelectionInView(self._view)
+
             self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(int)
-    def _onAxisChanged(self, index):
-        """ Invoked when user change the axis in volumes """
+    def _onCurrentTableChanged(self, index):
+        """ Invoked when user change the current table """
         try:
             if self._model:
                 self._selection.clear()
@@ -906,6 +917,11 @@ class DataView(QWidget):
         """
         if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
+
+                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                    self._selection.clear()
+                    self._selection.add(self._currentRow)
+
                 viewWidget = self._viewsDict.get(self._view)
 
                 if viewWidget is not None:
@@ -949,8 +965,6 @@ class DataView(QWidget):
             self._model.dataChanged.connect(self.__onDataChanged)
 
         self.__clearSelections()
-        if model is not None:
-            self._selection.clear()
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
@@ -1044,8 +1058,15 @@ class DataView(QWidget):
         AbstractView:
                     SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
         """
-        policy = Qt.NoContextMenu if selectionMode == AbstractView.NO_SELECTION\
-            else Qt.ActionsContextMenu
+
+        self._selectionMode = selectionMode
+
+        visible = not (selectionMode == AbstractView.NO_SELECTION
+                       or selectionMode == AbstractView.SINGLE_SELECTION)
+        self._toolBar1.setVisible(visible)
+
+        policy = Qt.NoContextMenu if not visible else Qt.ActionsContextMenu
+
         for viewWidget in self._viewsDict.values():
             viewWidget.setSelectionMode(selectionMode)
             if isinstance(viewWidget, ColumnsView):
@@ -1054,9 +1075,6 @@ class DataView(QWidget):
                 viewWidget = viewWidget.getListView()
 
             viewWidget.setContextMenuPolicy(policy)
-
-        self._toolBar1.setVisible(
-            not selectionMode == AbstractView.NO_SELECTION)
 
     def setSelectionBehavior(self, selectionBehavior):
         """
