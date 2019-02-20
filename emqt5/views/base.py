@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout,
                              QSizePolicy, QSpacerItem, QPushButton,
                              QGraphicsPixmapItem)
-from PyQt5.QtGui import QPixmap, QPalette
+from PyQt5.QtGui import QPixmap, QPalette, QPen
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -30,6 +30,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._pixmapItem = None
         self._imageRef = ImageRef()
         self._sBorder = 3  # selected state border (px)
+        self._focusPen = QPen(Qt.DotLine)
 
     def paint(self, painter, option, index):
         """
@@ -57,6 +58,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
             rect.setRect(x + self._sBorder, y + self._sBorder,
                          w - 2 * self._sBorder, h - 2 * self._sBorder)
             self._imageView.ui.graphicsView.scene().render(painter, rect)
+            if option.state & QStyle.State_HasFocus:
+                painter.save()
+                self._focusPen.setColor(
+                    option.palette.color(QPalette.Active,
+                                         QPalette.Highlight))
+                painter.setPen(self._focusPen)
+                painter.drawRect(rect)
+                painter.restore()
 
     def _setupView(self, index, width, height):
         """
@@ -232,6 +241,10 @@ class PageBar(QWidget):
             self._spinBoxCurrentPage.setValue(page + 1)
             self.sigPageChanged.emit(self._page)
 
+    def getPage(self):
+        """ Return the current page """
+        return self._page
+
     def setup(self, page, firstPage, lastPage, step=1):
         """ Setups the paging params """
         if firstPage <= lastPage and page in range(firstPage, lastPage + 1):
@@ -250,9 +263,27 @@ class PageBar(QWidget):
 class AbstractView(QWidget):
     """ The base class for a view. AbstractView contains a paging bar """
 
+    #  Selection Behavior
+    SELECT_ROWS = 1  # Selecting single items.
+    SELECT_COLUMNS = 2  # Selecting only rows.
+    SELECT_ITEMS = 3  # Selecting only columns.
+
+    #  Selection Mode
+    SINGLE_SELECTION = 20  # See QAbstractItemView.SingleSelection
+    EXTENDED_SELECTION = 21  # See QAbstractItemView.ExtendedSelection
+    MULTI_SELECTION = 22  # See QAbstractItemView.MultiSelection
+    NO_SELECTION = 23  # See QAbstractItemView.NoSelection
+
+    """ 
+        This signal is emitted when the current selection is changed
+        emit(selected, deselected) 
+        """
+    sigSelectionChanged = pyqtSignal()
+
     def __init__(self, parent=None):
         QWidget.__init__(self, parent=parent)
         self._model = None
+        self._selectionMode = self.NO_SELECTION
         self.__setupUI()
 
     def __setupUI(self):
@@ -286,6 +317,14 @@ class AbstractView(QWidget):
         """ Invoked when the model change his current page """
         self._pageBar.setPage(page)
 
+    @pyqtSlot(set)
+    def changeSelection(self, selection):
+        """
+        Invoked when the selection.
+        This method must be reimplemented in inherited classes
+        """
+        pass
+
     def setModel(self, model):
         """ Sets the model for the this abstract view """
         self.__disconnectModelSignals(self._model)
@@ -312,3 +351,27 @@ class AbstractView(QWidget):
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
         return 0, 0
+
+    def setSelectionMode(self, selectionMode):
+        """
+        Indicates how the view responds to user selections:
+        SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
+        This method must be reimplemented in inherited classes
+        """
+        self._selectionMode = selectionMode
+
+    def getSelectionMode(self):
+        """ Returns the selection mode """
+        return self._selectionMode
+
+    def setSelectionBehavior(self, selectionBehavior):
+        """
+        This property holds which selection behavior the view uses.
+        This property holds whether selections are done in terms of
+        single items, rows or columns.
+
+        Possible values:
+                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        This method must be reimplemented in inherited classes
+        """
+        pass

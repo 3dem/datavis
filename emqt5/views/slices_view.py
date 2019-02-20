@@ -236,8 +236,12 @@ class SlicesView(QWidget):
         return True
 
     def getIndex(self):
-        """ Return the current image index (for image stacks) """
+        """ Returns the current image index (for image stacks) """
         return self._index
+
+    def getSliceRange(self):
+        """ Returns a tuple (min, max) """
+        return self._slider.minimum(), self._slider.maximum()
 
     def setIndex(self, index):
         """ Sets the current image index (for stacks) """

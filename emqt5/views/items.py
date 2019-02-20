@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import QTableView, QSplitter
+from PyQt5.QtCore import Qt, pyqtSlot, QModelIndex
+from PyQt5.QtWidgets import QTableView, QSplitter, QVBoxLayout, QWidget
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
@@ -25,31 +25,51 @@ class ItemsView(AbstractView):
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
+        self._selection = set()
+        self.__selectionItem = None
         self._disableFitToSize = False
         self._imgCache = ImageCache(50)
         self._imageRef = ImageRef()
         self.__setupUI(**kwargs)
 
     def __setupUI(self, **kwargs):
+        self._mainWidget = QWidget(self)
+        self._mainWidget.setObjectName("itemsMainWidget")
+        self._layout = QVBoxLayout(self._mainWidget)
+        self._layout.setContentsMargins(2, 2, 2, 2)
         self._splitter = QSplitter(self)
         self._splitter.setOrientation(Qt.Horizontal)
         self._itemsViewTable = QTableView(self._splitter)
-        self._itemsViewTable.setModel(QStandardItemModel(self._itemsViewTable))
+        model = QStandardItemModel(self._itemsViewTable)
+        self._itemsViewTable.setModel(model)
+        self._itemsViewTable.horizontalHeader().setHighlightSections(False)
+        self._itemsViewTable.verticalHeader().setHighlightSections(False)
+        model.itemChanged.connect(self.__onItemDataChanged)
         self._imageView = ImageView(self._splitter, **kwargs)
-        self._mainLayout.insertWidget(0, self._splitter)
+        self._mainLayout.insertWidget(0, self._mainWidget)
+        self._layout.insertWidget(0, self._splitter)
 
     def __loadItem(self, row, col):
         """ Show the item at (row,col)"""
         self._imageView.clear()
         model = self._itemsViewTable.model()
         model.clear()
-        if self._model and row in range(0, self._model.totalRowCount()) and \
-                col in range(0, self._model.columnCount()):
+        if self._model is not None \
+                and row in range(0, self._model.totalRowCount()) \
+                and col in range(0, self._model.columnCount()):
             vLabels = []
+            if self._selectionMode == AbstractView.MULTI_SELECTION:
+                vLabels = ["SELECTED"]
+                self.__selectionItem = QStandardItem()
+                self.__selectionItem.setCheckable(True)
+                self.__selectionItem.setEditable(False)
+                model.appendRow([self.__selectionItem])
+
             for i in range(0, self._model.columnCount()):
                 item = QStandardItem()
                 item.setData(self._model.getTableData(row, i),
                              Qt.DisplayRole)
+                item.setEditable(False)
                 if i == col and self._model.getColumnConfig(col)['renderable']:
                     imgPath = self._model.getTableData(row, i)
                     imgRef = parseImagePath(imgPath, self._imageRef)
@@ -91,7 +111,43 @@ class ItemsView(AbstractView):
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
+            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(row)
+                self.sigSelectionChanged.emit()
+
+            self.__updateSelectionInView()
             self.sigCurrentRowChanged.emit(row)
+
+    def __updateSelectionInView(self):
+        if self._selectionMode == AbstractView.MULTI_SELECTION:
+            if self._row in self._selection:
+                self.__selectionItem.setCheckState(Qt.Checked)
+            else:
+                self.__selectionItem.setCheckState(Qt.Unchecked)
+
+    @pyqtSlot('QStandardItem*')
+    def __onItemDataChanged(self, item):
+        """
+        Invoked when the item data is changed. Used for selection purposes
+        """
+        if item == self.__selectionItem:
+            if self._selectionMode == AbstractView.MULTI_SELECTION:
+                if item.checkState() == Qt.Checked:
+                    self._selection.add(self._row)
+                else:
+                    self._selection.discard(self._row)
+                self.sigSelectionChanged.emit()
+            elif item.checkState() == Qt.Unchecked:
+                item.setCheckState(Qt.Checked)
+
+
+    @pyqtSlot(QModelIndex, QModelIndex)
+    def __onDataChanged(self, topLeft, bottomRight):
+        """ Invoked whenever the data in an existing item changes."""
+        row = self._model.getPage() * self._model.getPageSize() + topLeft.row()
+        if row == self._row:
+            self.__loadItem(self._row, self._column)
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
@@ -99,10 +155,23 @@ class ItemsView(AbstractView):
         self._row = page
         self.__loadItem(self._row, self._column)
 
+    @pyqtSlot(set)
+    def changeSelection(self, selection):
+        """ Invoked when the selection is changed """
+        self._selection = selection
+        self.__updateSelectionInView()
+
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
         self._column = column
         self.__loadItem(self._row, self._column)
+
+    def selectRow(self, row):
+        """ Selects the given row """
+        if self._model is not None and \
+                row in range(0, self._model.totalRowCount()):
+            self._row = row
+            self.__loadItem(self._row, self._column)
 
     def getModelColumn(self):
         """ Returns the column in the model that is visible. """
@@ -114,6 +183,7 @@ class ItemsView(AbstractView):
         self._column = 0
         if self._model:
             self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
+            self._model.dataChanged.disconnect(self.__onDataChanged)
 
         AbstractView.setModel(self, model)
 
@@ -121,6 +191,7 @@ class ItemsView(AbstractView):
             self._imageView.setVisible(self._model.hasRenderableColumn())
             self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
+            self._model.dataChanged.connect(self.__onDataChanged)
         else:
             self._imageView.setVisible(False)
 
@@ -131,6 +202,7 @@ class ItemsView(AbstractView):
     def selectRow(self, row):
         """ Selects the given row """
         if self._model and row in range(0, self._model.totalRowCount()):
+            self._row = row
             self._model.loadPage(row)
 
     def currentRow(self):

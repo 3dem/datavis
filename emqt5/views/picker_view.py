@@ -2,7 +2,7 @@ import sys
 import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QItemSelectionModel, QModelIndex,
+from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex,
                           QFile, QIODevice, QJsonDocument, QJsonParseError)
 from PyQt5.QtWidgets import (QHBoxLayout, QFileDialog, QMessageBox, QCompleter,
                              QPushButton, QActionGroup, QButtonGroup, QLabel,
@@ -21,7 +21,8 @@ from .picker_model import Micrograph, Coordinate
 from .utils import ImageElemParser
 from .image_view import ImageView
 from .config import TableViewConfig
-from .columns import ColumnsView
+from .data_view import DataView
+from .base import AbstractView
 from ..utils import EmImage, EmPath
 
 SHAPE_RECT = 0
@@ -79,7 +80,7 @@ class PickerView(QWidget):
 
         # By default select the first micrograph in the list
         if self._tvModel.rowCount() > 0:
-            self._tvImages.selectRow(0)
+            self._dvImages.selectRow(0)
 
     def __setup(self, **kwargs):
         """ Configure the PickerView. """
@@ -117,9 +118,10 @@ class PickerView(QWidget):
         self._lineEdit = QLineEdit(self._leftPanel)
         self._lineEdit.setObjectName("lineEdit")
         self._verticalLayout.addWidget(self._lineEdit)
-        self._tvImages = ColumnsView(self._leftPanel)
+        self._dvImages = DataView(self._leftPanel, **kwargs)
+        self._tvImages = self._dvImages.getViewWidget(DataView.COLUMNS)
         self._tvImages.setObjectName("columnsViewImages")
-        self._verticalLayout.addWidget(self._tvImages)
+        self._verticalLayout.addWidget(self._dvImages)
 
         self._viewWidget = QWidget(self)
         self._viewLayout = QVBoxLayout(self._viewWidget)
@@ -410,9 +412,9 @@ class PickerView(QWidget):
                                         visible=True)
         self._tvModel = TableDataModel(table, tableViewConfig=tableViewConfig)
 
-        self._tvImages.setModel(self._tvModel)
-        self._tvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._tvImages.sigCurrentRowChanged.connect(
+        self._dvImages.setModel(self._tvModel)
+        self._dvImages.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._dvImages.sigCurrentRowChanged.connect(
             self.__onCurrentRowChanged)
         self._tvImages.getHorizontalHeader().sectionClicked.connect(
             self.__onSectionClicked)
@@ -432,11 +434,14 @@ class PickerView(QWidget):
             coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
             self._currentMic.addCoordinate(coord)
             self._createCoordROI(coord)
-            index = self._tvImages.currentIndex()
-            if index.isValid():
-                    self._tvModel.setData(
-                        self._tvModel.createIndex(index.row(), 2),
-                        len(self._currentMic))
+            model = self._dvImages.getViewWidget(
+                self._dvImages.getView()).getModel()
+            if model > 0:
+                r = self._dvImages.getCurrentRow()
+                print("Row: ", r)
+                print("Page size: ", model.getPageSize())
+                model.setData(model.createIndex(r % model.getPageSize(), 2),
+                              len(self._currentMic))
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """

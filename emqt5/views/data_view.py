@@ -3,10 +3,11 @@
 
 import traceback
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QSize
+from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
-                             QLineEdit, QActionGroup, QMessageBox)
+                             QLineEdit, QActionGroup, QMessageBox, QSplitter,
+                             QSizePolicy, QPushButton, QMenu)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
@@ -15,7 +16,9 @@ from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
+from .base import AbstractView
 from .config import TableViewConfig
+from .toolbar import ToolBar
 
 from emqt5.utils.functions import EmTable
 
@@ -37,6 +40,9 @@ class DataView(QWidget):
 
     """ This signal is emitted when the current table is changed """
     sigCurrentTableChanged = pyqtSignal()
+
+    """ This signal is emitted when the current row is changed """
+    sigCurrentRowChanged = pyqtSignal(int)
 
     def __init__(self, parent, **kwargs):
         QWidget.__init__(self, parent=parent)
@@ -63,28 +69,102 @@ class DataView(QWidget):
         self._currentRow = 0  # selected table row
         self._imageCache = ImageCache(100)
         self._thumbCache = ImageCache(500, (100, 100))
-
+        self._selection = set()
+        self._selectionMode = AbstractView.NO_SELECTION
         self._tablePref = dict()
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
         self.__setupCurrentViewMode()
         self.__setupActions()
+        self.setSelectionMode(self._selectionMode)
 
     def __setupUi(self, **kwargs):
+
         self._mainLayout = QVBoxLayout(self)
-        self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(0, 0, 0, 0)
+        self._mainContainer = QWidget(self)
+        self._mainContainerLayout = QVBoxLayout(self._mainContainer)
+        self._mainContainerLayout.setSpacing(0)
+        self._mainContainerLayout.setContentsMargins(0, 0, 0, 0)
+
         self._toolBar = QToolBar(self)
-        self._mainLayout.addWidget(self._toolBar)
-        self._stackedLayoud = QStackedLayout(self._mainLayout)
+        self._mainContainerLayout.addWidget(self._toolBar)
+        self._stackedLayoud = QStackedLayout(self._mainContainerLayout)
         self._stackedLayoud.setSpacing(0)
+
+        # toolbar
+        self._toolBar1 = ToolBar(self, orientation=Qt.Vertical)
+        self._toolBar1.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self._splitter = QSplitter(self)
+        self._splitter.addWidget(self._toolBar1)
+        self._splitter.setCollapsible(0, False)
+        self._splitter.addWidget(self._mainContainer)
+        # selection panel
+        self._selectionMenu = QMenu(self)
+        self._selectionPanel = self._toolBar1.createSidePanel()
+        self._selectionPanel.setObjectName('selectionPanel')
+        self._selectionPanel.setStyleSheet(
+            'QWidget#selectionPanel{border-left: 1px solid lightgray;}')
+        self._selectionPanel.setSizePolicy(QSizePolicy.Ignored,
+                                           QSizePolicy.Ignored)
+        vLayout = QVBoxLayout(self._selectionPanel)
+
+        vLayout.addWidget(QLabel("<strong>Actions:<strong>"))
+        self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
+
+        def _addActionButton(text, icon, onTriggeredFunc):
+            a = QAction(None)
+            a.setText(text)
+            a.setIcon(icon)
+            a.triggered.connect(onTriggeredFunc)
+            self._selectionMenu.addAction(a)
+            self._selectionMenu.addSeparator()
+            b = QPushButton(icon, text, self._selectionPanel)
+            b.clicked.connect(onTriggeredFunc)
+            vLayout.addWidget(b)
+            return a, b
+
+        selectAllIcon = qta.icon('fa.chevron-up', 'fa.chevron-down',
+                                 options=[{'offset': (0, -0.3),
+                                           'scale_factor': 0.85},
+                                          {'offset': (0, 0.3),
+                                           'scale_factor': 0.85}])
+
+        self._actSelectAll, self._buttonSelectAll = _addActionButton(
+            "Select all", selectAllIcon, self.__onSelectAllTriggered)
+
+        self._actSelectToHere, self._buttonSelectTo = _addActionButton(
+            "Select to here", qta.icon('fa.chevron-up'),
+            self.__onToHereSelectionTriggered)
+
+        self._actSelectFromHere, self._buttonSelectFrom = _addActionButton(
+            "Select from here", qta.icon('fa.chevron-down'),
+            self.__onFromHereSelectionTriggered)
+
+        self._actInvSelection, self._buttonInvSelection = _addActionButton(
+            "Invert selection", qta.icon('fa5s.exchange-alt'),
+            self.__onInvertSelectionTriggered)
+
+        self._actClearSelection, self._buttonClearSelection = _addActionButton(
+            "Clear selection", qta.icon('fa.eraser'),
+            self.__onClearSelectionTriggered)
+
+        maxWidth = self._buttonClearSelection.width()
+        vLayout.addWidget(self._labelSelectionInfo)
+        vLayout.addStretch()
+        self._selectionPanel.setGeometry(0, 0, maxWidth,
+                                         self._selectionPanel.height())
+        self._actSelections = QAction(None)
+        self._actSelections.setIcon(qta.icon('fa.check-circle'))
+        self._actSelections.setText('Selection')
+        self._toolBar1.addAction(self._actSelections, self._selectionPanel,
+                                 exclusive=False)
 
         # combobox current table
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
         self._toolBar.addWidget(self._labelCurrentTable)
         self._comboBoxCurrentTable = QComboBox(self._toolBar)
         self._comboBoxCurrentTable.currentIndexChanged. \
-            connect(self._onAxisChanged)
+            connect(self._onCurrentTableChanged)
         self._toolBar.addWidget(self._comboBoxCurrentTable)
         self._toolBar.addSeparator()
 
@@ -164,11 +244,12 @@ class DataView(QWidget):
             connect(self._onGalleryViewColumnChanged)
 
         self._statusBar = QStatusBar(self)
-        self._mainLayout.addWidget(self._statusBar)
+        self._mainContainerLayout.addWidget(self._statusBar)
         self.__createViews(**kwargs)
         self._statusBar.setVisible(False)  # hide for now
         self.setMinimumWidth(700)
         self.setGeometry(0, 0, 750, 800)
+        self._mainLayout.addWidget(self._splitter)
 
     def __createPreferencesForCurrentTable(self):
         """
@@ -238,14 +319,25 @@ class DataView(QWidget):
                     if isinstance(viewWidget, ColumnsView) \
                             or isinstance(viewWidget, GalleryView):
                         viewWidget.setThumbCache(self._thumbCache)
+                        if isinstance(viewWidget, ColumnsView):
+                            view = viewWidget.getTableView()
+                        else:
+                            view = viewWidget.getListView()
+                    else:
+                        view = viewWidget
+
+                    view.setContextMenuPolicy(Qt.ActionsContextMenu)
+                    view.addAction(self._actSelectAll)
+                    view.addAction(self._actSelectFromHere)
+                    view.addAction(self._actSelectToHere)
 
                     self._stackedLayoud.addWidget(viewWidget)
                     viewWidget.sigCurrentRowChanged.connect(
                         self.__onViewRowChanged)
                     viewWidget.getPageBar().sigPageConfigChanged.connect(
                         self.__onPageConfigChanged)
-                    viewWidget.getPageBar().sigPageChanged.connect(
-                        self.__onCurrentPageChanged)
+                    viewWidget.sigSelectionChanged.connect(
+                        self.__onCurrentViewSelectionChanged)
 
                 a = self._viewActions[v]
                 a["view"] = viewWidget
@@ -319,17 +411,41 @@ class DataView(QWidget):
         self.__setupComboBoxCurrentColumn()
         self.__initCurrentRenderableColumn()
         self.__setupActions()
-        if self._model is not None:
-            for w in self._viewsDict.values():
-                w.setModel(self._model.clone())
+
+        for w in self._viewsDict.values():
+            m = w.getModel()
+            if m is not None:
+                m.sigPageChanged.disconnect(self.__onCurrentPageChanged)
+            if self._model is not None:
+                m = self._model.clone()
+                m.sigPageChanged.connect(self.__onCurrentPageChanged)
+                w.setModel(m)
+            else:
+                w.setModel(None)
+
         self.__loadPreferencesForCurrentTable()
         self._onGalleryViewColumnChanged(0)
 
+        if self._model is not None and \
+                self._selectionMode == AbstractView.SINGLE_SELECTION:
+            self._selection.add(0)
+            self.__makeSelectionInView(self._view)
+
     def __showTableSize(self):
         if self._model is not None:
+            size = self.__getSelectionSize()
+            if size:
+                textTuple = ("Selected items: ",
+                             "%s/%s" % (size, self._model.totalRowCount()))
+            else:
+                textTuple = ("No selection", "")
+            text = "<br><p><strong>%s</strong></p><p>%s</p>" % textTuple
+            self._labelSelectionInfo.setText(text.ljust(20))
             self._labelElements.setText(" Elements: %d " %
                                         self._model.totalRowCount())
         else:
+            self._labelSelectionInfo.setText(
+                "<p><strong>Selection</strong></p>")
             self._labelElements.setText("")
 
     def __setupSpinBoxRowHeigth(self):
@@ -413,23 +529,28 @@ class DataView(QWidget):
         viewWidget = self._viewsDict.get(self._view)
 
         if viewWidget is not None:
+            row = self._currentRow
             self._stackedLayoud.setCurrentWidget(viewWidget)
+            self.__makeSelectionInView(self._view)
+            viewWidget.selectRow(row)
 
         a = self._viewActions[self._view].get("action", None)
         if a:
             a.setChecked(True)
 
-        self._selectRow(self._currentRow + 1)
         self._showViewDims()
         self.__setupToolBarForView(self._view)
         self.__savePreferencesForCurrentTable()
+
+    def __clearSelections(self):
+        """ Clear all selections in the views """
+        self._selection.clear()
 
     def __setupModel(self):
         """
         Configure the current table model in all view modes
         """
         self.__setupAllWidgets()
-        #self.__setupCurrentViewMode()
 
     def __setupSpinBoxCurrentRow(self):
         """
@@ -498,6 +619,8 @@ class DataView(QWidget):
         # List of configured views
         self._views = kwargs.get("views", [self.COLUMNS, self.GALLERY,
                                            self.ITEMS])
+        self._selectionMode = kwargs.get("selection_mode",
+                                         AbstractView.MULTI_SELECTION)
 
     def __setupActions(self):
         for v in self._actionGroupViews.actions():
@@ -506,31 +629,99 @@ class DataView(QWidget):
             if self._model and view == DataView.GALLERY:
                 v.setVisible(self._model.hasRenderableColumn())
 
+    def __makeSelectionInView(self, view):
+        """ Makes the current selection in the given view """
+        view = self.getViewWidget(view)
+
+        if view is not None:
+            model = view.getModel()
+            if model:
+                view.changeSelection(self._selection)
+
+    def __getSelectionSize(self):
+        """ Returns the current selection size """
+        return len(self._selection)
+
+    @pyqtSlot()
+    def __onCurrentViewSelectionChanged(self):
+        """ Invoked when the selection is changed in any view """
+        self.__showTableSize()
+
+    @pyqtSlot(bool)
+    def __onToHereSelectionTriggered(self, a):
+        """ Invoked when the select_all action is triggered """
+
+        if self._model is not None:
+            self._selection.update(range(0, self._currentRow + 1))
+            self.__makeSelectionInView(self._view)
+
+    @pyqtSlot(bool)
+    def __onFromHereSelectionTriggered(self, a):
+        """ Invoked when the select_all action is triggered """
+
+        if self._model is not None:
+            self._selection.update(range(self._currentRow,
+                                         self._model.totalRowCount()))
+            self.__makeSelectionInView(self._view)
+
+    @pyqtSlot(bool)
+    def __onClearSelectionTriggered(self, a):
+        """ Invoked when the clear_selection action is triggered """
+        self._selection.clear()
+        self.__makeSelectionInView(self._view)
+
+    @pyqtSlot(bool)
+    def __onInvertSelectionTriggered(self, a):
+        """ Invoked when the select_all action is triggered """
+
+        if self._model is not None:
+            allRows = set(range(self._model.totalRowCount()))
+            self._selection.symmetric_difference_update(allRows)
+            self.__makeSelectionInView(self._view)
+
+    @pyqtSlot(bool)
+    def __onSelectAllTriggered(self, a):
+        """ Invoked when the select_all action is triggered """
+        if self._model is not None:
+            self._selection.update(range(0, self._model.totalRowCount()))
+            self.__makeSelectionInView(self._view)
+
     @pyqtSlot(int, int, int, int)
     def __onPageConfigChanged(self, page, fist, last, step):
         """ Invoked when views change his page configuration """
-        self._selectRow(self._currentRow + 1)
+        self.__makeSelectionInView(self._view)
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         self._showViewDims()
+        self.__makeSelectionInView(self._view)
 
     @pyqtSlot(int)
     def __onViewRowChanged(self, row):
         """ Invoked when views change the current row """
         if not self._currentRow == row:
-            self._selectRow(row + 1)
+            self._currentRow = row
+            block = self._spinBoxCurrentRow.blockSignals(True)
+            self._spinBoxCurrentRow.setValue(row + 1)
+            self._spinBoxCurrentRow.blockSignals(block)
+            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
+                self.__makeSelectionInView(self._view)
+
+            self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(int)
-    def _onAxisChanged(self, index):
-        """ Invoked when user change the axis in volumes """
+    def _onCurrentTableChanged(self, index):
+        """ Invoked when user change the current table """
         try:
             if self._model:
+                self._selection.clear()
                 if isinstance(self._model, VolumeDataModel):
                     t = self._comboBoxCurrentTable.currentText().split("(")
-                    l = len(t)
-                    if l > 1:
-                        s = t[l-1]
+                    length = len(t)
+                    if length > 1:
+                        s = t[length-1]
                         axis = X_AXIS
                         if s == "X)":
                             axis = X_AXIS
@@ -567,6 +758,31 @@ class DataView(QWidget):
             self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
                               str(ex))
             print(traceback.format_exc())
+
+    @pyqtSlot(QModelIndex, int, int)
+    def __onRowsInserted(self, parent, first, last):
+        """ Invoked when rows are inserted """
+        for viewWidget in self._viewsDict.values():
+            model = viewWidget.getModel()
+            if model is not None:
+                model.setupPage(model.getPageSize(), model.getPage())
+                self._showViewDims()
+                self.__showTableSize()
+                self.__setupSpinBoxRowHeigth()
+                self.__setupSpinBoxCurrentRow()
+
+    @pyqtSlot(QModelIndex, QModelIndex)
+    def __onDataChanged(self, topLeft, bottomRight):
+        """ Invoked whenever the data in an existing item changes."""
+        viewWidget = self._viewsDict.get(self._view)
+
+        if viewWidget is not None:
+            model = viewWidget.getModel()
+            if model is not None:
+                model.dataChanged.emit(model.createIndex(topLeft.row(),
+                                                         topLeft.column()),
+                                       model.createIndex(bottomRight.row(),
+                                                         bottomRight.column()))
 
     @pyqtSlot()
     def __showMsgBox(self, text, icon=None, details=None):
@@ -624,6 +840,7 @@ class DataView(QWidget):
         """
         size = self._spinBoxRowHeight.value()
 
+        row = self._currentRow
         for viewWidget in self._viewsDict.values():
             model = viewWidget.getModel()
             if model is not None:
@@ -641,7 +858,10 @@ class DataView(QWidget):
             elif isinstance(viewWidget, GalleryView):
                 viewWidget.setIconSize((size, size))
 
-        self._selectRow(self._currentRow + 1)
+        viewWidget = self._viewsDict.get(self._view)
+        if viewWidget is not None:
+            viewWidget.selectRow(row)
+        self.__makeSelectionInView(self._view)
 
     @pyqtSlot()
     def _showViewDims(self):
@@ -669,13 +889,21 @@ class DataView(QWidget):
         """
         if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
+
+                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                    self._selection.clear()
+                    self._selection.add(self._currentRow)
+
                 viewWidget = self._viewsDict.get(self._view)
 
                 if viewWidget is not None:
+                    self.__makeSelectionInView(self._view)
                     viewWidget.selectRow(self._currentRow)
 
                 if not row == self._spinBoxCurrentRow.value():
                     self._spinBoxCurrentRow.setValue(row)
+                self.sigCurrentRowChanged.emit(self._currentRow)
+                self.__showTableSize()
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -700,7 +928,15 @@ class DataView(QWidget):
     def setModel(self, model):
         """ Set the table model for display. """
         self.__clearViews()
+        if self._model is not None:
+            self._model.rowsInserted.disconnect(self.__onRowsInserted)
+            self._model.dataChanged.disconnect(self.__onDataChanged)
         self._model = model
+        if self._model is not None:
+            self._model.rowsInserted.connect(self.__onRowsInserted)
+            self._model.dataChanged.connect(self.__onDataChanged)
+
+        self.__clearSelections()
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
@@ -772,6 +1008,57 @@ class DataView(QWidget):
         if view in self._views and self.__canChangeToView(view):
             self._view = view
             self.__setupCurrentViewMode()
+
+    def selectRow(self, row):
+        """
+        Sets the given row as the current row for all views.
+        0 will be considered as the first row.
+        """
+        r = self._spinBoxCurrentRow.value()
+        if r == row + 1:
+            self.sigCurrentRowChanged.emit(self._currentRow)
+        else:
+            self._spinBoxCurrentRow.setValue(row + 1)
+
+    def getCurrentRow(self):
+        """ Returns the current row """
+        return self._currentRow
+
+    def setSelectionMode(self, selectionMode):
+        """
+        Indicates how the view responds to user selections:
+        AbstractView:
+                    SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
+        """
+
+        self._selectionMode = selectionMode
+
+        visible = not (selectionMode == AbstractView.NO_SELECTION
+                       or selectionMode == AbstractView.SINGLE_SELECTION)
+        self._toolBar1.setVisible(visible)
+
+        policy = Qt.NoContextMenu if not visible else Qt.ActionsContextMenu
+
+        for viewWidget in self._viewsDict.values():
+            viewWidget.setSelectionMode(selectionMode)
+            if isinstance(viewWidget, ColumnsView):
+                viewWidget = viewWidget.getTableView()
+            elif isinstance(viewWidget, GalleryView):
+                viewWidget = viewWidget.getListView()
+
+            viewWidget.setContextMenuPolicy(policy)
+
+    def setSelectionBehavior(self, selectionBehavior):
+        """
+        This property holds which selection behavior the view uses.
+        This property holds whether selections are done in terms of
+        single items, rows or columns.
+
+        AbstractView:
+                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        """
+        for viewWidget in self._viewsDict.values():
+            viewWidget.setSelectionMode(selectionBehavior)
 
     def getAvailableViews(self):
         """ Return the available views """
