@@ -107,80 +107,46 @@ class DataView(QWidget):
         self._selectionPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
+
         self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
-        self._actSelectAll = QAction("Select all")
-        self._actSelectAll.setIcon(qta.icon('fa.chevron-up',
-                                            'fa.chevron-down',
-                                             options=[{'offset': (0, -0.3),
-                                                       'scale_factor': 0.85},
-                                                      {'offset': (0, 0.3),
-                                                       'scale_factor': 0.85}
-                                                      ]))
-        self._actSelectAll.setToolTip("Select all")
-        self._actSelectAll.triggered.connect(self.__onSelectAllTriggered)
-        self._selectionMenu.addAction(self._actSelectAll)
-        self._selectionMenu.addSeparator()
-        self._buttonSelectAll = QPushButton(
-            qta.icon('fa.chevron-up',
-                     'fa.chevron-down',
-                     options=[{'offset': (0, -0.3),
-                               'scale_factor': 0.85},
-                              {'offset': (0, 0.3),
-                               'scale_factor': 0.85}
-                              ]),
-            'Select all',
-            self._selectionPanel)
-        self._buttonSelectAll.clicked.connect(self.__onSelectAllTriggered)
-        vLayout.addWidget(self._buttonSelectAll)
 
-        self._actSelectToHere = QAction("Select to here")
-        self._actSelectToHere.setIcon(qta.icon('fa.chevron-up'))
-        self._actSelectToHere.setToolTip("Select to here")
-        self._actSelectToHere.triggered.connect(
+        def _addActionButton(text, icon, onTriggeredFunc):
+            a = QAction(None)
+            a.setText(text)
+            a.setIcon(icon)
+            a.triggered.connect(onTriggeredFunc)
+            self._selectionMenu.addAction(a)
+            self._selectionMenu.addSeparator()
+            b = QPushButton(icon, text, self._selectionPanel)
+            b.clicked.connect(onTriggeredFunc)
+            vLayout.addWidget(b)
+            return a, b
+
+        selectAllIcon = qta.icon('fa.chevron-up', 'fa.chevron-down',
+                                 options=[{'offset': (0, -0.3),
+                                           'scale_factor': 0.85},
+                                          {'offset': (0, 0.3),
+                                           'scale_factor': 0.85}])
+
+        self._actSelectAll, self._buttonSelectAll = _addActionButton(
+            "Select all", selectAllIcon, self.__onSelectAllTriggered)
+
+        self._actSelectToHere, self._buttonSelectTo = _addActionButton(
+            "Select to here", qta.icon('fa.chevron-up'),
             self.__onToHereSelectionTriggered)
-        self._selectionMenu.addAction(self._actSelectToHere)
-        self._buttonSelectTo = QPushButton(qta.icon('fa.chevron-up'),
-                                           'Select to',
-                                           self._selectionPanel)
-        self._buttonSelectTo.clicked.connect(self.__onToHereSelectionTriggered)
-        vLayout.addWidget(self._buttonSelectTo)
 
-        self._actSelectFromHere = QAction("Select from here")
-        self._actSelectFromHere.setIcon(qta.icon('fa.chevron-down'))
-        self._actSelectFromHere.setToolTip("Select from here")
-        self._actSelectFromHere.triggered.connect(
+        self._actSelectFromHere, self._buttonSelectFrom = _addActionButton(
+            "Select from here", qta.icon('fa.chevron-down'),
             self.__onFromHereSelectionTriggered)
-        self._selectionMenu.addAction(self._actSelectFromHere)
-        self._buttonSelectFrom = QPushButton(qta.icon('fa.chevron-down'),
-                                             'Select from here',
-                                             self._selectionPanel)
-        self._buttonSelectFrom.clicked.connect(
-            self.__onFromHereSelectionTriggered)
-        vLayout.addWidget(self._buttonSelectFrom)
 
-        self._actInvSelection = QAction("Invert selection")
-        self._actInvSelection.setIcon(qta.icon('fa5s.exchange-alt'))
-        self._actInvSelection.setToolTip("Invert selection")
-        self._actInvSelection.triggered.connect(
+        self._actInvSelection, self._buttonInvSelection = _addActionButton(
+            "Invert selection", qta.icon('fa5s.exchange-alt'),
             self.__onInvertSelectionTriggered)
-        self._buttonInvSelection = QPushButton(qta.icon('fa5s.exchange-alt'),
-                                               'Invert selection',
-                                               self._selectionPanel)
-        self._buttonInvSelection.clicked.connect(
-            self.__onInvertSelectionTriggered)
-        vLayout.addWidget(self._buttonInvSelection)
 
-        self._actClearSelection = QAction("Clear selection")
-        self._actClearSelection.setIcon(qta.icon('fa.eraser'))
-        self._actClearSelection.setToolTip("Clear selection")
-        self._actClearSelection.triggered.connect(
+        self._actClearSelection, self._buttonClearSelection = _addActionButton(
+            "Clear selection", qta.icon('fa.eraser'),
             self.__onClearSelectionTriggered)
-        self._buttonClearSelection = QPushButton(qta.icon('fa.eraser'),
-                                                 'Clear selection',
-                                                 self._selectionPanel)
-        self._buttonClearSelection.clicked.connect(
-            self.__onClearSelectionTriggered)
-        vLayout.addWidget(self._buttonClearSelection)
+
         maxWidth = self._buttonClearSelection.width()
         vLayout.addWidget(self._labelSelectionInfo)
         vLayout.addStretch()
@@ -188,7 +154,7 @@ class DataView(QWidget):
                                          self._selectionPanel.height())
         self._actSelections = QAction(None)
         self._actSelections.setIcon(qta.icon('fa.check-circle'))
-        self._actSelections.setText('Selections')
+        self._actSelections.setText('Selection')
         self._toolBar1.addAction(self._actSelections, self._selectionPanel,
                                  exclusive=False)
 
@@ -466,13 +432,13 @@ class DataView(QWidget):
 
     def __showTableSize(self):
         if self._model is not None:
-            text = "<p><strong>%s</strong></p>" \
-                   "<p>%s%s%s</p>"
             size = self.__getSelectionSize()
-            text = text % ("Selected items:" if size else "No selection",
-                           str(size) if size else "",
-                           "/" if size else "",
-                           str(self._model.totalRowCount()) if size else "")
+            if size:
+                textTuple = ("Selected items: ",
+                             "%s/%s" % (size, self._model.totalRowCount()))
+            else:
+                textTuple = ("No selection", "")
+            text = "<p><strong>%s</strong></p><p>%s</p>" % textTuple
             self._labelSelectionInfo.setText(text.ljust(20))
             self._labelElements.setText(" Elements: %d " %
                                         self._model.totalRowCount())
