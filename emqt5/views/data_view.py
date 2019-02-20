@@ -108,6 +108,7 @@ class DataView(QWidget):
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
 
+        vLayout.addWidget(QLabel("<strong>Actions:<strong>"))
         self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
 
         def _addActionButton(text, icon, onTriggeredFunc):
@@ -438,7 +439,7 @@ class DataView(QWidget):
                              "%s/%s" % (size, self._model.totalRowCount()))
             else:
                 textTuple = ("No selection", "")
-            text = "<p><strong>%s</strong></p><p>%s</p>" % textTuple
+            text = "<br><p><strong>%s</strong></p><p>%s</p>" % textTuple
             self._labelSelectionInfo.setText(text.ljust(20))
             self._labelElements.setText(" Elements: %d " %
                                         self._model.totalRowCount())
