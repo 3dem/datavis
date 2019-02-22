@@ -28,6 +28,8 @@ class ColumnsView(AbstractView):
         self._selection = set()
         self._currentRow = 0
         self.__setupUI(**kwargs)
+        self.setSelectionMode(kwargs.get("selection_mode",
+                                         AbstractView.SINGLE_SELECTION))
 
     def __setupUI(self, **kwargs):
         self._tableView = QTableView(self)
@@ -52,7 +54,7 @@ class ColumnsView(AbstractView):
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageCache(self._thumbCache)
         self._mainLayout.insertWidget(0, self._tableView)
-        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
+        #self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __tableViewResizeEvent(self, evt):
         """
@@ -174,8 +176,10 @@ class ColumnsView(AbstractView):
         """ Invoked when the table widget is resized """
         self.__calcPageSize()
         if self._model is not None:
+            row = self._currentRow
             self._model.setupPage(self._pageSize,
                                   self.__getPage(self._currentRow))
+            self.selectRow(row)
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
@@ -183,6 +187,11 @@ class ColumnsView(AbstractView):
         if self._model is not None:
             size = self._model.getPageSize()
             self._currentRow = page * size
+            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
+
+            self.__updateSelectionInView(page)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
@@ -191,6 +200,10 @@ class ColumnsView(AbstractView):
         if current.isValid():
             row = current.row()
             self._currentRow = row + self._pageSize * self._model.getPage()
+            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
+            self.__updateSelectionInView(self._model.getPage())
             self.sigCurrentRowChanged.emit(
                 row + self._pageSize * self._model.getPage())
 
@@ -253,6 +266,7 @@ class ColumnsView(AbstractView):
             selModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             selModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
+            model.sigPageChanged.connect(self.__onCurrentPageChanged)
 
             self.setupColumnsWidth()
 

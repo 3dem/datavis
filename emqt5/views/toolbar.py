@@ -202,11 +202,13 @@ class MultiAction(QAction):
         QAction.__init__(self, parent)
         self._stateIndex = -1
         self._icons = dict()
+        self._tooltip = dict()
         self._states = list()
 
-    def addState(self, state, icon):
+    def addState(self, state, icon, tooltip=""):
         self._states.append(state)
         self._icons[state] = icon, len(self._states) - 1
+        self._tooltip[state] = tooltip
 
     def getCurrentState(self):
         return self._states[self._stateIndex] if self._stateIndex >= 0 else -1
@@ -218,14 +220,19 @@ class MultiAction(QAction):
             self._stateIndex = s[1]
             self.setIcon(self._icons[self._states[self._stateIndex]][0])
 
+        self.setToolTip(self._tooltip.get(state, ""))
+
     def changeToNextState(self):
         if self._stateIndex >= 0:
             self._stateIndex = (self._stateIndex + 1) % len(self._states)
             self.setIcon(self._icons[self._states[self._stateIndex]][0])
+            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
+                                              ""))
 
     def changeToPreviousState(self):
         if self._states:
             n = len(self._states)
             self._stateIndex = (n - self._stateIndex - 1) % n
             self.setIcon(self._icons[self._states[self._stateIndex]][0])
-
+            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
+                                              ""))
