@@ -72,13 +72,15 @@ class PickerView(QWidget):
                                        pen=pg.mkPen(color="FFF",
                                                     width=1,
                                                     dash=[2, 2, 2]))
+        self.__eraseROI.setCursor(Qt.CrossCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROI.sigRegionChanged.connect(self.__eraseRoiChanged)
 
         self._imageView.getViewBox().addItem(self.__eraseROI)
         for h in self.__eraseROI.getHandles():
             self.__eraseROI.removeHandle(h)
-        self.__eraseROIText = pg.TextItem()
+        self.__eraseROIText = pg.TextItem(text="", color=(220, 220, 0),
+                                          fill=pg.mkBrush(color=(0, 0, 0, 128)))
         self.__eraseROIText.setVisible(False)
         self._imageView.getViewBox().addItem(self.__eraseROIText)
 
@@ -294,6 +296,27 @@ class PickerView(QWidget):
         for roi in self._roiList:
             roi.getROI().setVisible(visible)
 
+    def __updateEraseTextPos(self):
+        """
+        Update the erase text position according to the erase-roi.
+        """
+        pos = self.__eraseROI.pos()
+        size = self.__eraseROI.size()
+        rect2 = self.__eraseROIText.boundingRect()
+        rect2 = self.__eraseROIText.mapRectToView(rect2)
+        self.__eraseROIText.setPos(pos.x() + size[0] / 2 - rect2.width(),
+                                   pos.y() + size[0] / 2)
+
+    def __removeROI(self, roi):
+        """ This slot is invoked when the user clicks on a ROI. """
+        if roi:
+            self._destroyCoordROI(roi)
+            self._roiList.remove(roi.parent)  # remove the coordROI
+            self._currentMic.removeCoordinate(roi.coordinate)
+            row = self._tvImages.currentRow() % self._tvModel.getPageSize()
+            self._tvModel.setData(self._tvModel.createIndex(row, 2),
+                                  len(self._currentMic))
+
     def _showError(self, msg):
         """
         Popup the error msg
@@ -495,8 +518,7 @@ class PickerView(QWidget):
         roiDict = {
             # 'centered': True,
             # 'aspectLocked': self.aspectLocked,
-            'pen': self._makePen(coord.getLabel(), 2),
-            'movable': False
+            'pen': self._makePen(coord.getLabel(), 2)
         }
 
         if self._actionPickCenter.isChecked():
@@ -522,11 +544,34 @@ class PickerView(QWidget):
         if not isinstance(roi, pg.ScatterPlotItem):
             roi.sigHoverEvent.connect(self._roiMouseHover)
             roi.sigRegionChangeFinished.connect(self._roiRegionChanged)
+            mouseDoubleClickEvent = roi.mouseDoubleClickEvent
+            wheelEvent = roi.wheelEvent
+
+            def __mouseDoubleClickEvent(ev):
+                mouseDoubleClickEvent(ev)
+                if self._clickAction == PICK:
+                    self.__removeROI(roi)
+
+            def __wheelEvent(ev):
+                if self._clickAction == PICK:
+                    view = self._imageView.getViewBox()
+                    view.setMouseEnabled(False, False)
+                    d = 1 if ev.delta() > 0 else -1
+                    self._spinBoxBoxSize.setValue(
+                        self._spinBoxBoxSize.value() + d * 5)
+                    self._boxSizeEditingFinished()
+                    view.setMouseEnabled(True, True)
+                else:
+                    wheelEvent(ev)
+
+            roi.mouseDoubleClickEvent = __mouseDoubleClickEvent
+            roi.wheelEvent = __wheelEvent
+
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
-        roi.sigClicked.connect(self._roiMouseClicked)
+        # roi.sigClicked.connect(self._roiMouseClicked)
         roi.setVisible(self._actionPickShowHide.getCurrentState() == SHOW_ON)
         self._imageView.getViewBox().addItem(roi)
-        roi.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        roi.setFlag(QGraphicsItem.ItemIsSelectable, self._clickAction == ERASE)
         self._roiList.append(coordROI)
 
         coordROI.showHandlers(False)  # initially hide ROI handlers
@@ -544,7 +589,7 @@ class PickerView(QWidget):
             roi.sigHoverEvent.disconnect(self._roiMouseHover)
             roi.sigRegionChangeFinished.disconnect(self._roiRegionChanged)
         # roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
-        roi.sigClicked.disconnect(self._roiMouseClicked)
+        # roi.sigClicked.disconnect(self._roiMouseClicked)
 
     def _setupViewBox(self):
         """
@@ -571,8 +616,8 @@ class PickerView(QWidget):
                         self.__eraseROI.setPos(
                             (pos.x() - size / 2,
                              pos.y() - size / 2))
-                        self.__eraseROIText.setPos(self.__eraseROI.pos())
                         self.__eraseROIText.setText(str(size))
+                        self.__updateEraseTextPos()
                     self.__eraseROI.blockSignals(block)
 
             v.wheelEvent = __wheelEvent
@@ -596,8 +641,8 @@ class PickerView(QWidget):
                         self.__eraseROI.setPos((pos.x(), pos.y()))
                         self.__eraseROI.setVisible(True)
                         self.__eraseROIText.setVisible(True)
-                        self.__eraseROIText.setPos(self.__eraseROI.pos())
                         self.__eraseROIText.setText(str(size))
+                        self.__updateEraseTextPos()
                         self.__eraseROI.blockSignals(block)
 
                 def __mouseReleaseEvent(ev):
@@ -682,8 +727,15 @@ class PickerView(QWidget):
         view = self._imageView.getViewBox()
         view.setMouseEnabled(True, True)
         self._clickAction = PICK
+        imgItem = self._imageView.getImageItem()
+        if imgItem is not None:
+            imgItem.setCursor(Qt.ArrowCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROIText.setVisible(False)
+        for roi in self._imageView.getViewBox().addedItems:
+            if isinstance(roi, pg.EllipseROI) or isinstance(roi, pg.RectROI) \
+                    or isinstance(roi, pg.ScatterPlotItem):
+                roi.setFlag(QGraphicsItem.ItemIsSelectable, False)
 
     @pyqtSlot()
     def __onEraseTriggered(self):
@@ -691,6 +743,14 @@ class PickerView(QWidget):
         view = self._imageView.getViewBox()
         view.setMouseEnabled(False, False)
         self._clickAction = ERASE
+        imgItem = self._imageView.getImageItem()
+        if imgItem is not None:
+            imgItem.setCursor(Qt.CrossCursor)
+        for roi in self._imageView.getViewBox().addedItems:
+            if (isinstance(roi, pg.EllipseROI) or isinstance(roi, pg.RectROI)
+                or isinstance(roi, pg.ScatterPlotItem)) and \
+                    not roi == self.__eraseROI:
+                roi.setFlag(QGraphicsItem.ItemIsSelectable, True)
 
     @pyqtSlot()
     def __onPickShowHideTriggered(self):
@@ -733,19 +793,6 @@ class PickerView(QWidget):
 
         if checked and btn:
             self.currentLabelName = btn.text()
-
-    @pyqtSlot(object, object)
-    def _roiMouseClicked(self, roi, ev):
-        """ This slot is invoked when the user clicks on a ROI. """
-        keyPressed = QtGuiApp.keyboardModifiers() == self.removeROIKeyModifier
-        if keyPressed and (isinstance(roi, pg.ScatterPlotItem) or
-                           ev.button() == Qt.LeftButton):
-            self._destroyCoordROI(roi)
-            self._roiList.remove(roi.parent)  # remove the coordROI
-            self._currentMic.removeCoordinate(roi.coordinate)
-            row = self._tvImages.currentRow() % self._tvModel.getPageSize()
-            self._tvModel.setData(self._tvModel.createIndex(row, 2),
-                                  len(self._currentMic))
 
     @pyqtSlot(object)
     def _roiMouseHover(self, roi):
