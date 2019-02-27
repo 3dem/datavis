@@ -7,7 +7,7 @@ from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex,
 from PyQt5.QtWidgets import (QHBoxLayout, QMessageBox, QActionGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
                              QGridLayout, QToolBar, QAction, QSizePolicy,
-                             QFrame)
+                             QFrame, QGraphicsItem)
 from PyQt5.QtGui import (QStandardItem, QBrush, QColor,
                          QGuiApplication as QtGuiApp)
 import pyqtgraph as pg
@@ -57,6 +57,7 @@ class PickerView(QWidget):
         self._roiAspectLocked = True
         self._roiCentered = True
         self._shape = SHAPE_RECT
+        self._clickAction = PICK
         self.removeROIKeyModifier = Qt.ControlModifier
 
         self.__setup(**kwargs)
@@ -65,16 +66,21 @@ class PickerView(QWidget):
 
         self._setupViewBox()
 
+        self.__eraseList = []
         self.__eraseSize = 300
         self.__eraseROI = pg.CircleROI((0, 0), self.__eraseSize,
                                        pen=pg.mkPen(color="FFF",
                                                     width=1,
-                                                    dash=[14, 10, 5]))
+                                                    dash=[2, 2, 2]))
         self.__eraseROI.setVisible(False)
-        self.__eraseRoiMouseHover(self.__eraseROI)
-        self.__eraseROI.sigHoverEvent.connect(self.__eraseRoiMouseHover)
+        self.__eraseROI.sigRegionChanged.connect(self.__eraseRoiChanged)
 
         self._imageView.getViewBox().addItem(self.__eraseROI)
+        for h in self.__eraseROI.getHandles():
+            self.__eraseROI.removeHandle(h)
+        self.__eraseROIText = pg.TextItem()
+        self.__eraseROIText.setVisible(False)
+        self._imageView.getViewBox().addItem(self.__eraseROIText)
 
         if len(self._model) > 0:
             for micId in self._model:
@@ -100,7 +106,7 @@ class PickerView(QWidget):
     def __setup(self, **kwargs):
         """ Configure the PickerView. """
         v = kwargs.get("remove_rois", "on") == "on"
-        self._actionPickErase.setEnabled(v)
+        self._actionErase.setEnabled(v)
         self._roiAspectLocked = kwargs.get("roi_aspect_locked", "on") == "on"
         self._roiCentered = kwargs.get("roi_centered", "on") == "on"
 
@@ -164,17 +170,26 @@ class PickerView(QWidget):
         toolbar = QToolBar(boxPanel)
         toolbar.addWidget(QLabel("<strong>Action:</strong>", toolbar))
 
-        self._actionPickErase = MultiAction(toolbar)
-        self._actionPickErase.addState(PICK, qta.icon('fa5s.crosshairs'),
-                                       "Pick")
-        self._actionPickErase.addState(ERASE, qta.icon('fa5s.eraser'),
-                                       "Erase")
-        self._actionPickErase.setState(PICK)
-        self._actionPickErase.setShortcut(
-            QtGui.QKeySequence(Qt.CTRL + Qt.Key_0))
-        self._actionPickErase.triggered.connect(self.__ontPickEraseTriggered)
+        self._actGroupPickErase = QActionGroup(self)
+        self._actGroupPickErase.setExclusive(True)
 
-        toolbar.addAction(self._actionPickErase)
+        self._actionPick = _createNewAction(self, "actionPick", "",
+                                            "fa5s.crosshairs", checkable=True)
+        self._actGroupPickErase.addAction(self._actionPick)
+        self._actionPick.setChecked(True)
+        self._actionPick.setToolTip("Pick")
+        self._actionPick.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_0))
+        self._actionPick.triggered.connect(self.__onPickTriggered)
+        toolbar.addAction(self._actionPick)
+
+        self._actionErase = _createNewAction(self, "actionErase", "",
+                                             "fa5s.eraser", checkable=True)
+        self._actGroupPickErase.addAction(self._actionErase)
+        self._actionErase.setToolTip("Erase")
+        self._actionErase.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
+        self._actionErase.triggered.connect(self.__onEraseTriggered)
+
+        toolbar.addAction(self._actionErase)
         gLayout.addWidget(toolbar, 0, 0)
         height = toolbar.height()
 
@@ -192,7 +207,7 @@ class PickerView(QWidget):
                                                 "", "fa.square-o",
                                                 checkable=True)
         self._actionPickRect.setToolTip("Rect")
-        self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
+        self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_2))
         self._actionPickRect.setChecked(True)
 
         self._actionPickEllipse = _createNewAction(self, "actionPickEllipse",
@@ -200,7 +215,7 @@ class PickerView(QWidget):
                                                    checkable=True)
         self._actionPickEllipse.setToolTip("Circle")
         self._actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                               Qt.Key_2))
+                                                               Qt.Key_3))
         self._actionPickEllipse.setChecked(False)
 
         self._actionPickCenter = _createNewAction(self, "actionPickCenter",
@@ -208,17 +223,17 @@ class PickerView(QWidget):
                                                   checkable=True)
         self._actionPickCenter.setToolTip("Center")
         self._actionPickCenter.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                              Qt.Key_3))
+                                                              Qt.Key_4))
         self._actionPickCenter.setChecked(False)
 
         self._actionPickShowHide = MultiAction(toolbar)
-        self._actionPickShowHide.addState(SHOW_ON, qta.icon('fa5s.eye'),
-                                          "Hide")
-        self._actionPickShowHide.addState(SHOW_OFF,
-                                          qta.icon('fa5s.eye-slash'), "Show")
+        self._actionPickShowHide.addState(SHOW_ON, qta.icon('fa5s.toggle-on'),
+                                          "Hide coordinates")
+        self._actionPickShowHide.addState(SHOW_OFF, qta.icon('fa5s.toggle-off'),
+                                          "Show coordinates")
         self._actionPickShowHide.setState(SHOW_ON)
         self._actionPickShowHide.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                                Qt.Key_4))
+                                                                Qt.Key_5))
         self._actionPickShowHide.triggered.connect(
             self.__onPickShowHideTriggered)
 
@@ -240,6 +255,7 @@ class PickerView(QWidget):
         self._actionGroupPick.setExclusive(True)
         self._actionGroupPick.addAction(self._actionPickRect)
         self._actionGroupPick.addAction(self._actionPickEllipse)
+        self._actionGroupPick.addAction(self._actionPickCenter)
         # End-picker operations
 
         self._horizontalLayout.addWidget(self._viewWidget)
@@ -291,6 +307,8 @@ class PickerView(QWidget):
         :param mic: the ImageElem
         """
         try:
+            self.__eraseROI.setVisible(False)
+            self.__eraseROIText.setVisible(False)
             self._destroyROIs()
             self._imageView.clear()
             self._currentMic = mic
@@ -432,20 +450,20 @@ class PickerView(QWidget):
         if self._currentMic is None:
             print("not selected micrograph....")
             return
-        if (event.button() == QtCore.Qt.LeftButton and
-                self._actionPickErase.getCurrentState() == PICK):
-            pos = self._imageView.getViewBox().mapToView(event.pos())
-            # Create coordinate with event click coordinates and add it
-            coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
-            self._currentMic.addCoordinate(coord)
-            self._createCoordROI(coord)
+        if event.button() == QtCore.Qt.LeftButton:
+            if self._clickAction == PICK:
+                pos = self._imageView.getViewBox().mapToView(event.pos())
+                # Create coordinate with event click coordinates and add it
+                coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
+                self._currentMic.addCoordinate(coord)
+                self._createCoordROI(coord)
 
-            if self._tvModel is not None:
-                r = self._tvImages.currentRow()
-                self._tvModel.setData(
-                    self._tvModel.createIndex(r % self._tvModel.getPageSize(),
-                                              2),
-                    len(self._currentMic))
+                if self._tvModel is not None:
+                    r = self._tvImages.currentRow()
+                    self._tvModel.setData(
+                        self._tvModel.createIndex(
+                            r % self._tvModel.getPageSize(), 2),
+                        len(self._currentMic))
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
@@ -477,7 +495,8 @@ class PickerView(QWidget):
         roiDict = {
             # 'centered': True,
             # 'aspectLocked': self.aspectLocked,
-            'pen': self._makePen(coord.getLabel(), 2)
+            'pen': self._makePen(coord.getLabel(), 2),
+            'movable': False
         }
 
         if self._actionPickCenter.isChecked():
@@ -506,8 +525,8 @@ class PickerView(QWidget):
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         roi.sigClicked.connect(self._roiMouseClicked)
         roi.setVisible(self._actionPickShowHide.getCurrentState() == SHOW_ON)
-
         self._imageView.getViewBox().addItem(roi)
+        roi.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self._roiList.append(coordROI)
 
         coordROI.showHandlers(False)  # initially hide ROI handlers
@@ -535,46 +554,62 @@ class PickerView(QWidget):
 
         if v:
             v.mouseClickEvent = self._handleViewBoxClick
-            mouseDrag = v.mouseDragEvent
+            wheelEvent = v.wheelEvent
 
-            def __mouseDragEvent(ev, axis=None):
-                mouseDrag(ev, axis=axis)
-                if self._actionPickErase.getCurrentState() == ERASE:
+            def __wheelEvent(ev, axis=None):
+                wheelEvent(ev, axis=axis)
+                if self._clickAction == ERASE:
+                    block = self.__eraseROI.blockSignals(True)
+                    self.__eraseROI.setVisible(True)
+                    self.__eraseROIText.setVisible(True)
                     size = self.__eraseROI.size()[0]
-                    pos = self._imageView.getViewBox().mapToView(ev.pos())
-                    lPos = self._imageView.getViewBox().mapToView(ev.lastPos())
-                    dif = pos.x() - lPos.x()
-
-                    if ev.button() == Qt.RightButton:
-                        lastSize = size
-                        size += 10 * dif
+                    dif = -ev.delta() * v.state['wheelScaleFactor']
+                    size += dif
+                    if size:
                         self.__eraseROI.setSize((size, size), update=False)
-
-                        pos = self.__eraseROI.pos()
+                        pos = self._imageView.getViewBox().mapToView(ev.pos())
                         self.__eraseROI.setPos(
-                            (pos.x() - (size - lastSize) / 2,
-                             pos.y() - (size - lastSize) / 2))
-                    else:
-                        self.__eraseROI.setPos((pos.x() - size / 2,
-                                               pos.y() - size / 2))
-            v.mouseDragEvent = __mouseDragEvent
+                            (pos.x() - size / 2,
+                             pos.y() - size / 2))
+                        self.__eraseROIText.setPos(self.__eraseROI.pos())
+                        self.__eraseROIText.setText(str(size))
+                    self.__eraseROI.blockSignals(block)
+
+            v.wheelEvent = __wheelEvent
 
             scene = v.scene()
             if scene:
                 scene.sigMouseMoved.connect(self.viewBoxMouseMoved)
                 mousePressEvent = scene.mousePressEvent
+                mouseReleaseEvent = scene.mouseReleaseEvent
 
                 def __mousePressEvent(ev):
                     mousePressEvent(ev)
-                    if self._actionPickErase.getCurrentState() == ERASE:
+                    if self._clickAction == ERASE:
+                        block = self.__eraseROI.blockSignals(True)
                         self.__eraseROI.setVisible(True)
                         size = self.__eraseROI.size()[0]
-                        pos = self._imageView.getViewBox().mapSceneToView(ev.pos())
+                        pos = self._imageView.getViewBox().mapSceneToView(
+                            ev.pos())
                         pos.setX(pos.x() - size / 2)
                         pos.setY(pos.y() - size / 2)
                         self.__eraseROI.setPos((pos.x(), pos.y()))
                         self.__eraseROI.setVisible(True)
+                        self.__eraseROIText.setVisible(True)
+                        self.__eraseROIText.setPos(self.__eraseROI.pos())
+                        self.__eraseROIText.setText(str(size))
+                        self.__eraseROI.blockSignals(block)
+
+                def __mouseReleaseEvent(ev):
+                    mouseReleaseEvent(ev)
+                    if self._clickAction == ERASE:
+                        for item in self.__eraseList:
+                            self._roiList.remove(item.parent)
+                            self._currentMic.removeCoordinate(item.coordinate)
+                        self.__eraseList = []
+
                 scene.mousePressEvent = __mousePressEvent
+                scene.mouseReleaseEvent = __mouseReleaseEvent
 
     @pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
@@ -601,6 +636,16 @@ class PickerView(QWidget):
                    "<td width=\"67\" align=\"left\">%s</td></tr>" \
                    "</tbody></table>"
             self._labelMouseCoord.setText(text % (pos.x(), pos.y(), value))
+
+            if self._clickAction == ERASE:
+                block = self.__eraseROI.blockSignals(True)
+                size = self.__eraseROI.size()[0]
+                pos.setX(pos.x() - size / 2)
+                pos.setY(pos.y() - size / 2)
+                self.__eraseROI.setPos((pos.x(), pos.y()))
+                self.__eraseROI.setVisible(True)
+                self.__eraseROIText.setVisible(False)
+                self.__eraseROI.blockSignals(block)
 
     @pyqtSlot()
     def on_actionPickEllipse_triggered(self):
@@ -632,14 +677,20 @@ class PickerView(QWidget):
         self._currentMic = None
 
     @pyqtSlot()
-    def __ontPickEraseTriggered(self):
-        """ Invoked when action pick-erase is triggered """
-        self._actionPickErase.changeToNextState()
+    def __onPickTriggered(self):
+        """ Invoked when action pick is triggered """
         view = self._imageView.getViewBox()
-        enabled = self._actionPickErase.getCurrentState() == PICK
-        view.setMouseEnabled(enabled, enabled)
-        if enabled:
-            self.__eraseROI.setVisible(not enabled)
+        view.setMouseEnabled(True, True)
+        self._clickAction = PICK
+        self.__eraseROI.setVisible(False)
+        self.__eraseROIText.setVisible(False)
+
+    @pyqtSlot()
+    def __onEraseTriggered(self):
+        """ Invoked when action erase is triggered """
+        view = self._imageView.getViewBox()
+        view.setMouseEnabled(False, False)
+        self._clickAction = ERASE
 
     @pyqtSlot()
     def __onPickShowHideTriggered(self):
@@ -702,10 +753,38 @@ class PickerView(QWidget):
         roi.parent.showHandlers(False)
 
     @pyqtSlot(object)
-    def __eraseRoiMouseHover(self, eraseRoi):
-        """ Handler invoked when the roi is hovered by the mouse. """
-        for h in eraseRoi.getHandles():
-            h.hide()
+    def __eraseRoiChanged(self, eraseRoi):
+        """ Handler invoked when the roi is moved. """
+        self.__eraseROIText.setVisible(False)
+        viewBox = self._imageView.getViewBox()
+        scene = viewBox.scene()
+        pos = self.__eraseROI.pos()
+        size = self.__eraseROI.size()
+        shape = QtGui.QPainterPath()
+        shape.addEllipse(pos.x(), pos.y(), size[0], size[1])
+        scene.setSelectionArea(viewBox.mapViewToScene(shape),
+                               Qt.IntersectsItemShape)
+        items = scene.selectedItems()
+        for item in items:
+            if isinstance(item, pg.EllipseROI) or isinstance(item, pg.RectROI) \
+                    or isinstance(item, pg.ScatterPlotItem):
+                pos = item.pos()
+                if not isinstance(item, pg.ScatterPlotItem):
+                    size = item.size()
+                    pos += size / 2
+                    rem = False
+                else:
+                    rem = True
+
+                if rem or shape.contains(pos):
+                    viewBox.removeItem(item)
+                    self.__eraseList.append(item)
+                    if self._tvModel is not None:
+                        r = self._tvImages.currentRow()
+                        self._tvModel.setData(
+                            self._tvModel.createIndex(
+                                r % self._tvModel.getPageSize(), 2),
+                            len(self._currentMic) - len(self.__eraseList))
 
     @pyqtSlot(object)
     def _roiRegionChanged(self, roi):
@@ -778,13 +857,17 @@ class PickerView(QWidget):
         """ Returns the current image dimentions """
         return self._currentImageDim
 
+    def getToolBar(self):
+        return self._imageView.getToolBar()
+
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self._actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
         self._actionPickEllipse.setText(_translate("MainWindow",
                                                    "Pick Ellipse"))
-        self._actionPickErase.setText(_translate("MainWindow", "Erase pick"))
+        self._actionPick.setText(_translate("MainWindow", "Pick"))
+        self._actionErase.setText(_translate("MainWindow", "Erase"))
 
 
 class MicrographItem(QStandardItem):
