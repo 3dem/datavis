@@ -219,7 +219,7 @@ class PickerView(QWidget):
         self._actionPickEllipse.setChecked(False)
 
         self._actionPickCenter = _createNewAction(self, "actionPickCenter",
-                                                  "", "fa5s.asterisk",
+                                                  "", "fa5.dot-circle",
                                                   checkable=True)
         self._actionPickCenter.setToolTip("Center")
         self._actionPickCenter.setShortcut(QtGui.QKeySequence(Qt.CTRL +
