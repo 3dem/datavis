@@ -17,8 +17,10 @@ class ColumnsView(AbstractView):
     The ColumnsView class provides some functionality for show large numbers of
     items with simple paginate elements in columns view. """
 
-    sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
-    sigTableSizeChanged = QtCore.pyqtSignal()  # when the Table has been resized
+    # For current row changed
+    sigCurrentRowChanged = QtCore.pyqtSignal(int)
+    # when the Table has been resized (oldSize, newSize)
+    sigTableSizeChanged = QtCore.pyqtSignal(object, object)
 
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
@@ -63,7 +65,7 @@ class ColumnsView(AbstractView):
         :param evt:
         """
         QTableView.resizeEvent(self._tableView, evt)
-        self.sigTableSizeChanged.emit()
+        self.sigTableSizeChanged.emit(evt.oldSize(), evt.size())
 
     def __getPage(self, row):
         """
@@ -171,15 +173,16 @@ class ColumnsView(AbstractView):
             self._selection.clear()
             self.sigSelectionChanged.emit()
 
-    @pyqtSlot()
-    def __onSizeChanged(self):
+    @pyqtSlot(object, object)
+    def __onSizeChanged(self, oldSize, newSize):
         """ Invoked when the table widget is resized """
-        self.__calcPageSize()
-        if self._model is not None:
-            row = self._currentRow
-            self._model.setupPage(self._pageSize,
-                                  self.__getPage(self._currentRow))
-            self.selectRow(row)
+        if not oldSize.height() == newSize.height():
+            self.__calcPageSize()
+            if self._model is not None:
+                row = self._currentRow
+                self._model.setupPage(self._pageSize,
+                                      self.__getPage(self._currentRow))
+                self.selectRow(row)
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):

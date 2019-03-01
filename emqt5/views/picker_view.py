@@ -2,12 +2,12 @@ import sys
 import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import (pyqtSlot, Qt, QDir, QModelIndex,
-                          QFile, QIODevice, QJsonDocument, QJsonParseError)
+from PyQt5.QtCore import (pyqtSlot, Qt, QFile, QIODevice, QJsonDocument,
+                          QJsonParseError)
 from PyQt5.QtWidgets import (QHBoxLayout, QMessageBox, QActionGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
                              QGridLayout, QToolBar, QAction, QSizePolicy,
-                             QFrame, QGraphicsItem)
+                             QTableWidget, QTableWidgetItem, QGraphicsItem)
 from PyQt5.QtGui import (QStandardItem, QBrush, QColor,
                          QGuiApplication as QtGuiApp)
 import pyqtgraph as pg
@@ -58,7 +58,6 @@ class PickerView(QWidget):
         self._roiCentered = True
         self._shape = SHAPE_RECT
         self._clickAction = PICK
-        self.removeROIKeyModifier = Qt.ControlModifier
 
         self.__setup(**kwargs)
         self._spinBoxBoxSize.editingFinished.connect(
@@ -251,8 +250,7 @@ class PickerView(QWidget):
         height = height + toolbar.height() + 3 * cm.bottom()
 
         boxPanel.setFixedHeight(height)
-        imgViewToolBar.addAction(actPickerROIS, boxPanel, exclusive=False,
-                                 checked=True)
+
         self._actionGroupPick = QActionGroup(self)
         self._actionGroupPick.setExclusive(True)
         self._actionGroupPick.addAction(self._actionPickRect)
@@ -265,18 +263,66 @@ class PickerView(QWidget):
         actMics = QAction(imgViewToolBar)
         actMics.setIcon(qta.icon('fa.list-alt'))
         actMics.setText('Micrographs')
-        imgViewToolBar.addAction(actMics, self._micPanel, exclusive=False,
-                                 checked=True)
+
+        controlsPanel = imgViewToolBar.createSidePanel()
+        controlsPanel.setObjectName('boxPanel')
+        controlsPanel.setStyleSheet(
+            'QWidget#boxPanel{border-left: 1px solid lightgray;}')
+
+        gLayout = QGridLayout(controlsPanel)
+
+        self._controlTable = QTableWidget(controlsPanel)
+        self.__setupControlsTable()
+        gLayout.addWidget(self._controlTable)
+
+        actControls = QAction(imgViewToolBar)
+        actControls.setIcon(qta.icon('fa5s.question-circle'))
+        actControls.setText('Controls')
+
+        imgViewToolBar.addAction(actControls, controlsPanel, index=0,
+                                 exclusive=False, checked=False)
+        imgViewToolBar.addAction(actMics, self._micPanel, index=0,
+                                 exclusive=False, checked=True)
+        imgViewToolBar.addAction(actPickerROIS, boxPanel, index=0,
+                                 exclusive=False, checked=True)
 
         self.setWindowTitle("Picker")
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
 
-    def __createHLine(self, parent):
-        line = QFrame(parent)
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-        return line
+    def __setupControlsTable(self):
+        """ Setups the controls table (Help) """
+        self._controlTable.setColumnCount(2)
+        # Set table header
+        self._controlTable.setHorizontalHeaderItem(0, QTableWidgetItem("Tool"))
+        self._controlTable.setHorizontalHeaderItem(1, QTableWidgetItem("Help"))
+        # Add table items
+        # Add row1
+        flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        self.__addRowToControls([(QTableWidgetItem(qta.icon('fa.list-alt'),
+                                                   "Title1"), flags),
+                                 (QTableWidgetItem("Help text"), flags)])
+        # Add row2
+        self.__addRowToControls([(QTableWidgetItem(qta.icon('fa5s.user'),
+                                                   "Ok ok"), flags),
+                                 (QTableWidgetItem("Help text 2"), flags)])
+
+        # other configurations
+        self._controlTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._controlTable.setSortingEnabled(True)
+        self._controlTable.horizontalHeader().setStretchLastSection(True)
+        self._controlTable.resizeColumnsToContents()
+
+    def __addRowToControls(self, row):
+        """ Add a row to controls table """
+        rows = self._controlTable.rowCount()
+        self._controlTable.setRowCount(rows + 1)
+        col = 0
+        for v in row:
+            item = v[0]
+            item.setFlags(v[1])
+            self._controlTable.setItem(rows, col, item)
+            col += 1
 
     def __addMicToTable(self, mic):
         """
