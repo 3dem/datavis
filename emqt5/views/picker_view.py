@@ -276,7 +276,7 @@ class PickerView(QWidget):
         gLayout.addWidget(self._controlTable)
 
         actControls = QAction(imgViewToolBar)
-        actControls.setIcon(qta.icon('fa5s.question-circle'))
+        actControls.setIcon(qta.icon('fa5s.sliders-h'))
         actControls.setText('Controls')
 
         imgViewToolBar.addAction(actControls, controlsPanel, index=0,

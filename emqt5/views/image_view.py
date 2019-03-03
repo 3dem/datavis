@@ -236,7 +236,7 @@ class ImageView(QWidget):
         vLayout.addStretch()
         self._displayPanel.setFixedHeight(260)
         self._actDisplay = QAction(None)
-        self._actDisplay.setIcon(qta.icon('fa.sliders'))
+        self._actDisplay.setIcon(qta.icon('fa.adjust'))
         self._actDisplay.setText('Display')
         #  setting a reasonable width for display panel
         self._displayPanel.setGeometry(0, 0, maxWidth,
