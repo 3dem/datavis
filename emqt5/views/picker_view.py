@@ -3,13 +3,15 @@ import os
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QFile, QIODevice, QJsonDocument,
-                          QJsonParseError)
+                          QJsonParseError, QLocale)
 from PyQt5.QtWidgets import (QHBoxLayout, QMessageBox, QActionGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
                              QGridLayout, QToolBar, QAction, QSizePolicy,
-                             QTableWidget, QTableWidgetItem, QGraphicsItem)
-from PyQt5.QtGui import (QStandardItem, QBrush, QColor,
-                         QGuiApplication as QtGuiApp)
+                             QTableWidget, QTableWidgetItem, QGraphicsItem,
+                             QLineEdit, QComboBox, QCheckBox, QSlider,
+                             QPushButton, QWidgetItem, QFrame, QRadioButton)
+from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
+                         QIntValidator)
 import pyqtgraph as pg
 import qtawesome as qta
 
@@ -22,6 +24,7 @@ from .image_view import ImageView
 from .config import TableViewConfig
 from .columns import ColumnsView
 from .toolbar import MultiAction
+from .base import OptionList
 from ..utils import EmImage, EmPath
 
 SHAPE_RECT = 0
@@ -32,6 +35,61 @@ PICK = 0
 ERASE = 1
 SHOW_ON = 0
 SHOW_OFF = 1
+
+picker_params1 = [
+    {
+        'name': 'threshold',
+        'type': 'float',
+        'value': 0.55,
+        'label': 'Quality threshold',
+        'help': 'If this is ... bla bla bla',
+        'display': 'default'
+    },
+    [
+        {
+            'name': 'threshold2',
+            'type': 'int',
+            'value': 70,
+            'label': 'Threshold',
+            'help': 'If this is ... bla bla bla 2',
+            'display': 'default'
+        },
+        {
+            'name': 'threshold3',
+            'type': 'bool',
+            'value': True,
+            'label': 'Checked',
+            'help': 'If this is ... bla bla bla 3'
+        },
+        {
+            'name': 'text',
+            'type': 'string',
+            'value': 'Text example',
+            'label': 'Text',
+            'help': 'If this is ... bla bla bla for text'
+        }
+    ],
+    [
+        {
+            'name': 'threshold4',
+            'type': 'float',
+            'value': 1.5,
+            'label': 'Quality',
+            'help': 'If this is ... bla bla bla for quality'
+        },
+        {
+          'name': 'picking-method',
+          'type': 'enum',  # or 'int' or 'string' or 'enum',
+          'choices': ['LoG', 'Swarm', 'SVM'],
+          'value': 1,  # values in enum are int, in this case it is 'LoG'
+          'label': 'Picking method',
+          'help': 'Select the picking strategy that you want to use. ',
+          # display should be optional, for most params, a textbox is the default
+          # for enum, a combobox is the default, other options could be sliders
+          'display': 'hlist'  # or 'combo' or 'vlist' or 'hlist'
+        }
+    ]
+]
 
 
 class PickerView(QWidget):
@@ -48,6 +106,46 @@ class PickerView(QWidget):
         QWidget.__init__(self, parent)
         self._model = model
         self.currentLabelName = None
+        self.__pickerParams = {
+            'float': {
+                'type': float,
+                'display': {
+                    'default': QLineEdit
+                },
+                'validator': QDoubleValidator
+            },
+            'int': {
+                'type': int,
+                'display': {
+                    'default': QLineEdit
+                },
+                'validator': QIntValidator
+            },
+            'string': {
+                'type': str,
+                'display': {
+                    'default': QLineEdit
+                }
+            },
+            'bool': {
+                'type': bool,
+                'display': {
+                    'default': QCheckBox
+                }
+            },
+            'enum': {
+                'display': {
+                    'default': OptionList,
+                    'vlist': OptionList,
+                    'hlist': OptionList,
+                    'slider': QSlider,
+                    'combo': OptionList
+                }
+            }
+        }
+
+        self.__paramsWidgets = dict()
+
         self.__setupUi(**kwargs)
         self.__createColumsViewModel()
 
@@ -192,7 +290,6 @@ class PickerView(QWidget):
 
         toolbar.addAction(self._actionErase)
         gLayout.addWidget(toolbar, 0, 0)
-        height = toolbar.height()
 
         toolbar = QToolBar(boxPanel)
         toolbar.addWidget(QLabel("<strong>Box:</strong>", toolbar))
@@ -245,11 +342,22 @@ class PickerView(QWidget):
         toolbar.addAction(self._actionPickShowHide)
 
         gLayout.addWidget(toolbar, 1, 0)
+        self._paramsLayout = QVBoxLayout()
+        gLayout.addLayout(self._paramsLayout, 2, 0)
 
-        cm = gLayout.contentsMargins()
-        height = height + toolbar.height() + 3 * cm.bottom()
+        self.__addParamsWidgets(self._paramsLayout, picker_params1)
+        if not self._paramsLayout.isEmpty():
+            line = QFrame(self)
+            line.setFrameShape(QFrame.HLine)
+            line.setFrameShadow(QFrame.Sunken)
+            self._paramsLayout.insertWidget(0, line)
 
-        boxPanel.setFixedHeight(height)
+            button = QPushButton(self)
+            button.setText("Collect")
+            button.clicked.connect(self.__collectParams)
+            gLayout.addWidget(button)
+
+        boxPanel.setFixedHeight(gLayout.totalSizeHint().height())
 
         self._actionGroupPick = QActionGroup(self)
         self._actionGroupPick.setExclusive(True)
@@ -289,6 +397,122 @@ class PickerView(QWidget):
         self.setWindowTitle("Picker")
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
+
+    def __addParamsWidgets(self, paramsLayout, params):
+        """ Add the params widgets """
+        for param in params:
+            if isinstance(param, list):
+                layout = QHBoxLayout()
+                self.__addParamsWidgets(layout, param)
+            else:
+                layout = self.__createWidget(param)
+
+            if layout is not None:
+                layout.addStretch()
+                paramsLayout.addLayout(layout)  # else... rise exception?
+
+    def __createWidget(self, param):
+        """ Returns a layout created for the given params """
+        if not isinstance(param, dict):
+            return None
+
+        widgetName = param.get('name')
+        if widgetName is None:
+            return None  # rise exception??
+
+        valueType = param.get('type')
+        if valueType is None:
+            return None  # rise exception??
+
+        paramDef = self.__pickerParams.get(valueType)
+
+        if paramDef is None:
+            return None  # rise exception??
+
+        display = paramDef.get('display')
+        widgetClass = display.get(param.get('display', 'default'))
+
+        if widgetClass is None:
+            return None  # rise exception??
+
+        layout = QHBoxLayout()
+        label = param.get('label')
+        if label is not None:
+            if not widgetClass in [QCheckBox, QRadioButton, OptionList]:
+                lab = QLabel(self)
+                lab.setText(str(label))
+                layout.addWidget(lab)
+                label = None
+
+        if valueType == 'enum':
+            widget = OptionList(parent=self, display=param.get('display',
+                                                               'default'),
+                                title=label,
+                                tooltip=param.get('help', ""), exclusive=True,
+                                buttonsClass=QRadioButton,
+                                options=param.get('choices'),
+                                defaultOption=param.get('value', 0))
+        else:
+            widget = widgetClass(self)
+            widget.setToolTip(param.get('help', ''))
+            self.__setParamValue(widget, param.get('value'))
+
+        widget.setObjectName(widgetName)
+
+        self.__paramsWidgets[widgetName] = param
+
+        if widgetClass == QLineEdit:
+            validatorClass = paramDef.get('validator')
+            if validatorClass is not None:
+                val = validatorClass()
+                if validatorClass == QDoubleValidator:
+                    loc = QLocale.c()
+                    loc.setNumberOptions(QLocale.RejectGroupSeparator)
+                    val.setLocale(loc)
+                widget.setValidator(val)
+            if valueType == 'float' or valueType == 'int':
+                widget.setFixedWidth(80)
+        elif label is not None and widgetClass == QCheckBox \
+                or widgetClass == QRadioButton:
+            widget.setText(label)
+
+        layout.addWidget(widget)
+
+        return layout
+
+    def __setParamValue(self, widget, value):
+        """ Set the widget value"""
+        if isinstance(widget, QLineEdit):
+            widget.setText(str(value))
+        elif isinstance(widget, QCheckBox) and isinstance(value, bool):
+            widget.setChecked(value)
+
+    @pyqtSlot()
+    def __collectParams(self):
+        """ Collect picker params """
+        self.__collectData(self._paramsLayout)
+        print(picker_params1)
+
+    def __collectData(self, item):
+        if isinstance(item, QVBoxLayout) or isinstance(item, QHBoxLayout):
+            for index in range(item.count()):
+                self.__collectData(item.itemAt(index))
+        elif isinstance(item, QWidgetItem):
+            widget = item.widget()
+            param = self.__paramsWidgets.get(widget.objectName())
+            if param is not None:
+                t = self.__pickerParams.get(param.get('type')).get('type')
+                if isinstance(widget, QLineEdit):
+                    if t is not None:
+                        text = widget.text()
+                        if text in ["", ".", "+", "-"]:
+                            text = 0
+                        param['value'] = t(text)
+                elif isinstance(widget, QCheckBox) and t == bool:
+                    # other case may be checkbox for enum: On,Off
+                    param['value'] = widget.isChecked()
+                elif isinstance(widget, OptionList):
+                    param['value'] = widget.getSelectedOptions()
 
     def __setupControlsTable(self):
         """ Setups the controls table (Help) """

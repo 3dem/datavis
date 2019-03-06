@@ -1,7 +1,7 @@
 
 from .config import TableViewConfig, ColumnConfig
 
-from .base import EMImageItemDelegate, AbstractView
+from .base import EMImageItemDelegate, AbstractView, OptionList
 from .gallery import GalleryView
 from .columns import ColumnsView
 from .items import ItemsView
