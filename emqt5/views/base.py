@@ -382,7 +382,7 @@ class OptionList(QWidget):
     """
 
     """
-    def __init__(self, parent=None, display='default', title="", tooltip="",
+    def __init__(self, parent=None, display='default', tooltip="",
                  exclusive=True, buttonsClass=QRadioButton, options=None,
                  defaultOption=0):
         """
@@ -394,8 +394,6 @@ class OptionList(QWidget):
                          'slider': show options in slider)
         exclusive(bool): If true, the radio buttons will be exclusive
         buttonsClass:    The buttons class (QRadioButton or QCheckBox)
-        title(str):      A text for show in a QGroupBox widget or label
-                         for others
         tooltip(str):    A tooltip for this widget
         """
         QWidget.__init__(self, parent=parent)
@@ -418,7 +416,7 @@ class OptionList(QWidget):
             self.__buttonClass = \
                 buttonsClass if buttonsClass == QRadioButton \
                                 or buttonsClass == QCheckBox else None
-            self.__singleWidget = QGroupBox(self)
+            self.__singleWidget = QWidget(self)
             self.__groupBoxLayout = lClass(self.__singleWidget)
             self.__groupBoxLayout.setContentsMargins(3, 3, 3, 3)
 
@@ -428,39 +426,29 @@ class OptionList(QWidget):
                 self.addOption(option, index)
                 index += 1
 
-        if isinstance(self.__singleWidget, QGroupBox):
-            self.__singleWidget.setTitle(title)
+        if self.__singleWidget is not None:
             self.__singleWidget.setToolTip(tooltip)
-            self.__singleWidget.setAlignment(Qt.AlignCenter)
-        elif isinstance(self.__singleWidget, QComboBox) \
-                or isinstance(self.__singleWidget, QSlider):
-            self.__singleWidget.setToolTip(tooltip)
-            if title is not None:
-                label = QLabel(self)
-                label.setText(title)
-                self.__mainLayout.addWidget(label)
-
-        self.__mainLayout.addWidget(self.__singleWidget)
-        self.setSelectedOption(defaultOption)
+            self.__mainLayout.addWidget(self.__singleWidget)
+            self.setSelectedOption(defaultOption)
 
     def addOption(self, name, optionId, checked=False):
         """ Add an option """
 
         if self.__buttonClass is not None \
-                and isinstance(self.__singleWidget, QGroupBox):
+                and isinstance(self.__singleWidget, QWidget):
             button = self.__buttonClass(self)
             button.setText(name)
             self.__buttonGroup.addButton(button, optionId)
             button.setChecked(checked)
             self.__groupBoxLayout.addWidget(button)
         elif isinstance(self.__singleWidget, QComboBox):
-            self.__comboBox.addItem(name, optionId)
+            self.__singleWidget.addItem(name, optionId)
 
     def getSelectedOptions(self):
         """ Return the selected options """
         if isinstance(self.__singleWidget, QComboBox):
             return self.__singleWidget.currentData()
-        elif isinstance(self.__singleWidget, QGroupBox):
+        elif isinstance(self.__singleWidget, QWidget):
             if self.__buttonGroup.exclusive():
                 return self.__buttonGroup.checkedId()
             else:
@@ -471,10 +459,11 @@ class OptionList(QWidget):
                 return options
         elif isinstance(self.__singleWidget, QSlider):
             return self.__singleWidget.value()
+        return None
 
     def setSelectedOption(self, optionId):
         """ Set the given option as selected """
-        if isinstance(self.__singleWidget, QGroupBox):
+        if isinstance(self.__singleWidget, QWidget):
             button = self.__buttonGroup.button(optionId)
             if button is not None:
                 button.setChecked(True)

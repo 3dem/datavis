@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import (QHBoxLayout, QMessageBox, QActionGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
                              QGridLayout, QToolBar, QAction, QSizePolicy,
                              QTableWidget, QTableWidgetItem, QGraphicsItem,
-                             QLineEdit, QComboBox, QCheckBox, QSlider,
-                             QPushButton, QWidgetItem, QFrame, QRadioButton)
+                             QLineEdit, QCheckBox, QSlider, QFormLayout,
+                             QPushButton, QWidgetItem, QRadioButton)
 from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
                          QIntValidator)
 import pyqtgraph as pg
@@ -37,58 +37,81 @@ SHOW_ON = 0
 SHOW_OFF = 1
 
 picker_params1 = [
-    {
-        'name': 'threshold',
-        'type': 'float',
-        'value': 0.55,
-        'label': 'Quality threshold',
-        'help': 'If this is ... bla bla bla',
-        'display': 'default'
-    },
     [
         {
-            'name': 'threshold2',
-            'type': 'int',
-            'value': 70,
-            'label': 'Threshold',
-            'help': 'If this is ... bla bla bla 2',
+            'name': 'threshold',
+            'type': 'float',
+            'value': 0.55,
+            'label': 'Quality threshold',
+            'help': 'If this is ... bla bla bla',
             'display': 'default'
         },
         {
-            'name': 'threshold3',
+            'name': 'thresholdBool',
             'type': 'bool',
             'value': True,
-            'label': 'Checked',
-            'help': 'If this is ... bla bla bla 3'
-        },
-        {
-            'name': 'text',
-            'type': 'string',
-            'value': 'Text example',
-            'label': 'Text',
-            'help': 'If this is ... bla bla bla for text'
+            'label': 'Quality checked',
+            'help': 'If this is a boolean param'
         }
     ],
     [
         {
-            'name': 'threshold4',
+            'name': 'threshold543',
             'type': 'float',
-            'value': 1.5,
+            'value': 0.67,
             'label': 'Quality',
-            'help': 'If this is ... bla bla bla for quality'
+            'help': 'If this is ... bla bla bla',
+            'display': 'default'
         },
         {
-          'name': 'picking-method',
-          'type': 'enum',  # or 'int' or 'string' or 'enum',
-          'choices': ['LoG', 'Swarm', 'SVM'],
-          'value': 1,  # values in enum are int, in this case it is 'LoG'
-          'label': 'Picking method',
-          'help': 'Select the picking strategy that you want to use. ',
-          # display should be optional, for most params, a textbox is the default
-          # for enum, a combobox is the default, other options could be sliders
-          'display': 'hlist'  # or 'combo' or 'vlist' or 'hlist'
+            'name': 'threshold',
+            'type': 'float',
+            'value': 14.55,
+            'label': 'Quality threshold2',
+            'help': 'If this is ... bla bla bla',
+            'display': 'default'
         }
-    ]
+    ],
+    {
+        'name': 'threshold2',
+        'type': 'string',
+        'value': 'Explanation text',
+        'label': 'Threshold ex',
+        'help': 'If this is ... bla bla bla 2',
+        'display': 'default'
+    },
+    {
+        'name': 'text',
+        'type': 'string',
+        'value': 'Text example',
+        'label': 'Text',
+        'help': 'If this is ... bla bla bla for text'
+    },
+    {
+        'name': 'threshold4',
+        'type': 'float',
+        'value': 1.5,
+        'label': 'Quality',
+        'help': 'If this is ... bla bla bla for quality'
+    },
+    {
+      'name': 'picking-method',
+      'type': 'enum',  # or 'int' or 'string' or 'enum',
+      'choices': ['LoG', 'Swarm', 'SVM'],
+      'value': 1,  # values in enum are int, in this case it is 'LoG'
+      'label': 'Picking method',
+      'help': 'Select the picking strategy that you want to use. ',
+      # display should be optional, for most params, a textbox is the default
+      # for enum, a combobox is the default, other options could be sliders
+      'display': 'combo'  # or 'combo' or 'vlist' or 'hlist'
+    },
+    {
+        'name': 'threshold3',
+        'type': 'bool',
+        'value': True,
+        'label': 'Checked',
+        'help': 'If this is a boolean param'
+    }
 ]
 
 
@@ -265,7 +288,7 @@ class PickerView(QWidget):
         boxPanel.setStyleSheet(
             'QWidget#boxPanel{border-left: 1px solid lightgray;}')
 
-        gLayout = QGridLayout(boxPanel)
+        gLayout = QVBoxLayout(boxPanel)
         toolbar = QToolBar(boxPanel)
         toolbar.addWidget(QLabel("<strong>Action:</strong>", toolbar))
 
@@ -277,7 +300,7 @@ class PickerView(QWidget):
         self._actGroupPickErase.addAction(self._actionPick)
         self._actionPick.setChecked(True)
         self._actionPick.setToolTip("Pick")
-        self._actionPick.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_0))
+        self._actionPick.setShortcut(QtGui.QKeySequence(Qt.Key_P))
         self._actionPick.triggered.connect(self.__onPickTriggered)
         toolbar.addAction(self._actionPick)
 
@@ -285,11 +308,11 @@ class PickerView(QWidget):
                                              "fa5s.eraser", checkable=True)
         self._actGroupPickErase.addAction(self._actionErase)
         self._actionErase.setToolTip("Erase")
-        self._actionErase.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_1))
+        self._actionErase.setShortcut(QtGui.QKeySequence(Qt.Key_E))
         self._actionErase.triggered.connect(self.__onEraseTriggered)
 
         toolbar.addAction(self._actionErase)
-        gLayout.addWidget(toolbar, 0, 0)
+        gLayout.addWidget(toolbar)
 
         toolbar = QToolBar(boxPanel)
         toolbar.addWidget(QLabel("<strong>Box:</strong>", toolbar))
@@ -305,23 +328,21 @@ class PickerView(QWidget):
                                                 "", "fa.square-o",
                                                 checkable=True)
         self._actionPickRect.setToolTip("Rect")
-        self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.CTRL + Qt.Key_2))
+        self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.Key_R))
         self._actionPickRect.setChecked(True)
 
         self._actionPickEllipse = _createNewAction(self, "actionPickEllipse",
                                                    "", "fa.circle-o",
                                                    checkable=True)
         self._actionPickEllipse.setToolTip("Circle")
-        self._actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                               Qt.Key_3))
+        self._actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.Key_C))
         self._actionPickEllipse.setChecked(False)
 
         self._actionPickCenter = _createNewAction(self, "actionPickCenter",
                                                   "", "fa5.dot-circle",
                                                   checkable=True)
         self._actionPickCenter.setToolTip("Center")
-        self._actionPickCenter.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                              Qt.Key_4))
+        self._actionPickCenter.setShortcut(QtGui.QKeySequence(Qt.Key_D))
         self._actionPickCenter.setChecked(False)
 
         self._actionPickShowHide = MultiAction(toolbar)
@@ -330,8 +351,7 @@ class PickerView(QWidget):
         self._actionPickShowHide.addState(SHOW_OFF, qta.icon('fa5s.toggle-off'),
                                           "Show coordinates")
         self._actionPickShowHide.setState(SHOW_ON)
-        self._actionPickShowHide.setShortcut(QtGui.QKeySequence(Qt.CTRL +
-                                                                Qt.Key_5))
+        self._actionPickShowHide.setShortcut(QtGui.QKeySequence(Qt.Key_N))
         self._actionPickShowHide.triggered.connect(
             self.__onPickShowHideTriggered)
 
@@ -340,21 +360,27 @@ class PickerView(QWidget):
         toolbar.addAction(self._actionPickCenter)
         toolbar.addSeparator()
         toolbar.addAction(self._actionPickShowHide)
+        self._imageView.addAction(self._actionPickRect)
+        self._imageView.addAction(self._actionPickEllipse)
+        self._imageView.addAction(self._actionPickCenter)
+        self._imageView.addAction(self._actionPickShowHide)
+        gLayout.addWidget(toolbar)
+        self._paramsLayout = QGridLayout()
+        hLayout = QHBoxLayout()
+        hLayout.addLayout(self._paramsLayout)
+        hLayout.addStretch()
+        gLayout.addLayout(hLayout)
 
-        gLayout.addWidget(toolbar, 1, 0)
-        self._paramsLayout = QVBoxLayout()
-        gLayout.addLayout(self._paramsLayout, 2, 0)
-
-        self.__addParamsWidgets(self._paramsLayout, picker_params1)
+        self.__addVParamsWidgets(self._paramsLayout, picker_params1)
         if not self._paramsLayout.isEmpty():
-            line = QFrame(self)
-            line.setFrameShape(QFrame.HLine)
-            line.setFrameShadow(QFrame.Sunken)
-            self._paramsLayout.insertWidget(0, line)
+            label = QLabel(self)
+            label.setText("<strong>Params:</strong>")
+            self._paramsLayout.addWidget(label, 0, 0, Qt.AlignLeft)
 
             button = QPushButton(self)
             button.setText("Collect")
             button.clicked.connect(self.__collectParams)
+            button.setStyleSheet("font-weight:bold;")
             gLayout.addWidget(button)
 
         boxPanel.setFixedHeight(gLayout.totalSizeHint().height())
@@ -398,21 +424,53 @@ class PickerView(QWidget):
         self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
 
-    def __addParamsWidgets(self, paramsLayout, params):
-        """ Add the params widgets """
+    def __addHParamsWidgets(self, layout, params, row, col):
+        """
+        Add the params to the given layout in the row "row" from
+        the column "col"
+        """
         for param in params:
             if isinstance(param, list):
-                layout = QHBoxLayout()
-                self.__addParamsWidgets(layout, param)
+                row, col = self.__addHParamsWidgets(layout, param, row, col)
+            elif isinstance(param, dict):
+                widget = self.__createParamWidget(param)
+                if widget is not None:
+                    label = param.get('label')
+                    if label is not None:
+                        lab = QLabel(self)
+                        lab.setText(label)
+                        layout.addWidget(lab, row, col, Qt.AlignRight)
+                        col += 1
+                    layout.addWidget(widget, row, col, 1, 1)
+                    col += 1
+        return row, col
+
+    def __addVParamsWidgets(self, layout, params):
+        """ Add the widgets created from params to the given QGridLayout """
+        row = layout.rowCount()
+        for param in params:
+            if isinstance(param, list):
+                col = 0
+                row, col = self.__addHParamsWidgets(layout,
+                                                    param, row, col)
+                row += 1
             else:
-                layout = self.__createWidget(param)
+                col = 0
+                widget = self.__createParamWidget(param)
+                if widget is not None:
+                    label = param.get('label')
+                    if label is not None:
+                        lab = QLabel(self)
+                        lab.setText(label)
+                        layout.addWidget(lab, row, col, Qt.AlignRight)
+                        col += 1
+                    layout.addWidget(widget, row, col, 1, -1)
+                    row += 1
 
-            if layout is not None:
-                layout.addStretch()
-                paramsLayout.addLayout(layout)  # else... rise exception?
-
-    def __createWidget(self, param):
-        """ Returns a layout created for the given params """
+    def __createParamWidget(self, param):
+        """
+        Creates the corresponding widget from the given param.
+        """
         if not isinstance(param, dict):
             return None
 
@@ -435,19 +493,9 @@ class PickerView(QWidget):
         if widgetClass is None:
             return None  # rise exception??
 
-        layout = QHBoxLayout()
-        label = param.get('label')
-        if label is not None:
-            if not widgetClass in [QCheckBox, QRadioButton, OptionList]:
-                lab = QLabel(self)
-                lab.setText(str(label))
-                layout.addWidget(lab)
-                label = None
-
         if valueType == 'enum':
             widget = OptionList(parent=self, display=param.get('display',
                                                                'default'),
-                                title=label,
                                 tooltip=param.get('help', ""), exclusive=True,
                                 buttonsClass=QRadioButton,
                                 options=param.get('choices'),
@@ -462,6 +510,7 @@ class PickerView(QWidget):
         self.__paramsWidgets[widgetName] = param
 
         if widgetClass == QLineEdit:
+            # widget.setClearButtonEnabled(True)
             validatorClass = paramDef.get('validator')
             if validatorClass is not None:
                 val = validatorClass()
@@ -472,13 +521,8 @@ class PickerView(QWidget):
                 widget.setValidator(val)
             if valueType == 'float' or valueType == 'int':
                 widget.setFixedWidth(80)
-        elif label is not None and widgetClass == QCheckBox \
-                or widgetClass == QRadioButton:
-            widget.setText(label)
 
-        layout.addWidget(widget)
-
-        return layout
+        return widget
 
     def __setParamValue(self, widget, value):
         """ Set the widget value"""
