@@ -439,6 +439,7 @@ class PickerView(QWidget):
                     if label is not None:
                         lab = QLabel(self)
                         lab.setText(label)
+                        lab.setToolTip(param.get('help', ""))
                         layout.addWidget(lab, row, col, Qt.AlignRight)
                         col += 1
                     layout.addWidget(widget, row, col, 1, 1)
@@ -462,6 +463,7 @@ class PickerView(QWidget):
                     if label is not None:
                         lab = QLabel(self)
                         lab.setText(label)
+                        lab.setToolTip(param.get('help', ""))
                         layout.addWidget(lab, row, col, Qt.AlignRight)
                         col += 1
                     layout.addWidget(widget, row, col, 1, -1)
