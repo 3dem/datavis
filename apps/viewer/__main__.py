@@ -199,14 +199,20 @@ if __name__ == '__main__':
                 isinstance(viewWidget, SlicesView) or
                 isinstance(viewWidget, PickerView)) and \
                 imageDim is not None:
-            x, y, w, h = getPreferedBounds(max(viewWidget.width(),
-                                               imageDim.x),
+            if isinstance(viewWidget, SlicesView):
+                toolWith = 0
+            else:
+                toolBar = viewWidget.getToolBar()
+                toolWith = toolBar.getSidePanelMinimumWidth() + toolBar.width()
+
+            x, y, w, h = getPreferedBounds(max(viewWidget.width(), imageDim.x),
                                            max(viewWidget.height(),
                                                imageDim.y))
             size = QSize(imageDim.x, imageDim.y).scaled(w, h,
                                                         Qt.KeepAspectRatio)
             dw, dh = w - size.width(), h - size.height()
-            x, y, w, h = x + dw/2, y + dh/2, size.width(), size.height()
+            x, y, w, h = x + dw/2 - toolWith, y + dh/2, \
+                         size.width() + 2 * toolWith, size.height()
         else:
             x, y, w, h = getPreferedBounds(100000,
                                            100000)
@@ -280,6 +286,7 @@ if __name__ == '__main__':
                         if mode == 'slices' or mode == 'gallery':
                             kwargs['view'] = views[mode]
                             kwargs['tool_bar'] = 'off'
+                            kwargs['axis'] = 'off'
                             kwargs["selection_mode"] = \
                                 AbstractView.SINGLE_SELECTION
                             view = createVolumeView(files, **kwargs)
@@ -292,6 +299,7 @@ if __name__ == '__main__':
                         mode = args.view or 'slices'
                         if mode == 'slices':
                             kwargs['tool_bar'] = 'off'
+                            kwargs['axis'] = 'off'
                             view = createVolumeView(files, **kwargs)
                         else:
                             view = createDataView(

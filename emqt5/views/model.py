@@ -216,7 +216,6 @@ class TableDataModel(QAbstractItemModel):
         if role == Qt.EditRole and self.flags(qModelIndex) & Qt.ItemIsEditable:
             col = qModelIndex.column()
             row = self._page * self._pageSize + qModelIndex.row()
-            print("Page: ", self._page)
             if self.setTableData(row, col, value):
                 self.dataChanged.emit(qModelIndex, qModelIndex, [role])
                 return True

@@ -4,7 +4,7 @@
 from PyQt5.QtCore import Qt, pyqtSlot, QObject
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
                              QAction, QActionGroup, QSizePolicy, QMainWindow,
-                             QDockWidget)
+                             QDockWidget, QToolButton)
 
 
 class ToolBar(QWidget):
@@ -21,6 +21,7 @@ class ToolBar(QWidget):
 
         self._panelsDict = dict()
         self._panelWidth = kwargs.get("panel_width", 160)
+        self._buttonWidth = 0
         self._docks = []
         self.__setupUi(**kwargs)
 
@@ -102,7 +103,7 @@ class ToolBar(QWidget):
     def setToolButtonStyle(self, toolButtonStyle):
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
-    def addAction(self, action, widget=None, exclusive=True, showTitle=True,
+    def addAction(self, action, widget=None, index=None, exclusive=True, showTitle=True,
                   checked=False):
         """
         Add a new action with the associated widget. This widget will be shown
@@ -122,7 +123,24 @@ class ToolBar(QWidget):
         if action is None:
             raise Exception("Can't add a null action.")
 
-        self._toolBar.addAction(action)
+        if index >= 0:
+            actions = self._toolBar.actions()
+            before = actions[index] if index in range(len(actions)) else None
+        else:
+            before = None
+
+        self._toolBar.insertAction(before, action)
+
+        actWidget = self._toolBar.widgetForAction(action)
+        if isinstance(actWidget, QToolButton):
+            w = actWidget.width()
+            if w > self._buttonWidth:
+                for a in self._toolBar.actions():
+                    self._toolBar.widgetForAction(a).setFixedWidth(w)
+                self._buttonWidth = w
+            else:
+                actWidget.setFixedWidth(w)
+
         action.setParent(self._toolBar)
 
         if exclusive:
@@ -148,6 +166,15 @@ class ToolBar(QWidget):
             dock.visibilityChanged.connect(
                 lambda visible: self.__visibilityChanged(action, dock))
             self._sidePanel.addDockWidget(Qt.LeftDockWidgetArea, dock)
+            if before:
+                # moving the dock widgets to the correct position
+                for i in range(len(actions) - 1, index - 1, -1):
+                    act = actions[i]
+                    dock2 = self._panelsDict.get(act)
+                    if dock2:
+                        self._sidePanel.splitDockWidget(
+                            dock, dock2, self._toolBar.orientation())
+
             self._panelsDict[action] = dock
             self._docks.append(dock)
             action.setCheckable(True)
@@ -202,11 +229,13 @@ class MultiAction(QAction):
         QAction.__init__(self, parent)
         self._stateIndex = -1
         self._icons = dict()
+        self._tooltip = dict()
         self._states = list()
 
-    def addState(self, state, icon):
+    def addState(self, state, icon, tooltip=""):
         self._states.append(state)
         self._icons[state] = icon, len(self._states) - 1
+        self._tooltip[state] = tooltip
 
     def getCurrentState(self):
         return self._states[self._stateIndex] if self._stateIndex >= 0 else -1
@@ -218,14 +247,19 @@ class MultiAction(QAction):
             self._stateIndex = s[1]
             self.setIcon(self._icons[self._states[self._stateIndex]][0])
 
+        self.setToolTip(self._tooltip.get(state, ""))
+
     def changeToNextState(self):
         if self._stateIndex >= 0:
             self._stateIndex = (self._stateIndex + 1) % len(self._states)
             self.setIcon(self._icons[self._states[self._stateIndex]][0])
+            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
+                                              ""))
 
     def changeToPreviousState(self):
         if self._states:
             n = len(self._states)
             self._stateIndex = (n - self._stateIndex - 1) % n
             self.setIcon(self._icons[self._states[self._stateIndex]][0])
-
+            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
+                                              ""))

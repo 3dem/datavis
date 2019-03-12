@@ -1094,7 +1094,7 @@ class DataView(QWidget):
         v = self.getViewWidget()
         if isinstance(v, ColumnsView) or isinstance(v, GalleryView):
             w, h = v.getPreferedSize()
-            return w, h + self._toolBar.height()
+            return w + self._toolBar1.width() + 180, h + self._toolBar.height()
 
         return 800, 600
 
