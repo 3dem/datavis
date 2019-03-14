@@ -134,7 +134,8 @@ class PickerView(QWidget):
         """
         QWidget.__init__(self, parent)
         self._model = model
-        self.currentLabelName = None
+        self.__currentLabelName = 'Manual'
+        self._handleSize = 8
         self.__pickerMode = kwargs.get('picker_mode', FILAMENT_MODE)
         self.__pickerParams = {
             'float': {
@@ -235,7 +236,8 @@ class PickerView(QWidget):
     def __setup(self, **kwargs):
         """ Configure the PickerView. """
         v = kwargs.get("remove_rois", "on") == "on"
-        self._actionErase.setEnabled(v)
+        if self.__pickerMode == DEFAULT_MODE:
+            self._actionErase.setEnabled(v)
         self._roiAspectLocked = kwargs.get("roi_aspect_locked", "on") == "on"
         self._roiCentered = kwargs.get("roi_centered", "on") == "on"
 
@@ -313,16 +315,19 @@ class PickerView(QWidget):
         self._actionPick.setToolTip("Pick")
         self._actionPick.setShortcut(QtGui.QKeySequence(Qt.Key_P))
         self._actionPick.triggered.connect(self.__onPickTriggered)
+        self._imageView.addAction(self._actionPick)
         toolbar.addAction(self._actionPick)
 
-        self._actionErase = _createNewAction(self, "actionErase", "",
-                                             "fa5s.eraser", checkable=True)
-        self._actGroupPickErase.addAction(self._actionErase)
-        self._actionErase.setToolTip("Erase")
-        self._actionErase.setShortcut(QtGui.QKeySequence(Qt.Key_E))
-        self._actionErase.triggered.connect(self.__onEraseTriggered)
+        if self.__pickerMode == DEFAULT_MODE:
+            self._actionErase = _createNewAction(self, "actionErase", "",
+                                                 "fa5s.eraser", checkable=True)
+            self._actGroupPickErase.addAction(self._actionErase)
+            self._actionErase.setToolTip("Erase")
+            self._actionErase.setShortcut(QtGui.QKeySequence(Qt.Key_E))
+            self._actionErase.triggered.connect(self.__onEraseTriggered)
+            self._imageView.addAction(self._actionErase)
+            toolbar.addAction(self._actionErase)
 
-        toolbar.addAction(self._actionErase)
         gLayout.addWidget(toolbar)
 
         toolbar = QToolBar(boxPanel)
@@ -586,12 +591,6 @@ class PickerView(QWidget):
         seg.sigRegionChanged.connect(self._roiRegionChanged)
         return seg
 
-    @pyqtSlot(object)
-    def __onFilamentChanged(self, roi):
-        self.__eraseROIText.setText('angle=%d' % roi.angle())
-        self.__eraseROIText.setPos(roi.pos())
-        self.__eraseROIText.setVisible(True)
-
     @pyqtSlot()
     def __collectParams(self):
         """ Collect picker params """
@@ -641,6 +640,11 @@ class PickerView(QWidget):
         self._controlTable.setSortingEnabled(True)
         self._controlTable.horizontalHeader().setStretchLastSection(True)
         self._controlTable.resizeColumnsToContents()
+
+    def __updateFilemantText(self, angle, size, pos):
+        """ Update the filament text, and pos """
+        self.__eraseROIText.setPos(pos)
+        self.__eraseROIText.setText('angle=%.2f len=%.2f' % (angle, size))
 
     def __addRowToControls(self, row):
         """ Add a row to controls table """
@@ -814,7 +818,7 @@ class PickerView(QWidget):
         if label:
             return pg.mkPen(color=label["color"], width=width)
 
-        return pg.mkPen(color="#FF0004", width=width)
+        return pg.mkPen(color="#1EFF00", width=width)
 
     def __createColumsViewModel(self):
         """ Setup the em table """
@@ -861,7 +865,7 @@ class PickerView(QWidget):
                 pos = viewBox.mapToView(event.pos())
                 # Create coordinate with event click coordinates and add it
                 if self.__pickerMode == DEFAULT_MODE:
-                    coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
+                    coord = Coordinate(pos.x(), pos.y(), self.__currentLabelName)
                     self._currentMic.addCoordinate(coord)
                     self._createCoordROI(coord)
                     if self._tvModel is not None:
@@ -874,15 +878,16 @@ class PickerView(QWidget):
                     self.__segPos = pos
                     self.__segmentROI = pg.LineSegmentROI(
                         [(pos.x(), pos.y()), (pos.x(), pos.y())],
-                        pen=self._makePen(self.currentLabelName, 2))
+                        pen=self._makePen(self.__currentLabelName, 2))
                     viewBox.addItem(self.__segmentROI)
                     self.__eraseROIText.setPos(pos)
                     self.__eraseROIText.setText("angle=")
                     self.__eraseROIText.setVisible(True)
                 else:  # filament mode
                     coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
-                                        self.currentLabelName)
-                    coord2 = Coordinate(pos.x(), pos.y(), self.currentLabelName)
+                                        self.__currentLabelName)
+                    coord2 = Coordinate(pos.x(), pos.y(),
+                                        self.__currentLabelName)
                     coord = (coord1, coord2)
                     self._currentMic.addCoordinate(coord)
                     self._createCoordROI(coord)
@@ -934,8 +939,8 @@ class PickerView(QWidget):
             x, y = (coord[0], coord[1])
             if isinstance(x, Coordinate) or isinstance(y, Coordinate):
                 raise Exception("Invalid coordinate type for picker mode")
-            label = self.currentLabelName
-            coord = Coordinate(coord[0], coord[1], self.currentLabelName)
+            label = self.__currentLabelName
+            coord = Coordinate(coord[0], coord[1], self.__currentLabelName)
         else:
             raise Exception("Invalid coordinates for picker mode")
 
@@ -963,7 +968,7 @@ class PickerView(QWidget):
             roiClass = pg.LineSegmentROI if self._actionPickCenter.isChecked() \
                 else pg.ROI
 
-        coordROI = CoordROI(coord, size, roiClass, **roiDict)
+        coordROI = CoordROI(coord, size, roiClass, self._handleSize, **roiDict)
         roi = coordROI.getROI()
 
         # Connect some slots we are interested in
@@ -1143,8 +1148,7 @@ class PickerView(QWidget):
                     handler.movePoint(origPos)
                     d = pg.Point(pos) - pg.Point(self.__segPos)
                     angle = pg.Point(1, 0).angle(d)
-                    self.__eraseROIText.setPos(self.__segPos)
-                    self.__eraseROIText.setText('angle=%d' % -angle)
+                    self.__updateFilemantText(-angle, d.x(), self.__segPos)
                     self.__eraseROIText.setVisible(True)
 
     @pyqtSlot()
@@ -1254,7 +1258,7 @@ class PickerView(QWidget):
         btn = self._buttonGroup.checkedButton()
 
         if checked and btn:
-            self.currentLabelName = btn.text()
+            self.__currentLabelName = btn.text()
 
     @pyqtSlot(object)
     def _roiMouseHover(self, roi):
@@ -1311,8 +1315,7 @@ class PickerView(QWidget):
                 roi.coordinate.set(int(pos.x() + size[0]/2.0),
                                    int(pos.y() + size[1]/2.0))
         else:  # filament mode
-            self.__eraseROIText.setText('angle=%d' % roi.angle())
-            self.__eraseROIText.setPos(roi.pos())
+            self.__updateFilemantText(roi.angle(), roi.size()[0], roi.pos())
             self.__eraseROIText.setVisible(True)
 
     @pyqtSlot(object)
@@ -1425,7 +1428,7 @@ class MicrographItem(QStandardItem):
 
 class CoordROI:
     """ Class to match between ROI objects and corresponding coordinate """
-    def __init__(self, coord, boxSize, roiClass, **kwargs):
+    def __init__(self, coord, boxSize, roiClass, handleSize, **kwargs):
         # Lets compute the left-upper corner for the ROI
         if roiClass == pg.ScatterPlotItem:
             self._roi = pg.ScatterPlotItem(pos=[(coord.x, coord.y)], **kwargs)
@@ -1433,7 +1436,8 @@ class CoordROI:
             pos1, pos2 = coord[0], coord[1]
             self._roi = self.__createFilament((pos1.x, pos1.y),
                                               (pos2.x, pos2.y),
-                                              boxSize, roiClass, **kwargs)
+                                              boxSize, roiClass,
+                                              handleSize, **kwargs)
         else:
             half = boxSize / 2
             x = coord.x - half
@@ -1444,7 +1448,8 @@ class CoordROI:
         self._roi.coordinate = coord
         self._roi.parent = self
 
-    def __createFilament(self, pos1, pos2, width, roiClass, **kwargs):
+    def __createFilament(self, pos1, pos2, width, roiClass, handleSize,
+                         **kwargs):
         """
         Create a line or filament according to the given roi class:
         pg.LineSegmentROI or pg.ROI
@@ -1458,6 +1463,7 @@ class CoordROI:
 
             seg = pg.ROI(pos1, size=pg.Point(d.length(), width), angle=-angle,
                          **kwargs)
+            seg.handleSize = handleSize
             seg.addScaleRotateHandle([0, 0.5], [1, 0.5])
             seg.addScaleRotateHandle([1, 0.5], [0, 0.5])
             seg.addScaleHandle([1, 0], [1, 1])
@@ -1465,6 +1471,7 @@ class CoordROI:
             seg.addScaleHandle([0.5, 1], [0.5, 0.5])
         else:
             seg = pg.LineSegmentROI([pos1, pos2], **kwargs)
+
         return seg
 
     def getCoord(self):
