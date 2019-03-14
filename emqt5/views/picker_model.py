@@ -46,9 +46,26 @@ class Micrograph:
         if coordinates:
             for c in coordinates:
                 if isinstance(c, tuple):
-                    self._coordinates.append(
-                        Coordinate(c[0], c[1],
-                                   c[2] if not c[2] == "" else "Default"))
+                    size = len(c)
+                    if size == 2:
+                        self._coordinates.append(Coordinate(c[0], c[1],
+                                                            "Default"))
+                    elif size == 3:
+                        self._coordinates.append(
+                            Coordinate(c[0], c[1],
+                                       c[2] if not c[2] == "" else "Default"))
+                    elif size == 4:
+                        self._coordinates.append(
+                            (Coordinate(c[0], c[1], "Default"),
+                             Coordinate(c[2], c[3], "Default")))
+                    elif size == 5:
+                        t = c[4] if not c[4] == "" else "Default"
+                        self._coordinates.append((Coordinate(c[0], c[1], t),
+                                                  Coordinate(c[2], c[3], t)))
+                    else:
+                        raise Exception(
+                            "Invalid coordinate specification for :%d."
+                            % str(c))
                 elif isinstance(c, Coordinate):
                     self._coordinates.append(c)
                 else:

@@ -1,5 +1,6 @@
 import sys
 import os
+from math import cos, sin
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QFile, QIODevice, QJsonDocument,
@@ -8,12 +9,13 @@ from PyQt5.QtWidgets import (QHBoxLayout, QMessageBox, QActionGroup, QLabel,
                              QSpinBox, QAbstractItemView, QWidget, QVBoxLayout,
                              QGridLayout, QToolBar, QAction, QSizePolicy,
                              QTableWidget, QTableWidgetItem, QGraphicsItem,
-                             QLineEdit, QCheckBox, QSlider, QFormLayout,
-                             QPushButton, QWidgetItem, QRadioButton)
+                             QLineEdit, QCheckBox, QSlider, QPushButton,
+                             QWidgetItem, QRadioButton)
 from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
                          QIntValidator)
 import pyqtgraph as pg
 import qtawesome as qta
+from numpy import pi
 
 import em
 
@@ -30,11 +32,15 @@ from ..utils import EmImage, EmPath
 SHAPE_RECT = 0
 SHAPE_CIRCLE = 1
 SHAPE_CENTER = 2
+SHAPE_SEGMENT = 3
 
 PICK = 0
 ERASE = 1
 SHOW_ON = 0
 SHOW_OFF = 1
+
+DEFAULT_MODE = 0
+FILAMENT_MODE = 1
 
 picker_params1 = [
     [
@@ -129,6 +135,7 @@ class PickerView(QWidget):
         QWidget.__init__(self, parent)
         self._model = model
         self.currentLabelName = None
+        self.__pickerMode = kwargs.get('picker_mode', FILAMENT_MODE)
         self.__pickerParams = {
             'float': {
                 'type': float,
@@ -185,7 +192,7 @@ class PickerView(QWidget):
             self._boxSizeEditingFinished)
 
         self._setupViewBox()
-
+        self.__segmentROI = None
         self.__eraseList = []
         self.__eraseSize = 300
         self.__eraseROI = pg.CircleROI((0, 0), self.__eraseSize,
@@ -232,11 +239,15 @@ class PickerView(QWidget):
         self._roiAspectLocked = kwargs.get("roi_aspect_locked", "on") == "on"
         self._roiCentered = kwargs.get("roi_centered", "on") == "on"
 
-        self._shape = kwargs.get('shape', SHAPE_RECT)
+        self._shape = kwargs.get(
+            'shape', SHAPE_RECT if self.__pickerMode == DEFAULT_MODE else
+            SHAPE_SEGMENT)
         if self._shape == SHAPE_RECT:
             self._actionPickRect.setChecked(True)
-        else:
+        elif self._shape == SHAPE_CIRCLE:
             self._actionPickEllipse.setChecked(True)
+        elif self._shape == SHAPE_SEGMENT:
+            self._actionPickSegment.setChecked(True)
 
         self._spinBoxBoxSize.setValue(kwargs.get("boxsize", 100))
 
@@ -322,21 +333,42 @@ class PickerView(QWidget):
         toolbar.addWidget(self._labelBoxSize)
         toolbar.addWidget(self._spinBoxBoxSize)
         toolbar.addSeparator()
+        self._actionGroupPick = QActionGroup(self)
+        self._actionGroupPick.setExclusive(True)
 
         toolbar.addWidget(QLabel("  Shape", toolbar))
-        self._actionPickRect = _createNewAction(self, "actionPickRect",
-                                                "", "fa.square-o",
-                                                checkable=True)
-        self._actionPickRect.setToolTip("Rect")
-        self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.Key_R))
-        self._actionPickRect.setChecked(True)
+        if self.__pickerMode == DEFAULT_MODE:
+            self._actionPickRect = _createNewAction(self, "actionPickRect",
+                                                    "", "fa.square-o",
+                                                    checkable=True)
+            self._actionPickRect.setToolTip("Rect")
+            self._actionPickRect.setShortcut(QtGui.QKeySequence(Qt.Key_R))
+            self._actionPickRect.setChecked(True)
 
-        self._actionPickEllipse = _createNewAction(self, "actionPickEllipse",
-                                                   "", "fa.circle-o",
-                                                   checkable=True)
-        self._actionPickEllipse.setToolTip("Circle")
-        self._actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.Key_C))
-        self._actionPickEllipse.setChecked(False)
+            self._actionPickEllipse = _createNewAction(self,
+                                                       "actionPickEllipse", "",
+                                                       "fa.circle-o",
+                                                       checkable=True)
+            self._actionPickEllipse.setToolTip("Circle")
+            self._actionPickEllipse.setShortcut(QtGui.QKeySequence(Qt.Key_C))
+            self._actionPickEllipse.setChecked(False)
+            toolbar.addAction(self._actionPickRect)
+            toolbar.addAction(self._actionPickEllipse)
+            self._actionGroupPick.addAction(self._actionPickRect)
+            self._actionGroupPick.addAction(self._actionPickEllipse)
+            self._imageView.addAction(self._actionPickRect)
+            self._imageView.addAction(self._actionPickEllipse)
+        else:
+            self._actionPickSegment = _createNewAction(self,
+                                                       "actionPickSegment", "",
+                                                       "fa5s.arrows-alt-h",
+                                                       checkable=True)
+            self._actionPickSegment.setToolTip("Segment")
+            self._actionPickSegment.setShortcut(QtGui.QKeySequence(Qt.Key_S))
+            self._actionPickSegment.setChecked(True)
+            toolbar.addAction(self._actionPickSegment)
+            self._actionGroupPick.addAction(self._actionPickSegment)
+            self._imageView.addAction(self._actionPickSegment)
 
         self._actionPickCenter = _createNewAction(self, "actionPickCenter",
                                                   "", "fa5.dot-circle",
@@ -355,13 +387,10 @@ class PickerView(QWidget):
         self._actionPickShowHide.triggered.connect(
             self.__onPickShowHideTriggered)
 
-        toolbar.addAction(self._actionPickRect)
-        toolbar.addAction(self._actionPickEllipse)
         toolbar.addAction(self._actionPickCenter)
         toolbar.addSeparator()
         toolbar.addAction(self._actionPickShowHide)
-        self._imageView.addAction(self._actionPickRect)
-        self._imageView.addAction(self._actionPickEllipse)
+
         self._imageView.addAction(self._actionPickCenter)
         self._imageView.addAction(self._actionPickShowHide)
         gLayout.addWidget(toolbar)
@@ -385,10 +414,6 @@ class PickerView(QWidget):
 
         boxPanel.setFixedHeight(gLayout.totalSizeHint().height())
 
-        self._actionGroupPick = QActionGroup(self)
-        self._actionGroupPick.setExclusive(True)
-        self._actionGroupPick.addAction(self._actionPickRect)
-        self._actionGroupPick.addAction(self._actionPickEllipse)
         self._actionGroupPick.addAction(self._actionPickCenter)
         # End-picker operations
 
@@ -532,6 +557,40 @@ class PickerView(QWidget):
             widget.setText(str(value))
         elif isinstance(widget, QCheckBox) and isinstance(value, bool):
             widget.setChecked(value)
+
+    def __removeHandles(self, roi):
+        """ Remove all handles from the given roi """
+        if roi is not None:
+            for h in roi.getHandles():
+                roi.removeHandle(h)
+
+    def __createFilament(self, pos1, pos2, width, **kwargs):
+        """ Create a line or filament according to the current shape type"""
+        if self._shape == SHAPE_SEGMENT:
+            d = pg.Point(pos2) - pg.Point(pos1)
+            angle = pg.Point(1, 0).angle(d)
+            ra = -angle * pi / 180.
+            c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
+            pos1 = pos1 + c
+
+            seg = pg.ROI(pos1, size=pg.Point(d.length(), width), angle=-angle,
+                         **kwargs)
+            seg.addScaleRotateHandle([0, 0.5], [1, 0.5])
+            seg.addScaleRotateHandle([1, 0.5], [0, 0.5])
+            seg.addScaleHandle([1, 0], [1, 1])
+            seg.addScaleHandle([0, 1], [0, 0])
+            seg.addScaleHandle([0.5, 1], [0.5, 0.5])
+        else:
+            seg = pg.LineSegmentROI([pos1, pos2], **kwargs)
+
+        seg.sigRegionChanged.connect(self._roiRegionChanged)
+        return seg
+
+    @pyqtSlot(object)
+    def __onFilamentChanged(self, roi):
+        self.__eraseROIText.setText('angle=%d' % roi.angle())
+        self.__eraseROIText.setPos(roi.pos())
+        self.__eraseROIText.setVisible(True)
 
     @pyqtSlot()
     def __collectParams(self):
@@ -678,8 +737,8 @@ class PickerView(QWidget):
         """
         # Create new ROIs and add to the list
         self._roiList = [self._createCoordROI(coord)
-                         for coord in self._currentMic] if self._currentMic \
-            else []
+                         for coord in self._currentMic] \
+            if self._currentMic else []
 
     def _updateROIs(self):
         """ Update all ROIs that need to be shown in the current micrographs.
@@ -782,6 +841,13 @@ class PickerView(QWidget):
         self._tvModel = TableDataModel(self.__emTable,
                                        tableViewConfig=tableViewConfig)
 
+    def __showHandlers(self, roi, show=True):
+        """ Show or hide the ROI handlers. """
+        if not isinstance(roi, pg.ScatterPlotItem):
+            funcName = 'show' if show else 'hide'
+            for h in roi.getHandles():
+                getattr(h, funcName)()  # show/hide
+
     def _handleViewBoxClick(self, event):
         """ Invoked when the user clicks on the ViewBox
         (ImageView contains a ViewBox).
@@ -791,18 +857,44 @@ class PickerView(QWidget):
             return
         if event.button() == QtCore.Qt.LeftButton:
             if self._clickAction == PICK:
-                pos = self._imageView.getViewBox().mapToView(event.pos())
+                viewBox = self._imageView.getViewBox()
+                pos = viewBox.mapToView(event.pos())
                 # Create coordinate with event click coordinates and add it
-                coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
-                self._currentMic.addCoordinate(coord)
-                self._createCoordROI(coord)
-
-                if self._tvModel is not None:
-                    r = self._tvImages.currentRow()
-                    self._tvModel.setData(
-                        self._tvModel.createIndex(
-                            r % self._tvModel.getPageSize(), 2),
-                        len(self._currentMic))
+                if self.__pickerMode == DEFAULT_MODE:
+                    coord = Coordinate(pos.x(), pos.y(), self.currentLabelName)
+                    self._currentMic.addCoordinate(coord)
+                    self._createCoordROI(coord)
+                    if self._tvModel is not None:
+                        r = self._tvImages.currentRow()
+                        self._tvModel.setData(
+                            self._tvModel.createIndex(
+                                r % self._tvModel.getPageSize(), 2),
+                            len(self._currentMic))
+                elif self.__segmentROI is None:  # filament mode
+                    self.__segPos = pos
+                    self.__segmentROI = pg.LineSegmentROI(
+                        [(pos.x(), pos.y()), (pos.x(), pos.y())],
+                        pen=self._makePen(self.currentLabelName, 2))
+                    viewBox.addItem(self.__segmentROI)
+                    self.__eraseROIText.setPos(pos)
+                    self.__eraseROIText.setText("angle=")
+                    self.__eraseROIText.setVisible(True)
+                else:  # filament mode
+                    coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
+                                        self.currentLabelName)
+                    coord2 = Coordinate(pos.x(), pos.y(), self.currentLabelName)
+                    coord = (coord1, coord2)
+                    self._currentMic.addCoordinate(coord)
+                    self._createCoordROI(coord)
+                    if self._tvModel is not None:
+                        r = self._tvImages.currentRow()
+                        self._tvModel.setData(
+                            self._tvModel.createIndex(
+                                r % self._tvModel.getPageSize(), 2),
+                            len(self._currentMic))
+                    viewBox.removeItem(self.__segmentROI)
+                    self.__segmentROI = None  # TODO[hv] delete, memory leak???
+                    self.__eraseROIText.setVisible(False)
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
@@ -828,29 +920,48 @@ class PickerView(QWidget):
         This function will take into account the selected ROI shape
         and other global properties.
         """
-        if isinstance(coord, tuple):
+        if self.__pickerMode == FILAMENT_MODE and isinstance(coord, tuple):
+                pos1, pos2 = (coord[0], coord[1])
+                if isinstance(pos1, Coordinate) \
+                        and isinstance(pos2, Coordinate):
+                    label = pos1.getLabel()
+                else:
+                    raise Exception("Invalid coordinates type for picker mode")
+        elif self.__pickerMode == DEFAULT_MODE \
+                and isinstance(coord, Coordinate):
+            label = coord.getLabel()
+        elif self.__pickerMode == DEFAULT_MODE and isinstance(coord, tuple):
+            x, y = (coord[0], coord[1])
+            if isinstance(x, Coordinate) or isinstance(y, Coordinate):
+                raise Exception("Invalid coordinate type for picker mode")
+            label = self.currentLabelName
             coord = Coordinate(coord[0], coord[1], self.currentLabelName)
+        else:
+            raise Exception("Invalid coordinates for picker mode")
 
         roiDict = {
             # 'centered': True,
             # 'aspectLocked': self.aspectLocked,
-            'pen': self._makePen(coord.getLabel(), 2)
+            'pen': self._makePen(label, 2)
         }
-
-        if self._actionPickCenter.isChecked():
-            roiClass = pg.ScatterPlotItem
-            roiDict['symbol'] = 'o'
-            roiDict['brush'] = QBrush(QColor(roiDict['pen'].color()))
-            roiDict['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
-            size = 3
-        else:
-            size = self._model.getBoxSize()
-            if self._shape == SHAPE_RECT:
-                roiClass = pg.RectROI
-            elif self._shape == SHAPE_CIRCLE:
-                roiClass = pg.EllipseROI
+        size = self._model.getBoxSize()
+        if self.__pickerMode == DEFAULT_MODE:
+            if self._actionPickCenter.isChecked():
+                roiClass = pg.ScatterPlotItem
+                roiDict['symbol'] = 'o'
+                roiDict['brush'] = QBrush(QColor(roiDict['pen'].color()))
+                roiDict['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
+                size = 3
             else:
-                raise Exception("Unknown shape value: %s" % self._shape)
+                if self._shape == SHAPE_RECT:
+                    roiClass = pg.RectROI
+                elif self._shape == SHAPE_CIRCLE:
+                    roiClass = pg.EllipseROI
+                else:
+                    raise Exception("Unknown shape value: %s" % self._shape)
+        else:  # picker-mode : filament
+            roiClass = pg.LineSegmentROI if self._actionPickCenter.isChecked() \
+                else pg.ROI
 
         coordROI = CoordROI(coord, size, roiClass, **roiDict)
         roi = coordROI.getROI()
@@ -858,10 +969,22 @@ class PickerView(QWidget):
         # Connect some slots we are interested in
         roi.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
         if not isinstance(roi, pg.ScatterPlotItem):
-            roi.sigHoverEvent.connect(self._roiMouseHover)
-            roi.sigRegionChangeFinished.connect(self._roiRegionChanged)
+            #roi.sigHoverEvent.connect(self._roiMouseHover)
+            roi.sigRegionChanged.connect(self._roiRegionChanged)
+            roi.sigRegionChangeFinished.connect(self._roiRegionChangeFinished)
+            roi. setAcceptHoverEvents(True)
             mouseDoubleClickEvent = roi.mouseDoubleClickEvent
             wheelEvent = roi.wheelEvent
+            hoverEnterEvent = roi.hoverEnterEvent
+            hoverLeaveEvent = roi.hoverLeaveEvent
+
+            def __hoverEnterEvent(ev):
+                hoverEnterEvent(ev)
+                self.__showHandlers(roi, True)
+
+            def __hoverLeaveEvent(ev):
+                hoverLeaveEvent(ev)
+                self.__showHandlers(roi, False)
 
             def __mouseDoubleClickEvent(ev):
                 mouseDoubleClickEvent(ev)
@@ -882,6 +1005,8 @@ class PickerView(QWidget):
 
             roi.mouseDoubleClickEvent = __mouseDoubleClickEvent
             roi.wheelEvent = __wheelEvent
+            roi.hoverEnterEvent = __hoverEnterEvent
+            roi.hoverLeaveEvent = __hoverLeaveEvent
 
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         # roi.sigClicked.connect(self._roiMouseClicked)
@@ -889,6 +1014,9 @@ class PickerView(QWidget):
         self._imageView.getViewBox().addItem(roi)
         roi.setFlag(QGraphicsItem.ItemIsSelectable, self._clickAction == ERASE)
         self._roiList.append(coordROI)
+
+        if self._shape == SHAPE_CIRCLE or self._shape == SHAPE_RECT:
+            self.__removeHandles(roi)
 
         coordROI.showHandlers(False)  # initially hide ROI handlers
 
@@ -902,8 +1030,8 @@ class PickerView(QWidget):
         view.removeItem(roi)
         # Disconnect from roi the slots.
         if not isinstance(roi, pg.ScatterPlotItem):
-            roi.sigHoverEvent.disconnect(self._roiMouseHover)
-            roi.sigRegionChangeFinished.disconnect(self._roiRegionChanged)
+            #roi.sigHoverEvent.disconnect(self._roiMouseHover)
+            roi.sigRegionChanged.disconnect(self._roiRegionChanged)
         # roi.sigRemoveRequested.disconnect(self._roiRemoveRequested)
         # roi.sigClicked.disconnect(self._roiMouseClicked)
 
@@ -968,6 +1096,8 @@ class PickerView(QWidget):
                             self._roiList.remove(item.parent)
                             self._currentMic.removeCoordinate(item.coordinate)
                         self.__eraseList = []
+                    else:
+                        self.__eraseROIText.setVisible(False)
 
                 scene.mousePressEvent = __mousePressEvent
                 scene.mouseReleaseEvent = __mouseReleaseEvent
@@ -979,6 +1109,7 @@ class PickerView(QWidget):
         :param pos: The mouse pos
         """
         if pos:
+            origPos = pos
             pos = self._imageView.getViewBox().mapSceneToView(pos)
             imgItem = self._imageView.getImageItem()
             (x, y) = (pos.x(), pos.y())
@@ -1007,11 +1138,25 @@ class PickerView(QWidget):
                 self.__eraseROI.setVisible(True)
                 self.__eraseROIText.setVisible(False)
                 self.__eraseROI.blockSignals(block)
+            elif self._clickAction == PICK and self.__segmentROI is not None:
+                    handler = self.__segmentROI.getHandles()[1]
+                    handler.movePoint(origPos)
+                    d = pg.Point(pos) - pg.Point(self.__segPos)
+                    angle = pg.Point(1, 0).angle(d)
+                    self.__eraseROIText.setPos(self.__segPos)
+                    self.__eraseROIText.setText('angle=%d' % -angle)
+                    self.__eraseROIText.setVisible(True)
 
     @pyqtSlot()
     def on_actionPickEllipse_triggered(self):
         """ Activate the coordinates to ellipse ROI. """
         self._shape = SHAPE_CIRCLE
+        self._updateROIs()
+
+    @pyqtSlot()
+    def on_actionPickSegment_triggered(self):
+        """ Activate the coordinates to filament ROI. """
+        self._shape = SHAPE_SEGMENT
         self._updateROIs()
 
     @pyqtSlot()
@@ -1029,6 +1174,7 @@ class PickerView(QWidget):
         Activate the pick rect ROI.
         Change all boxes to center ROI
         """
+        self._shape = SHAPE_CENTER
         self._updateROIs()
 
     @pyqtSlot(int)
@@ -1113,7 +1259,8 @@ class PickerView(QWidget):
     @pyqtSlot(object)
     def _roiMouseHover(self, roi):
         """ Handler invoked when the roi is hovered by the mouse. """
-        roi.parent.showHandlers(False)
+        self.__showHandlers(roi, roi.mouseHovering)
+        #roi.parent.showHandlers(True)
 
     @pyqtSlot(object)
     def __eraseRoiChanged(self, eraseRoi):
@@ -1157,11 +1304,43 @@ class PickerView(QWidget):
            When the user stops dragging the ROI (or one of its handles)
            or if the ROI is changed programatically.
         """
-        pos = roi.pos()
-        size = roi.size()
-        if roi.coordinate is not None:
-            roi.coordinate.set(int(pos.x() + size[0]/2.0),
-                               int(pos.y() + size[1]/2.0))
+        if self.__pickerMode == DEFAULT_MODE:
+            pos = roi.pos()
+            size = roi.size()
+            if roi.coordinate is not None:
+                roi.coordinate.set(int(pos.x() + size[0]/2.0),
+                                   int(pos.y() + size[1]/2.0))
+        else:  # filament mode
+            self.__eraseROIText.setText('angle=%d' % roi.angle())
+            self.__eraseROIText.setPos(roi.pos())
+            self.__eraseROIText.setVisible(True)
+
+    @pyqtSlot(object)
+    def _roiRegionChangeFinished(self, roi):
+        """
+        Handler invoked when the roi region is changed.
+        For example:
+           When the user stops dragging the ROI (or one of its handles)
+           or if the ROI is changed programatically.
+        """
+        if self.__pickerMode == DEFAULT_MODE:
+            pos = roi.pos()
+            size = roi.size()
+            if roi.coordinate is not None:
+                roi.coordinate.set(int(pos.x() + size[0] / 2.0),
+                                   int(pos.y() + size[1] / 2.0))
+        else:  # filament mode
+            viewBox = self._imageView.getViewBox()
+            pos1 = viewBox.mapSceneToView(roi.getSceneHandlePositions(0)[1])
+            pos2 = viewBox.mapSceneToView(roi.getSceneHandlePositions(1)[1])
+            coord1, coord2 = roi.coordinate
+            coord1.set(pos1.x(), pos1.y())
+            coord2.set(pos2.x(), pos2.y())
+            if isinstance(roi, pg.ROI):
+                width = roi.size().y()
+                if not width == self._model.getBoxSize():
+                    self._spinBoxBoxSize.setValue(width)
+                    self._boxSizeEditingFinished()
 
     def __openImageFile(self, path, coord=None):
         """
@@ -1226,11 +1405,6 @@ class PickerView(QWidget):
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self._actionPickRect.setText(_translate("MainWindow", "Pick Rect"))
-        self._actionPickEllipse.setText(_translate("MainWindow",
-                                                   "Pick Ellipse"))
-        self._actionPick.setText(_translate("MainWindow", "Pick"))
-        self._actionErase.setText(_translate("MainWindow", "Erase"))
 
 
 class MicrographItem(QStandardItem):
@@ -1255,6 +1429,11 @@ class CoordROI:
         # Lets compute the left-upper corner for the ROI
         if roiClass == pg.ScatterPlotItem:
             self._roi = pg.ScatterPlotItem(pos=[(coord.x, coord.y)], **kwargs)
+        elif isinstance(coord, tuple):  # filament coordinates (Coord1, Coord2)
+            pos1, pos2 = coord[0], coord[1]
+            self._roi = self.__createFilament((pos1.x, pos1.y),
+                                              (pos2.x, pos2.y),
+                                              boxSize, roiClass, **kwargs)
         else:
             half = boxSize / 2
             x = coord.x - half
@@ -1264,6 +1443,29 @@ class CoordROI:
         # Set a reference to the corresponding coordinate
         self._roi.coordinate = coord
         self._roi.parent = self
+
+    def __createFilament(self, pos1, pos2, width, roiClass, **kwargs):
+        """
+        Create a line or filament according to the given roi class:
+        pg.LineSegmentROI or pg.ROI
+        """
+        if roiClass == pg.ROI:
+            d = pg.Point(pos2) - pg.Point(pos1)
+            angle = pg.Point(1, 0).angle(d)
+            ra = -angle * pi / 180.
+            c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
+            pos1 = pos1 + c
+
+            seg = pg.ROI(pos1, size=pg.Point(d.length(), width), angle=-angle,
+                         **kwargs)
+            seg.addScaleRotateHandle([0, 0.5], [1, 0.5])
+            seg.addScaleRotateHandle([1, 0.5], [0, 0.5])
+            seg.addScaleHandle([1, 0], [1, 1])
+            seg.addScaleHandle([0, 1], [0, 0])
+            seg.addScaleHandle([0.5, 1], [0.5, 0.5])
+        else:
+            seg = pg.LineSegmentROI([pos1, pos2], **kwargs)
+        return seg
 
     def getCoord(self):
         """ Return the internal coordinate. """
@@ -1278,3 +1480,4 @@ class CoordROI:
             funcName = 'show' if show else 'hide'
             for h in self._roi.getHandles():
                 getattr(h, funcName)()  # show/hide
+

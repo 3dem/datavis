@@ -15,7 +15,8 @@ from emqt5.utils import EmPath, EmTable, EmImage
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
-                         MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, PickerView,
+                         MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
+                         SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel)
 from emqt5.views.base import AbstractView
 from emqt5.windows import BrowserWindow
@@ -116,8 +117,13 @@ if __name__ == '__main__':
                            required=False,
                            help=' an integer for pick size(Default=100).')
     argParser.add_argument('--shape', default='RECT',
-                           required=False, choices=['RECT', 'CIRCLE'],
-                           help=' the shape type [CIRCLE or RECT]')
+                           required=False, choices=['RECT', 'CIRCLE', 'CENTER'
+                                                    'SEGMENT'],
+                           help=' the shape type '
+                                '[CIRCLE, RECT, CENTER or SEGMENT]')
+    argParser.add_argument('--picker-mode', default='default', required=False,
+                           choices=['default', 'filament'],
+                           help=' the picker type [default or filament]')
     argParser.add_argument('--remove-rois', type=str, default='on',
                            required=False, choices=on_off,
                            help=' Enable/disable the option. '
@@ -169,7 +175,18 @@ if __name__ == '__main__':
 
     # Picker params
     kwargs['boxsize'] = args.boxsize
-    kwargs['shape'] = SHAPE_RECT if args.shape == 'RECT' else SHAPE_CIRCLE
+    kwargs['picker_mode'] = DEFAULT_MODE \
+        if args.picker_mode == 'default' else FILAMENT_MODE
+    if kwargs['picker_mode'] == DEFAULT_MODE:
+        if args.shape == 'RECT':
+            kwargs['shape'] = SHAPE_RECT
+        elif args.shape == 'CIRCLE':
+            kwargs['shape'] = SHAPE_CIRCLE
+        else:
+            kwargs['shape'] = SHAPE_CENTER
+    else:
+        kwargs['shape'] = \
+            SHAPE_CENTER if args.shape == 'CENTER' else SHAPE_SEGMENT
     kwargs['remove_rois'] = args.remove_rois
     kwargs['roi_aspect_locked'] = args.roi_aspect_locked
     kwargs['roi_centered'] = args.roi_centered
