@@ -569,28 +569,6 @@ class PickerView(QWidget):
             for h in roi.getHandles():
                 roi.removeHandle(h)
 
-    def __createFilament(self, pos1, pos2, width, **kwargs):
-        """ Create a line or filament according to the current shape type"""
-        if self._shape == SHAPE_SEGMENT:
-            d = pg.Point(pos2) - pg.Point(pos1)
-            angle = pg.Point(1, 0).angle(d)
-            ra = -angle * pi / 180.
-            c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
-            pos1 = pos1 + c
-
-            seg = pg.ROI(pos1, size=pg.Point(d.length(), width), angle=-angle,
-                         **kwargs)
-            seg.addScaleRotateHandle([0, 0.5], [1, 0.5])
-            seg.addScaleRotateHandle([1, 0.5], [0, 0.5])
-            seg.addScaleHandle([1, 0], [1, 1])
-            seg.addScaleHandle([0, 1], [0, 0])
-            seg.addScaleHandle([0.5, 1], [0.5, 0.5])
-        else:
-            seg = pg.LineSegmentROI([pos1, pos2], **kwargs)
-
-        seg.sigRegionChanged.connect(self._roiRegionChanged)
-        return seg
-
     @pyqtSlot()
     def __collectParams(self):
         """ Collect picker params """
@@ -883,7 +861,7 @@ class PickerView(QWidget):
                     self.__eraseROIText.setPos(pos)
                     self.__eraseROIText.setText("angle=")
                     self.__eraseROIText.setVisible(True)
-                else:  # filament mode
+                elif not self.__segPos == pos:  # filament mode
                     coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
                                         self.__currentLabelName)
                     coord2 = Coordinate(pos.x(), pos.y(),
@@ -1144,10 +1122,11 @@ class PickerView(QWidget):
                 self.__eraseROIText.setVisible(False)
                 self.__eraseROI.blockSignals(block)
             elif self._clickAction == PICK and self.__segmentROI is not None:
-                    handler = self.__segmentROI.getHandles()[1]
-                    handler.movePoint(origPos)
-                    d = pg.Point(pos) - pg.Point(self.__segPos)
-                    angle = pg.Point(1, 0).angle(d)
+                handler = self.__segmentROI.getHandles()[1]
+                handler.movePoint(origPos)
+                d = pg.Point(pos) - pg.Point(self.__segPos)
+                angle = pg.Point(1, 0).angle(d)
+                if angle is not None:
                     self.__updateFilemantText(-angle, d.x(), self.__segPos)
                     self.__eraseROIText.setVisible(True)
 
@@ -1457,6 +1436,8 @@ class CoordROI:
         if roiClass == pg.ROI:
             d = pg.Point(pos2) - pg.Point(pos1)
             angle = pg.Point(1, 0).angle(d)
+            if angle is None:
+                angle = 0
             ra = -angle * pi / 180.
             c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
             pos1 = pos1 + c
