@@ -92,7 +92,7 @@ class TableViewConfig:
             colsConfig = tableColNames
 
         tvConfig = TableViewConfig()
-
+        rest = list(tableColNames)
         for item in colsConfig:
             if isinstance(item, str) or isinstance(item, unicode):
                 name = item
@@ -111,6 +111,20 @@ class TableViewConfig:
                     properties['description'] = col.getDescription()
                 properties['editable'] = False
                 tvConfig.addColumnConfig(name, cType, **properties)
+                rest.remove(name)
+
+        # Add the others with visible=False or True if tvConfig is empty
+        visible = len(tvConfig) == 0
+        for colName in rest:
+            col = table.getColumn(colName)
+            # Take the values from the 'properties' dict or infer from col
+            cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
+            properties = dict()
+            properties['description'] = col.getDescription()
+            properties['editable'] = False
+            properties['visible'] = visible
+            tvConfig.addColumnConfig(colName, cType, **properties)
+
         return tvConfig
 
     @classmethod
@@ -118,7 +132,7 @@ class TableViewConfig:
         """ Create a TableViewConfig instance for a stack """
         tableViewConfig = TableViewConfig()
 
-        tableViewConfig.addColumnConfig(name='Image',
+        tableViewConfig.addColumnConfig(name='path',
                                         dataType=TableViewConfig.TYPE_STRING,
                                         label='Image',
                                         renderable=True,
@@ -205,6 +219,9 @@ class ColumnConfig:
 
     def getDescrition(self):
         return self._description
+
+    def getPropertyNames(self):
+        return self._propertyNames
 
     def __getitem__(self, propertyName):
         """ Return the value of a given property.

@@ -104,7 +104,7 @@ class ToolBar(QWidget):
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
     def addAction(self, action, widget=None, index=None, exclusive=True, showTitle=True,
-                  checked=False):
+                  checked=False, floating=False):
         """
         Add a new action with the associated widget. This widget will be shown
         in the side panel when the action is active.
@@ -114,6 +114,8 @@ class ToolBar(QWidget):
         side panel
         if checked=True then it will be activated and the corresponding  action
         will be executed.
+        if floating=True then the dock widget can be detached from the toolbar,
+        and floated as an independent window.
 
         * Ownership of the widget is transferred to the toolbar.
         * Ownership of the action is transferred to the toolbar.
@@ -155,10 +157,13 @@ class ToolBar(QWidget):
 
             dock = QDockWidget(action.text() if showTitle else "",
                                self._sidePanel)
-            dock.setFloating(False)
+            dock.setFloating(floating)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-            dock.setFeatures(
-                QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable)
+            features = QDockWidget.DockWidgetClosable | \
+                       QDockWidget.DockWidgetMovable
+            if floating:
+                features |= QDockWidget.DockWidgetFloatable
+            dock.setFeatures(features)
             dock.setWidget(widget)
             dock.setMinimumWidth(self._panelWidth)
             dock.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)

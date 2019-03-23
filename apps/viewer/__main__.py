@@ -136,6 +136,16 @@ if __name__ == '__main__':
                            required=False, choices=on_off,
                            help=' Enable/disable the option. '
                                 'The rois will work accordance with its center')
+    # COLUMNS PARAMS
+    argParser.add_argument('--visible', type=str, nargs='*', default=[],
+                           required=False,
+                           help=' Columns to be shown (and their order).')
+    argParser.add_argument('--render', type=str, nargs='*', default=[],
+                           required=False,
+                           help=' Columns to be rendered.')
+    argParser.add_argument('--sort', type=str, nargs='*', default=[],
+                           required=False,
+                           help=' Sort command.')
 
     args = argParser.parse_args()
 
@@ -282,7 +292,18 @@ if __name__ == '__main__':
             elif EmPath.isTable(files):  # Display the file as a Table:
                 if not args.view == 'slices':
                     t = EmTable.load(files)  # name, table
-                    view = createDataView(t[1], None, t[0],
+                    if args.visible or args.render:
+                        tableViewConfig = \
+                            TableViewConfig.fromTable(t[1], args.visible)
+                        for colConfig in tableViewConfig:
+                            colName = colConfig.getName()
+                            if args.visible:
+                                colConfig['visible'] = colName in args.visible
+                            if args.render:
+                                colConfig['renderable'] = colName in args.render
+                    else:
+                        tableViewConfig = None
+                    view = createDataView(t[1], tableViewConfig, t[0],
                                           views.get(args.view,
                                                     DataView.COLUMNS),
                                           dataSource=files,

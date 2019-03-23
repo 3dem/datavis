@@ -29,6 +29,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
+        self._noImageItem = pg.TextItem("NO IMAGE")
+        self._imageView.getView().addItem(self._noImageItem)
+        self._noImageItem.setVisible(False)
         self._imageRef = ImageRef()
         self._sBorder = 3  # selected state border (px)
         self._focusPen = QPen(Qt.DotLine)
@@ -75,31 +78,37 @@ class EMImageItemDelegate(QStyledItemDelegate):
         imgData = self._getThumb(index)
 
         if imgData is None:
+            self._imageView.clear()
+            v = self._imageView.getView()
+            v.addItem(self._noImageItem)
+            self._noImageItem.setVisible(True)
+            v.autoRange(padding=0)
             return
-
+        self._noImageItem.setVisible(False)
         size = index.data(Qt.SizeHintRole)
-        (w, h) = (size.width(), size.height())
+        if size is not None:
+            (w, h) = (size.width(), size.height())
 
-        v = self._imageView.getView()
-        (cw, ch) = (v.width(), v.height())
+            v = self._imageView.getView()
+            (cw, ch) = (v.width(), v.height())
 
-        if not (w, h) == (cw, ch):
-            v.setGeometry(0, 0, width, height)
-            v.resizeEvent(None)
+            if not (w, h) == (cw, ch):
+                v.setGeometry(0, 0, width, height)
+                v.resizeEvent(None)
 
-        if not isinstance(imgData, QPixmap):  # QPixmap or np.array
-            if self._pixmapItem:
-                self._pixmapItem.setVisible(False)
+            if not isinstance(imgData, QPixmap):  # QPixmap or np.array
+                if self._pixmapItem:
+                    self._pixmapItem.setVisible(False)
 
-            self._imageView.setImage(imgData)
-        else:
-            if not self._pixmapItem:
-                self._pixmapItem = QGraphicsPixmapItem(imgData)
-                v.addItem(self._pixmapItem)
+                self._imageView.setImage(imgData)
             else:
-                self._pixmapItem.setPixmap(imgData)
-            self._pixmapItem.setVisible(True)
-        v.autoRange(padding=0)
+                if not self._pixmapItem:
+                    self._pixmapItem = QGraphicsPixmapItem(imgData)
+                    v.addItem(self._pixmapItem)
+                else:
+                    self._pixmapItem.setPixmap(imgData)
+                self._pixmapItem.setVisible(True)
+            v.autoRange(padding=0)
 
     def _getThumb(self, index, height=100):
         """
@@ -374,6 +383,15 @@ class AbstractView(QWidget):
         Possible values:
                         SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
         This method must be reimplemented in inherited classes
+        """
+        pass
+
+    def updateViewConfiguration(self):
+        """
+        It must be invoked when you need to update any change in the view
+        according to modifications made to the model.
+        If necessary, implement in inherited classes.
+        AbstractView does not call this method.
         """
         pass
 

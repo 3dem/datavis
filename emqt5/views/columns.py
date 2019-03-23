@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView,
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
+from .config import ColumnConfig
 
 
 class ColumnsView(AbstractView):
@@ -38,6 +39,7 @@ class ColumnsView(AbstractView):
         hHeader = HeaderView(self._tableView)
         hHeader.setHighlightSections(False)
         hHeader.sectionClicked.connect(self.__onHeaderClicked)
+        hHeader.setSectionsMovable(True)
         self._tableView.setHorizontalHeader(hHeader)
         self._tableView.verticalHeader().setTextElideMode(Qt.ElideRight)
         self._tableView.setObjectName("ColumnsViewTable")
@@ -247,12 +249,18 @@ class ColumnsView(AbstractView):
 
         self.sigSelectionChanged.emit()
 
+    def updateViewConfiguration(self):
+        """ Update the columns configuration """
+        self.__setupVisibleColumns()
+        self.__setupDelegatesForColumns()
+
     def setModel(self, model):
         """ Sets the model for this view """
         self._selection.clear()
         self._currentRow = 0
         if self._model is not None:
             self._model.headerDataChanged.disconnect(self.__onHeaderDataChanged)
+            self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
 
         self._tableView.setModel(model)
         #  remove sort indicator from all columns
@@ -260,8 +268,7 @@ class ColumnsView(AbstractView):
                                                             Qt.AscendingOrder)
         AbstractView.setModel(self, model)
         if model:
-            self.__setupDelegatesForColumns()
-            self.__setupVisibleColumns()
+            self.updateViewConfiguration()
             s = self._tableView.verticalHeader().defaultSectionSize()
             model.setIconSize(QSize(s, s))
             model.setupPage(self._pageSize, 0)
@@ -270,7 +277,6 @@ class ColumnsView(AbstractView):
             selModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
             model.sigPageChanged.connect(self.__onCurrentPageChanged)
-
             self.setupColumnsWidth()
 
     def setRowHeight(self, height):
@@ -387,13 +393,16 @@ class ColumnsView(AbstractView):
         elif selectionBehavior == self.SELECT_ROWS:
             self._tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
 
-    def resizeColumnToContents(self, row):
+    def resizeColumnToContents(self, col=-1):
         """
         From QTableView:
-        Resizes the given row based on the size hints of the delegate used
+        Resizes the given column based on the size hints of the delegate used
         to render each item in the row.
         """
-        self._tableView.resizeColumnToContents(row)
+        if col < 0:
+            self._tableView.resizeColumnsToContents()
+        else:
+            self._tableView.resizeColumnToContents(col)
 
     def selectedIndexes(self):
         """

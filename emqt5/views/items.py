@@ -66,48 +66,52 @@ class ItemsView(AbstractView):
                 model.appendRow([self.__selectionItem])
 
             for i in range(0, self._model.columnCount()):
-                item = QStandardItem()
-                item.setData(self._model.getTableData(row, i),
-                             Qt.DisplayRole)
-                item.setEditable(False)
-                if i == col and self._model.getColumnConfig(col)['renderable']:
-                    imgPath = self._model.getTableData(row, i)
-                    imgRef = parseImagePath(imgPath, self._imageRef)
-                    if imgRef is not None:
-                        if imgRef.imageType & \
-                                ImageRef.SINGLE == ImageRef.SINGLE:
-                            imgId = imgRef.path
-                            index = 0
-                        elif imgRef.imageType & \
-                                ImageRef.STACK == ImageRef.STACK:
+                colConfig = self._model.getColumnConfig(i)
+                if colConfig['visible']:
+                    item = QStandardItem()
+                    item.setData(self._model.getTableData(row, i),
+                                 Qt.DisplayRole)
+                    item.setEditable(False)
+                    if i == col and self._model.getColumnConfig(col)['renderable']:
+                        imgPath = self._model.getTableData(row, i)
+                        imgRef = parseImagePath(imgPath, self._imageRef)
+                        if imgRef is not None:
                             if imgRef.imageType & \
-                                    ImageRef.VOLUME == ImageRef.VOLUME:
-                                imgId = '%d-%s' % (imgRef.volumeIndex,
-                                                   imgRef.path)
-                                index = imgRef.volumeIndex
-                            else:
-                                imgId = '%d-%s' % (imgRef.index, imgRef.path)
-                                index = imgRef.index
+                                    ImageRef.SINGLE == ImageRef.SINGLE:
+                                imgId = imgRef.path
+                                index = 0
+                            elif imgRef.imageType & \
+                                    ImageRef.STACK == ImageRef.STACK:
+                                if imgRef.imageType & \
+                                        ImageRef.VOLUME == ImageRef.VOLUME:
+                                    imgId = '%d-%s' % (imgRef.volumeIndex,
+                                                       imgRef.path)
+                                    index = imgRef.volumeIndex
+                                else:
+                                    imgId = '%d-%s' % (imgRef.index,
+                                                       imgRef.path)
+                                    index = imgRef.index
 
-                        data = self._imgCache.addImage(imgId, imgRef.path,
-                                                       index)
-                        self._imageView.setImageInfo(
-                            path=imgRef.path, format=EmPath.getExt(imgRef.path),
-                            data_type=' ')
-                        if data is not None:
-                            if imgRef.axis == X_AXIS:
-                                data = data[:, :, imgRef.index]
-                            elif imgRef.axis == Y_AXIS:
-                                imgRef.axis = data[:, imgRef.index, :]
-                            elif imgRef.axis == Z_AXIS:
-                                data = data[imgRef.index, :, :]
+                            data = self._imgCache.addImage(imgId, imgRef.path,
+                                                           index)
+                            self._imageView.setImageInfo(
+                                path=imgRef.path,
+                                format=EmPath.getExt(imgRef.path),
+                                data_type=' ')
+                            if data is not None:
+                                if imgRef.axis == X_AXIS:
+                                    data = data[:, :, imgRef.index]
+                                elif imgRef.axis == Y_AXIS:
+                                    imgRef.axis = data[:, imgRef.index, :]
+                                elif imgRef.axis == Z_AXIS:
+                                    data = data[imgRef.index, :, :]
 
-                            self._imageView.setImage(data)
+                                self._imageView.setImage(data)
 
-                model.appendRow([item])
-                label = self._model.headerData(i, Qt.Horizontal)
-                if label:
-                    vLabels.append(label)
+                    model.appendRow([item])
+                    label = self._model.headerData(i, Qt.Horizontal)
+                    if isinstance(label, str):
+                        vLabels.append(label)
             model.setHorizontalHeaderLabels(["Values"])
             model.setVerticalHeaderLabels(vLabels)
             self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
@@ -164,7 +168,7 @@ class ItemsView(AbstractView):
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
         self._column = column
-        self.__loadItem(self._row, self._column)
+        self.updateViewConfiguration()
 
     def selectRow(self, row):
         """ Selects the given row """
@@ -225,3 +229,9 @@ class ItemsView(AbstractView):
         format: (str) the image format
         data_type: (str) the image data type"""
         self._imageView.setImageInfo(**kwargs)
+
+    def updateViewConfiguration(self):
+        """ Reimplemented from AbstractView """
+        self._imageView.setVisible(self._model is not None and
+                                   self._model.hasRenderableColumn())
+        self.__loadItem(self._row, self._column)

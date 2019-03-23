@@ -68,7 +68,7 @@ class TableDataModel(QAbstractItemModel):
         """ Return the data for specified column and row in the current page """
         if self._pageData and row < len(self._pageData):
             emRow = self._pageData[row]
-            emCol = self._emTable.getColumnByIndex(col)
+            emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
             if t == TableViewConfig.TYPE_STRING:
@@ -167,6 +167,7 @@ class TableDataModel(QAbstractItemModel):
         Reimplemented from QAbstractItemModel.
         Return the column count
         """
+
         return len(self._tableViewConfig) if self._tableViewConfig else 0
 
     def rowCount(self, index=QModelIndex()):
@@ -228,7 +229,8 @@ class TableDataModel(QAbstractItemModel):
         NOTE: Using this function, no view will be notified
         """
         if self.flags(self.createIndex(0, column)) & Qt.ItemIsEditable:
-            tableColumn = self._emTable.getColumnByIndex(column)
+            tableColumn = \
+                self._emTable.getColumn(self._tableViewConfig[column].getName())
             tableRow = self._emTable[row]
             tableRow[tableColumn.getName()] = value
             return True
@@ -239,10 +241,10 @@ class TableDataModel(QAbstractItemModel):
         """
         Return the data for specified column and row
         """
-        if self._emTable and row in range(0, self._emTable.getSize())\
-            and col in range(0, self._emTable.getColumnsSize()):
+        if self._emTable and row in range(0, self._emTable.getSize()) \
+                and col in range(0, self._emTable.getColumnsSize()):
             emRow = self._emTable[row]
-            emCol = self._emTable.getColumnByIndex(col)
+            emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
             if t == TableViewConfig.TYPE_STRING:
@@ -308,7 +310,8 @@ class TableDataModel(QAbstractItemModel):
         if self._tableViewConfig:
             if role == Qt.DisplayRole or role == Qt.ToolTipRole:
                 if orientation == Qt.Horizontal \
-                        and column in range(0, len(self._tableViewConfig)):
+                        and column in range(0, len(self._tableViewConfig)) \
+                        and self._tableViewConfig[column]['visible']:
                     return self._tableViewConfig[column].getLabel()
                 elif orientation == Qt.Vertical \
                         and self._tableViewConfig.isShowRowIndex():
@@ -910,7 +913,11 @@ class ImageCache:
             return pixmap.scaledToHeight(height, Qt.SmoothTransformation)
 
         elif EmPath.isData(path):
-            img = EmImage.load(path, index)
+            try:
+                img = EmImage.load(path, index)
+            except Exception as ex:
+                print(ex)
+                return None
             array = EmImage.getNumPyArray(img)
             if self._imgSize is None:
                 return array

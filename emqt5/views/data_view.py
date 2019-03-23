@@ -7,7 +7,8 @@ from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
-                             QSizePolicy, QPushButton, QMenu)
+                             QSizePolicy, QPushButton, QMenu, QTableWidget,
+                             QTableWidgetItem)
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
@@ -108,7 +109,8 @@ class DataView(QWidget):
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
 
-        vLayout.addWidget(QLabel("<strong>Actions:<strong>"))
+        vLayout.addWidget(QLabel(parent=self._selectionPanel,
+                                 text="<strong>Actions:<strong>"))
         self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
 
         def _addActionButton(text, icon, onTriggeredFunc):
@@ -148,17 +150,37 @@ class DataView(QWidget):
             "Clear selection", qta.icon('fa.eraser'),
             self.__onClearSelectionTriggered)
 
-        maxWidth = self._buttonClearSelection.width()
         vLayout.addWidget(self._labelSelectionInfo)
-        vLayout.addStretch()
-        self._selectionPanel.setGeometry(0, 0, maxWidth,
-                                         self._selectionPanel.height())
+        self._selectionPanel.setFixedHeight(
+            vLayout.sizeHint().height() + self._labelSelectionInfo.height() * 3)
+
         self._actSelections = QAction(None)
         self._actSelections.setIcon(qta.icon('fa.check-circle'))
         self._actSelections.setText('Selection')
         self._toolBar1.addAction(self._actSelections, self._selectionPanel,
                                  exclusive=False)
 
+        self._columnsPanel = self._toolBar1.createSidePanel()
+        self._columnsPanel.setObjectName('columnsPanel')
+        self._columnsPanel.setStyleSheet(
+            'QWidget#columnsPanel{border-left: 1px solid lightgray;}')
+        self._columnsPanel.setSizePolicy(QSizePolicy.Ignored,
+                                         QSizePolicy.Ignored)
+        vLayout = QVBoxLayout(self._columnsPanel)
+
+        vLayout.addWidget(QLabel(parent=self._columnsPanel,
+                                 text="<strong>Column properties:<strong>"))
+        self._tableColumnProp = QTableWidget(self._columnsPanel)
+        self._tableColumnProp.setSelectionMode(QTableWidget.SingleSelection)
+        self._tableColumnProp.setSelectionBehavior(QTableWidget.SelectRows)
+        self._tableColumnProp.itemChanged.connect(
+            self.__onColumnPropertyChanged)
+        vLayout.addWidget(self._tableColumnProp)
+        self._actColumns = QAction(None)
+        self._actColumns.setIcon(qta.icon('fa5s.th'))
+        self._actColumns.setText('Columns')
+        self._toolBar1.addAction(self._actColumns, self._columnsPanel,
+                                 exclusive=False)
         # combobox current table
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
         self._toolBar.addWidget(self._labelCurrentTable)
@@ -475,27 +497,37 @@ class DataView(QWidget):
 
         self._comboBoxCurrentTable.blockSignals(blocked)
 
-    def __setupComboBoxCurrentColumn(self):
+    def __setupComboBoxCurrentColumn(self, colIndex=0):
         """
-        Configure the elements in combobox currentColumn for gallery vew mode
+        Configure the elements in combobox currentColumn for gallery view mode.
+        Select the given column-config index
         """
         blocked = self._comboBoxCurrentColumn.blockSignals(True)
         model = self._comboBoxCurrentColumn.model()
         if not model:
             model = QStandardItemModel(self._comboBoxCurrentColumn)
         model.clear()
-
-        if self._model:
+        currentIndex = 0
+        index = 0
+        if self._model is not None:
             for i, colConfig in enumerate(self._model.getColumnConfig()):
                 if colConfig["renderable"] and colConfig["visible"]:
                     item = QStandardItem(colConfig.getLabel())
                     item.setData(i, Qt.UserRole)  # use UserRole for store
-                    model.appendRow([item])           # columnIndex
+                    model.appendRow([item])       # columnIndex
+                    if i == colIndex:
+                        currentIndex = index
+                    else:
+                        index += 1
 
         self._comboBoxCurrentColumn.setModel(model)
         self._comboBoxCurrentColumn.blockSignals(blocked)
-
-        self.__showCurrentColumnWidgets(not model.rowCount() == 0)
+        rowCount = model.rowCount()
+        self.__showCurrentColumnWidgets(rowCount > 0)
+        if rowCount == 1:
+            self._onGalleryViewColumnChanged(0)
+        elif rowCount > 1:
+            self._comboBoxCurrentColumn.setCurrentIndex(currentIndex)
 
     def __showCurrentColumnWidgets(self, visible):
         """
@@ -641,6 +673,95 @@ class DataView(QWidget):
     def __getSelectionSize(self):
         """ Returns the current selection size """
         return len(self._selection)
+
+    def __initTableColumnProp(self):
+        """ Initialize the columns properties widget """
+        blocked = self._tableColumnProp.blockSignals(True)
+        self._tableColumnProp.clear()
+        columnsView = self.getViewWidget(self.COLUMNS)
+        if columnsView is not None:
+            viewModel = columnsView.getModel()
+            if viewModel is not None:
+                row = 0
+                self._tableColumnProp.setRowCount(viewModel.columnCount())
+                for colConfig in viewModel.getColumnConfig():
+                    col = 1
+                    if row == 0:
+                        headerLabels = ['Name']
+                        propNames = colConfig.getPropertyNames()
+                        for n in propNames:
+                            if 'ReadOnly' not in n:
+                                headerLabels.append(n)
+                        self._tableColumnProp.setColumnCount(len(headerLabels))
+                        self._tableColumnProp.setHorizontalHeaderLabels(
+                            headerLabels)
+                    item = QTableWidgetItem(colConfig.getName())
+                    item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                    self._tableColumnProp.setItem(row, 0, item)
+
+                    for propName in headerLabels[1:]:
+                        value = colConfig[propName]
+                        flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                        item = QTableWidgetItem()
+                        item.setFlags(Qt.NoItemFlags)
+                        if not colConfig[propName + 'ReadOnly']:
+                            flags |= Qt.ItemIsEditable
+                        if isinstance(value, bool):
+                            item.setCheckState(
+                                Qt.Checked if value else Qt.Unchecked)
+                            if flags & Qt.ItemIsEditable == Qt.ItemIsEditable:
+                                flags |= Qt.ItemIsUserCheckable
+                        else:
+                            item.setData(Qt.DisplayRole, value)
+
+                        item.setData(Qt.UserRole, value)
+                        item.setFlags(flags)
+                        self._tableColumnProp.setItem(row, col, item)
+                        col += 1
+                    row += 1
+                self._tableColumnProp.resizeColumnsToContents()
+        self._tableColumnProp.blockSignals(blocked)
+
+    @pyqtSlot(QTableWidgetItem)
+    def __onColumnPropertyChanged(self, item):
+        """ Invoked whenever the data of item has changed. """
+        if self._model is not None:
+            propName = self._tableColumnProp.horizontalHeaderItem(
+                item.column()).text()
+            colConfig = self._model.getColumnConfig(item.row())
+            if item.flags() & Qt.ItemIsUserCheckable == \
+                    Qt.ItemIsUserCheckable:
+                colConfig[propName] = True \
+                    if item.checkState() == Qt.Checked else False
+            else:
+                colConfig[propName] = item.data(Qt.DisplayRole)
+                # TODO[hv] Verify for not boolean properties
+
+            for viewType in self._viewTypes.values():
+                viewWidget = self.getViewWidget(viewType)
+                if viewWidget is not None:
+                    viewWidget.updateViewConfiguration()
+            self.__setupToolBarForView(self._view)
+            self.__setupComboBoxCurrentColumn(self._currentRenderableColumn)
+            #  Show/hide GalleryView
+            colConfig = self._model.getColumnConfig()
+            a = self._viewActions.get(self.GALLERY, None)
+            g = self.getViewWidget(self.GALLERY)
+            action = a['action'] if a else None
+
+            if action is not None and g is not None:
+                hide = True
+                for c in colConfig:
+                    if c['renderable'] and c['visible']:
+                        hide = False
+                action.setVisible(not hide)
+                if self._view == self.GALLERY and hide:
+                    action = self._viewActions.get(self.COLUMNS, None)
+                    if action is not None:
+                        action = action['action']
+                        if action is not None and action.isVisible():
+                            action.setChecked(True)
+                            self.setView(self.COLUMNS)
 
     @pyqtSlot()
     def __onCurrentViewSelectionChanged(self):
@@ -940,6 +1061,7 @@ class DataView(QWidget):
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
+        self.__initTableColumnProp()
 
     def getModel(self):
         """
