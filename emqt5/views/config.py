@@ -52,6 +52,14 @@ class TableViewConfig:
     def setShowRowIndex(self, s):
         self._rowIndex = s
 
+    def getIndexes(self, propName, value):
+        """ Return a indexes list having propName=value """
+        ret = []
+        for i, colConfig in enumerate(self):
+            if colConfig[propName] == value:
+                ret.append(i)
+        return ret
+
     def __iter__(self):
         """ Iterate through all the column configs. """
         for colConfig in self._cols:
@@ -181,6 +189,8 @@ class ColumnConfig:
             - renderableReadOnly (Bool)
             - editable (Bool)
             - editableReadOnly (Bool)
+            - label (Bool)
+            - labelReadOnly (Bool)
         """
         self._name = name
         self._label = kwargs.get('label', name)
@@ -190,6 +200,7 @@ class ColumnConfig:
         self.__setProperty__('visible', True, False, **kwargs)
         self.__setProperty__('renderable', False, False, **kwargs)
         self.__setProperty__('editable', False, True, **kwargs)
+        self.__setProperty__('label', False, False, **kwargs)
 
     def __setProperty__(self, name, default, defaultRO, **kwargs):
         """ Internal function to define a 'property' that will

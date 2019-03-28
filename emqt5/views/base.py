@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel, QGroupBox,
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QPoint, QVariant
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
                              QSizePolicy, QSpacerItem, QPushButton, QCheckBox,
                              QGraphicsPixmapItem, QRadioButton, QButtonGroup,
-                             QComboBox)
+                             QComboBox, QItemDelegate)
 from PyQt5.QtGui import QPixmap, QPalette, QPen
 
 import qtawesome as qta
@@ -30,11 +30,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
         self._noImageItem = pg.TextItem("NO IMAGE")
+        self._labelText = None
         self._imageView.getView().addItem(self._noImageItem)
         self._noImageItem.setVisible(False)
         self._imageRef = ImageRef()
         self._sBorder = 3  # selected state border (px)
+        self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
+        self.__labelIndexes = []
 
     def paint(self, painter, option, index):
         """
@@ -55,6 +58,17 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
+            else:
+                colorGroup = QPalette.Active
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.HighlightedText))
+            if self.__labelIndexes:
+                h -= self._textHeight
+                self._setupText(index)
+            else:
+                self._labelText = None
+
             self._setupView(index, w, h)
             rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
                          h - 2 * self._sBorder)
@@ -70,6 +84,32 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 painter.setPen(self._focusPen)
                 painter.drawRect(rect)
                 painter.restore()
+            if self._labelText is not None:
+                rect.setRect(x + self._sBorder, y + h, w - 2 * self._sBorder,
+                             self._textHeight)
+                painter.drawText(rect, Qt.AlignLeft, self._labelText)
+
+    def _setupText(self, index):
+        """ Configure the label text """
+        model = index.model()
+        if model is not None and self.__labelIndexes:
+            value = model.data(model.createIndex(index.row(),
+                                                 self.__labelIndexes[0]))
+            if isinstance(value, QVariant):
+                value = value.value()
+            text = "%s=%s" % \
+                   (model.getColumnConfig(self.__labelIndexes[0]).getName(),
+                    str(value))
+            for lIndex in self.__labelIndexes[1:]:
+                value = model.data(
+                    model.createIndex(index.row(), self.__labelIndexes[0]))
+                if isinstance(value, QVariant):
+                    value = value.value()
+                text += ", %s=%s" % (model.getColumnConfig(lIndex).getName(),
+                                     str(value))
+            self._labelText = text
+        else:
+            self._labelText = None
 
     def _setupView(self, index, width, height):
         """
@@ -165,6 +205,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
     def getImageCache(self):
         """ Getter for imageCache """
         return self._imgCache
+
+    def setLabelIndexes(self, indexes):
+        """
+        Initialize the indexes of the columns that will be displayed as text
+        below the images
+        labels : (list)
+        """
+        self.__labelIndexes = indexes
 
 
 class PageBar(QWidget):
@@ -490,3 +538,30 @@ class OptionList(QWidget):
             self.__comboBox.setCurrentIndex(optionId)
         elif isinstance(self.__singleWidget, QSlider):
             self.__singleWidget.setValue(optionId)
+
+
+class ColumnPropertyItemDelegate(QItemDelegate):
+    """ Class used to provide custom display features for column properties """
+    def __init__(self, parent=None, checkedIcon=None, uncheckedIcon=None,
+                 partiallyCheckedIcon=None):
+        QItemDelegate.__init__(self, parent=parent)
+        self.__checkedIcon = checkedIcon
+        self.__uncheckedIcon = uncheckedIcon
+        self.__partiallyCheckedIcon = partiallyCheckedIcon
+
+    def drawCheck(self, painter, option, rect, state):
+        if rect is not None and rect.isValid():
+            icon = None
+
+            if state == Qt.Checked and self.__checkedIcon is not None:
+                icon = self.__checkedIcon
+            elif state == Qt.Unchecked and self.__uncheckedIcon is not None:
+                icon = self.__uncheckedIcon
+            elif state == Qt.PartiallyChecked and \
+                    self.__partiallyCheckedIcon is not None:
+                icon = self.__partiallyCheckedIcon
+
+            if icon is not None:
+                painter.drawImage(rect.x(), rect.y(), icon)
+            else:
+                QItemDelegate.drawCheck(self, painter, option, rect, state)

@@ -5,12 +5,10 @@ from math import log10
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
                           QItemSelectionModel, QItemSelectionRange)
-from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView,
-                             QStyleOptionViewItem)
+from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
-from .config import ColumnConfig
 
 
 class ColumnsView(AbstractView):
@@ -278,6 +276,16 @@ class ColumnsView(AbstractView):
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
             model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self.setupColumnsWidth()
+            config = model.getTableViewConfig()
+            self.setLabelIndexes(
+                config.getIndexes('label', True) if config else [])
+        else:
+            self.setLabelIndexes([])
+
+    def resetTable(self):
+        self._tableView.reset()
+        if self._selection and self._model is not None:
+            self.__updateSelectionInView(self._model.getPage())
 
     def setRowHeight(self, height):
         """ Sets the heigth for all rows """
@@ -430,6 +438,14 @@ class ColumnsView(AbstractView):
     def getTableView(self):
         """ Return the QTableView widget used to display the items """
         return self._tableView
+
+    def setLabelIndexes(self, labels):
+        """
+        Initialize the indexes of the columns that will be displayed as text
+        below the images
+        labels (list)
+        """
+        self._delegate.setLabelIndexes(labels)
 
 
 class HeaderView(QHeaderView):

@@ -303,6 +303,10 @@ if __name__ == '__main__':
                                 colConfig['renderable'] = colName in args.render
                     else:
                         tableViewConfig = None
+                    if args.sort:
+                        colName = t[1].getColumn(args.sort[0]).getName()
+                        order = " " + args.sort[1] if len(args.sort) > 1 else ""
+                        t[1].sort([colName + order])
                     view = createDataView(t[1], tableViewConfig, t[0],
                                           views.get(args.view,
                                                     DataView.COLUMNS),

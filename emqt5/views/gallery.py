@@ -184,6 +184,16 @@ class GalleryView(AbstractView):
             sModel = self._listView.selectionModel()
             sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
+            config = model.getTableViewConfig()
+            self.setLabelIndexes(
+                config.getIndexes('label', True) if config else [])
+        else:
+            self.setLabelIndexes([])
+
+    def resetGallery(self):
+        self._listView.reset()
+        if self._selection and self._model is not None:
+            self.__updateSelectionInView(self._model.getPage())
 
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
@@ -310,3 +320,11 @@ class GalleryView(AbstractView):
     def getListView(self):
         """ Return the QListView widget used to display the items """
         return self._listView
+
+    def setLabelIndexes(self, labels):
+        """
+        Initialize the indexes of the columns that will be displayed as text
+        below the images
+        labels (list)
+        """
+        self._delegate.setLabelIndexes(labels)
