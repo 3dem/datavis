@@ -30,7 +30,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
         self._noImageItem = pg.TextItem("NO IMAGE")
-        self._labelText = None
+        self._labelText = []
         self._imageView.getView().addItem(self._noImageItem)
         self._noImageItem.setVisible(False)
         self._imageRef = ImageRef()
@@ -64,10 +64,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
                                  option.palette.color(colorGroup,
                                                       QPalette.HighlightedText))
             if self.__labelIndexes:
-                h -= self._textHeight
+                h -= self._textHeight * len(self.__labelIndexes)
                 self._setupText(index)
             else:
-                self._labelText = None
+                self._labelText = []
 
             self._setupView(index, w, h)
             rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
@@ -82,34 +82,30 @@ class EMImageItemDelegate(QStyledItemDelegate):
                     option.palette.color(QPalette.Active,
                                          QPalette.Highlight))
                 painter.setPen(self._focusPen)
+                rect.setRect(x, y, w - 1, h - 1)
+                if self._labelText:
+                    rect.setHeight(
+                        h + self._textHeight * len(self.__labelIndexes) - 1)
                 painter.drawRect(rect)
                 painter.restore()
-            if self._labelText is not None:
-                rect.setRect(x + self._sBorder, y + h, w - 2 * self._sBorder,
-                             self._textHeight)
-                painter.drawText(rect, Qt.AlignLeft, self._labelText)
+            for i, text in enumerate(self._labelText):
+                rect.setRect(x + self._sBorder, y + h + i * self._textHeight,
+                             w - 2 * self._sBorder, self._textHeight)
+                painter.drawText(rect, Qt.AlignLeft, text)
 
     def _setupText(self, index):
         """ Configure the label text """
         model = index.model()
+        self._labelText = []
         if model is not None and self.__labelIndexes:
-            value = model.data(model.createIndex(index.row(),
-                                                 self.__labelIndexes[0]))
-            if isinstance(value, QVariant):
-                value = value.value()
-            text = "%s=%s" % \
-                   (model.getColumnConfig(self.__labelIndexes[0]).getName(),
-                    str(value))
-            for lIndex in self.__labelIndexes[1:]:
+            for lIndex in self.__labelIndexes:
                 value = model.data(
-                    model.createIndex(index.row(), self.__labelIndexes[0]))
+                    model.createIndex(index.row(), lIndex))
                 if isinstance(value, QVariant):
                     value = value.value()
-                text += ", %s=%s" % (model.getColumnConfig(lIndex).getName(),
-                                     str(value))
-            self._labelText = text
-        else:
-            self._labelText = None
+                self._labelText.append("%s=%s" %
+                                       (model.getColumnConfig(lIndex).getName(),
+                                        str(value)))
 
     def _setupView(self, index, width, height):
         """
@@ -213,6 +209,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
         labels : (list)
         """
         self.__labelIndexes = indexes
+
+    def getTextHeight(self):
+        """ The height of text """
+        return self._textHeight
 
 
 class PageBar(QWidget):

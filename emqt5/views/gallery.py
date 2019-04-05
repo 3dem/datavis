@@ -186,7 +186,8 @@ class GalleryView(AbstractView):
             sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             config = model.getTableViewConfig()
             self.setLabelIndexes(
-                config.getIndexes('label', True) if config else [])
+                config.getIndexes('visible', True) if config else [])
+            self.updateViewConfiguration()
         else:
             self.setLabelIndexes([])
 
@@ -206,9 +207,15 @@ class GalleryView(AbstractView):
         size: (width, height)
         """
         s = QSize(size[0], size[1])
+        if self._model is not None:
+            colConfig = self._model.getColumnConfig()
+            if colConfig is not None:
+                s = QSize(size[0], size[1] +
+                          len(colConfig.getIndexes('visible', True)) *
+                          self._delegate.getTextHeight())
         self._listView.setIconSize(s)
         self.__calcPageSize()
-        if self._model:
+        if self._model is not None:
             self._model.setupPage(self._pageSize, self._model.getPage())
             self._model.setIconSize(s)
 
@@ -328,3 +335,13 @@ class GalleryView(AbstractView):
         labels (list)
         """
         self._delegate.setLabelIndexes(labels)
+
+    def updateViewConfiguration(self):
+        """ Update the columns configuration """
+        if self._model is not None:
+            indexes = self._model.getColumnConfig().getIndexes('renderable',
+                                                               True)
+            if indexes:
+                self._listView.setModelColumn(indexes[0])
+                self._listView.setItemDelegateForColumn(indexes[0],
+                                                        self._delegate)

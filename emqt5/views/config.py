@@ -60,6 +60,12 @@ class TableViewConfig:
                 ret.append(i)
         return ret
 
+    def clone(self):
+        tableViewConfig = TableViewConfig()
+        tableViewConfig._cols = [colConfig.clone() for colConfig in self._cols]
+        tableViewConfig._rowIndex = self._rowIndex
+        return tableViewConfig
+
     def __iter__(self):
         """ Iterate through all the column configs. """
         for colConfig in self._cols:
@@ -233,6 +239,13 @@ class ColumnConfig:
 
     def getPropertyNames(self):
         return self._propertyNames
+
+    def clone(self):
+        copy = ColumnConfig(self._name, self._type, label=self._label,
+                            description=self._description)
+        for p in self._propertyNames:
+            copy[p] = self[p]
+        return copy
 
     def __getitem__(self, propertyName):
         """ Return the value of a given property.

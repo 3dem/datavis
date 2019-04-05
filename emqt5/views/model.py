@@ -101,7 +101,7 @@ class TableDataModel(QAbstractItemModel):
     def clone(self):
         """ Clone this Model """
         clo = TableDataModel(self._emTable,
-                             tableViewConfig=self._tableViewConfig,
+                             tableViewConfig=self._tableViewConfig.clone(),
                              pageSize=self._pageSize,
                              titles=self._titles[:],
                              dataSource=self._dataSource)
@@ -159,12 +159,12 @@ class TableDataModel(QAbstractItemModel):
             text = None
             for i, colConfig in enumerate(self._tableViewConfig):
                 value = '%s=%s' % (colConfig.getName(),
-                                   str(self.__getPageData(row, i))) \
-                    if colConfig['label'] else None
+                                     str(self.__getPageData(row, i))) \
+                    if colConfig['visible'] else None
                 if text is None:
                     text = value
                 elif value is not None:
-                    text += ',%s' % value
+                    text += ',\n%s' % value
             return QVariant(self.__getPageData(row, col)) \
                 if text is None else text
 

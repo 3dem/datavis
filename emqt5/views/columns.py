@@ -100,15 +100,14 @@ class ColumnsView(AbstractView):
         if self._model:
             for i, colConfig in enumerate(self._model.getColumnConfig()):
                 delegate = self._defaultDelegate
-                if colConfig["renderable"] and \
-                        colConfig["visible"]:
+                if colConfig["renderable"]:
                     delegate = self._delegate
 
                 self._tableView.setItemDelegateForColumn(i, delegate)
 
-    def __setupVisibleColumns(self):
+    def setupVisibleColumns(self):
         """
-        Hide the columns with visible property=True or allowSetVisible=False
+        Hide the columns with visible property=True
         """
         for i, colConfig in enumerate(self._model.getColumnConfig()):
             if not colConfig["visible"]:
@@ -249,7 +248,7 @@ class ColumnsView(AbstractView):
 
     def updateViewConfiguration(self):
         """ Update the columns configuration """
-        self.__setupVisibleColumns()
+        self.setupVisibleColumns()
         self.__setupDelegatesForColumns()
 
     def setModel(self, model):
