@@ -202,13 +202,13 @@ class DataView(QWidget):
         self._tableColumnProp.verticalHeader().setVisible(False)
         #  setting checked and unchecked icons
         checkedIcon = qta.icon('fa5s.eye')
-        unCheckedIcon = qta.icon('fa5.eye')
+        unCheckedIcon = qta.icon('fa5s.eye', color='#d4d4d4')
         self._tableColumnProp.setItemDelegateForColumn(
             0, ColumnPropertyItemDelegate(self,
                                           checkedIcon.pixmap(16).toImage(),
                                           unCheckedIcon.pixmap(16).toImage()))
         checkedIcon = qta.icon('fa5s.image')
-        unCheckedIcon = qta.icon('fa5.image')
+        unCheckedIcon = qta.icon('fa5s.image', color='#d4d4d4')
         self._tableColumnProp.setItemDelegateForColumn(
             1, ColumnPropertyItemDelegate(self,
                                           checkedIcon.pixmap(16).toImage(),
