@@ -571,7 +571,9 @@ class DataView(QWidget):
     def __setupToolBarForView(self, view):
         """ Show/Hide relevant info/actions for the given view """
         # row height
-        rColumn = self._model is not None and self._model.hasRenderableColumn()
+        model = self.getViewWidget(view).getModel()
+
+        rColumn = model is not None and model.hasRenderableColumn()
 
         self._actLabelLupe.setVisible((view == self.GALLERY or
                                       view == self.COLUMNS) and
