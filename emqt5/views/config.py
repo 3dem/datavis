@@ -117,7 +117,7 @@ class TableViewConfig:
                 raise Exception("Invalid item type: %s" % type(item))
 
             # Only consider names that are present in the table ignore others
-            if name in tableColNames:
+            if name in tableColNames and name in rest:
                 col = table.getColumn(name)
                 # Take the values from the 'properties' dict or infer from col
                 cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
@@ -126,6 +126,8 @@ class TableViewConfig:
                 properties['editable'] = False
                 tvConfig.addColumnConfig(name, cType, **properties)
                 rest.remove(name)
+            else:
+                raise Exception("Invalid column name: %s" % name)
 
         # Add the others with visible=False or True if tvConfig is empty
         visible = len(tvConfig) == 0

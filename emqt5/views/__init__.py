@@ -2,7 +2,8 @@
 from .config import TableViewConfig, ColumnConfig
 
 from .base import (EMImageItemDelegate, AbstractView, OptionList,
-                   ColumnPropertyItemDelegate)
+                   ColumnPropertyItemDelegate, ColorItemDelegate,
+                   ComboBoxStyleItemDelegate)
 from .gallery import GalleryView
 from .columns import ColumnsView
 from .items import ItemsView

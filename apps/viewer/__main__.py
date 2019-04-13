@@ -69,6 +69,20 @@ if __name__ == '__main__':
         def __ls(self, pattern):
             return glob(pattern)
 
+    class ValidateStrList(argparse.Action):
+        """
+        Class that allows the validation of the values corresponding to
+        the "picker" parameter
+        """
+        def __init__(self, option_strings, dest, **kwargs):
+            argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            """
+            Build a list with parameters separated by spaces.
+            """
+            setattr(namespace, self.dest, values.split())
+
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
                                                     'viewer app',
@@ -137,14 +151,14 @@ if __name__ == '__main__':
                            help=' Enable/disable the option. '
                                 'The rois will work accordance with its center')
     # COLUMNS PARAMS
-    argParser.add_argument('--visible', type=str, nargs='*', default=[],
-                           required=False,
+    argParser.add_argument('--visible', type=str, nargs='?', default='',
+                           required=False, action=ValidateStrList,
                            help=' Columns to be shown (and their order).')
-    argParser.add_argument('--render', type=str, nargs='*', default=[],
-                           required=False,
+    argParser.add_argument('--render', type=str, nargs='?', default='',
+                           required=False, action=ValidateStrList,
                            help=' Columns to be rendered.')
-    argParser.add_argument('--sort', type=str, nargs='*', default=[],
-                           required=False,
+    argParser.add_argument('--sort', type=str, nargs='?', default='',
+                           required=False, action=ValidateStrList,
                            help=' Sort command.')
 
     args = argParser.parse_args()
@@ -295,12 +309,17 @@ if __name__ == '__main__':
                     if args.visible or args.render:
                         tableViewConfig = \
                             TableViewConfig.fromTable(t[1], args.visible)
+                        renderCount = 0
                         for colConfig in tableViewConfig:
                             colName = colConfig.getName()
                             if args.visible:
                                 colConfig['visible'] = colName in args.visible
                             if args.render:
-                                colConfig['renderable'] = colName in args.render
+                                ren = colName in args.render
+                                colConfig['renderable'] = ren
+                                renderCount += 1 if ren else 0
+                        if not renderCount == len(args.render):
+                            raise Exception('Invalid renderable column')
                     else:
                         tableViewConfig = None
                     if args.sort:

@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
                              QSizePolicy, QSpacerItem, QPushButton, QCheckBox,
                              QGraphicsPixmapItem, QRadioButton, QButtonGroup,
-                             QComboBox, QItemDelegate)
+                             QComboBox, QItemDelegate, QColorDialog)
 from PyQt5.QtGui import QPixmap, QPalette, QPen
 
 import qtawesome as qta
@@ -213,6 +213,78 @@ class EMImageItemDelegate(QStyledItemDelegate):
     def getTextHeight(self):
         """ The height of text """
         return self._textHeight
+
+
+class ColorItemDelegate(QStyledItemDelegate):
+    """
+    ColorItemDelegate class provides display and editing facilities for
+    QColor selections.
+    """
+    def createEditor(self, parent, option, index):
+        return QColorDialog(parent=parent)
+
+    def setEditorData(self, editor, index):
+        color = index.data(Qt.BackgroundRole)
+        if color is not None:
+            editor.setCurrentColor(color)
+
+    def setModelData(self, editor, model, index):
+        color = editor.currentColor()
+        model.setData(index, color, Qt.BackgroundRole)
+
+
+class ComboBoxStyleItemDelegate(QStyledItemDelegate):
+    """
+    ComboBoxStyleItemDelegate class provides display and editing facilities for
+    text list selection.
+    """
+    def __init__(self, parent=None, values=None):
+        QStyledItemDelegate.__init__(self, parent=parent)
+        self._values = []
+        if values is not None:
+            index = 0
+            for text in values:
+                self._values.append((text, index))
+                index += 1
+
+    def createEditor(self, parent, option, index):
+        return QComboBox(parent=parent)
+
+    def setEditorData(self, editor, index):
+        index = index.data(Qt.UserRole)
+        for text, value in self._values:
+            editor.addItem(text, QVariant(value))
+        if index is not None:
+            editor.setCurrentIndex(index)
+
+    def setModelData(self, editor, model, index):
+        data = editor.currentData()
+        model.setData(index, data, Qt.UserRole)
+        text = editor.currentText()
+        model.setData(index, text, Qt.DisplayRole)
+
+
+class MarkerStyleItemDelegate(QStyledItemDelegate):
+    """
+    PenStyleItemDelegate class provides display and editing facilities for
+    QPen style selection.
+    """
+    def createEditor(self, parent, option, index):
+        return QComboBox(parent=parent)
+
+    def setEditorData(self, editor, index):
+        index = index.data(Qt.UserRole)
+        editor.addItem('Solid', QVariant(Qt.SolidLine))
+        editor.addItem('Dashed', QVariant(Qt.DashLine))
+        editor.addItem('Dotted', QVariant(Qt.DotLine))
+        if index is not None:
+            editor.setCurrentIndex(index)
+
+    def setModelData(self, editor, model, index):
+        data = editor.currentData()
+        model.setData(index, data, Qt.UserRole)
+        text = editor.currentText()
+        model.setData(index, text, Qt.DisplayRole)
 
 
 class PageBar(QWidget):

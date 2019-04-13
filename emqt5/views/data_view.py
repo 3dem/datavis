@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import traceback
+import os
 
 from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal, QSize, QModelIndex)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
                              QSizePolicy, QPushButton, QMenu, QTableWidget,
-                             QTableWidgetItem)
-from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QKeySequence
+                             QTableWidgetItem, QGridLayout)
+from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence,
+                         QColor)
 import qtawesome as qta
 
 from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
@@ -17,7 +19,8 @@ from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
-from .base import AbstractView, ColumnPropertyItemDelegate
+from .base import (AbstractView, ColumnPropertyItemDelegate, ColorItemDelegate,
+                   ComboBoxStyleItemDelegate)
 from .config import TableViewConfig
 from .toolbar import ToolBar
 
@@ -25,6 +28,7 @@ from emqt5.utils.functions import EmTable
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
+SCIPION_HOME = 'SCIPION_HOME'
 
 
 class DataView(QWidget):
@@ -195,8 +199,9 @@ class DataView(QWidget):
         self._tableColumnProp.setSelectionMode(QTableWidget.NoSelection)
         self._tableColumnProp.setSelectionBehavior(QTableWidget.SelectRows)
         self._tableColumnProp.setFocusPolicy(Qt.NoFocus)
+        self._tableColumnProp.setMaximumSize(self._tableColumnProp.sizeHint())
         self._tableColumnProp.setSizePolicy(QSizePolicy.Expanding,
-                                            QSizePolicy.MinimumExpanding)
+                                            QSizePolicy.Minimum)
         self._tableColumnProp.itemChanged.connect(
             self.__onColumnPropertyChanged)
         self._tableColumnProp.verticalHeader().setVisible(False)
@@ -214,11 +219,85 @@ class DataView(QWidget):
                                           checkedIcon.pixmap(16).toImage(),
                                           unCheckedIcon.pixmap(16).toImage()))
         vLayout.addWidget(self._tableColumnProp)
-        # vLayout.addStretch()
+        vLayout.addStretch()
+        self._columnsPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actColumns = QAction(None)
         self._actColumns.setIcon(qta.icon('fa5s.th'))
         self._actColumns.setText('Columns')
         self._toolBar1.addAction(self._actColumns, self._columnsPanel,
+                                 exclusive=False)
+        # Plot panel
+        self._plotPanel = self._toolBar1.createSidePanel()
+        self._plotPanel.setObjectName('plotPanel')
+        self._plotPanel.setStyleSheet(
+            'QWidget#plotPanel{border-left: 1px solid lightgray;}')
+        self._plotPanel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        vLayout = QVBoxLayout(self._plotPanel)
+        gridLayout = QGridLayout()
+        gridLayout.addWidget(QLabel(text='Title: ', parent=self._plotPanel),
+                             0, 0, Qt.AlignRight)
+        self._lineEditPlotTitle = QLineEdit(parent=self._plotPanel)
+        self._lineEditPlotTitle.setSizePolicy(QSizePolicy.Expanding,
+                                              QSizePolicy.Preferred)
+        gridLayout.addWidget(self._lineEditPlotTitle, 0, 1, Qt.AlignLeft)
+        gridLayout.addWidget(QLabel(text='X label: ', parent=self._plotPanel),
+                             1, 0, Qt.AlignRight)
+        self._lineEditXlabel = QLineEdit(parent=self._plotPanel)
+        gridLayout.addWidget(self._lineEditXlabel, 1, 1, Qt.AlignLeft)
+        gridLayout.addWidget(QLabel(text='Y label: ', parent=self._plotPanel),
+                             2, 0, Qt.AlignRight)
+        self._lineEditYlabel = QLineEdit(parent=self._plotPanel)
+        gridLayout.addWidget(self._lineEditYlabel, 2, 1, Qt.AlignLeft)
+        gridLayout.addWidget(QLabel(text='Type: ', parent=self._plotPanel),
+                             3, 0, Qt.AlignRight)
+        self._comboBoxPlotType = QComboBox(parent=self._plotPanel)
+        self._comboBoxPlotType.addItem('Plot')
+        self._comboBoxPlotType.addItem('Histogram')
+        self._comboBoxPlotType.addItem('Scatter')
+        self._comboBoxPlotType.currentIndexChanged.connect(
+            self.__onCurrentPlotTypeChanged)
+
+        gridLayout.addWidget(self._comboBoxPlotType, 3, 1, Qt.AlignLeft)
+        self._labelBins = QLabel(parent=self._plotPanel)
+        self._labelBins.setText('Bins')
+        self._spinBoxBins = QSpinBox(self._plotPanel)
+        self._spinBoxBins.setValue(50)
+        gridLayout.addWidget(self._labelBins, 4, 0, Qt.AlignRight)
+        gridLayout.addWidget(self._spinBoxBins, 4, 1, Qt.AlignLeft)
+        self._labelBins.setVisible(False)
+        self._spinBoxBins.setVisible(False)
+        gridLayout.addWidget(QLabel(text='X Axis: ', parent=self._plotPanel),
+                             5, 0, Qt.AlignRight)
+        self._comboBoxXaxis = QComboBox(parent=self._plotPanel)
+        self._comboBoxXaxis.currentIndexChanged.connect(
+            self.__onCurrentXaxisChanged)
+        gridLayout.addWidget(self._comboBoxXaxis, 5, 1, Qt.AlignLeft)
+        vLayout.addLayout(gridLayout)
+        vLayout.addWidget(QLabel(parent=self._plotPanel,
+                                 text="<strong>Plot columns:</strong>"))
+        self._tablePlotConf = QTableWidget(self._plotPanel)
+        self._tablePlotConf.setObjectName("tablePlotConf")
+        self._tablePlotConf.setSelectionMode(QTableWidget.NoSelection)
+        self._tablePlotConf.setSelectionBehavior(QTableWidget.SelectRows)
+        self._tablePlotConf.setFocusPolicy(Qt.NoFocus)
+        self._tablePlotConf.setMinimumSize(self._tablePlotConf.sizeHint())
+        self._tablePlotConf.setSizePolicy(QSizePolicy.Expanding,
+                                          QSizePolicy.Minimum)
+        self._tablePlotConf.verticalHeader().setVisible(False)
+        self._tablePlotConf.setEditTriggers(QTableWidget.AllEditTriggers)
+        vLayout.addWidget(self._tablePlotConf)
+        self._buttonPlot = QPushButton(self._plotPanel)
+        self._buttonPlot.setText('Plot')
+        self._buttonPlot.setSizePolicy(QSizePolicy.Fixed,
+                                       QSizePolicy.Fixed)
+        self._buttonPlot.clicked.connect(self.__onButtonPlotClicked)
+        vLayout.addWidget(self._buttonPlot, 0, Qt.AlignHCenter)
+        vLayout.addStretch()
+        self._plotPanel.setMinimumHeight(vLayout.sizeHint().height())
+        self._actPlot = QAction(None)
+        self._actPlot.setIcon(qta.icon('fa5s.file-signature'))
+        self._actPlot.setText('Plot')
+        self._toolBar1.addAction(self._actPlot, self._plotPanel,
                                  exclusive=False)
         # combobox current table
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
@@ -438,38 +517,6 @@ class DataView(QWidget):
                 viewWidget.sigPageSizeChanged.disconnect(self._showViewDims)
             view.setModel(None)
             del viewWidget
-
-    def __canChangeToView(self, view):
-        """
-        Return True if mode can be changed, False if not.
-        If mode == currentMode then return False
-        :param mode: Possible values are: COLUMNS, GALLERY, ITEMS
-        """
-        if view not in self._views or view == self._view:
-            return False
-        if self._view == self.COLUMNS:
-            if view == self.GALLERY:
-                if self._model:
-                    for colConfig in self._model.getColumnConfig():
-                        if colConfig["renderable"] and colConfig["visible"]:
-                            return True
-                return False
-            elif view == self.ITEMS:
-                return True
-        elif self._view == self.GALLERY:
-            if view == self.COLUMNS or view == self.ITEMS:
-                return True
-        elif self._view == self.ITEMS:
-            if view == self.COLUMNS:
-                return True
-            elif view == self.GALLERY:
-                if self._model:
-                    for colConfig in self._model.getColumnConfig():
-                        if colConfig["renderable"] and colConfig["visible"]:
-                            return True
-                return False
-
-        return False
 
     def __setupAllWidgets(self):
         """
@@ -691,6 +738,63 @@ class DataView(QWidget):
         """ Returns the current selection size """
         return len(self._selection)
 
+    def __initPlotConfWidgets(self):
+        """ Initialize the plot configurations widgets """
+        self._comboBoxXaxis.clear()
+        self._comboBoxXaxis.addItem(" ")
+        self._tablePlotConf.clear()
+        self._tablePlotConf.setColumnCount(5)
+        self._tablePlotConf.setHorizontalHeaderLabels(['Label', 'Plot',
+                                                       'Color', 'Line Style',
+                                                       'Marker'])
+        viewWidget = self.getViewWidget(self._view)
+        viewModel = viewWidget.getModel()
+        if viewModel is not None:
+            row = 0
+            columns = viewModel.columnCount()
+            self._tablePlotConf.setRowCount(columns)
+            colors = [Qt.blue, Qt.green, Qt.red, Qt.black, Qt.darkYellow,
+                      Qt.yellow, Qt.magenta, Qt.cyan]
+            colorIndex = 0
+
+            for colConfig in viewModel.getColumnConfig():
+                colName = colConfig.getName()
+                self._comboBoxXaxis.addItem(colName)
+                item = QTableWidgetItem(colName)
+                itemPlot = QTableWidgetItem("")  # for plot option
+                itemPlot.setCheckState(Qt.Unchecked)
+                itemColor = QTableWidgetItem("")  # for color option
+                itemColor.setData(Qt.BackgroundRole,
+                                  QColor(colors[colorIndex]))
+                itemLineStye = QTableWidgetItem("")  # for line style option
+                itemLineStye.setData(Qt.DisplayRole, "Solid")
+                itemLineStye.setData(Qt.UserRole, 0)
+                itemMarker = QTableWidgetItem("")  # for marker option
+                itemMarker.setData(Qt.DisplayRole, 'none')
+                itemMarker.setData(Qt.UserRole, 0)
+                self._tablePlotConf.setItem(row, 0, item)
+                self._tablePlotConf.setItem(row, 1, itemPlot)
+                self._tablePlotConf.setItem(row, 2, itemColor)
+                self._tablePlotConf.setItem(row, 3, itemLineStye)
+                self._tablePlotConf.setItem(row, 4, itemMarker)
+                row += 1
+                colorIndex = 0 if colorIndex == columns - 1 else colorIndex + 1
+            self._tablePlotConf.resizeColumnsToContents()
+
+        self._tablePlotConf.setItemDelegateForColumn(
+            2, ColorItemDelegate(parent=self._tablePlotConf))
+        self._tablePlotConf.setItemDelegateForColumn(
+            3, ComboBoxStyleItemDelegate(parent=self._tablePlotConf,
+                                         values=['Solid', 'Dashed', 'Dotted']))
+        self._tablePlotConf.setItemDelegateForColumn(
+            4, ComboBoxStyleItemDelegate(parent=self._tablePlotConf,
+                                         values=["none", ".", ",", "o", "v",
+                                                 "^", "<", ">", "1", "2", "3",
+                                                 "4", "s", "p", "h", "H", "+",
+                                                 "x", "D", "d", "|", "_"]))
+        self._tablePlotConf.resizeColumnsToContents()
+        self._tablePlotConf.horizontalHeader().setStretchLastSection(True)
+
     def __initTableColumnProp(self):
         """ Initialize the columns properties widget """
         blocked = self._tableColumnProp.blockSignals(True)
@@ -710,30 +814,60 @@ class DataView(QWidget):
                 self._tableColumnProp.setItem(row, 0, itemV)
                 self._tableColumnProp.setItem(row, 1, itemR)
                 self._tableColumnProp.setItem(row, 2, item)
-                flags = Qt.ItemIsUserCheckable
                 if not colConfig['renderableReadOnly']:
-                    flags |= Qt.ItemIsEnabled
+                    flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
+                else:
+                    flags = Qt.NoItemFlags
                 render = colConfig['renderable']
-                itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
-                itemR.setData(Qt.ToolTipRole,
-                              self.__toolTip[self._view]['renderChecked'
-                              if render else 'renderUnchecked'])
+                if flags & Qt.ItemIsUserCheckable == Qt.ItemIsUserCheckable:
+                    itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
+                itemR.setData(
+                    Qt.ToolTipRole,
+                    self.__toolTip[self._view]
+                    ['renderChecked' if render else 'renderUnchecked'])
+                itemR.setFlags(flags)
                 visible = colConfig['visible']
-                flags = Qt.ItemIsUserCheckable
                 if not colConfig['visibleReadOnly']:
-                    flags |= Qt.ItemIsEnabled
+                    flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
+                else:
+                    flags = Qt.NoItemFlags
                 itemV.setFlags(flags)
-                itemV.setCheckState(Qt.Checked if visible else Qt.Unchecked)
-                itemV.setData(Qt.ToolTipRole,
-                              self.__toolTip[self._view]['visibleChecked'
-                              if visible else 'visibleUnchecked'])
-                item.setFlags(Qt.ItemIsEnabled)
-
+                if flags & Qt.ItemIsUserCheckable == Qt.ItemIsUserCheckable:
+                    itemV.setCheckState(Qt.Checked if visible else Qt.Unchecked)
+                itemV.setData(
+                    Qt.ToolTipRole,
+                    self.__toolTip[self._view]
+                    ['visibleChecked' if visible else 'visibleUnchecked'])
                 row += 1
             self._tableColumnProp.resizeColumnsToContents()
         self._tableColumnProp.resizeColumnsToContents()
         self._tableColumnProp.horizontalHeader().setStretchLastSection(True)
         self._tableColumnProp.blockSignals(blocked)
+
+    def __getSelectedPlotProperties(self):
+        """ Return a tupple with all plot properties """
+        labels = ""
+        colors = ""
+        styles = ""
+        markers = ""
+        stls = {
+            'Solid': 'solid',
+            'Dashed': 'dashed',
+            'Dotted': 'dotted'
+        }
+        for i in range(self._tablePlotConf.rowCount()):
+            if self._tablePlotConf.item(i, 1).checkState() == Qt.Checked:
+                colConfig = self._model.getColumnConfig(i)
+                labels += ' %s' % colConfig.getName()
+                colors += ' %s' % self._tablePlotConf.item(i, 2).data(
+                    Qt.BackgroundRole).name()
+                styles += ' %s' % stls[self._tablePlotConf.item(i, 3).text()]
+                markers += ' %s' % self._tablePlotConf.item(i, 4).text()
+
+        if labels == "":
+            return None
+
+        return labels, colors, styles, markers
 
     @pyqtSlot(QTableWidgetItem)
     def __onColumnPropertyChanged(self, item):
@@ -815,6 +949,30 @@ class DataView(QWidget):
             self._selection.update(range(self._currentRow,
                                          self._model.totalRowCount()))
             self.__makeSelectionInView(self._view)
+
+    @pyqtSlot()
+    def __onButtonPlotClicked(self):
+        """ Invoked when the plot button is clicked """
+        if self._model is not None:
+            plotProp = self.__getSelectedPlotProperties()
+            if plotProp is not None:
+                scipion = os.environ.get(SCIPION_HOME)
+                pwplot = os.path.join(scipion, 'pyworkflow', 'apps',
+                                      'pw_plot.py')
+                fileName = self._model.getDataSource()
+                plotType = self._comboBoxPlotType.currentText()
+                labels, colors, styles, markers = plotProp
+                cmd = '%s --file %s --type %s --columns %s --orderColumn %s ' \
+                      '--orderDir %s --colors %s --styles %s --markers %s' % \
+                      (pwplot, fileName, plotType, labels,
+                       labels.split()[0].strip(), 'ASC', colors, styles,
+                       markers)
+                xLabel = self._lineEditXlabel.text()
+                xColumn = self._lineEditYlabel.text()
+                print('Plot command: ', cmd)
+                os.system('scipion python ' + cmd)
+            else:
+                self.__showMsgBox("No columns selected for plotting")
 
     @pyqtSlot()
     def __onShowHideToolBar(self):
@@ -914,6 +1072,21 @@ class DataView(QWidget):
             self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
                               str(ex))
             print(traceback.format_exc())
+
+    @pyqtSlot()
+    def __onCurrentPlotTypeChanged(self):
+        """ Invoked when the current plot type is changed """
+        visible = self._comboBoxPlotType.currentIndex() == 1 # histogram
+        self._labelBins.setVisible(visible)
+        self._spinBoxBins.setVisible(visible)
+
+    @pyqtSlot()
+    def __onCurrentXaxisChanged(self):
+        """
+        Invoked when the current x axis is changed configuring the plot
+        operations
+        """
+        self._lineEditXlabel.setText(self._comboBoxXaxis.currentText())
 
     @pyqtSlot(QModelIndex, int, int)
     def __onRowsInserted(self, parent, first, last):
@@ -1044,9 +1217,8 @@ class DataView(QWidget):
 
         if a and checked:
             view = self._viewTypes[a.objectName()]
-            if self.__canChangeToView(view):
-                self._view = view
-                self.__setupCurrentViewMode()
+            self._view = view
+            self.__setupCurrentViewMode()
 
     def getSelectedViewMode(self):
         """
@@ -1071,6 +1243,7 @@ class DataView(QWidget):
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
         self.__initTableColumnProp()
+        self.__initPlotConfWidgets()
 
     def getModel(self):
         """
@@ -1136,7 +1309,7 @@ class DataView(QWidget):
 
     def setView(self, view):
         """ Sets view as current view """
-        if view in self._views and self.__canChangeToView(view):
+        if view in self._views:
             self._view = view
             self.__setupCurrentViewMode()
 

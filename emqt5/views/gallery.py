@@ -3,13 +3,16 @@
 
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange)
+                          QItemSelectionModel, QItemSelectionRange, QRect)
 from PyQt5.QtWidgets import QAbstractItemView, QListView
+from PyQt5.QtGui import QPainter
 
 from PyQt5 import QtCore
 
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
+
+from random import sample as random_sample
 
 
 class GalleryView(AbstractView):
@@ -179,8 +182,8 @@ class GalleryView(AbstractView):
         self._currentRow = 0
         AbstractView.setModel(self, model)
         if model:
-            model.setIconSize(self._listView.iconSize())
             model.setupPage(self._pageSize, 0)
+            self.setIconSize(self._listView.iconSize())
             sModel = self._listView.selectionModel()
             sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
@@ -204,15 +207,30 @@ class GalleryView(AbstractView):
     def setIconSize(self, size):
         """
         Sets the icon size.
-        size: (width, height)
+        size: (width, height) or QSize
         """
-        s = QSize(size[0], size[1])
+        if not isinstance(size, QSize):
+            s = QSize(size[0], size[1])
+        else:
+            s = size
+            size = size.width(), size.height()
         if self._model is not None:
             colConfig = self._model.getColumnConfig()
             if colConfig is not None:
-                s = QSize(size[0], size[1] +
-                          len(colConfig.getIndexes('visible', True)) *
-                          self._delegate.getTextHeight())
+                vIndexes = colConfig.getIndexes('visible', True)
+                lSize = len(vIndexes)
+                s = QSize(size[0], size[1])
+                fontMetrics = self._listView.fontMetrics()
+                if fontMetrics is not None and lSize > 0:
+                    maxWidth = 0
+                    r = self._model.totalRowCount()
+                    for i in random_sample(range(r), min(10, r)):
+                        for j in vIndexes:
+                            text = str(self._model.getTableData(i, j))
+                            w = fontMetrics.width(text) + \
+                                3 * fontMetrics.maxWidth()
+                            maxWidth = max(maxWidth, w)
+                    s.setWidth(max(s.width(), maxWidth))
         self._listView.setIconSize(s)
         self.__calcPageSize()
         if self._model is not None:

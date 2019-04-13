@@ -103,8 +103,8 @@ class ToolBar(QWidget):
     def setToolButtonStyle(self, toolButtonStyle):
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
-    def addAction(self, action, widget=None, index=None, exclusive=True, showTitle=True,
-                  checked=False, floating=False):
+    def addAction(self, action, widget=None, index=None, exclusive=True,
+                  showTitle=True, checked=False, floating=False):
         """
         Add a new action with the associated widget. This widget will be shown
         in the side panel when the action is active.
@@ -125,7 +125,7 @@ class ToolBar(QWidget):
         if action is None:
             raise Exception("Can't add a null action.")
 
-        if index >= 0:
+        if index is not None and index >= 0:
             actions = self._toolBar.actions()
             before = actions[index] if index in range(len(actions)) else None
         else:
