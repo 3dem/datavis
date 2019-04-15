@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
                              QSizePolicy, QPushButton, QMenu, QTableWidget,
-                             QTableWidgetItem, QGridLayout)
+                             QTableWidgetItem, QFormLayout)
 from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence,
                          QColor)
 import qtawesome as qta
@@ -115,15 +115,15 @@ class DataView(QWidget):
         self._stackedLayoud.setSpacing(0)
 
         # toolbar
-        self._toolBar1 = ToolBar(self, orientation=Qt.Vertical)
-        self._toolBar1.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self._toolBarLeft = ToolBar(self, orientation=Qt.Vertical)
+        self._toolBarLeft.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self._splitter = QSplitter(self)
-        self._splitter.addWidget(self._toolBar1)
+        self._splitter.addWidget(self._toolBarLeft)
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._mainContainer)
         # selection panel
         self._selectionMenu = QMenu(self)
-        self._selectionPanel = self._toolBar1.createSidePanel()
+        self._selectionPanel = self._toolBarLeft.createSidePanel()
         self._selectionPanel.setObjectName('selectionPanel')
         self._selectionPanel.setStyleSheet(
             'QWidget#selectionPanel{border-left: 1px solid lightgray;}')
@@ -179,19 +179,20 @@ class DataView(QWidget):
         self._actSelections = QAction(None)
         self._actSelections.setIcon(qta.icon('fa.check-circle'))
         self._actSelections.setText('Selection')
-        self._toolBar1.addAction(self._actSelections, self._selectionPanel,
-                                 exclusive=False)
+        self._toolBarLeft.addAction(self._actSelections, self._selectionPanel,
+                                    exclusive=False)
 
-        self._columnsPanel = self._toolBar1.createSidePanel()
+        self._columnsPanel = self._toolBarLeft.createSidePanel()
         self._columnsPanel.setObjectName('columnsPanel')
         self._columnsPanel.setStyleSheet(
             'QWidget#columnsPanel{border-left: 1px solid lightgray;}')
         self._columnsPanel.setSizePolicy(QSizePolicy.Ignored,
                                          QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._columnsPanel)
-
-        vLayout.addWidget(QLabel(parent=self._columnsPanel,
-                                 text="<strong>Column properties:</strong>"))
+        label = QLabel(parent=self._columnsPanel,
+                       text="<strong>Column properties:</strong>")
+        label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        vLayout.addWidget(label)
         self._tableColumnProp = QTableWidget(self._columnsPanel)
         self._tableColumnProp.setObjectName("tableColumnProp")
         self._tableColumnProp.setColumnCount(3)
@@ -199,9 +200,8 @@ class DataView(QWidget):
         self._tableColumnProp.setSelectionMode(QTableWidget.NoSelection)
         self._tableColumnProp.setSelectionBehavior(QTableWidget.SelectRows)
         self._tableColumnProp.setFocusPolicy(Qt.NoFocus)
-        self._tableColumnProp.setMaximumSize(self._tableColumnProp.sizeHint())
         self._tableColumnProp.setSizePolicy(QSizePolicy.Expanding,
-                                            QSizePolicy.Minimum)
+                                            QSizePolicy.MinimumExpanding)
         self._tableColumnProp.itemChanged.connect(
             self.__onColumnPropertyChanged)
         self._tableColumnProp.verticalHeader().setVisible(False)
@@ -219,37 +219,39 @@ class DataView(QWidget):
                                           checkedIcon.pixmap(16).toImage(),
                                           unCheckedIcon.pixmap(16).toImage()))
         vLayout.addWidget(self._tableColumnProp)
-        vLayout.addStretch()
         self._columnsPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actColumns = QAction(None)
         self._actColumns.setIcon(qta.icon('fa5s.th'))
         self._actColumns.setText('Columns')
-        self._toolBar1.addAction(self._actColumns, self._columnsPanel,
-                                 exclusive=False)
+        self._toolBarLeft.addAction(self._actColumns, self._columnsPanel,
+                                    exclusive=False)
         # Plot panel
-        self._plotPanel = self._toolBar1.createSidePanel()
+        self._plotPanel = self._toolBarLeft.createSidePanel()
         self._plotPanel.setObjectName('plotPanel')
         self._plotPanel.setStyleSheet(
             'QWidget#plotPanel{border-left: 1px solid lightgray;}')
         self._plotPanel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._plotPanel)
-        gridLayout = QGridLayout()
-        gridLayout.addWidget(QLabel(text='Title: ', parent=self._plotPanel),
-                             0, 0, Qt.AlignRight)
+        formLayout = QFormLayout()
+        formLayout.setLabelAlignment(
+            Qt.AlignRight | Qt.AlignTrailing | Qt.AlignVCenter)
+        formLayout.setWidget(0, QFormLayout.LabelRole,
+                             QLabel(text='Title: ', parent=self._plotPanel))
         self._lineEditPlotTitle = QLineEdit(parent=self._plotPanel)
         self._lineEditPlotTitle.setSizePolicy(QSizePolicy.Expanding,
                                               QSizePolicy.Preferred)
-        gridLayout.addWidget(self._lineEditPlotTitle, 0, 1, Qt.AlignLeft)
-        gridLayout.addWidget(QLabel(text='X label: ', parent=self._plotPanel),
-                             1, 0, Qt.AlignRight)
+        formLayout.setWidget(0, QFormLayout.FieldRole, self._lineEditPlotTitle)
+        formLayout.setWidget(1, QFormLayout.LabelRole,
+                             QLabel(text='X label: ', parent=self._plotPanel))
         self._lineEditXlabel = QLineEdit(parent=self._plotPanel)
-        gridLayout.addWidget(self._lineEditXlabel, 1, 1, Qt.AlignLeft)
-        gridLayout.addWidget(QLabel(text='Y label: ', parent=self._plotPanel),
-                             2, 0, Qt.AlignRight)
+        formLayout.setWidget(1, QFormLayout.FieldRole,
+                             self._lineEditXlabel)
+        formLayout.setWidget(2, QFormLayout.LabelRole,
+                             QLabel(text='Y label: ', parent=self._plotPanel))
         self._lineEditYlabel = QLineEdit(parent=self._plotPanel)
-        gridLayout.addWidget(self._lineEditYlabel, 2, 1, Qt.AlignLeft)
-        gridLayout.addWidget(QLabel(text='Type: ', parent=self._plotPanel),
-                             3, 0, Qt.AlignRight)
+        formLayout.setWidget(2, QFormLayout.FieldRole, self._lineEditYlabel)
+        formLayout.setWidget(3, QFormLayout.LabelRole,
+                             QLabel(text='Type: ', parent=self._plotPanel))
         self._comboBoxPlotType = QComboBox(parent=self._plotPanel)
         self._comboBoxPlotType.addItem('Plot')
         self._comboBoxPlotType.addItem('Histogram')
@@ -257,24 +259,27 @@ class DataView(QWidget):
         self._comboBoxPlotType.currentIndexChanged.connect(
             self.__onCurrentPlotTypeChanged)
 
-        gridLayout.addWidget(self._comboBoxPlotType, 3, 1, Qt.AlignLeft)
+        formLayout.setWidget(3, QFormLayout.FieldRole, self._comboBoxPlotType)
         self._labelBins = QLabel(parent=self._plotPanel)
         self._labelBins.setText('Bins')
         self._spinBoxBins = QSpinBox(self._plotPanel)
         self._spinBoxBins.setValue(50)
-        gridLayout.addWidget(self._labelBins, 4, 0, Qt.AlignRight)
-        gridLayout.addWidget(self._spinBoxBins, 4, 1, Qt.AlignLeft)
+        formLayout.setWidget(4, QFormLayout.LabelRole, self._labelBins)
+        formLayout.setWidget(4, QFormLayout.FieldRole, self._spinBoxBins)
         self._labelBins.setVisible(False)
         self._spinBoxBins.setVisible(False)
-        gridLayout.addWidget(QLabel(text='X Axis: ', parent=self._plotPanel),
-                             5, 0, Qt.AlignRight)
+        self._spinBoxBins.setFixedWidth(80)
+        formLayout.setWidget(5, QFormLayout.LabelRole,
+                             QLabel(text='X Axis: ', parent=self._plotPanel))
         self._comboBoxXaxis = QComboBox(parent=self._plotPanel)
         self._comboBoxXaxis.currentIndexChanged.connect(
             self.__onCurrentXaxisChanged)
-        gridLayout.addWidget(self._comboBoxXaxis, 5, 1, Qt.AlignLeft)
-        vLayout.addLayout(gridLayout)
-        vLayout.addWidget(QLabel(parent=self._plotPanel,
-                                 text="<strong>Plot columns:</strong>"))
+        formLayout.setWidget(5, QFormLayout.FieldRole, self._comboBoxXaxis)
+        vLayout.addLayout(formLayout)
+        label = QLabel(parent=self._plotPanel,
+                       text="<strong>Plot columns:</strong>")
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        vLayout.addWidget(label)
         self._tablePlotConf = QTableWidget(self._plotPanel)
         self._tablePlotConf.setObjectName("tablePlotConf")
         self._tablePlotConf.setSelectionMode(QTableWidget.NoSelection)
@@ -282,7 +287,7 @@ class DataView(QWidget):
         self._tablePlotConf.setFocusPolicy(Qt.NoFocus)
         self._tablePlotConf.setMinimumSize(self._tablePlotConf.sizeHint())
         self._tablePlotConf.setSizePolicy(QSizePolicy.Expanding,
-                                          QSizePolicy.Minimum)
+                                          QSizePolicy.Expanding)
         self._tablePlotConf.verticalHeader().setVisible(False)
         self._tablePlotConf.setEditTriggers(QTableWidget.AllEditTriggers)
         vLayout.addWidget(self._tablePlotConf)
@@ -292,13 +297,13 @@ class DataView(QWidget):
                                        QSizePolicy.Fixed)
         self._buttonPlot.clicked.connect(self.__onButtonPlotClicked)
         vLayout.addWidget(self._buttonPlot, 0, Qt.AlignHCenter)
-        vLayout.addStretch()
+        #vLayout.addStretch()
         self._plotPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actPlot = QAction(None)
         self._actPlot.setIcon(qta.icon('fa5s.file-signature'))
         self._actPlot.setText('Plot')
-        self._toolBar1.addAction(self._actPlot, self._plotPanel,
-                                 exclusive=False)
+        self._toolBarLeft.addAction(self._actPlot, self._plotPanel,
+                                    exclusive=False)
         # combobox current table
         self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
         self._toolBar.addWidget(self._labelCurrentTable)
@@ -755,12 +760,14 @@ class DataView(QWidget):
             self._tablePlotConf.setRowCount(columns)
             colors = [Qt.blue, Qt.green, Qt.red, Qt.black, Qt.darkYellow,
                       Qt.yellow, Qt.magenta, Qt.cyan]
+            colorsLen = len(colors)
             colorIndex = 0
 
             for colConfig in viewModel.getColumnConfig():
                 colName = colConfig.getName()
                 self._comboBoxXaxis.addItem(colName)
                 item = QTableWidgetItem(colName)
+                item.setFlags(Qt.ItemIsEnabled)
                 itemPlot = QTableWidgetItem("")  # for plot option
                 itemPlot.setCheckState(Qt.Unchecked)
                 itemColor = QTableWidgetItem("")  # for color option
@@ -778,7 +785,8 @@ class DataView(QWidget):
                 self._tablePlotConf.setItem(row, 3, itemLineStye)
                 self._tablePlotConf.setItem(row, 4, itemMarker)
                 row += 1
-                colorIndex = 0 if colorIndex == columns - 1 else colorIndex + 1
+                colorIndex = 0 \
+                    if colorIndex == colorsLen - 1 else colorIndex + 1
             self._tablePlotConf.resizeColumnsToContents()
 
         self._tablePlotConf.setItemDelegateForColumn(
@@ -794,6 +802,10 @@ class DataView(QWidget):
                                                  "x", "D", "d", "|", "_"]))
         self._tablePlotConf.resizeColumnsToContents()
         self._tablePlotConf.horizontalHeader().setStretchLastSection(True)
+        w = 4 * self._plotPanel.layout().contentsMargins().left()
+        for column in range(self._tablePlotConf.columnCount()):
+            w += self._tablePlotConf.columnWidth(column)
+        self._toolBarLeft.setSidePanelMinimumWidth(w)
 
     def __initTableColumnProp(self):
         """ Initialize the columns properties widget """
@@ -962,13 +974,49 @@ class DataView(QWidget):
                 fileName = self._model.getDataSource()
                 plotType = self._comboBoxPlotType.currentText()
                 labels, colors, styles, markers = plotProp
-                cmd = '%s --file %s --type %s --columns %s --orderColumn %s ' \
-                      '--orderDir %s --colors %s --styles %s --markers %s' % \
-                      (pwplot, fileName, plotType, labels,
-                       labels.split()[0].strip(), 'ASC', colors, styles,
+                # sorted column
+                columnsWidget = self.getViewWidget(self.COLUMNS)
+                sOrder = None
+                if columnsWidget is not None:
+                    hHeader = columnsWidget.getHorizontalHeader()
+                    sortOrder = hHeader.sortIndicatorOrder()
+                    sortColumn = hHeader.sortIndicatorSection()
+                    if sortColumn >= 0:
+                        sortColumn = \
+                            self._model.getColumnConfig(sortColumn).getName()
+                        if sortOrder == Qt.AscendingOrder:
+                            sOrder = 'ASC'
+                        elif sortOrder == Qt.DescendingOrder:
+                            sOrder = 'DESC'
+                    # If no section has a sort indicator the return value of
+                    # sortIndicatorOrder() is undefined.
+
+                cmd = '%s --file %s --type %s --columns %s ' \
+                      '--colors %s --styles %s --markers %s ' % \
+                      (pwplot, fileName, plotType, labels, colors, styles,
                        markers)
-                xLabel = self._lineEditXlabel.text()
-                xColumn = self._lineEditYlabel.text()
+                if sOrder is not None:
+                    cmd += '--orderColumn %s --orderDir %s ' % (sortColumn,
+                                                                sOrder)
+                xLabel = self._lineEditXlabel.text().strip()
+                yLabel = self._lineEditYlabel.text().strip()
+                title = self._lineEditPlotTitle.text().strip()
+                xAxis = self._comboBoxXaxis.currentText().strip()
+                block = self._comboBoxCurrentTable.currentText()
+
+                if len(xAxis):
+                    cmd += ' --xcolumn %s ' % xAxis
+                if len(block):
+                    cmd += ' --block %s ' % block
+                if len(title):
+                    cmd += ' --title %s ' % title
+                if len(xLabel):
+                    cmd += ' --xtitle %s ' % xLabel
+                if len(xLabel):
+                    cmd += ' --ytitle %s ' % yLabel
+                if plotType == 'Histogram':
+                    cmd += ' --bins %d' % self._spinBoxBins.value()
+
                 print('Plot command: ', cmd)
                 os.system('scipion python ' + cmd)
             else:
@@ -976,7 +1024,7 @@ class DataView(QWidget):
 
     @pyqtSlot()
     def __onShowHideToolBar(self):
-        self._toolBar1.setVisible(not self._toolBar1.isVisible())
+        self._toolBarLeft.setVisible(not self._toolBarLeft.isVisible())
 
     @pyqtSlot(bool)
     def __onClearSelectionTriggered(self, a):
@@ -1340,7 +1388,7 @@ class DataView(QWidget):
         visible = not (selectionMode == AbstractView.NO_SELECTION
                        or selectionMode == AbstractView.SINGLE_SELECTION)
         self._actSelections.setVisible(visible)
-        self._toolBar1.setVisible(visible)
+        self._toolBarLeft.setVisible(visible)
 
         policy = Qt.NoContextMenu if not visible else Qt.ActionsContextMenu
 
@@ -1399,7 +1447,7 @@ class DataView(QWidget):
         v = self.getViewWidget()
         if isinstance(v, ColumnsView) or isinstance(v, GalleryView):
             w, h = v.getPreferedSize()
-            return w + self._toolBar1.width() + 180, h + self._toolBar.height()
+            return w + self._toolBarLeft.width() + 180, h + self._toolBar.height()
 
         return 800, 600
 

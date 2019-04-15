@@ -20,7 +20,8 @@ class ToolBar(QWidget):
         QWidget.__init__(self, parent=parent)
 
         self._panelsDict = dict()
-        self._panelWidth = kwargs.get("panel_width", 160)
+        self._panelMinWidth = kwargs.get("panel_min_width", 160)
+        self._panelMaxWidth = kwargs.get('panel_max_width', 300)
         self._buttonWidth = 0
         self._docks = []
         self.__setupUi(**kwargs)
@@ -150,10 +151,10 @@ class ToolBar(QWidget):
 
         if widget is not None:
             width = widget.width()
-            if width > self._panelWidth:
-                self._panelWidth = width
+            if width > self._panelMinWidth:
+                self._panelMinWidth = width
                 for d in self._docks:
-                    d.setMinimumWidth(self._panelWidth)
+                    d.setMinimumWidth(self._panelMinWidth)
 
             dock = QDockWidget(action.text() if showTitle else "",
                                self._sidePanel)
@@ -165,7 +166,7 @@ class ToolBar(QWidget):
                 features |= QDockWidget.DockWidgetFloatable
             dock.setFeatures(features)
             dock.setWidget(widget)
-            dock.setMinimumWidth(self._panelWidth)
+            dock.setMinimumWidth(self._panelMinWidth)
             dock.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
             dock.hide()
             dock.visibilityChanged.connect(
@@ -214,16 +215,22 @@ class ToolBar(QWidget):
 
     def setSidePanelMinimumWidth(self, width):
         """ Sets the side panel minimum width """
-        self._panelWidth = width
+        self._panelMinWidth = width
+        for dock in self._docks:
+            dock.setMinimumWidth(width)
 
     def getSidePanelMinimumWidth(self):
         """ Returns the side panel minimum width """
-        return self._panelWidth
+        return self._panelMinWidth
+
+    def setSidePanelMaximumWidth(self, width):
+        """ Sets the side panel maximum width """
+        self._panelMaxWidth = width
 
     def createSidePanel(self):
         """ Create a widget with the preferred width"""
         widget = QWidget()
-        widget.setGeometry(0, 0, self._panelWidth, widget.height())
+        widget.setGeometry(0, 0, self._panelMinWidth, widget.height())
         return widget
 
 

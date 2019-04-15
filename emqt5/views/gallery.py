@@ -220,17 +220,17 @@ class GalleryView(AbstractView):
                 vIndexes = colConfig.getIndexes('visible', True)
                 lSize = len(vIndexes)
                 s = QSize(size[0], size[1])
-                fontMetrics = self._listView.fontMetrics()
-                if fontMetrics is not None and lSize > 0:
+                if lSize > 0:
                     maxWidth = 0
                     r = self._model.totalRowCount()
                     for i in random_sample(range(r), min(10, r)):
                         for j in vIndexes:
                             text = str(self._model.getTableData(i, j))
-                            w = fontMetrics.width(text) + \
-                                3 * fontMetrics.maxWidth()
+                            # TODO [HV]:  fontMetrics.width(text) cause error
+                            w = len(text) * 7.3
                             maxWidth = max(maxWidth, w)
                     s.setWidth(max(s.width(), maxWidth))
+                    s.setHeight(s.height() + lSize * 16)
         self._listView.setIconSize(s)
         self.__calcPageSize()
         if self._model is not None:
