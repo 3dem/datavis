@@ -64,22 +64,17 @@ def createVolumeView(path, **kwargs):
 
 def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
     """ Create an DataView and load the volume from the given path """
-    try:
-        kwargs['view'] = defaultView
-        dataView = DataView(None, **kwargs)
-        path = kwargs.get('dataSource')
-        dataView.setModel(TableDataModel(table, titles=titles,
-                                         tableViewConfig=tableViewConfig,
-                                         dataSource=path))
-        dataView.setView(defaultView)
-        if not (path is None or EmPath.isTable(path)):
-            dataView.setDataInfo(EmImage.getInfo(path))
+    kwargs['view'] = defaultView
+    dataView = DataView(None, **kwargs)
+    path = kwargs.get('dataSource')
+    dataView.setModel(TableDataModel(table, titles=titles,
+                                     tableViewConfig=tableViewConfig,
+                                     dataSource=path))
+    dataView.setView(defaultView)
+    if not (path is None or EmPath.isTable(path)):
+        dataView.setDataInfo(EmImage.getInfo(path))
 
-        return dataView
-    except Exception as ex:
-        raise ex
-    except RuntimeError as ex:
-        raise ex
+    return dataView
 
 
 class ImageElemParser:

@@ -760,10 +760,9 @@ class DataView(QWidget):
             self._tablePlotConf.setRowCount(columns)
             colors = [Qt.blue, Qt.green, Qt.red, Qt.black, Qt.darkYellow,
                       Qt.yellow, Qt.magenta, Qt.cyan]
-            colorsLen = len(colors)
-            colorIndex = 0
+            nColors = len(colors)
 
-            for colConfig in viewModel.getColumnConfig():
+            for i, colConfig in enumerate(viewModel.getColumnConfig()):
                 colName = colConfig.getName()
                 self._comboBoxXaxis.addItem(colName)
                 item = QTableWidgetItem(colName)
@@ -772,7 +771,7 @@ class DataView(QWidget):
                 itemPlot.setCheckState(Qt.Unchecked)
                 itemColor = QTableWidgetItem("")  # for color option
                 itemColor.setData(Qt.BackgroundRole,
-                                  QColor(colors[colorIndex]))
+                                  QColor(colors[i % nColors]))
                 itemLineStye = QTableWidgetItem("")  # for line style option
                 itemLineStye.setData(Qt.DisplayRole, "Solid")
                 itemLineStye.setData(Qt.UserRole, 0)
@@ -785,8 +784,6 @@ class DataView(QWidget):
                 self._tablePlotConf.setItem(row, 3, itemLineStye)
                 self._tablePlotConf.setItem(row, 4, itemMarker)
                 row += 1
-                colorIndex = 0 \
-                    if colorIndex == colorsLen - 1 else colorIndex + 1
             self._tablePlotConf.resizeColumnsToContents()
 
         self._tablePlotConf.setItemDelegateForColumn(
