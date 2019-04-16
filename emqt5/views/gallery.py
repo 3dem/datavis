@@ -223,19 +223,22 @@ class GalleryView(AbstractView):
                 if lSize > 0:
                     maxWidth = 0
                     r = self._model.totalRowCount()
+                    fontMetrics = self._listView.fontMetrics()
                     for i in random_sample(range(r), min(10, r)):
                         for j in vIndexes:
-                            text = str(self._model.getTableData(i, j))
+                            text = ' %s = %s ' % (
+                                self._model.getColumnConfig(j).getName(),
+                                str(self._model.getTableData(i, j)))
                             # TODO [HV]:  fontMetrics.width(text) cause error
-                            w = len(text) * 7.3
+                            w = fontMetrics.boundingRect(text).width() # len(text) * 7.3
                             maxWidth = max(maxWidth, w)
                     s.setWidth(max(s.width(), maxWidth))
                     s.setHeight(s.height() + lSize * 16)
         self._listView.setIconSize(s)
         self.__calcPageSize()
         if self._model is not None:
-            self._model.setupPage(self._pageSize, self._model.getPage())
             self._model.setIconSize(s)
+            self._model.setupPage(self._pageSize, self._model.getPage())
 
         self.sigPageSizeChanged.emit()
 

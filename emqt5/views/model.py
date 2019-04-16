@@ -155,21 +155,7 @@ class TableDataModel(QAbstractItemModel):
 
         # Is good practice to provide data for Qt.ToolTipRole,
         # Qt.AccessibleTextRole and Qt.AccessibleDescriptionRole
-        if role == Qt.ToolTipRole:
-            text = None
-            for i, colConfig in enumerate(self._tableViewConfig):
-                value = '%s=%s' % (colConfig.getName(),
-                                     str(self.__getPageData(row, i))) \
-                    if colConfig['visible'] else None
-                if text is None:
-                    text = value
-                elif value is not None:
-                    text += ',\n%s' % value
-            return QVariant(self.__getPageData(row, col)) \
-                if text is None else text
-
-        if role == Qt.ToolTipRole or \
-           role == Qt.AccessibleTextRole or \
+        if role == Qt.AccessibleTextRole or \
            role == Qt.AccessibleDescriptionRole:
             return QVariant(self.__getPageData(row, col))
 

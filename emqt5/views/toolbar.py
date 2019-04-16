@@ -226,6 +226,8 @@ class ToolBar(QWidget):
     def setSidePanelMaximumWidth(self, width):
         """ Sets the side panel maximum width """
         self._panelMaxWidth = width
+        for dock in self._docks:
+            dock.setMaximumWidth(width)
 
     def createSidePanel(self):
         """ Create a widget with the preferred width"""

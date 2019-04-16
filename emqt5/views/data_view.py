@@ -143,8 +143,11 @@ class DataView(QWidget):
             self._selectionMenu.addAction(a)
             self._selectionMenu.addSeparator()
             b = QPushButton(icon, text, self._selectionPanel)
+            b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+            b.setFixedWidth(150)
             b.clicked.connect(onTriggeredFunc)
-            vLayout.addWidget(b)
+            b.setStyleSheet("text-align:left")
+            vLayout.addWidget(b, Qt.AlignLeft)
             return a, b
 
         selectAllIcon = qta.icon('fa.chevron-up', 'fa.chevron-down',
@@ -296,7 +299,7 @@ class DataView(QWidget):
         self._buttonPlot.setSizePolicy(QSizePolicy.Fixed,
                                        QSizePolicy.Fixed)
         self._buttonPlot.clicked.connect(self.__onButtonPlotClicked)
-        vLayout.addWidget(self._buttonPlot, 0, Qt.AlignHCenter)
+        vLayout.addWidget(self._buttonPlot, 0, Qt.AlignLeft)
         #vLayout.addStretch()
         self._plotPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actPlot = QAction(None)
@@ -993,7 +996,7 @@ class DataView(QWidget):
                       (pwplot, fileName, plotType, labels, colors, styles,
                        markers)
                 if sOrder is not None:
-                    cmd += '--orderColumn %s --orderDir %s ' % (sortColumn,
+                    cmd += ' --orderColumn %s --orderDir %s ' % (sortColumn,
                                                                 sOrder)
                 xLabel = self._lineEditXlabel.text().strip()
                 yLabel = self._lineEditYlabel.text().strip()
@@ -1012,10 +1015,9 @@ class DataView(QWidget):
                 if len(xLabel):
                     cmd += ' --ytitle %s ' % yLabel
                 if plotType == 'Histogram':
-                    cmd += ' --bins %d' % self._spinBoxBins.value()
+                    cmd += ' --bins %d ' % self._spinBoxBins.value()
 
                 print('Plot command: ', cmd)
-                os.system('scipion python ' + cmd)
             else:
                 self.__showMsgBox("No columns selected for plotting")
 
