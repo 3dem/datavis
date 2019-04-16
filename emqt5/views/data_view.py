@@ -968,7 +968,7 @@ class DataView(QWidget):
         if self._model is not None:
             plotProp = self.__getSelectedPlotProperties()
             if plotProp is not None:
-                scipion = os.environ.get(SCIPION_HOME)
+                scipion = os.environ.get(SCIPION_HOME, 'scipion')
                 pwplot = os.path.join(scipion, 'pyworkflow', 'apps',
                                       'pw_plot.py')
                 fileName = self._model.getDataSource()
