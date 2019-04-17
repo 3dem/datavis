@@ -3,7 +3,7 @@ from .config import TableViewConfig, ColumnConfig
 
 from .base import (EMImageItemDelegate, AbstractView, OptionList,
                    ColumnPropertyItemDelegate, ColorItemDelegate,
-                   ComboBoxStyleItemDelegate)
+                   ComboBoxStyleItemDelegate, PlotConfigWidget)
 from .gallery import GalleryView
 from .columns import ColumnsView
 from .items import ItemsView
