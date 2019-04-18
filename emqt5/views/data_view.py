@@ -9,9 +9,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
                              QSizePolicy, QPushButton, QMenu, QTableWidget,
-                             QTableWidgetItem, QFormLayout)
-from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence,
-                         QColor)
+                             QTableWidgetItem)
+from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
 from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
