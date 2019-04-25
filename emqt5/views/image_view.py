@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, QEvent
+from PyQt5.QtCore import Qt, pyqtSlot, QEvent, QLineF
 from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
-                             QTextEdit)
+                             QTextEdit, QDoubleSpinBox)
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -77,6 +77,7 @@ class ImageView(QWidget):
         self._autoFill = False
         self._pgButtons = None
         self._axisPos = self.AXIS_BOTTOM_LEFT
+        self._scale = 1
 
         self.__setupUI(**kwargs)
         self.setup(**kwargs)
@@ -104,6 +105,20 @@ class ImageView(QWidget):
         self._displayPanel.setSizePolicy(QSizePolicy.Ignored,
                                          QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._displayPanel)
+        self._labelScale = QLabel('Scale: ', self._displayPanel)
+        hLayout = QHBoxLayout()
+        hLayout.addWidget(self._labelScale)
+        self._spinBoxScale = QDoubleSpinBox(self._displayPanel)
+        self._spinBoxScale.setSuffix(" %")
+        self._spinBoxScale.setRange(0, 10000)
+        self._spinBoxScale.editingFinished.connect(
+            self.__onSpinBoxScaleValueChanged)
+        hLayout.addWidget(self._spinBoxScale)
+        hLayout.addStretch()
+        vLayout.addLayout(hLayout)
+        view = self.getView().getViewBox()
+        view.sigStateChanged.connect(
+            self.__onImageScaleChanged)
         # --Histogram--
         toolbar = QToolBar(self._displayPanel)
         toolbar.addWidget(QLabel('Histogram ', toolbar))
@@ -446,6 +461,29 @@ class ImageView(QWidget):
     def __rotateRight(self):
         """ Rotate the image 90 degrees to the right """
         self.rotate(self._rotation_step)
+
+    @pyqtSlot()
+    def __onSpinBoxScaleValueChanged(self):
+        viewBox = self.getViewBox()
+        val = self._spinBoxScale.value() * 0.01
+        if val == 0:
+            self._spinBoxScale.setValue(self._scale * 100)
+        else:
+            viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
+            viewBox.scaleBy(x=1/val, y=1/val)  # to current scale
+
+    @pyqtSlot(object)
+    def __onImageScaleChanged(self, view):
+        """ Invoked when the image scale has changed """
+        rect = self._imageView.imageItem.boundingRect()
+        if isinstance(view, pg.ViewBox) and rect.width() > 0:
+            p1 = pg.Point(0, 0)
+            p2 = pg.Point(0, 1)
+            p1v = view.mapFromView(p1)
+            p2v = view.mapFromView(p2)
+            linev = QLineF(p1v.x(), p1v.y(), p2v.x(), p2v.y())
+            self._scale = abs(linev.dy())
+            self._spinBoxScale.setValue(self._scale * 100)
 
     def setup(self, **kwargs):
         """ Configure the ImageView. See constructor comments for the params """
