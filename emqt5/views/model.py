@@ -848,6 +848,9 @@ class VolumeDataModel(QAbstractItemModel):
         """ Return the path of this volume model """
         return self._path
 
+    def getTableViewConfig(self):
+        return self._tableViewConfig
+
     def __setupModel(self):
         """
         Configure the model according to the pageSize and current page

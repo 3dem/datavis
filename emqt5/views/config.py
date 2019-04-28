@@ -165,18 +165,18 @@ class TableViewConfig:
                                         dataType=TableViewConfig.TYPE_INT,
                                         label='Index',
                                         editable=False,
-                                        visible=True)
+                                        visible=False)
         tableViewConfig.addColumnConfig(name='enabled',
                                         dataType=TableViewConfig.TYPE_BOOL,
                                         label='Enabled',
                                         editable=False,
-                                        visible=True)
+                                        visible=False)
         tableViewConfig.addColumnConfig(name='slice',
                                         dataType=TableViewConfig.TYPE_STRING,
                                         label='Slice',
                                         renderable=True,
                                         editable=False,
-                                        visible=True)
+                                        visible=False)
         return tableViewConfig
 
 
