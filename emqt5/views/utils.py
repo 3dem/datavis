@@ -12,7 +12,7 @@ from .data_view import DataView
 from .model import TableDataModel
 from .picker_model import Coordinate, Micrograph, PickerDataModel
 
-from emqt5.utils import EmImage, EmPath
+from emqt5.utils import ImageManager, EmPath
 
 MOVIE_SIZE = 1000
 
@@ -24,7 +24,7 @@ def createImageView(path, **kwargs):
         loc2 = em.ImageLocation(path)
         image.read(loc2)
         imgView = ImageView(None, **kwargs)
-        data = EmImage.getNumPyArray(image)
+        data = ImageManager.getNumPyArray(image)
         imgView.setImage(data)
         imgView.setImageInfo(path=path, format=EmPath.getExt(path),
                              data_type=str(image.getType()))
@@ -72,7 +72,7 @@ def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
                                      dataSource=path))
     dataView.setView(defaultView)
     if not (path is None or EmPath.isTable(path)):
-        dataView.setDataInfo(EmImage.getInfo(path))
+        dataView.setDataInfo(ImageManager.getInfo(path))
 
     return dataView
 

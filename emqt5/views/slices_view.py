@@ -5,10 +5,10 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSlider, QSizePolicy,
                              QGridLayout, QSpinBox, QLabel)
 
-from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS, N_DIM
+from .model import X_AXIS, Y_AXIS, Z_AXIS, N_DIM
 from .image_view import ImageView
 
-from emqt5.utils import EmImage, EmPath
+from emqt5.utils import ImageManager
 
 
 class SlicesView(QWidget):
@@ -37,7 +37,7 @@ class SlicesView(QWidget):
 
         """
         QWidget.__init__(self, parent=parent)
-        self._imageCache = kwargs.get('cache', None) or ImageCache(10)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(10)
         self._sliceIndex = 0
         self._index = 0
         self._axis = N_DIM
@@ -86,8 +86,8 @@ class SlicesView(QWidget):
                 self._imageView.clear()
             else:
                 imgId = '%i-%s' % (self._index, self._imagePath)
-                data = self._imageCache.addImage(imgId, self._imagePath,
-                                                 self._index)
+                data = self._imageManager.addImage(imgId, self._imagePath,
+                                                   self._index)
                 if data is not None:
                     if self._axis == X_AXIS:
                         data = data[:, :, self._sliceIndex]
@@ -167,9 +167,9 @@ class SlicesView(QWidget):
 
         self.sigCurrentIndexChanged.emit(value)
 
-    def setImageCache(self, imageCache):
+    def setImageManager(self, imageManager):
         """ Sets the image cache """
-        self._imageCache = imageCache
+        self._imageManager = imageManager
 
     def setup(self, **kwargs):
         """ Setups this slice view. See constructor for init params. """
@@ -179,7 +179,7 @@ class SlicesView(QWidget):
         self.setPath(kwargs.get('path', None))
         self.setViewName(kwargs.get('view_name', ''))
         if self._imagePath:
-            info = EmImage.getInfo(self._imagePath)
+            info = ImageManager.getInfo(self._imagePath)
             if info:
                 dt = info.get("data_type")
                 self._imageView.setImageInfo(path=self._imagePath,
@@ -198,7 +198,7 @@ class SlicesView(QWidget):
         try:
             self._imagePath = path
             self._dim = None if self._imagePath is None else \
-                EmImage.getDim(self._imagePath)
+                ImageManager.getDim(self._imagePath)
 
             self.setSliceIndex(0)
             self.setIndex(0)

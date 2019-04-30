@@ -7,8 +7,9 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
                           QItemSelectionModel, QItemSelectionRange)
 from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
-from .model import ImageCache
+
 from .base import AbstractView, EMImageItemDelegate
+from ..utils import ImageManager
 
 
 class ColumnsView(AbstractView):
@@ -24,8 +25,7 @@ class ColumnsView(AbstractView):
     def __init__(self, parent, **kwargs):
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
-        self._imgCache = ImageCache(50)
-        self._thumbCache = ImageCache(500, (100, 100))
+        self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._selection = set()
         self._currentRow = 0
         self.__setupUI(**kwargs)
@@ -54,7 +54,7 @@ class ColumnsView(AbstractView):
 
         self._tableView.resizeEvent = self.__tableViewResizeEvent
         self._delegate = EMImageItemDelegate(self)
-        self._delegate.setImageCache(self._thumbCache)
+        self._delegate.setImageManager(self._imageManager)
         self._mainLayout.insertWidget(0, self._tableView)
         #self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
@@ -326,12 +326,9 @@ class ColumnsView(AbstractView):
 
         return self._currentRow
 
-    def setImageCache(self, imgCache):
-        self._imgCache = imgCache
-
-    def setThumbCache(self, thumbCache):
-        self._thumbCache = thumbCache
-        self._delegate.setImageCache(thumbCache)
+    def setImageManager(self, imgManager):
+        self._imageManager = imgManager
+        self._delegate.setImageManager(imgManager)
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """

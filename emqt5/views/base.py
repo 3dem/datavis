@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
-
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QVariant
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
@@ -16,8 +14,8 @@ from PyQt5.QtGui import QPixmap, QPalette, QPen, QColor, QIntValidator
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.utils import parseImagePath, ImageRef
-from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
+from emqt5.utils import ImageManager, ImageRef, parseImagePath
+from .model import X_AXIS, Y_AXIS, Z_AXIS
 
 
 class EMImageItemDelegate(QStyledItemDelegate):
@@ -25,10 +23,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
     ImageItemDelegate class provides display and editing facilities for
     em image data items from a model.
     """
-    def __init__(self, parent=None):
-
+    def __init__(self, parent=None, **kwargs):
+        """
+        kwargs:
+          - imageManager: the ImageManager for internal read/manage
+                          image operations.
+        """
         QStyledItemDelegate.__init__(self, parent)
-        self._imgCache = ImageCache(50, 50)
+        self._imageManager = kwargs.get('imageMAnager') or ImageManager(150)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
@@ -172,15 +174,15 @@ class EMImageItemDelegate(QStyledItemDelegate):
         else:
             return None
 
-        imgData = self._imgCache.getImage(imgId)
+        imgData = self._imageManager.getImage(imgId)
 
         if imgData is None:  # the add the image to Cache
             if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
-                imgData = self._imgCache.addImage(imgId, imgRef.path,
-                                                  imgRef.volumeIndex)
+                imgData = self._imageManager.addImage(imgId, imgRef.path,
+                                                      imgRef.volumeIndex)
             else:
-                imgData = self._imgCache.addImage(imgId, imgRef.path,
-                                                  imgRef.index)
+                imgData = self._imageManager.addImage(imgId, imgRef.path,
+                                                      imgRef.index)
 
         if imgData is None:
             return None
@@ -194,16 +196,16 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
         return imgData
 
-    def setImageCache(self, imgCache):
+    def setImageManager(self, imageManager):
         """
         Set the ImageCache object to be use for this ImageDelegate
-        :param imgCache: ImageCache
+        :param imageManager: ImageManager
         """
-        self._imgCache = imgCache
+        self._imageManager = imageManager
 
-    def getImageCache(self):
-        """ Getter for imageCache """
-        return self._imgCache
+    def getImageManager(self):
+        """ Getter for ImageManager """
+        return self._imageManager
 
     def setLabelIndexes(self, indexes):
         """

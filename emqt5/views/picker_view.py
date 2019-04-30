@@ -27,7 +27,7 @@ from .config import TableViewConfig
 from .columns import ColumnsView
 from .toolbar import MultiAction
 from .base import OptionList
-from ..utils import EmImage, EmPath
+from ..utils import EmPath, ImageManager
 
 SHAPE_RECT = 0
 SHAPE_CIRCLE = 1
@@ -693,9 +693,9 @@ class PickerView(QWidget):
             self._imageView.clear()
             self._currentMic = mic
             path = mic.getPath()
-            image = EmImage.load(path)
+            image = ImageManager.readImage(path)
             self._currentImageDim = image.getDim()
-            self._imageView.setImage(EmImage.getNumPyArray(image))
+            self._imageView.setImage(ImageManager.getNumPyArray(image))
             self._imageView.setImageInfo(path=path,
                                          format=EmPath.getExt(path),
                                          data_type=str(image.getType()))

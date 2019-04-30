@@ -1,2 +1,3 @@
 
-from .functions import EmPath, EmImage, EmTable, parseImagePath, ImageRef
+from .functions import EmPath, EmTable
+from .image_manager import ImageManager, ImageRef, parseImagePath

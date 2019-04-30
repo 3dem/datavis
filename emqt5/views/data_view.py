@@ -13,8 +13,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
 from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
-from .model import (ImageCache, VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS,
-                    Z_AXIS)
+from .model import (VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS, Z_AXIS)
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
@@ -22,7 +21,7 @@ from .base import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
 from .config import TableViewConfig
 from .toolbar import ToolBar
 
-from emqt5.utils.functions import EmTable
+from ..utils import ImageManager, EmTable
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
@@ -88,8 +87,7 @@ class DataView(QWidget):
         self._view = None
         self._model = None
         self._currentRow = 0  # selected table row
-        self._imageCache = ImageCache(100)
-        self._thumbCache = ImageCache(500, (100, 100))
+        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
         self._selectionMode = AbstractView.NO_SELECTION
         self._tablePref = dict()
@@ -425,14 +423,11 @@ class DataView(QWidget):
                 viewWidget = self.__createView(v, **kwargs)
                 self._viewsDict[v] = viewWidget
                 if viewWidget is not None:
-                    viewWidget.setImageCache(self._imageCache)
-                    if isinstance(viewWidget, ColumnsView) \
-                            or isinstance(viewWidget, GalleryView):
-                        viewWidget.setThumbCache(self._thumbCache)
-                        if isinstance(viewWidget, ColumnsView):
-                            view = viewWidget.getTableView()
-                        else:
-                            view = viewWidget.getListView()
+                    viewWidget.setImageManager(self._imageManager)
+                    if isinstance(viewWidget, ColumnsView):
+                        view = viewWidget.getTableView()
+                    elif isinstance(viewWidget, GalleryView):
+                        view = viewWidget.getListView()
                     else:
                         view = viewWidget
 

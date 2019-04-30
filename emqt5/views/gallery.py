@@ -3,14 +3,13 @@
 
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange, QRect)
+                          QItemSelectionModel, QItemSelectionRange)
 from PyQt5.QtWidgets import QAbstractItemView, QListView
-from PyQt5.QtGui import QPainter
 
 from PyQt5 import QtCore
 
-from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
+from ..utils import ImageManager
 
 from random import sample as random_sample
 
@@ -26,13 +25,17 @@ class GalleryView(AbstractView):
     sigListViewSizeChanged = QtCore.pyqtSignal()
 
     def __init__(self, parent, **kwargs):
+        """
+        kwargs:
+         - imageManager: the ImageManager for internal read/manage
+                          image operations.
+        """
         AbstractView.__init__(self, parent=parent)
         self._pageSize = 0
         self._pRows = 0
         self._pCols = 0
         self._cellSpacing = 0
-        self._imgCache = ImageCache(50)
-        self._thumbCache = ImageCache(500, (100, 100))
+        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
         self._currentRow = 0
         self.__setupUI(**kwargs)
@@ -58,7 +61,7 @@ class GalleryView(AbstractView):
         self._listView.resizeEvent = self.__listViewResizeEvent
         self.sigListViewSizeChanged.connect(self.__onSizeChanged)
         self._delegate = EMImageItemDelegate(self)
-        self._delegate.setImageCache(self._thumbCache)
+        self._delegate.setImageManager(self._imageManager)
         self._mainLayout.insertWidget(0, self._listView)
         self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
@@ -242,13 +245,10 @@ class GalleryView(AbstractView):
 
         self.sigPageSizeChanged.emit()
 
-    def setImageCache(self, imgCache):
-        """ Sets the image cache """
-        self._imgCache = imgCache
-
-    def setThumbCache(self, thumbCache):
-        self._thumbCache = thumbCache
-        self._delegate.setImageCache(thumbCache)
+    def setImageManager(self, imageManager):
+        """ Sets the image manager """
+        self._imageManager = imageManager
+        self._delegate.setImageManager(imageManager)
 
     def selectRow(self, row):
         """ Selects the given row """

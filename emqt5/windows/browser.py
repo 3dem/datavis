@@ -14,7 +14,7 @@ from emqt5.views import (DataView, createTableModel, createStackModel,
 
 import qtawesome as qta
 
-from emqt5.utils import EmPath, EmImage
+from emqt5.utils import EmPath, ImageManager
 
 
 class BrowserWindow(QMainWindow):
@@ -25,6 +25,11 @@ class BrowserWindow(QMainWindow):
     sigTreeViewSizeChanged = pyqtSignal()  # when the treeview has been resized
 
     def __init__(self, parent, path, **kwargs):
+        """
+        kwargs:
+         - imageManager: the ImageManager for read/manage image operations. Will
+                         be passed to the internal views
+        """
         QMainWindow.__init__(self, parent=parent)
         self._imagePath = path
         self._dataView = DataView(self, **kwargs)
@@ -337,13 +342,13 @@ class BrowserWindow(QMainWindow):
             elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
                     or EmPath.isVolume(imagePath) \
                     or EmPath.isStandardImage(imagePath):
-                inf = EmImage.getInfo(imagePath)
+                inf = ImageManager.getInfo(imagePath)
                 d = inf['dim']
                 info["Dimensions"] = str(d)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
-                        image = EmImage.load(imagePath)
-                        data = EmImage.getNumPyArray(image)
+                        image = ImageManager.readImage(imagePath)
+                        data = ImageManager.getNumPyArray(image)
                         self._imageView.setImage(data)
                         self._imageView.setImageInfo(
                             path=imagePath, format=inf['ext'],

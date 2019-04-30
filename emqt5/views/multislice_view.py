@@ -4,9 +4,9 @@ from PyQt5.QtWidgets import (QWidget, QGridLayout)
 from PyQt5.QtCore import QSize, pyqtSlot
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-from emqt5.utils import EmImage
+from emqt5.utils import ImageManager
 from .slices_view import SlicesView
-from .model import ImageCache, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
+from .model import VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
 
 
 class MultiSliceView(QWidget):
@@ -17,11 +17,12 @@ class MultiSliceView(QWidget):
     """
     def __init__(self, parent, path=None, model=None, **kwargs):
         """
-        Constructor.
-        Can pass a path or model
+        path: the volume path
+        model: the model
+        imageManager: the ImageManager
         """
         QWidget.__init__(self, parent=parent)
-        self._imageCache = kwargs.get('cache', None) or ImageCache(50)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._dx = 0
         self._dy = 0
         self._dz = 0
@@ -47,19 +48,19 @@ class MultiSliceView(QWidget):
         kwargs['auto_fill'] = 'on'
         kwargs['volume_axis'] = 'y'
         self._topView = SlicesView(self, **kwargs)
-        self._topView.setImageCache(self._imageCache)
+        self._topView.setImageManager(self._imageManager)
         self._topView.setViewName('Top View')
         self._topView.sigCurrentIndexChanged.connect(
             self._onTopViewIndexChanged)
         kwargs['volume_axis'] = 'z'
         self._frontView = SlicesView(self, **kwargs)
-        self._frontView.setImageCache(self._imageCache)
+        self._frontView.setImageManager(self._imageManager)
         self._frontView.setViewName('Front View')
         self._frontView.sigCurrentIndexChanged.connect(
             self._onFrontViewIndexChanged)
         kwargs['volume_axis'] = 'x'
         self._rightView = SlicesView(self, **kwargs)
-        self._rightView.setImageCache(self._imageCache)
+        self._rightView.setImageManager(self._imageManager)
         self._rightView.setViewName('Right View')
         self._rightView.sigCurrentIndexChanged.connect(
             self._onRightViewIndexChanged)
@@ -102,7 +103,7 @@ class MultiSliceView(QWidget):
         if path is None:
             self._dx = self._dy = self._dz = 0
         else:
-            dim = EmImage.getDim(path)
+            dim = ImageManager.getDim(path)
             if dim is None:
                 self._dx = self._dy = self._dz = 0
             else:

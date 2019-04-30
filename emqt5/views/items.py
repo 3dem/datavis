@@ -8,9 +8,9 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
 
-from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
+from .model import X_AXIS, Y_AXIS, Z_AXIS
 from .base import AbstractView
-from emqt5.utils import EmPath, parseImagePath, ImageRef
+from ..utils import EmPath, parseImagePath, ImageRef, ImageManager
 from .image_view import ImageView
 
 
@@ -22,13 +22,18 @@ class ItemsView(AbstractView):
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
     def __init__(self, parent, **kwargs):
+        """
+        kwargs:
+         - imageManager: the ImageManager for internal read/manage
+                         image operations.
+        """
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
         self._selection = set()
         self.__selectionItem = None
         self._disableFitToSize = False
-        self._imgCache = ImageCache(50)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._imageRef = ImageRef()
         self.__setupUI(**kwargs)
 
@@ -140,9 +145,9 @@ class ItemsView(AbstractView):
         else:
             self._imageView.setVisible(False)
 
-    def setImageCache(self, imgCache):
+    def setImageManager(self, imageManager):
         """ Sets the image cache """
-        self._imgCache = imgCache
+        self._imageManager = imageManager
 
     def selectRow(self, row):
         """ Selects the given row """
@@ -209,8 +214,8 @@ class ItemsView(AbstractView):
                                                imgRef.path)
                             index = imgRef.index
 
-                    data = self._imgCache.addImage(imgId, imgRef.path,
-                                                   index)
+                    data = self._imageManager.addImage(imgId, imgRef.path,
+                                                       index)
                     self._imageView.setImageInfo(
                         path=imgRef.path,
                         format=EmPath.getExt(imgRef.path),

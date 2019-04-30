@@ -11,7 +11,7 @@ import traceback
 from PyQt5.QtCore import QDir, QSize, Qt
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
-from emqt5.utils import EmPath, EmTable, EmImage
+from emqt5.utils import EmPath, EmTable, ImageManager
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
@@ -338,7 +338,7 @@ if __name__ == '__main__':
             elif EmPath.isImage(files) or EmPath.isVolume(files) \
                     or EmPath.isStack(files):
                 # *.mrc may be image, stack or volume. Ask for dim.n
-                d = EmImage.getDim(files)
+                d = ImageManager.getDim(files)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
                         view = createImageView(files, **kwargs)
