@@ -510,7 +510,7 @@ class VolumeDataModel(QAbstractItemModel):
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
-        self._path = path
+        self._dataSource = path
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or TableViewConfig.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
@@ -527,7 +527,7 @@ class VolumeDataModel(QAbstractItemModel):
         
     def clone(self):
         """ Clone this model """
-        clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
+        clo = VolumeDataModel(self._dataSource, tableViewConfig=self._tableViewConfig,
                               pageSize=self._pageSize, axis=self._axis,
                               volumeIndex=self._volumeIndex)
         clo._titles = self._titles[:]
@@ -713,7 +713,7 @@ class VolumeDataModel(QAbstractItemModel):
                 return True
             if col == 2:
                 return '%d@%d@%d@%s' % (row, self._axis, self._volumeIndex,
-                                        self._path)
+                                        self._dataSource)
         return None
 
     @pyqtSlot(int)
@@ -842,9 +842,9 @@ class VolumeDataModel(QAbstractItemModel):
         else:
             return self._tableViewConfig.hasRenderableColumn()
 
-    def getPath(self):
+    def getDataSource(self):
         """ Return the path of this volume model """
-        return self._path
+        return self._dataSource
 
     def getTableViewConfig(self):
         return self._tableViewConfig

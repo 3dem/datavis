@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
+
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QVariant
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
@@ -15,7 +17,6 @@ import qtawesome as qta
 import pyqtgraph as pg
 
 from emqt5.utils import ImageManager, ImageRef, parseImagePath
-from .model import X_AXIS, Y_AXIS, Z_AXIS
 
 
 class EMImageItemDelegate(QStyledItemDelegate):
@@ -30,7 +31,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
                           image operations.
         """
         QStyledItemDelegate.__init__(self, parent)
-        self._imageManager = kwargs.get('imageMAnager') or ImageManager(150)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
@@ -43,6 +44,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
         self.__labelIndexes = []
+        self._thumbSize = 64
 
     def paint(self, painter, option, index):
         """
@@ -116,7 +118,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         Configure the widget used as view to show the image
         """
-        imgData = self._getThumb(index)
+        imgData = self._getThumb(index, self._thumbSize)
 
         if imgData is None:
             self._imageView.clear()
@@ -151,50 +153,23 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 self._pixmapItem.setVisible(True)
             v.autoRange(padding=0)
 
-    def _getThumb(self, index, height=100):
+    def _getThumb(self, index, height=64):
         """
         If the thumbnail stored in Image Cache
         :param index: QModelIndex
         :param height: height to scale the image
         """
         imgPath = index.data(Qt.UserRole)
+        if imgPath is None:
+            return None
 
-        imgRef = parseImagePath(imgPath, self._imageRef)
+        imgRef = parseImagePath(imgPath, self._imageRef,
+                                os.path.split(index.model().getDataSource())[0])
 
         if imgRef is None:
             return None
 
-        if imgRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
-            imgId = imgRef.path
-        elif imgRef.imageType & ImageRef.STACK == ImageRef.STACK:
-            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
-                imgId = '%d-%s' % (imgRef.volumeIndex, imgRef.path)
-            else:
-                imgId = '%d-%s' % (imgRef.index, imgRef.path)
-        else:
-            return None
-
-        imgData = self._imageManager.getImage(imgId)
-
-        if imgData is None:  # the add the image to Cache
-            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
-                imgData = self._imageManager.addImage(imgId, imgRef.path,
-                                                      imgRef.volumeIndex)
-            else:
-                imgData = self._imageManager.addImage(imgId, imgRef.path,
-                                                      imgRef.index)
-
-        if imgData is None:
-            return None
-        else:
-            if imgRef.axis == X_AXIS:
-                imgData = imgData[:, :, imgRef.index]
-            elif imgRef.axis == Y_AXIS:
-                imgData = imgData[:, imgRef.index, :]
-            elif imgRef.axis == Z_AXIS:
-                 imgData = imgData[imgRef.index, :, :]
-
-        return imgData
+        return self._imageManager.addImage(imgRef, (height, height))
 
     def setImageManager(self, imageManager):
         """

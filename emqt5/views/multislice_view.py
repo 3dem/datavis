@@ -31,11 +31,11 @@ class MultiSliceView(QWidget):
         self._model = model or VolumeDataModel(path, parent=self) \
             if path is not None else None
         if self._model is not None:
-            self.__loadImageDim(self._model.getPath())
+            self.__loadImageDim(self._model.getDataSource())
         else:
             self.__loadImageDim(None)
 
-        self.__setupUi(**kwargs)
+        self.__setupUi(imageManager=self._imageManager, **kwargs)
         if self._model is not None:
             self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
             self._onTopViewIndexChanged(self._topView.getSliceIndex())
@@ -79,7 +79,7 @@ class MultiSliceView(QWidget):
 
     def __setupAllWidgets(self):
         """ Configures the widgets """
-        path = None if self._model is None else self._model.getPath()
+        path = None if self._model is None else self._model.getDataSource()
 
         self._frontView.setPath(path)
         self._topView.setPath(path)
@@ -87,6 +87,9 @@ class MultiSliceView(QWidget):
 
         if path is not None:
             index = self._model.getVolumeIndex()
+            self._frontView.setVolumeIndex(index)
+            self._topView.setVolumeIndex(index)
+            self._rightView.setVolumeIndex(index)
             self._frontView.setIndex(index)
             self._frontView.setSliceIndex(int(self._dz / 2))
             self._topView.setIndex(index)
@@ -115,6 +118,9 @@ class MultiSliceView(QWidget):
     def _onVolumeIndexChanged(self, index):
         """ This slot is invoked when the volume index change """
         self.__setupAllWidgets()
+        self._frontView.setVolumeIndex(index)
+        self._topView.setVolumeIndex(index)
+        self._rightView.setVolumeIndex(index)
 
     @pyqtSlot(int)
     def _onTopViewIndexChanged(self, value):
@@ -159,7 +165,7 @@ class MultiSliceView(QWidget):
             self.clear()
         else:
             self._model = model
-            self.__loadImageDim(model.getPath())
+            self.__loadImageDim(model.getDataSource())
             self.__setupAllWidgets()
 
     def getAxis(self):

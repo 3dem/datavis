@@ -15,6 +15,10 @@ import em
 import numpy as np
 import scipy.ndimage as ndimage
 
+X_AXIS = 0
+Y_AXIS = 1
+Z_AXIS = 2
+
 
 class ImageManager:
     """
@@ -36,27 +40,43 @@ class ImageManager:
         self._imgData = dict()
         self._cacheSize = cacheSize
 
-    def __createThumb(self, path, index=1, **kwargs):
+    def __createThumb(self, imgRef, **kwargs):
         """
-        Return the thumbnail created for the specified image path.
+        Return the thumbnail created for the specified image reference.
         Rescale the original image according to the param imageSize=(w, h).
         If imageSize=None then return the original image data
         """
         imgSize = kwargs.get('imgSize')
-        if EmPath.isStandardImage(path):
-            pixmap = QPixmap(path)
+        if EmPath.isStandardImage(imgRef.path):
+            pixmap = QPixmap(imgRef.path)
             if imgSize is None:
                 return pixmap
             height = int(pixmap.height() * imgSize[1] / 100)
             return pixmap.scaledToHeight(height, Qt.SmoothTransformation)
 
-        elif EmPath.isData(path):
+        else:
             try:
-                img = self.readImage(path, index)
+                isStack = imgRef.imageType & ImageRef.STACK == ImageRef.STACK
+                isVolume = imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME
+
+                if isVolume:
+                    index = 1 if not isStack else imgRef.volumeIndex
+                else:
+                    index = imgRef.index
+
+                img = self.readImage(imgRef.path, index)
             except Exception as ex:
                 print(ex)
                 return None
             array = self.getNumPyArray(img)
+
+            if isVolume:
+                if imgRef.axis == X_AXIS:
+                    array = array[:, :, imgRef.index]
+                elif imgRef.axis == Y_AXIS:
+                    array = array[:, imgRef.index, :]
+                elif imgRef.axis == Z_AXIS:
+                    array = array[imgRef.index, :, :]
 
             if imgSize is None:
                 return array
@@ -81,7 +101,49 @@ class ImageManager:
         """ Return the image data for the given image id """
         return self._imgData.get(imgId)
 
-    def findImage(self, relativePath, root=None):
+    def createImageId(self, imageRef, imgSize=None):
+        """ Create a unique image id for the given image reference. """
+        if imageRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
+            imgId = imageRef.path
+        elif imageRef.imageType & ImageRef.STACK == ImageRef.STACK:
+            if imageRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
+                # index@axis@volIndex@img_path for image in volume stack
+                imgId = '%d@%d@%d@%s' % (imageRef.index, imageRef.axis,
+                                         imageRef.volumeIndex, imageRef.path)
+            else:
+                # index@img_path for image in stack
+                imgId = '%d@%s' % (imageRef.index, imageRef.path)
+        else:
+            # index@axis@img_path for image in volume
+            imgId = '%d@%d@%s' % (imageRef.index, imageRef.axis, imageRef.path)
+        return str(imgSize) + imgId if imgSize is not None else imgId
+
+    def addImage(self, imgRef, imgSize=None):
+        """
+        Adds an image data to the internal image cache.
+        If imgSize is specified, then store the width x height thumbnail
+        path: image path
+        imgSize: (width, height) or None
+        TODO: Use an ID in the future, now we use the image path
+        """
+        imgId = self.createImageId(imgRef, imgSize)
+        ret = self._imgData.get(imgId)
+        if ret is None:
+            try:
+                ret = self.__createThumb(imgRef, imgSize=imgSize)
+                if len(self._imgData) == self._cacheSize:
+                    self._imgData.popitem()
+                self._imgData[imgId] = ret
+            except Exception as ex:
+                print(ex)
+                raise ex
+            except RuntimeError as ex:
+                print(ex)
+                raise ex
+        return ret
+
+    @classmethod
+    def findImage(cls, relativePath, root=None):
         """
         Find the image path relative to the given root. Return the absolute
         image path.
@@ -96,29 +158,6 @@ class ImageManager:
         if not os.path.exists(ret):
             ret = None
 
-        return ret
-
-    def addImage(self, imgId, path, index=0, imgSize=None):
-        """
-        Adds an image data to the internal image cache.
-        If imgSize is specified, then store the width x height thumbnail
-        path: image path
-        imgSize: (width, height) or None
-        TODO: Use an ID in the future, now we use the image path
-        """
-        ret = self._imgData.get(imgId)
-        if ret is None:
-            try:
-                ret = self.__createThumb(path, index, imgSize=imgSize)
-                self._imgData[imgId] = ret
-                if len(self._imgData) > self._cacheSize:
-                    self._imgData.popitem()
-            except Exception as ex:
-                print(ex)
-                raise ex
-            except RuntimeError as ex:
-                print(ex)
-                raise ex
         return ret
 
     @classmethod
@@ -199,9 +238,10 @@ class ImageRef:
         self.imageType = ImageRef.SINGLE
 
 
-def parseImagePath(imgPath, imgRef=None):
+def parseImagePath(imgPath, imgRef=None, root=None):
     """
     Return the image reference, parsing the str image path.
+    Find the image path beginning from the given root.
     imgPath specification:
      - some/img_path for single image
      - index@some/img_path for image in stack
@@ -251,6 +291,8 @@ def parseImagePath(imgPath, imgRef=None):
             print("-----------------------------------------------------------")
             traceback.print_exception(*sys.exc_info())
             return None
-
+        path = ImageManager.findImage(imgRef.path, root)
+        if path is not None:
+            imgRef.path = path
         return imgRef
     return None
