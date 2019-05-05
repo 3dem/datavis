@@ -15,7 +15,8 @@ from emqt5.utils import EmPath, EmTable, EmImage
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
-                         MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, PickerView,
+                         MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
+                         SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel)
 from emqt5.views.base import AbstractView
 from emqt5.windows import BrowserWindow
@@ -68,6 +69,20 @@ if __name__ == '__main__':
         def __ls(self, pattern):
             return glob(pattern)
 
+    class ValidateStrList(argparse.Action):
+        """
+        Class that allows the validation of the values corresponding to
+        the "picker" parameter
+        """
+        def __init__(self, option_strings, dest, **kwargs):
+            argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            """
+            Build a list with parameters separated by spaces.
+            """
+            setattr(namespace, self.dest, values.split())
+
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
                                                     'viewer app',
@@ -116,8 +131,13 @@ if __name__ == '__main__':
                            required=False,
                            help=' an integer for pick size(Default=100).')
     argParser.add_argument('--shape', default='RECT',
-                           required=False, choices=['RECT', 'CIRCLE'],
-                           help=' the shape type [CIRCLE or RECT]')
+                           required=False, choices=['RECT', 'CIRCLE', 'CENTER'
+                                                    'SEGMENT'],
+                           help=' the shape type '
+                                '[CIRCLE, RECT, CENTER or SEGMENT]')
+    argParser.add_argument('--picker-mode', default='default', required=False,
+                           choices=['default', 'filament'],
+                           help=' the picker type [default or filament]')
     argParser.add_argument('--remove-rois', type=str, default='on',
                            required=False, choices=on_off,
                            help=' Enable/disable the option. '
@@ -130,6 +150,16 @@ if __name__ == '__main__':
                            required=False, choices=on_off,
                            help=' Enable/disable the option. '
                                 'The rois will work accordance with its center')
+    # COLUMNS PARAMS
+    argParser.add_argument('--visible', type=str, nargs='?', default='',
+                           required=False, action=ValidateStrList,
+                           help=' Columns to be shown (and their order).')
+    argParser.add_argument('--render', type=str, nargs='?', default='',
+                           required=False, action=ValidateStrList,
+                           help=' Columns to be rendered.')
+    argParser.add_argument('--sort', type=str, nargs='?', default='',
+                           required=False, action=ValidateStrList,
+                           help=' Sort command.')
 
     args = argParser.parse_args()
 
@@ -169,7 +199,18 @@ if __name__ == '__main__':
 
     # Picker params
     kwargs['boxsize'] = args.boxsize
-    kwargs['shape'] = SHAPE_RECT if args.shape == 'RECT' else SHAPE_CIRCLE
+    kwargs['picker_mode'] = DEFAULT_MODE \
+        if args.picker_mode == 'default' else FILAMENT_MODE
+    if kwargs['picker_mode'] == DEFAULT_MODE:
+        if args.shape == 'RECT':
+            kwargs['shape'] = SHAPE_RECT
+        elif args.shape == 'CIRCLE':
+            kwargs['shape'] = SHAPE_CIRCLE
+        else:
+            kwargs['shape'] = SHAPE_CENTER
+    else:
+        kwargs['shape'] = \
+            SHAPE_CENTER if args.shape == 'CENTER' else SHAPE_SEGMENT
     kwargs['remove_rois'] = args.remove_rois
     kwargs['roi_aspect_locked'] = args.roi_aspect_locked
     kwargs['roi_centered'] = args.roi_centered
@@ -265,7 +306,27 @@ if __name__ == '__main__':
             elif EmPath.isTable(files):  # Display the file as a Table:
                 if not args.view == 'slices':
                     t = EmTable.load(files)  # name, table
-                    view = createDataView(t[1], None, t[0],
+                    if args.visible or args.render:
+                        tableViewConfig = \
+                            TableViewConfig.fromTable(t[1], args.visible)
+                        renderCount = 0
+                        for colConfig in tableViewConfig:
+                            colName = colConfig.getName()
+                            if args.visible:
+                                colConfig['visible'] = colName in args.visible
+                            if args.render:
+                                ren = colName in args.render
+                                colConfig['renderable'] = ren
+                                renderCount += 1 if ren else 0
+                        if not renderCount == len(args.render):
+                            raise Exception('Invalid renderable column')
+                    else:
+                        tableViewConfig = None
+                    if args.sort:
+                        colName = t[1].getColumn(args.sort[0]).getName()
+                        order = " " + args.sort[1] if len(args.sort) > 1 else ""
+                        t[1].sort([colName + order])
+                    view = createDataView(t[1], tableViewConfig, t[0],
                                           views.get(args.view,
                                                     DataView.COLUMNS),
                                           dataSource=files,

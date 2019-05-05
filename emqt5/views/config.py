@@ -52,6 +52,20 @@ class TableViewConfig:
     def setShowRowIndex(self, s):
         self._rowIndex = s
 
+    def getIndexes(self, propName, value):
+        """ Return a indexes list having propName=value """
+        ret = []
+        for i, colConfig in enumerate(self):
+            if colConfig[propName] == value:
+                ret.append(i)
+        return ret
+
+    def clone(self):
+        tableViewConfig = TableViewConfig()
+        tableViewConfig._cols = [colConfig.clone() for colConfig in self._cols]
+        tableViewConfig._rowIndex = self._rowIndex
+        return tableViewConfig
+
     def __iter__(self):
         """ Iterate through all the column configs. """
         for colConfig in self._cols:
@@ -92,7 +106,7 @@ class TableViewConfig:
             colsConfig = tableColNames
 
         tvConfig = TableViewConfig()
-
+        rest = list(tableColNames)
         for item in colsConfig:
             if isinstance(item, str) or isinstance(item, unicode):
                 name = item
@@ -103,7 +117,7 @@ class TableViewConfig:
                 raise Exception("Invalid item type: %s" % type(item))
 
             # Only consider names that are present in the table ignore others
-            if name in tableColNames:
+            if name in tableColNames and name in rest:
                 col = table.getColumn(name)
                 # Take the values from the 'properties' dict or infer from col
                 cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
@@ -111,6 +125,22 @@ class TableViewConfig:
                     properties['description'] = col.getDescription()
                 properties['editable'] = False
                 tvConfig.addColumnConfig(name, cType, **properties)
+                rest.remove(name)
+            else:
+                raise Exception("Invalid column name: %s" % name)
+
+        # Add the others with visible=False or True if tvConfig is empty
+        visible = len(tvConfig) == 0
+        for colName in rest:
+            col = table.getColumn(colName)
+            # Take the values from the 'properties' dict or infer from col
+            cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
+            properties = dict()
+            properties['description'] = col.getDescription()
+            properties['editable'] = False
+            properties['visible'] = visible
+            tvConfig.addColumnConfig(colName, cType, **properties)
+
         return tvConfig
 
     @classmethod
@@ -118,7 +148,7 @@ class TableViewConfig:
         """ Create a TableViewConfig instance for a stack """
         tableViewConfig = TableViewConfig()
 
-        tableViewConfig.addColumnConfig(name='Image',
+        tableViewConfig.addColumnConfig(name='path',
                                         dataType=TableViewConfig.TYPE_STRING,
                                         label='Image',
                                         renderable=True,
@@ -135,18 +165,18 @@ class TableViewConfig:
                                         dataType=TableViewConfig.TYPE_INT,
                                         label='Index',
                                         editable=False,
-                                        visible=True)
+                                        visible=False)
         tableViewConfig.addColumnConfig(name='enabled',
                                         dataType=TableViewConfig.TYPE_BOOL,
                                         label='Enabled',
                                         editable=False,
-                                        visible=True)
+                                        visible=False)
         tableViewConfig.addColumnConfig(name='slice',
                                         dataType=TableViewConfig.TYPE_STRING,
                                         label='Slice',
                                         renderable=True,
                                         editable=False,
-                                        visible=True)
+                                        visible=False)
         return tableViewConfig
 
 
@@ -167,6 +197,8 @@ class ColumnConfig:
             - renderableReadOnly (Bool)
             - editable (Bool)
             - editableReadOnly (Bool)
+            - label (Bool)
+            - labelReadOnly (Bool)
         """
         self._name = name
         self._label = kwargs.get('label', name)
@@ -176,6 +208,7 @@ class ColumnConfig:
         self.__setProperty__('visible', True, False, **kwargs)
         self.__setProperty__('renderable', False, False, **kwargs)
         self.__setProperty__('editable', False, True, **kwargs)
+        self.__setProperty__('label', False, False, **kwargs)
 
     def __setProperty__(self, name, default, defaultRO, **kwargs):
         """ Internal function to define a 'property' that will
@@ -205,6 +238,16 @@ class ColumnConfig:
 
     def getDescrition(self):
         return self._description
+
+    def getPropertyNames(self):
+        return self._propertyNames
+
+    def clone(self):
+        copy = ColumnConfig(self._name, self._type, label=self._label,
+                            description=self._description)
+        for p in self._propertyNames:
+            copy[p] = self[p]
+        return copy
 
     def __getitem__(self, propertyName):
         """ Return the value of a given property.

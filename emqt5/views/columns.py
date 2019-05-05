@@ -5,8 +5,7 @@ from math import log10
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
                           QItemSelectionModel, QItemSelectionRange)
-from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView,
-                             QStyleOptionViewItem)
+from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
@@ -38,6 +37,7 @@ class ColumnsView(AbstractView):
         hHeader = HeaderView(self._tableView)
         hHeader.setHighlightSections(False)
         hHeader.sectionClicked.connect(self.__onHeaderClicked)
+        hHeader.setSectionsMovable(True)
         self._tableView.setHorizontalHeader(hHeader)
         self._tableView.verticalHeader().setTextElideMode(Qt.ElideRight)
         self._tableView.setObjectName("ColumnsViewTable")
@@ -100,15 +100,14 @@ class ColumnsView(AbstractView):
         if self._model:
             for i, colConfig in enumerate(self._model.getColumnConfig()):
                 delegate = self._defaultDelegate
-                if colConfig["renderable"] and \
-                        colConfig["visible"]:
+                if colConfig["renderable"]:
                     delegate = self._delegate
 
                 self._tableView.setItemDelegateForColumn(i, delegate)
 
-    def __setupVisibleColumns(self):
+    def setupVisibleColumns(self):
         """
-        Hide the columns with visible property=True or allowSetVisible=False
+        Hide the columns with visible property=True
         """
         for i, colConfig in enumerate(self._model.getColumnConfig()):
             if not colConfig["visible"]:
@@ -247,12 +246,18 @@ class ColumnsView(AbstractView):
 
         self.sigSelectionChanged.emit()
 
+    def updateViewConfiguration(self):
+        """ Update the columns configuration """
+        self.setupVisibleColumns()
+        self.__setupDelegatesForColumns()
+
     def setModel(self, model):
         """ Sets the model for this view """
         self._selection.clear()
         self._currentRow = 0
         if self._model is not None:
             self._model.headerDataChanged.disconnect(self.__onHeaderDataChanged)
+            self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
 
         self._tableView.setModel(model)
         #  remove sort indicator from all columns
@@ -260,8 +265,7 @@ class ColumnsView(AbstractView):
                                                             Qt.AscendingOrder)
         AbstractView.setModel(self, model)
         if model:
-            self.__setupDelegatesForColumns()
-            self.__setupVisibleColumns()
+            self.updateViewConfiguration()
             s = self._tableView.verticalHeader().defaultSectionSize()
             model.setIconSize(QSize(s, s))
             model.setupPage(self._pageSize, 0)
@@ -270,8 +274,17 @@ class ColumnsView(AbstractView):
             selModel.selectionChanged.connect(self.__onInternalSelectionChanged)
             model.headerDataChanged.connect(self.__onHeaderDataChanged)
             model.sigPageChanged.connect(self.__onCurrentPageChanged)
-
             self.setupColumnsWidth()
+            config = model.getTableViewConfig()
+            self.setLabelIndexes(
+                config.getIndexes('label', True) if config else [])
+        else:
+            self.setLabelIndexes([])
+
+    def resetTable(self):
+        self._tableView.reset()
+        if self._selection and self._model is not None:
+            self.__updateSelectionInView(self._model.getPage())
 
     def setRowHeight(self, height):
         """ Sets the heigth for all rows """
@@ -387,13 +400,16 @@ class ColumnsView(AbstractView):
         elif selectionBehavior == self.SELECT_ROWS:
             self._tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
 
-    def resizeColumnToContents(self, row):
+    def resizeColumnToContents(self, col=-1):
         """
         From QTableView:
-        Resizes the given row based on the size hints of the delegate used
+        Resizes the given column based on the size hints of the delegate used
         to render each item in the row.
         """
-        self._tableView.resizeColumnToContents(row)
+        if col < 0:
+            self._tableView.resizeColumnsToContents()
+        else:
+            self._tableView.resizeColumnToContents(col)
 
     def selectedIndexes(self):
         """
@@ -421,6 +437,14 @@ class ColumnsView(AbstractView):
     def getTableView(self):
         """ Return the QTableView widget used to display the items """
         return self._tableView
+
+    def setLabelIndexes(self, labels):
+        """
+        Initialize the indexes of the columns that will be displayed as text
+        below the images
+        labels (list)
+        """
+        self._delegate.setLabelIndexes(labels)
 
 
 class HeaderView(QHeaderView):

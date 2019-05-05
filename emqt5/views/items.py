@@ -49,78 +49,23 @@ class ItemsView(AbstractView):
         self._mainLayout.insertWidget(0, self._mainWidget)
         self._layout.insertWidget(0, self._splitter)
 
-    def __loadItem(self, row, col):
+    def __loadItem(self, row):
         """ Show the item at (row,col)"""
         self._imageView.clear()
         model = self._itemsViewTable.model()
         model.clear()
-        if self._model is not None \
-                and row in range(0, self._model.totalRowCount()) \
-                and col in range(0, self._model.columnCount()):
-            vLabels = []
-            if self._selectionMode == AbstractView.MULTI_SELECTION:
-                vLabels = ["SELECTED"]
-                self.__selectionItem = QStandardItem()
-                self.__selectionItem.setCheckable(True)
-                self.__selectionItem.setEditable(False)
-                model.appendRow([self.__selectionItem])
-
-            for i in range(0, self._model.columnCount()):
-                item = QStandardItem()
-                item.setData(self._model.getTableData(row, i),
-                             Qt.DisplayRole)
-                item.setEditable(False)
-                if i == col and self._model.getColumnConfig(col)['renderable']:
-                    imgPath = self._model.getTableData(row, i)
-                    imgRef = parseImagePath(imgPath, self._imageRef)
-                    if imgRef is not None:
-                        if imgRef.imageType & \
-                                ImageRef.SINGLE == ImageRef.SINGLE:
-                            imgId = imgRef.path
-                            index = 0
-                        elif imgRef.imageType & \
-                                ImageRef.STACK == ImageRef.STACK:
-                            if imgRef.imageType & \
-                                    ImageRef.VOLUME == ImageRef.VOLUME:
-                                imgId = '%d-%s' % (imgRef.volumeIndex,
-                                                   imgRef.path)
-                                index = imgRef.volumeIndex
-                            else:
-                                imgId = '%d-%s' % (imgRef.index, imgRef.path)
-                                index = imgRef.index
-
-                        data = self._imgCache.addImage(imgId, imgRef.path,
-                                                       index)
-                        self._imageView.setImageInfo(
-                            path=imgRef.path, format=EmPath.getExt(imgRef.path),
-                            data_type=' ')
-                        if data is not None:
-                            if imgRef.axis == X_AXIS:
-                                data = data[:, :, imgRef.index]
-                            elif imgRef.axis == Y_AXIS:
-                                imgRef.axis = data[:, imgRef.index, :]
-                            elif imgRef.axis == Z_AXIS:
-                                data = data[imgRef.index, :, :]
-
-                            self._imageView.setImage(data)
-
-                model.appendRow([item])
-                label = self._model.headerData(i, Qt.Horizontal)
-                if label:
-                    vLabels.append(label)
-            model.setHorizontalHeaderLabels(["Values"])
-            model.setVerticalHeaderLabels(vLabels)
-            self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
-            if self._selectionMode == AbstractView.SINGLE_SELECTION:
-                self._selection.clear()
-                self._selection.add(row)
-                self.sigSelectionChanged.emit()
-
-            self.__updateSelectionInView()
-            self.sigCurrentRowChanged.emit(row)
+        self.loadCurrentItems()
+        self.loadImages(row)
+        if self._selectionMode == AbstractView.SINGLE_SELECTION:
+            self._selection.clear()
+            self._selection.add(row)
+            self.sigSelectionChanged.emit()
+        self.__updateSelectionInView()
+        self.sigCurrentRowChanged.emit(row)
 
     def __updateSelectionInView(self):
-        if self._selectionMode == AbstractView.MULTI_SELECTION:
+        if self._selectionMode == AbstractView.MULTI_SELECTION and \
+                self.__selectionItem is not None:
             if self._row in self._selection:
                 self.__selectionItem.setCheckState(Qt.Checked)
             else:
@@ -141,19 +86,18 @@ class ItemsView(AbstractView):
             elif item.checkState() == Qt.Unchecked:
                 item.setCheckState(Qt.Checked)
 
-
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onDataChanged(self, topLeft, bottomRight):
         """ Invoked whenever the data in an existing item changes."""
         row = self._model.getPage() * self._model.getPageSize() + topLeft.row()
         if row == self._row:
-            self.__loadItem(self._row, self._column)
+            self.__loadItem(self._row)
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """ Invoked when change the current page """
         self._row = page
-        self.__loadItem(self._row, self._column)
+        self.__loadItem(self._row)
 
     @pyqtSlot(set)
     def changeSelection(self, selection):
@@ -164,14 +108,14 @@ class ItemsView(AbstractView):
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
         self._column = column
-        self.__loadItem(self._row, self._column)
+        self.updateViewConfiguration()
 
     def selectRow(self, row):
         """ Selects the given row """
         if self._model is not None and \
                 row in range(0, self._model.totalRowCount()):
             self._row = row
-            self.__loadItem(self._row, self._column)
+            self.__loadItem(self._row)
 
     def getModelColumn(self):
         """ Returns the column in the model that is visible. """
@@ -181,6 +125,7 @@ class ItemsView(AbstractView):
         """ Sets the model """
         self._row = 0
         self._column = 0
+        self.__selectionItem = None
         if self._model:
             self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
             self._model.dataChanged.disconnect(self.__onDataChanged)
@@ -225,3 +170,90 @@ class ItemsView(AbstractView):
         format: (str) the image format
         data_type: (str) the image data type"""
         self._imageView.setImageInfo(**kwargs)
+
+    def updateViewConfiguration(self):
+        """ Reimplemented from AbstractView """
+        self._imageView.setVisible(self._model is not None and
+                                   self._model.hasRenderableColumn())
+        self.__loadItem(self._row)
+
+    def loadImages(self, row):
+        """
+        Load the images referenced by the given row and all the columns marked
+        as renderable.
+        TODO[hv]: Now only one image is displayed, but in the future all
+        renderable columns will be displayed
+        """
+        if self._model is not None \
+                and row in range(0, self._model.totalRowCount()) \
+                and self._column in range(0, self._model.columnCount()):
+            indexes = self._model.getColumnConfig().getIndexes('renderable',
+                                                               True)
+            if indexes:
+                imgPath = self._model.getTableData(row, indexes[0])
+                imgRef = parseImagePath(imgPath, self._imageRef)
+                if imgRef is not None:
+                    if imgRef.imageType & \
+                            ImageRef.SINGLE == ImageRef.SINGLE:
+                        imgId = imgRef.path
+                        index = 0
+                    elif imgRef.imageType & \
+                            ImageRef.STACK == ImageRef.STACK:
+                        if imgRef.imageType & \
+                                ImageRef.VOLUME == ImageRef.VOLUME:
+                            imgId = '%d-%s' % (imgRef.volumeIndex,
+                                               imgRef.path)
+                            index = imgRef.volumeIndex
+                        else:
+                            imgId = '%d-%s' % (imgRef.index,
+                                               imgRef.path)
+                            index = imgRef.index
+
+                    data = self._imgCache.addImage(imgId, imgRef.path,
+                                                   index)
+                    self._imageView.setImageInfo(
+                        path=imgRef.path,
+                        format=EmPath.getExt(imgRef.path),
+                        data_type=' ')
+                    if data is not None:
+                        if imgRef.axis == X_AXIS:
+                            data = data[:, :, imgRef.index]
+                        elif imgRef.axis == Y_AXIS:
+                            imgRef.axis = data[:, imgRef.index, :]
+                        elif imgRef.axis == Z_AXIS:
+                            data = data[imgRef.index, :, :]
+                        self._imageView.setImage(data)
+
+    def loadCurrentItems(self):
+        """ Load the side table of values """
+        model = self._itemsViewTable.model()
+        model.clear()
+        if self._model is not None \
+                and self._row in range(0, self._model.totalRowCount()) \
+                and self._column in range(0, self._model.columnCount()):
+            vLabels = []
+            if self._selectionMode == AbstractView.MULTI_SELECTION:
+                vLabels = ["SELECTED"]
+                self.__selectionItem = QStandardItem()
+                self.__selectionItem.setCheckable(True)
+                self.__selectionItem.setEditable(False)
+                if self._selection is not None and self._row in self._selection:
+                    self.__selectionItem.setCheckState(Qt.Checked)
+                model.appendRow([self.__selectionItem])
+            else:
+                self.__selectionItem = None
+
+            for i in range(0, self._model.columnCount()):
+                colConfig = self._model.getColumnConfig(i)
+                if colConfig['visible']:
+                    item = QStandardItem()
+                    item.setData(self._model.getTableData(self._row, i),
+                                 Qt.DisplayRole)
+                    item.setEditable(False)
+                    model.appendRow([item])
+                    label = self._model.headerData(i, Qt.Horizontal)
+                    if isinstance(label, str) or isinstance(label, unicode):
+                        vLabels.append(label)
+            model.setHorizontalHeaderLabels(["Values"])
+            model.setVerticalHeaderLabels(vLabels)
+            self._itemsViewTable.horizontalHeader().setStretchLastSection(True)

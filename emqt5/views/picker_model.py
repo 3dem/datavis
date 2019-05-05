@@ -46,9 +46,26 @@ class Micrograph:
         if coordinates:
             for c in coordinates:
                 if isinstance(c, tuple):
-                    self._coordinates.append(
-                        Coordinate(c[0], c[1],
-                                   c[2] if not c[2] == "" else "Default"))
+                    size = len(c)
+                    if size == 2:
+                        self._coordinates.append(Coordinate(c[0], c[1],
+                                                            "Default"))
+                    elif size == 3:
+                        self._coordinates.append(
+                            Coordinate(c[0], c[1],
+                                       c[2] if not c[2] == "" else "Default"))
+                    elif size == 4:
+                        self._coordinates.append(
+                            (Coordinate(c[0], c[1], "Default"),
+                             Coordinate(c[2], c[3], "Default")))
+                    elif size == 5:
+                        t = c[4] if not c[4] == "" else "Default"
+                        self._coordinates.append((Coordinate(c[0], c[1], t),
+                                                  Coordinate(c[2], c[3], t)))
+                    else:
+                        raise Exception(
+                            "Invalid coordinate specification for :%d."
+                            % str(c))
                 elif isinstance(c, Coordinate):
                     self._coordinates.append(c)
                 else:
@@ -124,19 +141,19 @@ class PickerDataModel:
         """
         automatic = dict()
         automatic["name"] = "Auto"
-        automatic["color"] = "#FF0004"  # #AARRGGBB
+        automatic["color"] = "#0012FF"  # #AARRGGBB
         self._labels["Auto"] = automatic
         self._privateLabels["A"] = automatic
 
         manual = dict()
         manual["name"] = "Manual"
-        manual["color"] = "#1500FF"  # #AARRGGBB
+        manual["color"] = "#1EFF00"  # #AARRGGBB
         self._labels["Manual"] = manual
         self._privateLabels["M"] = manual
 
         default = dict()
         default["name"] = "Default"
-        default["color"] = "#74ea00"  # #AARRGGBB
+        default["color"] = "#1EFF00"  # #AARRGGBB
         self._labels["Default"] = default
         self._privateLabels["D"] = default
 
@@ -174,7 +191,9 @@ class PickerDataModel:
         """
         ret = self._labels.get(labelName)
 
-        return ret if ret else self._privateLabels.get(labelName)
+        return ret if ret \
+            else self._privateLabels.get(labelName,
+                                         self._privateLabels.get('D'))
 
     def nextId(self):
         """

@@ -1,14 +1,17 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel, QGroupBox,
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QVariant
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
                              QSizePolicy, QSpacerItem, QPushButton, QCheckBox,
                              QGraphicsPixmapItem, QRadioButton, QButtonGroup,
-                             QComboBox)
-from PyQt5.QtGui import QPixmap, QPalette, QPen
+                             QComboBox, QItemDelegate, QColorDialog,
+                             QTableWidget, QFormLayout, QTableWidgetItem,
+                             QLineEdit)
+from PyQt5.QtGui import QPixmap, QPalette, QPen, QColor, QIntValidator
 
 import qtawesome as qta
 import pyqtgraph as pg
@@ -29,9 +32,15 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
+        self._noImageItem = pg.TextItem("NO IMAGE")
+        self._labelText = []
+        self._imageView.getView().addItem(self._noImageItem)
+        self._noImageItem.setVisible(False)
         self._imageRef = ImageRef()
         self._sBorder = 3  # selected state border (px)
+        self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
+        self.__labelIndexes = []
 
     def paint(self, painter, option, index):
         """
@@ -52,6 +61,17 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 painter.fillRect(option.rect,
                                  option.palette.color(colorGroup,
                                                       QPalette.Highlight))
+            else:
+                colorGroup = QPalette.Active
+                painter.fillRect(option.rect,
+                                 option.palette.color(colorGroup,
+                                                      QPalette.HighlightedText))
+            if self.__labelIndexes:
+                h -= self._textHeight * len(self.__labelIndexes)
+                self._setupText(index)
+            else:
+                self._labelText = []
+
             self._setupView(index, w, h)
             rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
                          h - 2 * self._sBorder)
@@ -65,8 +85,30 @@ class EMImageItemDelegate(QStyledItemDelegate):
                     option.palette.color(QPalette.Active,
                                          QPalette.Highlight))
                 painter.setPen(self._focusPen)
+                rect.setRect(x, y, w - 1, h - 1)
+                if self._labelText:
+                    rect.setHeight(
+                        h + self._textHeight * len(self.__labelIndexes) - 1)
                 painter.drawRect(rect)
                 painter.restore()
+            for i, text in enumerate(self._labelText):
+                rect.setRect(x + self._sBorder, y + h + i * self._textHeight,
+                             w - 2 * self._sBorder, self._textHeight)
+                painter.drawText(rect, Qt.AlignLeft, text)
+
+    def _setupText(self, index):
+        """ Configure the label text """
+        model = index.model()
+        self._labelText = []
+        if model is not None and self.__labelIndexes:
+            for lIndex in self.__labelIndexes:
+                value = model.data(
+                    model.createIndex(index.row(), lIndex))
+                if isinstance(value, QVariant):
+                    value = value.value()
+                self._labelText.append("%s=%s" %
+                                       (model.getColumnConfig(lIndex).getName(),
+                                        str(value)))
 
     def _setupView(self, index, width, height):
         """
@@ -75,31 +117,37 @@ class EMImageItemDelegate(QStyledItemDelegate):
         imgData = self._getThumb(index)
 
         if imgData is None:
+            self._imageView.clear()
+            v = self._imageView.getView()
+            v.addItem(self._noImageItem)
+            self._noImageItem.setVisible(True)
+            v.autoRange(padding=0)
             return
-
+        self._noImageItem.setVisible(False)
         size = index.data(Qt.SizeHintRole)
-        (w, h) = (size.width(), size.height())
+        if size is not None:
+            (w, h) = (size.width(), size.height())
 
-        v = self._imageView.getView()
-        (cw, ch) = (v.width(), v.height())
+            v = self._imageView.getView()
+            (cw, ch) = (v.width(), v.height())
 
-        if not (w, h) == (cw, ch):
-            v.setGeometry(0, 0, width, height)
-            v.resizeEvent(None)
+            if not (w, h) == (cw, ch):
+                v.setGeometry(0, 0, width, height)
+                v.resizeEvent(None)
 
-        if not isinstance(imgData, QPixmap):  # QPixmap or np.array
-            if self._pixmapItem:
-                self._pixmapItem.setVisible(False)
+            if not isinstance(imgData, QPixmap):  # QPixmap or np.array
+                if self._pixmapItem:
+                    self._pixmapItem.setVisible(False)
 
-            self._imageView.setImage(imgData)
-        else:
-            if not self._pixmapItem:
-                self._pixmapItem = QGraphicsPixmapItem(imgData)
-                v.addItem(self._pixmapItem)
+                self._imageView.setImage(imgData)
             else:
-                self._pixmapItem.setPixmap(imgData)
-            self._pixmapItem.setVisible(True)
-        v.autoRange(padding=0)
+                if not self._pixmapItem:
+                    self._pixmapItem = QGraphicsPixmapItem(imgData)
+                    v.addItem(self._pixmapItem)
+                else:
+                    self._pixmapItem.setPixmap(imgData)
+                self._pixmapItem.setVisible(True)
+            v.autoRange(padding=0)
 
     def _getThumb(self, index, height=100):
         """
@@ -156,6 +204,93 @@ class EMImageItemDelegate(QStyledItemDelegate):
     def getImageCache(self):
         """ Getter for imageCache """
         return self._imgCache
+
+    def setLabelIndexes(self, indexes):
+        """
+        Initialize the indexes of the columns that will be displayed as text
+        below the images
+        labels : (list)
+        """
+        self.__labelIndexes = indexes
+
+    def getTextHeight(self):
+        """ The height of text """
+        return self._textHeight
+
+
+class ColorItemDelegate(QStyledItemDelegate):
+    """
+    ColorItemDelegate class provides display and editing facilities for
+    QColor selections.
+    """
+    def createEditor(self, parent, option, index):
+        return QColorDialog(parent=parent)
+
+    def setEditorData(self, editor, index):
+        color = index.data(Qt.BackgroundRole)
+        if color is not None:
+            editor.setCurrentColor(color)
+
+    def setModelData(self, editor, model, index):
+        color = editor.currentColor()
+        model.setData(index, color, Qt.BackgroundRole)
+
+
+class ComboBoxStyleItemDelegate(QStyledItemDelegate):
+    """
+    ComboBoxStyleItemDelegate class provides display and editing facilities for
+    text list selection.
+    """
+    def __init__(self, parent=None, values=None):
+        QStyledItemDelegate.__init__(self, parent=parent)
+        self._values = []
+        self.setValues(values)
+
+    def setValues(self, values):
+        if isinstance(values, list):
+            index = 0
+            for text in values:
+                self._values.append((text, index))
+                index += 1
+
+    def createEditor(self, parent, option, index):
+        return QComboBox(parent=parent)
+
+    def setEditorData(self, editor, index):
+        index = index.data(Qt.UserRole)
+        for text, value in self._values:
+            editor.addItem(text, QVariant(value))
+        if index is not None:
+            editor.setCurrentIndex(index)
+
+    def setModelData(self, editor, model, index):
+        data = editor.currentData()
+        model.setData(index, data, Qt.UserRole)
+        text = editor.currentText()
+        model.setData(index, text, Qt.DisplayRole)
+
+
+class MarkerStyleItemDelegate(QStyledItemDelegate):
+    """
+    PenStyleItemDelegate class provides display and editing facilities for
+    QPen style selection.
+    """
+    def createEditor(self, parent, option, index):
+        return QComboBox(parent=parent)
+
+    def setEditorData(self, editor, index):
+        index = index.data(Qt.UserRole)
+        editor.addItem('Solid', QVariant(Qt.SolidLine))
+        editor.addItem('Dashed', QVariant(Qt.DashLine))
+        editor.addItem('Dotted', QVariant(Qt.DotLine))
+        if index is not None:
+            editor.setCurrentIndex(index)
+
+    def setModelData(self, editor, model, index):
+        data = editor.currentData()
+        model.setData(index, data, Qt.UserRole)
+        text = editor.currentText()
+        model.setData(index, text, Qt.DisplayRole)
 
 
 class PageBar(QWidget):
@@ -377,6 +512,15 @@ class AbstractView(QWidget):
         """
         pass
 
+    def updateViewConfiguration(self):
+        """
+        It must be invoked when you need to update any change in the view
+        according to modifications made to the model.
+        If necessary, implement in inherited classes.
+        AbstractView does not call this method.
+        """
+        pass
+
 
 class OptionList(QWidget):
     """
@@ -472,3 +616,312 @@ class OptionList(QWidget):
             self.__comboBox.setCurrentIndex(optionId)
         elif isinstance(self.__singleWidget, QSlider):
             self.__singleWidget.setValue(optionId)
+
+
+class ColumnPropertyItemDelegate(QItemDelegate):
+    """ Class used to provide custom display features for column properties """
+    def __init__(self, parent=None, checkedIcon=None, uncheckedIcon=None,
+                 partiallyCheckedIcon=None):
+        QItemDelegate.__init__(self, parent=parent)
+        self.__checkedIcon = checkedIcon
+        self.__uncheckedIcon = uncheckedIcon
+        self.__partiallyCheckedIcon = partiallyCheckedIcon
+
+    def drawCheck(self, painter, option, rect, state):
+        if rect is not None and rect.isValid():
+            icon = None
+
+            if state == Qt.Checked and self.__checkedIcon is not None:
+                icon = self.__checkedIcon
+            elif state == Qt.Unchecked and self.__uncheckedIcon is not None:
+                icon = self.__uncheckedIcon
+            elif state == Qt.PartiallyChecked and \
+                    self.__partiallyCheckedIcon is not None:
+                icon = self.__partiallyCheckedIcon
+
+            if icon is not None:
+                painter.drawImage(rect.x(), rect.y(), icon)
+            else:
+                QItemDelegate.drawCheck(self, painter, option, rect, state)
+
+
+class PlotConfigWidget(QWidget):
+    """ The plot configuration widget """
+
+    """ 
+    This signal is emitted when the current configuration contains errors
+    emit(str:error)     
+    """
+    # TODO[hv] emit error code, not str message
+    sigError = pyqtSignal(str)
+
+    def __init__(self, parent=None, **kwargs):
+        """
+        kwargs:
+          params (str list): The rows for the configuration table
+          colors (str list): The initial colors for params ('#FF34AA')
+          styles (str list): The styles for user selection
+                             ['solid', 'dashed', 'dotted', ...]
+          markers (str list): The markers for user selection
+                             ['none', '.', ',', 'o', ...]
+          plot-types (str list): The plot types
+                                 ['Plot', 'Histogram', 'Scatter']
+        """
+        QWidget.__init__(self, parent=parent)
+        self.__params = kwargs.get('params', [])
+        self.__markers = kwargs.get('markers', ["none", ".", ",", "o", "v", "^",
+                                                "<", ">", "1", "2", "3", "4",
+                                                "s", "p", "h", "H", "+", "x",
+                                                "D", "d", "|", "_"])
+        self.__styles = kwargs.get('styles', ['solid', 'dashed', 'dotted'])
+        self.__colors = kwargs.get('colors', [Qt.blue, Qt.green, Qt.red,
+                                              Qt.black, Qt.darkYellow,
+                                              Qt.yellow, Qt.magenta, Qt.cyan])
+        self.__plotTypes = kwargs.get('plot-types',
+                                      ['Plot', 'Histogram', 'Scatter'])
+        self.__markerDelegate = \
+            ComboBoxStyleItemDelegate(parent=self,
+                                      values=self.__markers)
+        self.__lineStyleDelegate = \
+            ComboBoxStyleItemDelegate(
+                parent=self, values=[stl.capitalize() for stl in self.__styles])
+        self.__colorDelegate = ColorItemDelegate(parent=self)
+        checkedIcon = qta.icon('fa5s.file-signature')
+        unCheckedIcon = qta.icon('fa5s.file-signature', color='#d4d4d4')
+        self.__checkDelegate = \
+            ColumnPropertyItemDelegate(self, checkedIcon.pixmap(16).toImage(),
+                                       unCheckedIcon.pixmap(16).toImage())
+        self.__setupUi()
+        self.__initPlotConfWidgets()
+
+    def __setupUi(self):
+        vLayout = QVBoxLayout(self)
+        formLayout = QFormLayout()
+        formLayout.setLabelAlignment(
+            Qt.AlignRight | Qt.AlignTrailing | Qt.AlignVCenter)
+        formLayout.setWidget(0, QFormLayout.LabelRole,
+                             QLabel(text='Title: ', parent=self))
+        self._lineEditPlotTitle = QLineEdit(parent=self)
+        self._lineEditPlotTitle.setSizePolicy(QSizePolicy.Expanding,
+                                              QSizePolicy.Preferred)
+        formLayout.setWidget(0, QFormLayout.FieldRole, self._lineEditPlotTitle)
+        formLayout.setWidget(1, QFormLayout.LabelRole,
+                             QLabel(text='X label: ', parent=self))
+        self._lineEditXlabel = QLineEdit(parent=self)
+        formLayout.setWidget(1, QFormLayout.FieldRole,
+                             self._lineEditXlabel)
+        formLayout.setWidget(2, QFormLayout.LabelRole,
+                             QLabel(text='Y label: ', parent=self))
+        self._lineEditYlabel = QLineEdit(parent=self)
+        formLayout.setWidget(2, QFormLayout.FieldRole, self._lineEditYlabel)
+        formLayout.setWidget(3, QFormLayout.LabelRole,
+                             QLabel(text='Type: ', parent=self))
+        self._comboBoxPlotType = QComboBox(parent=self)
+        for plotType in self.__plotTypes:
+            self._comboBoxPlotType.addItem(plotType)
+
+        self._comboBoxPlotType.currentIndexChanged.connect(
+            self.__onCurrentPlotTypeChanged)
+
+        formLayout.setWidget(3, QFormLayout.FieldRole, self._comboBoxPlotType)
+        self._labelBins = QLabel(parent=self)
+        self._labelBins.setText('Bins')
+        self._lineEditBins = QLineEdit(self)
+        self._lineEditBins.setText('50')
+        formLayout.setWidget(4, QFormLayout.LabelRole, self._labelBins)
+        formLayout.setWidget(4, QFormLayout.FieldRole, self._lineEditBins)
+        self._labelBins.setVisible(False)
+        self._lineEditBins.setVisible(False)
+        self._lineEditBins.setFixedWidth(80)
+        self._lineEditBins.setValidator(QIntValidator())
+        formLayout.setWidget(5, QFormLayout.LabelRole, QLabel(text='X Axis: ',
+                                                              parent=self))
+        self._comboBoxXaxis = QComboBox(parent=self)
+        self._comboBoxXaxis.currentIndexChanged.connect(
+            self.__onCurrentXaxisChanged)
+        formLayout.setWidget(5, QFormLayout.FieldRole, self._comboBoxXaxis)
+        vLayout.addLayout(formLayout)
+        label = QLabel(parent=self,
+                       text="<strong>Plot columns:</strong>")
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        vLayout.addWidget(label, 0, Qt.AlignLeft)
+        self._tablePlotConf = QTableWidget(self)
+        self._tablePlotConf.setObjectName("tablePlotConf")
+        self._tablePlotConf.setSelectionMode(QTableWidget.NoSelection)
+        self._tablePlotConf.setSelectionBehavior(QTableWidget.SelectRows)
+        self._tablePlotConf.setFocusPolicy(Qt.NoFocus)
+        self._tablePlotConf.setMinimumSize(self._tablePlotConf.sizeHint())
+        self._tablePlotConf.setSizePolicy(QSizePolicy.Expanding,
+                                          QSizePolicy.Expanding)
+        self._tablePlotConf.setColumnCount(5)
+        self._tablePlotConf.setHorizontalHeaderLabels(['Label', 'Plot',
+                                                       'Color', 'Line Style',
+                                                       'Marker'])
+        self._tablePlotConf.setItemDelegateForColumn(1, self.__checkDelegate)
+        self._tablePlotConf.setItemDelegateForColumn(
+            2, ColorItemDelegate(parent=self._tablePlotConf))
+        self._tablePlotConf.setItemDelegateForColumn(
+            3, self.__lineStyleDelegate)
+        self._tablePlotConf.setItemDelegateForColumn(
+            4, self.__markerDelegate)
+        self._tablePlotConf.verticalHeader().setVisible(False)
+        self._tablePlotConf.setEditTriggers(QTableWidget.AllEditTriggers)
+
+        vLayout.addWidget(self._tablePlotConf)
+
+    def __initPlotConfWidgets(self):
+        """ Initialize the plot configurations widgets """
+        self._comboBoxXaxis.clear()
+        self._comboBoxXaxis.addItem(" ")
+        self._tablePlotConf.clearContents()
+        row = 0
+        self._tablePlotConf.setRowCount(len(self.__params))
+        nColors = len(self.__colors)
+
+        for i, colName in enumerate(self.__params):
+            self._comboBoxXaxis.addItem(colName)
+            item = QTableWidgetItem(colName)
+            item.setFlags(Qt.ItemIsEnabled)
+            itemPlot = QTableWidgetItem("")  # for plot option
+            itemPlot.setCheckState(Qt.Unchecked)
+            itemColor = QTableWidgetItem("")  # for color option
+            itemColor.setData(Qt.BackgroundRole,
+                              QColor(self.__colors[i % nColors]))
+            itemLineStye = QTableWidgetItem("")  # for line style option
+            itemLineStye.setData(Qt.DisplayRole,
+                                 self.__styles[0].capitalize())
+            itemLineStye.setData(Qt.UserRole, 0)
+            itemMarker = QTableWidgetItem("")  # for marker option
+            itemMarker.setData(Qt.DisplayRole, self.__markers[0])
+            itemMarker.setData(Qt.UserRole, 0)
+            self._tablePlotConf.setItem(row, 0, item)
+            self._tablePlotConf.setItem(row, 1, itemPlot)
+            self._tablePlotConf.setItem(row, 2, itemColor)
+            self._tablePlotConf.setItem(row, 3, itemLineStye)
+            self._tablePlotConf.setItem(row, 4, itemMarker)
+            row += 1
+
+        self._tablePlotConf.resizeColumnsToContents()
+        self._tablePlotConf.horizontalHeader().setStretchLastSection(True)
+
+    def __getSelectedPlotProperties(self):
+        """
+        Return a dict with all plot properties for each row (param).
+        Example:
+             {
+                'param1': {
+                           'color': '#4565FF',
+                           'line-style': 'dashed',
+                           'marker':'o'
+                          }
+                ...
+                param-n
+             }
+        """
+        ret = dict()
+        for i in range(self._tablePlotConf.rowCount()):
+            if self._tablePlotConf.item(i, 1).checkState() == Qt.Checked:
+                p = dict()
+                p['color'] = self._tablePlotConf.item(i, 2).data(
+                    Qt.BackgroundRole).name()
+                p['line-style'] = self._tablePlotConf.item(i, 3).text().lower()
+                p['marker'] = self._tablePlotConf.item(i, 4).text()
+                ret[self.__params[i]] = p
+
+        return ret
+
+    @pyqtSlot()
+    def __onCurrentPlotTypeChanged(self):
+        """ Invoked when the current plot type is changed """
+        visible = self._comboBoxPlotType.currentText() == 'Histogram'
+        self._labelBins.setVisible(visible)
+        self._lineEditBins.setVisible(visible)
+
+    @pyqtSlot()
+    def __onCurrentXaxisChanged(self):
+        """
+        Invoked when the current x axis is changed configuring the plot
+        operations
+        """
+        self._lineEditXlabel.setText(self._comboBoxXaxis.currentText())
+
+    def setParams(self, params=[], **kwargs):
+        """ Initialize the configuration parameters """
+        self.__params = params
+        self.__markers = kwargs.get('markers', self.__markers)
+        self.__styles = kwargs.get('styles', self.__styles)
+        self.__colors = kwargs.get('colors', self.__colors)
+        self.__plotTypes = kwargs.get('plot-types', self.__plotTypes)
+        self.__initPlotConfWidgets()
+
+    def setTitleText(self, text):
+        """ Sets the title label text """
+        self._titleLabel.setText(text)
+
+    def getConfiguration(self):
+        """
+        Return a dict with the configuration parameters or None
+        for invalid configuration.
+        emit sigError
+        dict: {
+        'params': {
+                    'param1': {
+                               'color': '#4565FF',
+                               'line-style': 'dashed',
+                               'marker':'o'
+                              }
+                    ...
+                    param-n
+                  }
+        'config':{
+                  'title': 'Plot title',
+                  'x-label': 'xlabel',
+                  'y-label': 'ylabel',
+                  'plot-type': 'Plot' or 'Histogram' or 'Scatter',
+                  'x-axis': 'x-axis',
+                  'bins': int (if type=Histogram)
+                 }
+        }
+        """
+        plotProp = self.__getSelectedPlotProperties()
+        if len(plotProp) > 0:
+            config = dict()
+            plotType = self._comboBoxPlotType.currentText()
+            config['plot-type'] = plotType
+
+            xLabel = self._lineEditXlabel.text().strip()
+            yLabel = self._lineEditYlabel.text().strip()
+            title = self._lineEditPlotTitle.text().strip()
+            xAxis = self._comboBoxXaxis.currentText().strip()
+
+            if len(xAxis):
+                config['x-axis'] = xAxis
+            if len(title):
+                config['title'] = title
+            if len(xLabel):
+                config['x-label'] = xLabel
+            if len(yLabel):
+                config['y-label'] = yLabel
+            if plotType == 'Histogram':
+                bins = self._lineEditBins.text().strip()
+                if len(bins):
+                    config['bins'] = int(self._lineEditBins.text())
+                else:
+                    self.sigError.emit('Invalid bins value')
+                    return None
+            ret = dict()
+            ret['params'] = plotProp
+            ret['config'] = config
+            return ret
+        else:
+            self.sigError.emit('No columns selected for plotting')
+            return None
+
+    def sizeHint(self):
+        """ Reimplemented from QWidget """
+        s = QWidget.sizeHint(self)
+        w = 4 * self.layout().contentsMargins().left()
+        for column in range(self._tablePlotConf.columnCount()):
+            w += self._tablePlotConf.columnWidth(column)
+        s.setWidth(w)
+        return s

@@ -64,22 +64,17 @@ def createVolumeView(path, **kwargs):
 
 def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
     """ Create an DataView and load the volume from the given path """
-    try:
-        kwargs['view'] = defaultView
-        dataView = DataView(None, **kwargs)
-        path = kwargs.get('dataSource')
-        dataView.setModel(TableDataModel(table, titles=titles,
-                                         tableViewConfig=tableViewConfig,
-                                         dataSource=path))
-        dataView.setView(defaultView)
-        if not (path is None or EmPath.isTable(path)):
-            dataView.setDataInfo(EmImage.getInfo(path))
+    kwargs['view'] = defaultView
+    dataView = DataView(None, **kwargs)
+    path = kwargs.get('dataSource')
+    dataView.setModel(TableDataModel(table, titles=titles,
+                                     tableViewConfig=tableViewConfig,
+                                     dataSource=path))
+    dataView.setView(defaultView)
+    if not (path is None or EmPath.isTable(path)):
+        dataView.setDataInfo(EmImage.getInfo(path))
 
-        return dataView
-    except Exception as ex:
-        raise ex
-    except RuntimeError as ex:
-        raise ex
+    return dataView
 
 
 class ImageElemParser:
@@ -164,11 +159,22 @@ def parseTextCoordinates(path):
     """
     with open(path) as f:
         for line in f:
-            l = line.strip()
-            if l:
-                parts = l.strip().split()
-                yield int(parts[0]), int(parts[1]), str(parts[2]) \
-                    if len(parts) > 2 else ""
+            li = line.strip()
+            if li:
+                parts = li.strip().split()
+                size = len(parts)
+                if size == 2:  # (x, y)
+                    yield int(parts[0]), int(parts[1]), ""
+                elif size == 3:  # (x, y, label)
+                    yield int(parts[0]), int(parts[1]), str(parts[2])
+                elif size == 4:  # (x1, y1, x2, y2)
+                    yield int(parts[0]), int(parts[1]), \
+                          int(parts[2]), int(parts[3]), ""
+                elif size == 5:  # (x1, y1, x2, y2, label):
+                    yield int(parts[0]), int(parts[1]), \
+                          int(parts[2]), int(parts[3]), str(parts[4])
+                else:
+                    yield ""
 
 
 def createPickerModel(files, boxsize):

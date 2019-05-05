@@ -3,13 +3,16 @@
 
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange)
+                          QItemSelectionModel, QItemSelectionRange, QRect)
 from PyQt5.QtWidgets import QAbstractItemView, QListView
+from PyQt5.QtGui import QPainter
 
 from PyQt5 import QtCore
 
 from .model import ImageCache
 from .base import AbstractView, EMImageItemDelegate
+
+from random import sample as random_sample
 
 
 class GalleryView(AbstractView):
@@ -179,11 +182,22 @@ class GalleryView(AbstractView):
         self._currentRow = 0
         AbstractView.setModel(self, model)
         if model:
-            model.setIconSize(self._listView.iconSize())
             model.setupPage(self._pageSize, 0)
+            self.setIconSize(self._listView.iconSize())
             sModel = self._listView.selectionModel()
             sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
+            config = model.getTableViewConfig()
+            self.setLabelIndexes(
+                config.getIndexes('visible', True) if config else [])
+            self.updateViewConfiguration()
+        else:
+            self.setLabelIndexes([])
+
+    def resetGallery(self):
+        self._listView.reset()
+        if self._selection and self._model is not None:
+            self.__updateSelectionInView(self._model.getPage())
 
     def setModelColumn(self, column):
         """ Holds the column in the model that is visible. """
@@ -193,14 +207,38 @@ class GalleryView(AbstractView):
     def setIconSize(self, size):
         """
         Sets the icon size.
-        size: (width, height)
+        size: (width, height) or QSize
         """
-        s = QSize(size[0], size[1])
+        if not isinstance(size, QSize):
+            s = QSize(size[0], size[1])
+        else:
+            s = size
+            size = size.width(), size.height()
+        if self._model is not None:
+            colConfig = self._model.getColumnConfig()
+            if colConfig is not None:
+                vIndexes = colConfig.getIndexes('visible', True)
+                lSize = len(vIndexes)
+                s = QSize(size[0], size[1])
+                if lSize > 0:
+                    maxWidth = 0
+                    r = self._model.totalRowCount()
+                    fontMetrics = self._listView.fontMetrics()
+                    for i in random_sample(range(r), min(10, r)):
+                        for j in vIndexes:
+                            text = ' %s = %s ' % (
+                                self._model.getColumnConfig(j).getName(),
+                                str(self._model.getTableData(i, j)))
+                            # TODO [HV]:  fontMetrics.width(text) cause error
+                            w = fontMetrics.boundingRect(text).width() # len(text) * 7.3
+                            maxWidth = max(maxWidth, w)
+                    s.setWidth(max(s.width(), maxWidth))
+                    s.setHeight(s.height() + lSize * 16)
         self._listView.setIconSize(s)
         self.__calcPageSize()
-        if self._model:
-            self._model.setupPage(self._pageSize, self._model.getPage())
+        if self._model is not None:
             self._model.setIconSize(s)
+            self._model.setupPage(self._pageSize, self._model.getPage())
 
         self.sigPageSizeChanged.emit()
 
@@ -310,3 +348,21 @@ class GalleryView(AbstractView):
     def getListView(self):
         """ Return the QListView widget used to display the items """
         return self._listView
+
+    def setLabelIndexes(self, labels):
+        """
+        Initialize the indexes of the columns that will be displayed as text
+        below the images
+        labels (list)
+        """
+        self._delegate.setLabelIndexes(labels)
+
+    def updateViewConfiguration(self):
+        """ Update the columns configuration """
+        if self._model is not None:
+            indexes = self._model.getColumnConfig().getIndexes('renderable',
+                                                               True)
+            if indexes:
+                self._listView.setModelColumn(indexes[0])
+                self._listView.setItemDelegateForColumn(indexes[0],
+                                                        self._delegate)
