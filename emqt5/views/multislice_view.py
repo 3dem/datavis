@@ -35,7 +35,9 @@ class MultiSliceView(QWidget):
         else:
             self.__loadImageDim(None)
 
-        self.__setupUi(imageManager=self._imageManager, **kwargs)
+        if kwargs.get('imageManager') is None:
+            kwargs['imageManager'] = self._imageManager
+        self.__setupUi(**kwargs)
         if self._model is not None:
             self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
             self._onTopViewIndexChanged(self._topView.getSliceIndex())
@@ -152,6 +154,16 @@ class MultiSliceView(QWidget):
             self._model = VolumeDataModel(path, parent=self)
 
         self.__setupAllWidgets()
+
+    def setImageManager(self, imageManager):
+        """
+        Setter for imageManager
+        :param imageManager: The ImageManager
+        """
+        self._imageManager = imageManager
+        self._rightView.setImageManager(imageManager)
+        self._frontView.setImageManager(imageManager)
+        self._topView.setImageManager(imageManager)
 
     def clear(self):
         """

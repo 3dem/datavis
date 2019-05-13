@@ -209,6 +209,47 @@ class ImageManager:
                         dtype=cls.DATA_TYPE_MAP.get(image.getType()))
 
 
+class VolImageManager(ImageManager):
+    """ ImageManager for Volume images """
+    def __init__(self, volData):
+        self._volData = volData
+
+    def addImage(self, imgRef, imgSize=None):
+        return self.__createThumb(imgRef, imgSize=imgSize)
+
+    def __createThumb(self, imgRef, **kwargs):
+        """
+        Return the thumbnail created for the specified image reference.
+        Rescale the original image according to the param imageSize=(w, h).
+        If imageSize=None then return the original image data
+        """
+        imgSize = kwargs.get('imgSize')
+
+        if imgRef.axis == X_AXIS:
+            array = self._volData[:, :, imgRef.index]
+        elif imgRef.axis == Y_AXIS:
+            array = self._volData[:, imgRef.index, :]
+        else:  # Z
+            array = self._volData[imgRef.index, :, :]
+
+        if imgSize is None:
+            return array
+
+        # preserve aspect ratio
+        x, y = array.shape[0], array.shape[1]
+        if x > imgSize[0]:
+            y = int(max(y * imgSize[0] / x, 1))
+            x = int(imgSize[0])
+        if y > imgSize[1]:
+            x = int(max(x * imgSize[1] / y, 1))
+            y = int(imgSize[1])
+
+        if x >= array.shape[0] and y >= array.shape[1]:
+            return array
+
+        return ndimage.zoom(array, x / float(array.shape[0]), order=1)
+
+
 class ImageRef:
     """
     The ImageRef class is used to describe the referenced image in a stack

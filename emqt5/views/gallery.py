@@ -178,6 +178,10 @@ class GalleryView(AbstractView):
 
         self.sigSelectionChanged.emit()
 
+    def setImageManager(self, imageManager):
+        """ Setter for ImageManager"""
+        self._imageManager = imageManager
+
     def setModel(self, model):
         """ Sets the model """
         self._listView.setModel(model)

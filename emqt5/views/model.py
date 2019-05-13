@@ -527,7 +527,8 @@ class VolumeDataModel(QAbstractItemModel):
         
     def clone(self):
         """ Clone this model """
-        clo = VolumeDataModel(self._dataSource, tableViewConfig=self._tableViewConfig,
+        clo = VolumeDataModel(self._dataSource,
+                              tableViewConfig=self._tableViewConfig,
                               pageSize=self._pageSize, axis=self._axis,
                               volumeIndex=self._volumeIndex)
         clo._titles = self._titles[:]

@@ -30,6 +30,7 @@ class VolumeView(QWidget):
          """
         QWidget.__init__(self, parent=parent)
         self._model = None
+        self._imageManager = None
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
         self.setup(**kwargs)
@@ -141,8 +142,11 @@ class VolumeView(QWidget):
     def __setupAllWidgets(self):
         """ Setups all widgets """
         self.__setupComboBoxAxis()
+        self._multiSlicesView.setImageManager(self._imageManager)
         self._multiSlicesView.setModel(self._model)
+        self._galleryView.setImageManager(self._imageManager)
         self._galleryView.setModel(self._model)
+
         if self._model is None:
             self._pageBar.setVisible(False)
         else:
@@ -238,6 +242,7 @@ class VolumeView(QWidget):
         """
         self._model = model or VolumeDataModel(path, parent=self) \
             if path is not None else None
+        self._imageManager = kwargs.get('imageManager')
         self.__setupAllWidgets()
         self._onChangeCellSize()
 
