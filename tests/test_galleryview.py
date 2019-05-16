@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication
 
 from emqt5.views.data_view import GalleryView, TableViewConfig
 from emqt5.views.model import TableDataModel
-from emqt5.utils import EmImage
+from emqt5.utils import ImageManager
 
 import em
 
@@ -33,7 +33,7 @@ if testDataPath is not None:
                                     editable=False, visible=True)
 
     row = table.createRow()
-    n = EmImage.getDim(path).n
+    n = ImageManager.getDim(path).n
     for i in range(1, n+1):
         row['index'] = i
         row['path'] = '%d@%s' % (i, path)

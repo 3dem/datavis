@@ -3,11 +3,10 @@
 
 import os
 import sys
-from PIL import Image
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from emqt5.views import ImageView
-from emqt5.utils import EmImage
+from emqt5.utils import ImageManager
 
 import numpy as np
 
@@ -24,7 +23,7 @@ if testDataPath is not None:
     #image = Image.open('/media/pedro/Data/1.jpg')
     #data = np.array(image)
     # EM-Image
-    img = EmImage.load(path, 1)
+    img = ImageManager.readImage(path, 1)
     data = np.array(img, copy=False)
     imageView.setImage(data)
     desc = "<html><head/><body><p><span style=\" color:#0055ff;\">Dimension: " \

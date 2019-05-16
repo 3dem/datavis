@@ -1,14 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import scipy.ndimage as ndimage
-
-from PyQt5.QtGui import QPixmap, QFont, QBrush
+from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
 from emqt5.views.config import TableViewConfig
-from emqt5.utils import EmPath, EmImage, EmTable
+from emqt5.utils import ImageManager, EmTable
 
 
 X_AXIS = 0
@@ -512,7 +510,7 @@ class VolumeDataModel(QAbstractItemModel):
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
-        self._path = path
+        self._dataSource = path
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or TableViewConfig.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
@@ -520,7 +518,7 @@ class VolumeDataModel(QAbstractItemModel):
         self._pageCount = 0
         t = kwargs.get('title', 'Axis-') + "(%s)"
         self._titles = [t % 'X', t % 'Y', t % 'Z']
-        self._dim = EmImage.getDim(path)
+        self._dim = ImageManager.getDim(path)
         self._axis = kwargs.get('axis', X_AXIS)
         self._rows = 0
         self._volumeIndex = kwargs.get('volumeIndex', 0)
@@ -529,7 +527,8 @@ class VolumeDataModel(QAbstractItemModel):
         
     def clone(self):
         """ Clone this model """
-        clo = VolumeDataModel(self._path, tableViewConfig=self._tableViewConfig,
+        clo = VolumeDataModel(self._dataSource,
+                              tableViewConfig=self._tableViewConfig,
                               pageSize=self._pageSize, axis=self._axis,
                               volumeIndex=self._volumeIndex)
         clo._titles = self._titles[:]
@@ -715,7 +714,7 @@ class VolumeDataModel(QAbstractItemModel):
                 return True
             if col == 2:
                 return '%d@%d@%d@%s' % (row, self._axis, self._volumeIndex,
-                                        self._path)
+                                        self._dataSource)
         return None
 
     @pyqtSlot(int)
@@ -844,9 +843,9 @@ class VolumeDataModel(QAbstractItemModel):
         else:
             return self._tableViewConfig.hasRenderableColumn()
 
-    def getPath(self):
+    def getDataSource(self):
         """ Return the path of this volume model """
-        return self._path
+        return self._dataSource
 
     def getTableViewConfig(self):
         return self._tableViewConfig
@@ -866,82 +865,6 @@ class VolumeDataModel(QAbstractItemModel):
                               (1 if s % self._pageSize else 0)
 
         self._page = int(offset / self._pageSize)
-
-
-class ImageCache:
-    """
-    The ImageCache provide a data cache for images
-    """
-    def __init__(self, cacheSize, imgSize=None):
-        """
-        Constructor
-        :param cacheSize : (int) max length for internal image list
-        :param imgSize: (tuple) image size. Calculates an appropriate thumbnail
-                        size to preserve the aspect of the image
-        """
-        self._cacheSize = cacheSize
-        self._imgSize = imgSize
-        self._imgData = dict()
-
-    def addImage(self, imgId, imgData, index=0):
-        """
-        Adds an image data to the chache
-        :param imgData: image path
-        TODO: Use an ID in the future, now we use the image path
-        """
-        ret = self._imgData.get(imgId)
-        if ret is None:
-            try:
-                ret = self.__createThumb(imgData, index)
-                self._imgData[imgId] = ret
-                if len(self._imgData) > self._cacheSize:
-                    self._imgData.popitem()
-            except Exception as ex:
-                raise ex
-            except RuntimeError as ex:
-                raise ex
-        return ret
-
-    def getImage(self, imgId):
-        """ Return the image data for the given image id """
-        ret = self._imgData.get(imgId)
-        return ret
-
-    def __createThumb(self, path, index=1):
-        """
-        Return the thumbnail created for the specified image path.
-        Rescale the original image according to  self._imageSize
-        """
-        if EmPath.isStandardImage(path):
-            pixmap = QPixmap(path)
-            height = int(pixmap.height() * self._imgSize / 100)
-            return pixmap.scaledToHeight(height, Qt.SmoothTransformation)
-
-        elif EmPath.isData(path):
-            try:
-                img = EmImage.load(path, index)
-            except Exception as ex:
-                print(ex)
-                return None
-            array = EmImage.getNumPyArray(img)
-            if self._imgSize is None:
-                return array
-
-            # preserve aspect ratio
-            x, y = array.shape[0], array.shape[1]
-            if x > self._imgSize[0]:
-                y = int(max(y * self._imgSize[0] / x, 1))
-                x = int(self._imgSize[0])
-            if y > self._imgSize[1]:
-                x = int(max(x * self._imgSize[1] / y, 1))
-                y = int(self._imgSize[1])
-
-            if x >= array.shape[0] and y >= array.shape[1]:
-                return array
-
-            return ndimage.zoom(array, x / float(array.shape[0]), order=1)
-
-        return None
 
 
 def createTableModel(path):

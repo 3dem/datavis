@@ -3,21 +3,21 @@
 
 import os
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QVariant
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QVariant, QLocale
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
                              QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
                              QSizePolicy, QSpacerItem, QPushButton, QCheckBox,
                              QGraphicsPixmapItem, QRadioButton, QButtonGroup,
                              QComboBox, QItemDelegate, QColorDialog,
                              QTableWidget, QFormLayout, QTableWidgetItem,
-                             QLineEdit)
-from PyQt5.QtGui import QPixmap, QPalette, QPen, QColor, QIntValidator
+                             QLineEdit, QGridLayout, QWidgetItem)
+from PyQt5.QtGui import (QPixmap, QPalette, QPen, QColor, QIntValidator,
+                         QDoubleValidator)
 
 import qtawesome as qta
 import pyqtgraph as pg
 
-from emqt5.utils import parseImagePath, ImageRef
-from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
+from emqt5.utils import ImageManager, ImageRef, parseImagePath
 
 
 class EMImageItemDelegate(QStyledItemDelegate):
@@ -25,10 +25,14 @@ class EMImageItemDelegate(QStyledItemDelegate):
     ImageItemDelegate class provides display and editing facilities for
     em image data items from a model.
     """
-    def __init__(self, parent=None):
-
+    def __init__(self, parent=None, **kwargs):
+        """
+        kwargs:
+          - imageManager: the ImageManager for internal read/manage
+                          image operations.
+        """
         QStyledItemDelegate.__init__(self, parent)
-        self._imgCache = ImageCache(50, 50)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
@@ -41,6 +45,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
         self.__labelIndexes = []
+        self._thumbSize = 64
 
     def paint(self, painter, option, index):
         """
@@ -114,7 +119,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         Configure the widget used as view to show the image
         """
-        imgData = self._getThumb(index)
+        imgData = self._getThumb(index, self._thumbSize)
 
         if imgData is None:
             self._imageView.clear()
@@ -149,61 +154,34 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 self._pixmapItem.setVisible(True)
             v.autoRange(padding=0)
 
-    def _getThumb(self, index, height=100):
+    def _getThumb(self, index, height=64):
         """
         If the thumbnail stored in Image Cache
         :param index: QModelIndex
         :param height: height to scale the image
         """
         imgPath = index.data(Qt.UserRole)
+        if imgPath is None:
+            return None
 
-        imgRef = parseImagePath(imgPath, self._imageRef)
+        imgRef = parseImagePath(imgPath, self._imageRef,
+                                os.path.split(index.model().getDataSource())[0])
 
         if imgRef is None:
             return None
 
-        if imgRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
-            imgId = imgRef.path
-        elif imgRef.imageType & ImageRef.STACK == ImageRef.STACK:
-            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
-                imgId = '%d-%s' % (imgRef.volumeIndex, imgRef.path)
-            else:
-                imgId = '%d-%s' % (imgRef.index, imgRef.path)
-        else:
-            return None
+        return self._imageManager.addImage(imgRef, (height, height))
 
-        imgData = self._imgCache.getImage(imgId)
-
-        if imgData is None:  # the add the image to Cache
-            if imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
-                imgData = self._imgCache.addImage(imgId, imgRef.path,
-                                                  imgRef.volumeIndex)
-            else:
-                imgData = self._imgCache.addImage(imgId, imgRef.path,
-                                                  imgRef.index)
-
-        if imgData is None:
-            return None
-        else:
-            if imgRef.axis == X_AXIS:
-                imgData = imgData[:, :, imgRef.index]
-            elif imgRef.axis == Y_AXIS:
-                imgData = imgData[:, imgRef.index, :]
-            elif imgRef.axis == Z_AXIS:
-                 imgData = imgData[imgRef.index, :, :]
-
-        return imgData
-
-    def setImageCache(self, imgCache):
+    def setImageManager(self, imageManager):
         """
         Set the ImageCache object to be use for this ImageDelegate
-        :param imgCache: ImageCache
+        :param imageManager: ImageManager
         """
-        self._imgCache = imgCache
+        self._imageManager = imageManager
 
-    def getImageCache(self):
-        """ Getter for imageCache """
-        return self._imgCache
+    def getImageManager(self):
+        """ Getter for ImageManager """
+        return self._imageManager
 
     def setLabelIndexes(self, indexes):
         """
@@ -925,3 +903,201 @@ class PlotConfigWidget(QWidget):
             w += self._tablePlotConf.columnWidth(column)
         s.setWidth(w)
         return s
+
+
+class DynamicWidget(QWidget):
+    """ The base class for dynamic widgets """
+    def __init__(self, parent=None, typeParams=None):
+        QWidget.__init__(self, parent=parent)
+        self.setLayout(QGridLayout())
+        self.__paramsWidgets = dict()
+        self.__typeParams = typeParams
+
+    def __collectData(self, item):
+        if isinstance(item, QVBoxLayout) or isinstance(item, QHBoxLayout) or \
+                isinstance(item, QGridLayout):
+            for index in range(item.count()):
+                self.__collectData(item.itemAt(index))
+        elif isinstance(item, QWidgetItem):
+            widget = item.widget()
+            param = self.__paramsWidgets.get(widget.objectName())
+            if param is not None:
+                t = self.__typeParams.get(param.get('type')).get('type')
+                if isinstance(widget, QLineEdit):
+                    if t is not None:
+                        text = widget.text()
+                        if text in ["", ".", "+", "-"]:
+                            text = 0
+                        param['value'] = t(text)
+                elif isinstance(widget, QCheckBox) and t == bool:
+                    # other case may be checkbox for enum: On,Off
+                    param['value'] = widget.isChecked()
+                elif isinstance(widget, OptionList):
+                    param['value'] = widget.getSelectedOptions()
+
+    def setParamWidget(self, name, param):
+        self.__paramsWidgets[name] = param
+
+    def getParams(self):
+        """ """
+        self.__collectData(self.layout())
+        return self.__paramsWidgets
+
+
+class DynamicWidgetsFactory:
+    """ A dynamic widgets factory """
+
+    def __init__(self):
+        self.__typeParams = {
+            'float': {
+                'type': float,
+                'display': {
+                    'default': QLineEdit
+                },
+                'validator': QDoubleValidator
+            },
+            'int': {
+                'type': int,
+                'display': {
+                    'default': QLineEdit
+                },
+                'validator': QIntValidator
+            },
+            'string': {
+                'type': str,
+                'display': {
+                    'default': QLineEdit
+                }
+            },
+            'bool': {
+                'type': bool,
+                'display': {
+                    'default': QCheckBox
+                }
+            },
+            'enum': {
+                'display': {
+                    'default': OptionList,
+                    'vlist': OptionList,
+                    'hlist': OptionList,
+                    'slider': QSlider,
+                    'combo': OptionList
+                }
+            }
+        }
+
+    def createWidget(self, specification):
+        """ Creates the widget for de given specification """
+        widget = DynamicWidget(typeParams=self.__typeParams)
+        self.__addVParamsWidgets(widget, specification)
+        return widget
+
+    def __addVParamsWidgets(self, mainWidget, params):
+        """ Add the widgets created from params to the given QGridLayout """
+        layout = mainWidget.layout()
+        row = layout.rowCount()
+        for param in params:
+            if isinstance(param, list):
+                col = 0
+                row, col = self.__addHParamsWidgets(mainWidget, layout, param,
+                                                    row, col)
+                row += 1
+            else:
+                col = 0
+                widget = self.__createParamWidget(mainWidget, param)
+                if widget is not None:
+                    label = param.get('label')
+                    if label is not None:
+                        lab = QLabel(mainWidget)
+                        lab.setText(label)
+                        lab.setToolTip(param.get('help', ""))
+                        layout.addWidget(lab, row, col, Qt.AlignRight)
+                        col += 1
+                    layout.addWidget(widget, row, col, 1, -1)
+                    row += 1
+
+    def __addHParamsWidgets(self, mainWidget, layout, params, row, col):
+        """
+        Add the params to the given layout in the row "row" from
+        the column "col"
+        """
+        for param in params:
+            if isinstance(param, list):
+                row, col = self.__addHParamsWidgets(layout, param, row, col)
+            elif isinstance(param, dict):
+                widget = self.__createParamWidget(mainWidget, param)
+                if widget is not None:
+                    label = param.get('label')
+                    if label is not None:
+                        lab = QLabel(mainWidget)
+                        lab.setText(label)
+                        lab.setToolTip(param.get('help', ""))
+                        layout.addWidget(lab, row, col, Qt.AlignRight)
+                        col += 1
+                    layout.addWidget(widget, row, col, 1, 1)
+                    col += 1
+        return row, col
+
+    def __createParamWidget(self, mainWidget, param):
+        """
+        Creates the corresponding widget from the given param.
+        """
+        if not isinstance(param, dict):
+            return None
+
+        widgetName = param.get('name')
+        if widgetName is None:
+            return None  # rise exception??
+
+        valueType = param.get('type')
+        if valueType is None:
+            return None  # rise exception??
+
+        paramDef = self.__typeParams.get(valueType)
+
+        if paramDef is None:
+            return None  # rise exception??
+
+        display = paramDef.get('display')
+        widgetClass = display.get(param.get('display', 'default'))
+
+        if widgetClass is None:
+            return None  # rise exception??
+
+        if valueType == 'enum':
+            widget = OptionList(parent=mainWidget,
+                                display=param.get('display', 'default'),
+                                tooltip=param.get('help', ""), exclusive=True,
+                                buttonsClass=QRadioButton,
+                                options=param.get('choices'),
+                                defaultOption=param.get('value', 0))
+        else:
+            widget = widgetClass(mainWidget)
+            widget.setToolTip(param.get('help', ''))
+            self.__setParamValue(widget, param.get('value'))
+
+        widget.setObjectName(widgetName)
+
+        mainWidget.setParamWidget(widgetName, param)
+
+        if widgetClass == QLineEdit:
+            # widget.setClearButtonEnabled(True)
+            validatorClass = paramDef.get('validator')
+            if validatorClass is not None:
+                val = validatorClass()
+                if validatorClass == QDoubleValidator:
+                    loc = QLocale.c()
+                    loc.setNumberOptions(QLocale.RejectGroupSeparator)
+                    val.setLocale(loc)
+                widget.setValidator(val)
+            if valueType == 'float' or valueType == 'int':
+                widget.setFixedWidth(80)
+
+        return widget
+
+    def __setParamValue(self, widget, value):
+        """ Set the widget value"""
+        if isinstance(widget, QLineEdit):
+            widget.setText(str(value))
+        elif isinstance(widget, QCheckBox) and isinstance(value, bool):
+            widget.setChecked(value)

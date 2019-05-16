@@ -4,9 +4,9 @@ from PyQt5.QtWidgets import (QWidget, QGridLayout)
 from PyQt5.QtCore import QSize, pyqtSlot
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-from emqt5.utils import EmImage
+from emqt5.utils import ImageManager
 from .slices_view import SlicesView
-from .model import ImageCache, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
+from .model import VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
 
 
 class MultiSliceView(QWidget):
@@ -17,11 +17,12 @@ class MultiSliceView(QWidget):
     """
     def __init__(self, parent, path=None, model=None, **kwargs):
         """
-        Constructor.
-        Can pass a path or model
+        path: the volume path
+        model: the model
+        imageManager: the ImageManager
         """
         QWidget.__init__(self, parent=parent)
-        self._imageCache = kwargs.get('cache', None) or ImageCache(50)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._dx = 0
         self._dy = 0
         self._dz = 0
@@ -30,10 +31,12 @@ class MultiSliceView(QWidget):
         self._model = model or VolumeDataModel(path, parent=self) \
             if path is not None else None
         if self._model is not None:
-            self.__loadImageDim(self._model.getPath())
+            self.__loadImageDim(self._model.getDataSource())
         else:
             self.__loadImageDim(None)
 
+        if kwargs.get('imageManager') is None:
+            kwargs['imageManager'] = self._imageManager
         self.__setupUi(**kwargs)
         if self._model is not None:
             self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
@@ -47,19 +50,19 @@ class MultiSliceView(QWidget):
         kwargs['auto_fill'] = 'on'
         kwargs['volume_axis'] = 'y'
         self._topView = SlicesView(self, **kwargs)
-        self._topView.setImageCache(self._imageCache)
+        self._topView.setImageManager(self._imageManager)
         self._topView.setViewName('Top View')
         self._topView.sigCurrentIndexChanged.connect(
             self._onTopViewIndexChanged)
         kwargs['volume_axis'] = 'z'
         self._frontView = SlicesView(self, **kwargs)
-        self._frontView.setImageCache(self._imageCache)
+        self._frontView.setImageManager(self._imageManager)
         self._frontView.setViewName('Front View')
         self._frontView.sigCurrentIndexChanged.connect(
             self._onFrontViewIndexChanged)
         kwargs['volume_axis'] = 'x'
         self._rightView = SlicesView(self, **kwargs)
-        self._rightView.setImageCache(self._imageCache)
+        self._rightView.setImageManager(self._imageManager)
         self._rightView.setViewName('Right View')
         self._rightView.sigCurrentIndexChanged.connect(
             self._onRightViewIndexChanged)
@@ -78,7 +81,7 @@ class MultiSliceView(QWidget):
 
     def __setupAllWidgets(self):
         """ Configures the widgets """
-        path = None if self._model is None else self._model.getPath()
+        path = None if self._model is None else self._model.getDataSource()
 
         self._frontView.setPath(path)
         self._topView.setPath(path)
@@ -86,6 +89,9 @@ class MultiSliceView(QWidget):
 
         if path is not None:
             index = self._model.getVolumeIndex()
+            self._frontView.setVolumeIndex(index)
+            self._topView.setVolumeIndex(index)
+            self._rightView.setVolumeIndex(index)
             self._frontView.setIndex(index)
             self._frontView.setSliceIndex(int(self._dz / 2))
             self._topView.setIndex(index)
@@ -102,7 +108,7 @@ class MultiSliceView(QWidget):
         if path is None:
             self._dx = self._dy = self._dz = 0
         else:
-            dim = EmImage.getDim(path)
+            dim = ImageManager.getDim(path)
             if dim is None:
                 self._dx = self._dy = self._dz = 0
             else:
@@ -114,6 +120,9 @@ class MultiSliceView(QWidget):
     def _onVolumeIndexChanged(self, index):
         """ This slot is invoked when the volume index change """
         self.__setupAllWidgets()
+        self._frontView.setVolumeIndex(index)
+        self._topView.setVolumeIndex(index)
+        self._rightView.setVolumeIndex(index)
 
     @pyqtSlot(int)
     def _onTopViewIndexChanged(self, value):
@@ -146,6 +155,16 @@ class MultiSliceView(QWidget):
 
         self.__setupAllWidgets()
 
+    def setImageManager(self, imageManager):
+        """
+        Setter for imageManager
+        :param imageManager: The ImageManager
+        """
+        self._imageManager = imageManager
+        self._rightView.setImageManager(imageManager)
+        self._frontView.setImageManager(imageManager)
+        self._topView.setImageManager(imageManager)
+
     def clear(self):
         """
         This is an overloaded function. Sets the image path to None value
@@ -158,7 +177,7 @@ class MultiSliceView(QWidget):
             self.clear()
         else:
             self._model = model
-            self.__loadImageDim(model.getPath())
+            self.__loadImageDim(model.getDataSource())
             self.__setupAllWidgets()
 
     def getAxis(self):

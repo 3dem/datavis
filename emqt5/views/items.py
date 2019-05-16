@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
 
 from PyQt5.QtCore import Qt, pyqtSlot, QModelIndex
 from PyQt5.QtWidgets import QTableView, QSplitter, QVBoxLayout, QWidget
@@ -8,9 +9,8 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
 
-from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS
 from .base import AbstractView
-from emqt5.utils import EmPath, parseImagePath, ImageRef
+from ..utils import EmPath, parseImagePath, ImageRef, ImageManager
 from .image_view import ImageView
 
 
@@ -22,13 +22,18 @@ class ItemsView(AbstractView):
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
 
     def __init__(self, parent, **kwargs):
+        """
+        kwargs:
+         - imageManager: the ImageManager for internal read/manage
+                         image operations.
+        """
         AbstractView.__init__(self, parent)
         self._column = 0
         self._row = 0
         self._selection = set()
         self.__selectionItem = None
         self._disableFitToSize = False
-        self._imgCache = ImageCache(50)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._imageRef = ImageRef()
         self.__setupUI(**kwargs)
 
@@ -140,9 +145,9 @@ class ItemsView(AbstractView):
         else:
             self._imageView.setVisible(False)
 
-    def setImageCache(self, imgCache):
+    def setImageManager(self, imageManager):
         """ Sets the image cache """
-        self._imgCache = imgCache
+        self._imageManager = imageManager
 
     def selectRow(self, row):
         """ Selects the given row """
@@ -191,37 +196,16 @@ class ItemsView(AbstractView):
                                                                True)
             if indexes:
                 imgPath = self._model.getTableData(row, indexes[0])
-                imgRef = parseImagePath(imgPath, self._imageRef)
+                imgRef = parseImagePath(
+                    imgPath, self._imageRef,
+                    os.path.split(self._model.getDataSource())[0])
                 if imgRef is not None:
-                    if imgRef.imageType & \
-                            ImageRef.SINGLE == ImageRef.SINGLE:
-                        imgId = imgRef.path
-                        index = 0
-                    elif imgRef.imageType & \
-                            ImageRef.STACK == ImageRef.STACK:
-                        if imgRef.imageType & \
-                                ImageRef.VOLUME == ImageRef.VOLUME:
-                            imgId = '%d-%s' % (imgRef.volumeIndex,
-                                               imgRef.path)
-                            index = imgRef.volumeIndex
-                        else:
-                            imgId = '%d-%s' % (imgRef.index,
-                                               imgRef.path)
-                            index = imgRef.index
-
-                    data = self._imgCache.addImage(imgId, imgRef.path,
-                                                   index)
+                    data = self._imageManager.addImage(imgRef)
                     self._imageView.setImageInfo(
                         path=imgRef.path,
                         format=EmPath.getExt(imgRef.path),
                         data_type=' ')
                     if data is not None:
-                        if imgRef.axis == X_AXIS:
-                            data = data[:, :, imgRef.index]
-                        elif imgRef.axis == Y_AXIS:
-                            imgRef.axis = data[:, imgRef.index, :]
-                        elif imgRef.axis == Z_AXIS:
-                            data = data[imgRef.index, :, :]
                         self._imageView.setImage(data)
 
     def loadCurrentItems(self):

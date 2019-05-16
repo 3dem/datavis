@@ -6,27 +6,296 @@ import sys
 from glob import glob
 import argparse
 import traceback
+import qtawesome as qta
 
+from PyQt5.QtCore import QDir, QSize, Qt, pyqtSlot
+from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
+                             QSplitter, QSizePolicy, QVBoxLayout, QAction,
+                             QPushButton, QAbstractItemView)
 
-from PyQt5.QtCore import QDir, QSize, Qt
-from PyQt5.QtWidgets import QApplication, QMessageBox
-
-from emqt5.utils import EmPath, EmTable, EmImage
+from emqt5.utils import EmPath, EmTable, ImageManager, VolImageManager
 from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel)
-from emqt5.views.base import AbstractView
+from emqt5.views.base import AbstractView, DynamicWidgetsFactory
+from emqt5.views.toolbar import ToolBar
+from emqt5.views.columns import ColumnsView
+from emqt5.views.volume_view import VolumeView
 from emqt5.windows import BrowserWindow
+from emqt5.views.model import TableDataModel
 
+
+import em
+
+tool_params1 = [
+    [
+        {
+            'name': 'threshold',
+            'type': 'float',
+            'value': 0.55,
+            'label': 'Quality threshold',
+            'help': 'If this is ... bla bla bla',
+            'display': 'default'
+        },
+        {
+            'name': 'thresholdBool',
+            'type': 'bool',
+            'value': True,
+            'label': 'Quality checked',
+            'help': 'If this is a boolean param'
+        }
+    ],
+    [
+        {
+            'name': 'threshold543',
+            'type': 'float',
+            'value': 0.67,
+            'label': 'Quality',
+            'help': 'If this is ... bla bla bla',
+            'display': 'default'
+        },
+        {
+            'name': 'threshold',
+            'type': 'float',
+            'value': 14.55,
+            'label': 'Quality threshold2',
+            'help': 'If this is ... bla bla bla',
+            'display': 'default'
+        }
+    ],
+    {
+        'name': 'threshold2',
+        'type': 'string',
+        'value': 'Explanation text',
+        'label': 'Threshold ex',
+        'help': 'If this is ... bla bla bla 2',
+        'display': 'default'
+    },
+    {
+        'name': 'text',
+        'type': 'string',
+        'value': 'Text example',
+        'label': 'Text',
+        'help': 'If this is ... bla bla bla for text'
+    },
+    {
+        'name': 'threshold4',
+        'type': 'float',
+        'value': 1.5,
+        'label': 'Quality',
+        'help': 'If this is ... bla bla bla for quality'
+    },
+    {
+      'name': 'picking-method',
+      'type': 'enum',  # or 'int' or 'string' or 'enum',
+      'choices': ['LoG', 'Swarm', 'SVM'],
+      'value': 1,  # values in enum are int, in this case it is 'LoG'
+      'label': 'Picking method',
+      'help': 'Select the picking strategy that you want to use. ',
+      # display should be optional, for most params, a textbox is the default
+      # for enum, a combobox is the default, other options could be sliders
+      'display': 'combo'  # or 'combo' or 'vlist' or 'hlist'
+    },
+    {
+        'name': 'threshold3',
+        'type': 'bool',
+        'value': True,
+        'label': 'Checked',
+        'help': 'If this is a boolean param'
+    }
+]
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     paramCount = 0
 
     kwargs = {}
+
+
+    class CmpView(QWidget):
+
+        def __init__(self, parent, files, **kwargs):
+            """
+            Constructor
+            :param parent: the parent widget
+            :param files: the file list
+            :param kwargs:
+            """
+            QWidget.__init__(self, parent)
+            self._tvModel = None
+            self._imageData = None
+            self._processedImageData = None
+            self._leftView = None
+            self._rightView = None
+            self._path = None
+            self.__setupUi(**kwargs)
+            self.__createColumsViewModel(files)
+            self._columnsViewFiles.setSelectionBehavior(
+                QAbstractItemView.SelectRows)
+            self._columnsViewFiles.sigCurrentRowChanged.connect(
+                self.__onCurrentRowChanged)
+
+        def __setupUi(self, **kwargs):
+            self.resize(1097, 741)
+            self._mainLayout = QHBoxLayout(self)
+            self._mainLayout.setContentsMargins(1, 1, 1, 1)
+            self._mainSplitter = QSplitter(self)
+
+            self._splitter = QSplitter(self)
+            self._toolBar = ToolBar(self, orientation=Qt.Vertical)
+            self._toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+            self._splitter.addWidget(self._toolBar)
+            self._splitter.setCollapsible(0, False)
+            self._splitter.addWidget(self._mainSplitter)
+            self._filesPanel = self._toolBar.createSidePanel()
+            self._filesPanel.setObjectName('filesPanel')
+            self._filesPanel.setStyleSheet(
+                'QWidget#filesPanel{border-left: 1px solid lightgray;}')
+            self._filesPanel.setSizePolicy(QSizePolicy.Ignored,
+                                           QSizePolicy.Ignored)
+            vLayout = QVBoxLayout(self._filesPanel)
+            vLayout.setContentsMargins(0, 0, 0, 0)
+            self._columnsViewFiles = ColumnsView(self._filesPanel)
+            vLayout.addWidget(self._columnsViewFiles)
+            self._actFiles = QAction(None)
+            self._actFiles.setIcon(qta.icon('fa5s.file'))
+            self._actFiles.setText('Files')
+            #  setting a reasonable width for display panel
+            self._filesPanel.setGeometry(0, 0, vLayout.sizeHint().width(),
+                                         self._filesPanel.height())
+            self._toolBar.addAction(self._actFiles, self._filesPanel,
+                                    exclusive=False, checked=True)
+
+            self._paramsPanel = self._toolBar.createSidePanel()
+            self._paramsPanel.setObjectName('paramsPanel')
+            self._paramsPanel.setStyleSheet(
+                'QWidget#paramsPanel{border-left: 1px solid lightgray;}')
+            self._paramsPanel.setSizePolicy(QSizePolicy.Ignored,
+                                            QSizePolicy.Ignored)
+            dFactory = DynamicWidgetsFactory()
+            self._dynamicWidget = dFactory.createWidget(tool_params1)
+            vLayout = QVBoxLayout(self._paramsPanel)
+            vLayout.setContentsMargins(0, 0, 0, 0)
+            vLayout.addWidget(self._dynamicWidget)
+            button = QPushButton(self)
+            button.setText("Collect")
+            button.clicked.connect(self.__collectParams)
+            button.setStyleSheet("font-weight:bold;")
+            vLayout.addWidget(button)
+            self._paramsPanel.setFixedHeight(vLayout.totalSizeHint().height())
+            self._paramsPanel.setMinimumWidth(vLayout.totalSizeHint().width())
+
+            self._actParams = QAction(None)
+            self._actParams.setIcon(qta.icon('fa5s.id-card'))
+            self._actParams.setText('Params')
+            self._toolBar.addAction(self._actParams, self._paramsPanel,
+                                    exclusive=False, checked=True)
+
+            self._mainLayout.addWidget(self._splitter)
+
+        def __createViews(self, dim, **kwargs):
+            """
+            Creates the left and right views according
+            to the given image dimensions
+            """
+            if dim.z == 1:
+                # kwargs['tool_bar'] = 'off'
+                self._leftView = ImageView(self, **kwargs)
+                self._rightView = ImageView(self, **kwargs)
+            else:
+                kwargs['tool_bar'] = 'off'
+                kwargs['imageManager'] = VolImageManager(self._imageData)
+                self._leftView = VolumeView(self, **kwargs)
+                kwargs['imageManager'] = \
+                    VolImageManager(self._processedImageData)
+                self._rightView = VolumeView(self, **kwargs)
+
+            self._splitter.addWidget(self._leftView)
+            self._splitter.addWidget(self._rightView)
+
+        def __createColumsViewModel(self, files=None):
+            """ Setup the em table """
+            Column = em.Table.Column
+            emTable = em.Table([Column(1, "File Name", em.typeString),
+                                Column(2, "Path", em.typeString)])
+            tableViewConfig = TableViewConfig()
+            tableViewConfig.addColumnConfig(name='File Name',
+                                            dataType=TableViewConfig.TYPE_STRING,
+                                            label='File Name',
+                                            editable=False,
+                                            visible=True)
+            tableViewConfig.addColumnConfig(name='Path',
+                                            dataType=TableViewConfig.TYPE_STRING,
+                                            label='Path',
+                                            editable=False,
+                                            visible=False)
+            if isinstance(files, list):
+                for file in files:
+                    r = emTable.createRow()
+                    tableColumn = emTable.getColumnByIndex(0)
+                    r[tableColumn.getName()] = os.path.basename(file)
+                    tableColumn = emTable.getColumnByIndex(1)
+                    r[tableColumn.getName()] = file
+                    emTable.addRow(r)
+
+            self._tvModel = TableDataModel(emTable,
+                                           tableViewConfig=tableViewConfig)
+            self._columnsViewFiles.setModel(self._tvModel)
+
+        @pyqtSlot()
+        def __collectParams(self):
+            """ Collect params """
+            data = self._dynamicWidget.getParams()
+            print(data)
+
+        @pyqtSlot(int)
+        def __onCurrentRowChanged(self, row):
+            """ Invoked when current row change in micrographs list """
+            path = self._tvModel.getTableData(row, 1)
+            try:
+                if self._leftView is None:
+                    dim = ImageManager.getDim(path)
+                    self.__createViews(dim, **kwargs)
+                self._showPath(path)
+            except RuntimeError as ex:
+                self._showError(ex.message)
+
+        def _showPath(self, path):
+            """
+            Show the given image
+            :param path: the image path
+            """
+            if not self._path == path:
+                try:
+                    self._path = path
+                    image = ImageManager.readImage(path)
+                    self._imageData = ImageManager.getNumPyArray(image)
+                    self._processedImageData = \
+                        ImageManager.getNumPyArray(image, copy=True)
+                    if isinstance(self._leftView, ImageView):
+                        self._leftView.setImage(self._imageData)
+                        ext = EmPath.getExt(path)
+                        data_type = str(image.getType())
+                        self._leftView.setImageInfo(path=path, format=ext,
+                                                    data_type=data_type)
+                        self._rightView.setImage(self._processedImageData)
+                        self._rightView.setImageInfo(path=path, format=ext,
+                                                     data_type=data_type)
+                    elif isinstance(self._leftView, VolumeView):
+                        imgManager = VolImageManager(self._imageData)
+                        self._leftView.setup(path, imageManager=imgManager)
+                        imgManager = VolImageManager(self._processedImageData)
+                        self._rightView.setup(path, imageManager=imgManager)
+
+                except RuntimeError as ex:
+                    print(ex)
+                    raise ex
+                except Exception as ex:
+                    print(ex)
+                    raise ex
 
     class ValidateMics(argparse.Action):
         """
@@ -82,6 +351,36 @@ if __name__ == '__main__':
             Build a list with parameters separated by spaces.
             """
             setattr(namespace, self.dest, values.split())
+
+    class ValidateCmpList(argparse.Action):
+        """
+        Class that allows the validation of the values corresponding to
+        the "cmp" parameter
+        """
+        def __init__(self, option_strings, dest, **kwargs):
+            argparse.Action.__init__(self, option_strings, dest, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            """
+            Validate the maximum number of values corresponding to the
+            cmp parameter. Try to matching a path pattern for micrographs
+            and another for coordinates.
+
+            Return a list of paths.
+            """
+            result = list()
+            if not values:
+                raise ValueError("Invalid number of arguments for %s."
+                                 % option_string)
+
+            for pattern in values:
+                mics = self.__ls(pattern)
+                result.extend(mics)
+
+            setattr(namespace, self.dest, result)
+
+        def __ls(self, pattern):
+            return glob(pattern)
 
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
@@ -161,6 +460,10 @@ if __name__ == '__main__':
                            required=False, action=ValidateStrList,
                            help=' Sort command.')
 
+    argParser.add_argument('--cmp', type=str, nargs='*', default=[],
+                           required=False, action=ValidateCmpList,
+                           help='Show the Comparator tool. '
+                                'You can specify a list of path patterns.')
     args = argParser.parse_args()
 
     models = None
@@ -290,6 +593,11 @@ if __name__ == '__main__':
                               sources=args.picker, **kwargs)
             view.setWindowTitle("EM-PICKER")
             d = view.getImageDim()
+        elif args.cmp == 'on' or isinstance(args.cmp, list):
+            view = CmpView(None,
+                           args.cmp if isinstance(args.cmp, list) else files)
+            view.setWindowTitle('EM-COMPARATOR')
+
         else:
             # If the input is a directory, display the BrowserWindow
             if len(files) > 1:
@@ -338,7 +646,7 @@ if __name__ == '__main__':
             elif EmPath.isImage(files) or EmPath.isVolume(files) \
                     or EmPath.isStack(files):
                 # *.mrc may be image, stack or volume. Ask for dim.n
-                d = EmImage.getDim(files)
+                d = ImageManager.getDim(files)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
                         view = createImageView(files, **kwargs)

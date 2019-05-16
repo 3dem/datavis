@@ -5,10 +5,10 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSlider, QSizePolicy,
                              QGridLayout, QSpinBox, QLabel)
 
-from .model import ImageCache, X_AXIS, Y_AXIS, Z_AXIS, N_DIM
+from .model import X_AXIS, Y_AXIS, Z_AXIS, N_DIM
 from .image_view import ImageView
 
-from emqt5.utils import EmImage, EmPath
+from emqt5.utils import ImageManager, ImageRef
 
 
 class SlicesView(QWidget):
@@ -30,20 +30,22 @@ class SlicesView(QWidget):
         parent : (QWidget) Specifies the parent widget to which this ImageView
                  will belong. If None, then the SlicesView is created with
                  no parent.
-        cache : The image cache to use for load images
+        imageManager : The ImageManager to use for load images
         volume_axis : 'x', 'y', 'z', None (for stacks)
         path : The image path
         index : The slice index. First index is 0
 
         """
         QWidget.__init__(self, parent=parent)
-        self._imageCache = kwargs.get('cache', None) or ImageCache(10)
+        self._imageManager = kwargs.get('imageManager') or ImageManager(10)
+        self._imagePath = kwargs.get('path')
         self._sliceIndex = 0
         self._index = 0
         self._axis = N_DIM
-        self._imagePath = None
         self._dim = None
+        self._volumeIndex = 0
         self._viewRect = None
+        self._imgRef = ImageRef()
 
         self.__setupUI(**kwargs)
         self.setup(**kwargs)
@@ -85,17 +87,13 @@ class SlicesView(QWidget):
             if self._imagePath is None:
                 self._imageView.clear()
             else:
-                imgId = '%i-%s' % (self._index, self._imagePath)
-                data = self._imageCache.addImage(imgId, self._imagePath,
-                                                 self._index)
-                if data is not None:
-                    if self._axis == X_AXIS:
-                        data = data[:, :, self._sliceIndex]
-                    elif self._axis == Y_AXIS:
-                        data = data[:, self._sliceIndex, :]
-                    elif self._axis == Z_AXIS:
-                        data = data[self._sliceIndex, :, :]
+                self._imgRef.index = self._sliceIndex
+                self._imgRef.path = self._imagePath
+                self._imgRef.axis = self._axis
+                self._imgRef.volumeIndex = self._volumeIndex
 
+                data = self._imageManager.addImage(self._imgRef)
+                if data is not None:
                     self._imageView.setImage(data)
                     if self._viewRect is not None:
                         self._imageView.getView().setRange(rect=self._viewRect,
@@ -167,19 +165,19 @@ class SlicesView(QWidget):
 
         self.sigCurrentIndexChanged.emit(value)
 
-    def setImageCache(self, imageCache):
+    def setImageManager(self, imageManager):
         """ Sets the image cache """
-        self._imageCache = imageCache
+        self._imageManager = imageManager
 
     def setup(self, **kwargs):
         """ Setups this slice view. See constructor for init params. """
         self._imageView.setup(**kwargs)
+        self.setPath(kwargs.get('path'))
         self._sliceIndex = kwargs.get('index', -1)
         self.setAxis(kwargs.get('volume_axis', None))
-        self.setPath(kwargs.get('path', None))
         self.setViewName(kwargs.get('view_name', ''))
         if self._imagePath:
-            info = EmImage.getInfo(self._imagePath)
+            info = ImageManager.getInfo(self._imagePath)
             if info:
                 dt = info.get("data_type")
                 self._imageView.setImageInfo(path=self._imagePath,
@@ -198,8 +196,15 @@ class SlicesView(QWidget):
         try:
             self._imagePath = path
             self._dim = None if self._imagePath is None else \
-                EmImage.getDim(self._imagePath)
-
+                ImageManager.getDim(self._imagePath)
+            if self._dim is not None:
+                self._imgRef.imageType = 0
+                if self._dim.n > 1:
+                    self._imgRef.imageType = \
+                        self._imgRef.imageType | ImageRef.STACK
+                if self._dim.z > 1:
+                    self._imgRef.imageType = \
+                        self._imgRef.imageType | ImageRef.VOLUME
             self.setSliceIndex(0)
             self.setIndex(0)
             self.__setupNavWidgets()
@@ -218,6 +223,10 @@ class SlicesView(QWidget):
             self._axis = Z_AXIS
         else:
             self._axis = N_DIM
+
+    def setVolumeIndex(self, index):
+        """ Setter for volumeIndex """
+        self._volumeIndex = index
 
     def eventFilter(self, obj, event):
         """
