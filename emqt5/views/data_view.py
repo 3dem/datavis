@@ -19,7 +19,7 @@ from .gallery import GalleryView
 from .items import ItemsView
 from .base import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
 from .config import TableViewConfig
-from .toolbar import ToolBar
+from emqt5.widgets._toolbar import ToolBar
 
 from ..utils import ImageManager, EmTable
 

@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
 import qtawesome as qta
 import pyqtgraph as pg
 
-from .toolbar import ToolBar, MultiAction
+from emqt5.widgets import ToolBar, MultiStateAction
 
 
 class ImageView(QWidget):
@@ -122,17 +122,12 @@ class ImageView(QWidget):
         # --Histogram--
         toolbar = QToolBar(self._displayPanel)
         toolbar.addWidget(QLabel('Histogram ', toolbar))
-        self._actHistOnOff = MultiAction(toolbar)
-        self._actHistOnOff.addState(self.HIST_ON, qta.icon('fa.toggle-on'))
-        self._actHistOnOff.addState(self.HIST_OFF, qta.icon('fa.toggle-off'))
-        if self._showHistogram:
-            self._actHistOnOff.setToolTip("On")
-            self._actHistOnOff.setState(self.HIST_ON)
-        else:
-            self._actHistOnOff.setToolTip("Off")
-            self._actHistOnOff.setState(self.HIST_OFF)
-
-        self._actHistOnOff.triggered.connect(self.__actHistogramOnOffTriggered)
+        self._actHistOnOff = MultiStateAction(
+            toolbar, states=[(True, qta.icon('fa.toggle-on'), 'On'),
+                             (False, qta.icon('fa.toggle-off'), 'Off')])
+        self._actHistOnOff.set(self._showHistogram)
+        self._actHistOnOff.stateChanged.connect(
+            self.__actHistogramOnOffTriggered)
 
         toolbar.addAction(self._actHistOnOff)
         maxWidth = toolbar.sizeHint().width() + toolbar.iconSize().width()
@@ -141,17 +136,17 @@ class ImageView(QWidget):
         # --Axis--
         toolbar = QToolBar(self._displayPanel)
         toolbar.addWidget(QLabel('Axis ', toolbar))
-        self._actAxis = MultiAction(toolbar)
-        self._actAxis.addState(self.AXIS_BOTTOM_LEFT,
-                               qta.icon('fa.long-arrow-up',
+        self._actAxis = MultiStateAction(toolbar)
+        self._actAxis.add(self.AXIS_BOTTOM_LEFT,
+                          qta.icon('fa.long-arrow-up',
                                         'fa.long-arrow-right',
                                         options=[{'offset': (-0.3, 0),
                                                   'scale_factor': 0.8},
                                                  {'offset': (0, 0.3),
                                                   'scale_factor': 0.8}
                                                  ]))
-        self._actAxis.addState(self.AXIS_TOP_LEFT,
-                               qta.icon('fa.long-arrow-down',
+        self._actAxis.add(self.AXIS_TOP_LEFT,
+                          qta.icon('fa.long-arrow-down',
                                         'fa.long-arrow-right',
                                         options=[{'offset': (-0.3, 0),
                                                   'scale_factor': 0.8},
@@ -159,18 +154,18 @@ class ImageView(QWidget):
                                                   'scale_factor': 0.8}
                                                  ]))
         self._actAxis.setText('Axis origin')
-        self._actAxis.setState(self.AXIS_BOTTOM_LEFT)
+        self._actAxis.set(self.AXIS_BOTTOM_LEFT)
         self._actAxis.triggered.connect(self.__actAxisTriggered)
         toolbar.addAction(self._actAxis)
-        self._actAxisOnOff = MultiAction(toolbar)
-        self._actAxisOnOff.addState(self.AXIS_ON, qta.icon('fa.toggle-on'))
-        self._actAxisOnOff.addState(self.AXIS_OFF, qta.icon('fa.toggle-off'))
+        self._actAxisOnOff = MultiStateAction(toolbar)
+        self._actAxisOnOff.add(self.AXIS_ON, qta.icon('fa.toggle-on'))
+        self._actAxisOnOff.add(self.AXIS_OFF, qta.icon('fa.toggle-off'))
 
         if self._showXaxis:
-            self._actAxisOnOff.setState(self.AXIS_ON)
+            self._actAxisOnOff.set(self.AXIS_ON)
             self._actAxisOnOff.setToolTip("On")
         else:
-            self._actAxisOnOff.setState(self.AXIS_OFF)
+            self._actAxisOnOff.set(self.AXIS_OFF)
             self._actAxisOnOff.setToolTip("Off")
 
         self._actAxisOnOff.triggered.connect(self.__actAxisOnOffTriggered)
@@ -431,23 +426,23 @@ class ImageView(QWidget):
     @pyqtSlot(bool)
     def __actAxisTriggered(self, checked):
         """ This slot is invoked when the action histogram is triggered """
-        self._actAxis.changeToNextState()
-        self.setAxisOrientation(self._actAxis.getCurrentState())
+        self._actAxis.next()
+        self.setAxisOrientation(self._actAxis.get())
 
     @pyqtSlot(bool)
     def __actHistogramOnOffTriggered(self, checked):
         """ This slot is invoked when the action histogram is triggered """
-        self._actHistOnOff.changeToNextState()
+        self._actHistOnOff.next()
         self._showHistogram = \
-            self._actHistOnOff.getCurrentState() == self.HIST_ON
+            self._actHistOnOff.get() == self.HIST_ON
         self._actHistOnOff.setToolTip("On" if self._showHistogram else "Off")
         self._imageView.ui.histogram.setVisible(self._showHistogram)
 
     @pyqtSlot(bool)
     def __actAxisOnOffTriggered(self, checked):
         """ This slot is invoked when the action histogram is triggered """
-        self._actAxisOnOff.changeToNextState()
-        self._showXaxis = self._actAxisOnOff.getCurrentState() == self.AXIS_ON
+        self._actAxisOnOff.next()
+        self._showXaxis = self._actAxisOnOff.get() == self.AXIS_ON
         self._showYaxis = self._showXaxis
         self._actAxisOnOff.setToolTip("On" if self._showXaxis else "Off")
         self.__setupAxis()

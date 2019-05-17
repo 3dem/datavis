@@ -14,14 +14,14 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
                              QPushButton, QAbstractItemView)
 
 from emqt5.utils import EmPath, EmTable, ImageManager, VolImageManager
-from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
+from emqt5.views import (DataView, PIXEL_UNITS, TableViewConfig,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel)
 from emqt5.views.base import AbstractView, DynamicWidgetsFactory
-from emqt5.views.toolbar import ToolBar
+from emqt5.widgets import ToolBar
 from emqt5.views.columns import ColumnsView
 from emqt5.views.volume_view import VolumeView
 from emqt5.windows import BrowserWindow
@@ -150,12 +150,14 @@ if __name__ == '__main__':
             self._splitter.addWidget(self._toolBar)
             self._splitter.setCollapsible(0, False)
             self._splitter.addWidget(self._mainSplitter)
+
             self._filesPanel = self._toolBar.createSidePanel()
             self._filesPanel.setObjectName('filesPanel')
             self._filesPanel.setStyleSheet(
                 'QWidget#filesPanel{border-left: 1px solid lightgray;}')
             self._filesPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
+
             vLayout = QVBoxLayout(self._filesPanel)
             vLayout.setContentsMargins(0, 0, 0, 0)
             self._columnsViewFiles = ColumnsView(self._filesPanel)

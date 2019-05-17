@@ -1,10 +1,66 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, QObject
+from collections import OrderedDict
+
+from PyQt5.QtCore import Qt, QObject, pyqtSlot, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
                              QAction, QActionGroup, QSizePolicy, QMainWindow,
                              QDockWidget, QToolButton)
+
+
+class MultiStateAction(QAction):
+    """ Action handling multiple internal states.
+     Each state is a tuple containing:
+        (value, icon, tooltip)
+    """
+    # Emitted when the internal state changed
+    stateChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None, **kwargs):
+        QAction.__init__(self, parent)
+        self._states = OrderedDict()
+        for state, icon, tooltip in kwargs.get('states', []):
+            self.add(state, icon, tooltip)
+        self._current = kwargs.get('current', -1)
+        self.triggered.connect(self.__onTriggered)
+
+    def add(self, state, icon, tooltip=""):
+        """ Add a new state. """
+        self._states[state] = (icon, tooltip)
+
+    def get(self):
+        """ Get the currently active state. """
+        return self._states[self._current] if self._current >= 0 else -1
+
+    def set(self, state):
+        """ Change the current active state. """
+        if state not in self._states:
+            raise Exception("Invalid state %s" % state)
+        icon, tooltip = self._states(state)
+        self.setIcon(icon)
+        self.setToolTip(tooltip)
+
+    def __move(self, shift):
+        """ Move the current active state.
+        """
+        keys = list(self._states.keys())
+        currentIndex = keys.index(self._current)
+        newIndex = (currentIndex + shift) % len(keys)
+        self.set(keys[newIndex])
+
+    def next(self):
+        """ Move the active state to the next one. """
+        self.__move(1)
+
+    def previous(self):
+        """ Move the active state to the previous one. """
+        self.__move(-1)
+
+    @pyqtSlot
+    def __onTriggered(self):
+        self.next()
+        self.stateChanged.emit(int(self.get()))
 
 
 class ToolBar(QWidget):
@@ -235,45 +291,3 @@ class ToolBar(QWidget):
         widget.setGeometry(0, 0, self._panelMinWidth, widget.height())
         return widget
 
-
-class MultiAction(QAction):
-    """ Action for multiple states """
-
-    def __init__(self, parent=None):
-        QAction.__init__(self, parent)
-        self._stateIndex = -1
-        self._icons = dict()
-        self._tooltip = dict()
-        self._states = list()
-
-    def addState(self, state, icon, tooltip=""):
-        self._states.append(state)
-        self._icons[state] = icon, len(self._states) - 1
-        self._tooltip[state] = tooltip
-
-    def getCurrentState(self):
-        return self._states[self._stateIndex] if self._stateIndex >= 0 else -1
-
-    def setState(self, state):
-        s = self._icons.get(state)
-
-        if s is not None:
-            self._stateIndex = s[1]
-            self.setIcon(self._icons[self._states[self._stateIndex]][0])
-
-        self.setToolTip(self._tooltip.get(state, ""))
-
-    def changeToNextState(self):
-        if self._stateIndex >= 0:
-            self._stateIndex = (self._stateIndex + 1) % len(self._states)
-            self.setIcon(self._icons[self._states[self._stateIndex]][0])
-            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
-                                              ""))
-
-    def changeToPreviousState(self):
-        if self._states:
-            n = len(self._states)
-            self._stateIndex = (n - self._stateIndex - 1) % n
-            self.setIcon(self._icons[self._states[self._stateIndex]][0])
-            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
-                                              ""))

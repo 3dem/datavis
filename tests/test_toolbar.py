@@ -1,16 +1,15 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction,
                              QLineEdit, QTreeView, QVBoxLayout, QHBoxLayout,
                              QToolButton, QMenu, QSpacerItem, QSizePolicy,
-                             QListView, QTableWidget, QLabel, QPushButton)
+                             QTableWidget, QLabel)
 
-from emqt5.views.toolbar import ToolBar
+from emqt5.widgets._toolbar import ToolBar
 
 import qtawesome as qta
 

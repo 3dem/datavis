@@ -25,7 +25,7 @@ from .utils import ImageElemParser
 from .image_view import ImageView
 from .config import TableViewConfig
 from .columns import ColumnsView
-from .toolbar import MultiAction
+from emqt5.widgets._toolbar import MultiStateAction
 from .base import OptionList
 from ..utils import EmPath, ImageManager
 
@@ -382,12 +382,12 @@ class PickerView(QWidget):
         self._actionPickCenter.setShortcut(QtGui.QKeySequence(Qt.Key_D))
         self._actionPickCenter.setChecked(False)
 
-        self._actionPickShowHide = MultiAction(toolbar)
-        self._actionPickShowHide.addState(SHOW_ON, qta.icon('fa5s.toggle-on'),
+        self._actionPickShowHide = MultiStateAction(toolbar)
+        self._actionPickShowHide.add(SHOW_ON, qta.icon('fa5s.toggle-on'),
                                           "Hide coordinates")
-        self._actionPickShowHide.addState(SHOW_OFF, qta.icon('fa5s.toggle-off'),
+        self._actionPickShowHide.add(SHOW_OFF, qta.icon('fa5s.toggle-off'),
                                           "Show coordinates")
-        self._actionPickShowHide.setState(SHOW_ON)
+        self._actionPickShowHide.set(SHOW_ON)
         self._actionPickShowHide.setShortcut(QtGui.QKeySequence(Qt.Key_N))
         self._actionPickShowHide.triggered.connect(
             self.__onPickShowHideTriggered)
@@ -993,7 +993,7 @@ class PickerView(QWidget):
 
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         # roi.sigClicked.connect(self._roiMouseClicked)
-        roi.setVisible(self._actionPickShowHide.getCurrentState() == SHOW_ON)
+        roi.setVisible(self._actionPickShowHide.get() == SHOW_ON)
         self._imageView.getViewBox().addItem(roi)
         roi.setFlag(QGraphicsItem.ItemIsSelectable, self._clickAction == ERASE)
         self._roiList.append(coordROI)
@@ -1200,9 +1200,9 @@ class PickerView(QWidget):
     @pyqtSlot()
     def __onPickShowHideTriggered(self):
         """ Invoked when action pick-show-hide is triggered """
-        self._actionPickShowHide.changeToNextState()
+        self._actionPickShowHide.next()
         self.__showHidePickCoord(
-            self._actionPickShowHide.getCurrentState() == SHOW_ON)
+            self._actionPickShowHide.get() == SHOW_ON)
 
     @pyqtSlot(int)
     def __onCurrentRowChanged(self, row):
