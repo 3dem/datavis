@@ -57,7 +57,7 @@ class MultiStateAction(QAction):
         """ Move the active state to the previous one. """
         self.__move(-1)
 
-    @pyqtSlot
+    @pyqtSlot()
     def __onTriggered(self):
         self.next()
         self.stateChanged.emit(int(self.get()))

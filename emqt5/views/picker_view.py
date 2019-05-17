@@ -1,6 +1,7 @@
 import sys
 import os
 from math import cos, sin
+from numpy import pi
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QFile, QIODevice, QJsonDocument,
@@ -15,9 +16,11 @@ from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
                          QIntValidator)
 import pyqtgraph as pg
 import qtawesome as qta
-from numpy import pi
+
 
 import em
+from emqt5.widgets import MultiStateAction
+from emqt5.utils import EmPath, ImageManager
 
 from .model import TableDataModel
 from .picker_model import Micrograph, Coordinate
@@ -25,9 +28,8 @@ from .utils import ImageElemParser
 from .image_view import ImageView
 from .config import TableViewConfig
 from .columns import ColumnsView
-from emqt5.widgets._toolbar import MultiStateAction
+
 from .base import OptionList
-from ..utils import EmPath, ImageManager
 
 SHAPE_RECT = 0
 SHAPE_CIRCLE = 1

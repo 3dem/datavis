@@ -432,11 +432,7 @@ class ImageView(QWidget):
     @pyqtSlot(bool)
     def __actHistogramOnOffTriggered(self, checked):
         """ This slot is invoked when the action histogram is triggered """
-        self._actHistOnOff.next()
-        self._showHistogram = \
-            self._actHistOnOff.get() == self.HIST_ON
-        self._actHistOnOff.setToolTip("On" if self._showHistogram else "Off")
-        self._imageView.ui.histogram.setVisible(self._showHistogram)
+        self._imageView.ui.histogram.setVisible(checked)
 
     @pyqtSlot(bool)
     def __actAxisOnOffTriggered(self, checked):

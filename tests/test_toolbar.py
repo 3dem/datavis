@@ -8,10 +8,9 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction,
                              QLineEdit, QTreeView, QVBoxLayout, QHBoxLayout,
                              QToolButton, QMenu, QSpacerItem, QSizePolicy,
                              QTableWidget, QLabel)
-
-from emqt5.widgets._toolbar import ToolBar
-
 import qtawesome as qta
+from emqt5.widgets import ToolBar
+
 
 app = QApplication(sys.argv)
 

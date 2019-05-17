@@ -19,9 +19,9 @@ from .gallery import GalleryView
 from .items import ItemsView
 from .base import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
 from .config import TableViewConfig
-from emqt5.widgets._toolbar import ToolBar
 
-from ..utils import ImageManager, EmTable
+from emqt5.widgets import ToolBar
+from emqt5.utils import ImageManager, EmTable
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
