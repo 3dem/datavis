@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QTextEdit, QDoubleSpinBox)
 
-from emqt5.widgets import ToolBar, MultiStateAction, OnOffAction
+from emqt5.widgets import ActionsToolBar, MultiStateAction, OnOffAction
 
 
 class ImageView(QWidget):
@@ -90,12 +90,12 @@ class ImageView(QWidget):
                                        view=pg.PlotItem())
         self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
-        self._toolBar = ToolBar(self, orientation=Qt.Vertical)
+        self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
         self._splitter.addWidget(self._toolBar)
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._imageView)
 
-        displayPanel = self._toolBar.createSidePanel('displayPanel')
+        displayPanel = self._toolBar.createPanel('displayPanel')
         vLayout = QVBoxLayout(displayPanel)
         self._labelScale = QLabel('Scale: ', displayPanel)
         hLayout = QHBoxLayout()
@@ -219,7 +219,7 @@ class ImageView(QWidget):
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
 
         # --File-Info--
-        fileInfoPanel = self._toolBar.createSidePanel('fileInfoPanel')
+        fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
         fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
                                     QSizePolicy.Minimum)
         vLayout = QVBoxLayout(fileInfoPanel)

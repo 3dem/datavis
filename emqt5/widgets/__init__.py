@@ -1,2 +1,2 @@
 
-from ._toolbar import ToolBar, MultiStateAction, OnOffAction
+from ._toolbar import ActionsToolBar, MultiStateAction, OnOffAction

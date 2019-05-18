@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction,
                              QToolButton, QMenu, QSpacerItem, QSizePolicy,
                              QTableWidget, QLabel)
 import qtawesome as qta
-from emqt5.widgets import ToolBar
+from emqt5.widgets import ActionsToolBar
 
 
 app = QApplication(sys.argv)
@@ -21,7 +21,7 @@ centralWidget = QWidget()
 centralLayout = QHBoxLayout(centralWidget)
 win.setCentralWidget(centralWidget)
 
-toolBar = ToolBar(centralWidget, orientation=Qt.Vertical)
+toolBar = ActionsToolBar(centralWidget, orientation=Qt.Vertical)
 
 centralLayout.addWidget(toolBar)
 centralLayout.addWidget(QTreeView(centralWidget))

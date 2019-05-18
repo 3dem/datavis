@@ -263,7 +263,7 @@ class PickerView(QWidget):
         self._imageView.setObjectName("imageView")
         imgViewToolBar = self._imageView.getToolBar()
 
-        self._micPanel = imgViewToolBar.createSidePanel()
+        self._micPanel = imgViewToolBar.createPanel()
         self._micPanel.setSizePolicy(QSizePolicy.Ignored,
                                      QSizePolicy.Minimum)
         #  setting a reasonable panel width for micrographs table
@@ -298,7 +298,7 @@ class PickerView(QWidget):
         actPickerROIS.setIcon(qta.icon('fa.object-group'))
         actPickerROIS.setText('Picker Tools')
 
-        boxPanel = imgViewToolBar.createSidePanel()
+        boxPanel = imgViewToolBar.createPanel()
         boxPanel.setObjectName('boxPanel')
         boxPanel.setStyleSheet(
             'QWidget#boxPanel{border-left: 1px solid lightgray;}')
@@ -430,7 +430,7 @@ class PickerView(QWidget):
         actMics.setIcon(qta.icon('fa.list-alt'))
         actMics.setText('Micrographs')
 
-        controlsPanel = imgViewToolBar.createSidePanel()
+        controlsPanel = imgViewToolBar.createPanel()
         controlsPanel.setObjectName('boxPanel')
         controlsPanel.setStyleSheet(
             'QWidget#boxPanel{border-left: 1px solid lightgray;}')

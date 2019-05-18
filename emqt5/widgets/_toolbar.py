@@ -73,7 +73,7 @@ class OnOffAction(MultiStateAction):
         MultiStateAction.__init__(self, parent, **kwargs)
 
 
-class ToolBar(QWidget):
+class ActionsToolBar(QWidget):
     """ Toolbar tha can contain a drop-down panel with additional options """
 
     def __init__(self, parent, **kwargs):
@@ -86,29 +86,24 @@ class ToolBar(QWidget):
         QWidget.__init__(self, parent=parent)
 
         self._panelsDict = dict()
-        self._panelMinWidth = kwargs.get("panel_min_width", 160)
-        self._panelMaxWidth = kwargs.get('panel_max_width', 300)
+        self._panelMinWidth = kwargs.get("panelMinWidth", 160)
+        self._panelMaxWidth = kwargs.get('panelMaxWidth', 300)
+        self._orientation = kwargs.get("orientation", Qt.Vertical)
         self._buttonWidth = 0
         self._docks = []
         self.__setupUi(**kwargs)
 
     def __setupUi(self, **kwargs):
-
-        orientation = kwargs.get("orientation", Qt.Horizontal)
-        if orientation == Qt.Vertical:
-            self._mainLayout = QHBoxLayout(self)
-        else:
-            self._mainLayout = QVBoxLayout(self)
-
+        layout = QHBoxLayout(self) if self._orientation == Qt.Vertical else QVBoxLayout(self)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
                                        QSizePolicy.Fixed))
-        self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
         self._toolBar = QToolBar(self)
-        self._toolBar.setOrientation(orientation)
-        self._mainLayout.addWidget(self._toolBar)
+        self._toolBar.setOrientation(self._orientation)
+        layout.addWidget(self._toolBar)
         self._sidePanel = QMainWindow(None)
-        self._mainLayout.addWidget(self._sidePanel)
+        layout.addWidget(self._sidePanel)
         # TODO[hv]: review the next lines
         #s = kwargs.get("show_panel", False)
         #self._sidePanel.setVisible(s)
@@ -277,34 +272,37 @@ class ToolBar(QWidget):
         """ Returns the current active action """
         return self._lastAction
 
-    def hideSidePanel(self):
+    # FIXME: Check if this function is used
+    def hidePanel(self):
         """ Hide the side panel."""
         if self._lastAction is not None:
             self.__groupActionTriggered(self._lastAction)
 
-    def setSidePanelMinimumWidth(self, width):
+    def setPanelMinSize(self, width):
         """ Sets the side panel minimum width """
         self._panelMinWidth = width
         for dock in self._docks:
             dock.setMinimumWidth(width)
 
-    def getSidePanelMinimumWidth(self):
+    def getPanelMinSize(self):
         """ Returns the side panel minimum width """
         return self._panelMinWidth
 
-    def setSidePanelMaximumWidth(self, width):
+    def setPanelMaxSize(self, width):
         """ Sets the side panel maximum width """
         self._panelMaxWidth = width
         for dock in self._docks:
             dock.setMaximumWidth(width)
 
-    def createSidePanel(self, name, style='QWidget#displayPanel{border-left: '
+    def createPanel(self, name, style='QWidget#displayPanel{border-left: '
                                           '1px solid lightgray;}'):
         """ Create a widget with the preferred width"""
         widget = QWidget()
+        # FIXME: If the toolbar can be either vertical or horizontal
+        # then this needs to be taken into account for the geometry
+        # (it should be either width or height)
         widget.setGeometry(0, 0, self._panelMinWidth, widget.height())
         widget.setObjectName(name)
         widget.setStyleSheet(style)
         widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         return widget
-
