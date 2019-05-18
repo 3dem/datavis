@@ -1,15 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import pyqtgraph as pg
+import qtawesome as qta
 from PyQt5.QtCore import Qt, pyqtSlot, QEvent, QLineF
 from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QTextEdit, QDoubleSpinBox)
 
-import qtawesome as qta
-import pyqtgraph as pg
-
-from emqt5.widgets import ToolBar, MultiStateAction
+from emqt5.widgets import ToolBar, MultiStateAction, OnOffAction
 
 
 class ImageView(QWidget):
@@ -83,7 +82,6 @@ class ImageView(QWidget):
         self.setup(**kwargs)
 
     def __setupUI(self, **kwargs):
-
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -97,18 +95,12 @@ class ImageView(QWidget):
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._imageView)
 
-        self._toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self._displayPanel = self._toolBar.createSidePanel()
-        self._displayPanel.setObjectName('displayPanel')
-        self._displayPanel.setStyleSheet(
-            'QWidget#displayPanel{border-left: 1px solid lightgray;}')
-        self._displayPanel.setSizePolicy(QSizePolicy.Ignored,
-                                         QSizePolicy.Ignored)
-        vLayout = QVBoxLayout(self._displayPanel)
-        self._labelScale = QLabel('Scale: ', self._displayPanel)
+        displayPanel = self._toolBar.createSidePanel('displayPanel')
+        vLayout = QVBoxLayout(displayPanel)
+        self._labelScale = QLabel('Scale: ', displayPanel)
         hLayout = QHBoxLayout()
         hLayout.addWidget(self._labelScale)
-        self._spinBoxScale = QDoubleSpinBox(self._displayPanel)
+        self._spinBoxScale = QDoubleSpinBox(displayPanel)
         self._spinBoxScale.setSuffix(" %")
         self._spinBoxScale.setRange(0, 10000)
         self._spinBoxScale.editingFinished.connect(
@@ -119,159 +111,128 @@ class ImageView(QWidget):
         view = self.getView().getViewBox()
         view.sigStateChanged.connect(
             self.__onImageScaleChanged)
-        # --Histogram--
-        toolbar = QToolBar(self._displayPanel)
-        toolbar.addWidget(QLabel('Histogram ', toolbar))
-        self._actHistOnOff = MultiStateAction(
-            toolbar, states=[(True, qta.icon('fa.toggle-on'), 'On'),
-                             (False, qta.icon('fa.toggle-off'), 'Off')])
-        self._actHistOnOff.set(self._showHistogram)
-        self._actHistOnOff.stateChanged.connect(
-            self.__actHistogramOnOffTriggered)
 
+        # --Histogram On/Off--
+        toolbar = QToolBar(displayPanel)
+        toolbar.addWidget(QLabel('Histogram ', toolbar))
+        self._actHistOnOff = OnOffAction()
+        self._actHistOnOff.set(self._showHistogram)
+        self._actHistOnOff.stateChanged.connect(self.__actHistOnOffChanged)
         toolbar.addAction(self._actHistOnOff)
         maxWidth = toolbar.sizeHint().width() + toolbar.iconSize().width()
         vLayout.addWidget(toolbar)
-        # --End-Histogram--
-        # --Axis--
-        toolbar = QToolBar(self._displayPanel)
+
+        # -- Axis --
+        toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Axis ', toolbar))
-        self._actAxis = MultiStateAction(toolbar)
-        self._actAxis.add(self.AXIS_BOTTOM_LEFT,
-                          qta.icon('fa.long-arrow-up',
-                                        'fa.long-arrow-right',
-                                        options=[{'offset': (-0.3, 0),
-                                                  'scale_factor': 0.8},
-                                                 {'offset': (0, 0.3),
-                                                  'scale_factor': 0.8}
-                                                 ]))
-        self._actAxis.add(self.AXIS_TOP_LEFT,
-                          qta.icon('fa.long-arrow-down',
-                                        'fa.long-arrow-right',
-                                        options=[{'offset': (-0.3, 0),
-                                                  'scale_factor': 0.8},
-                                                 {'offset': (0, -0.3),
-                                                  'scale_factor': 0.8}
-                                                 ]))
-        self._actAxis.setText('Axis origin')
-        self._actAxis.set(self.AXIS_BOTTOM_LEFT)
-        self._actAxis.triggered.connect(self.__actAxisTriggered)
-        toolbar.addAction(self._actAxis)
-        self._actAxisOnOff = MultiStateAction(toolbar)
-        self._actAxisOnOff.add(self.AXIS_ON, qta.icon('fa.toggle-on'))
-        self._actAxisOnOff.add(self.AXIS_OFF, qta.icon('fa.toggle-off'))
+        actAxis = MultiStateAction(
+            toolbar, states=[(self.AXIS_BOTTOM_LEFT,
+                              qta.icon('fa.long-arrow-up',
+                                       'fa.long-arrow-right',
+                                       options=[{'offset': (-0.3, 0),
+                                                 'scale_factor': 0.8},
+                                                {'offset': (0, 0.3),
+                                                 'scale_factor': 0.8}
+                                                ]), ''),
+                             (self.AXIS_TOP_LEFT,
+                              qta.icon('fa.long-arrow-down',
+                                       'fa.long-arrow-right',
+                                       options=[{'offset': (-0.3, 0),
+                                                 'scale_factor': 0.8},
+                                                {'offset': (0, -0.3),
+                                                 'scale_factor': 0.8}
+                                                ]), '')])
+        actAxis.setText('Axis origin')
+        actAxis.set(self.AXIS_BOTTOM_LEFT)
+        actAxis.stateChanged.connect(self.__actAxisTriggered)
+        toolbar.addAction(actAxis)
 
-        if self._showXaxis:
-            self._actAxisOnOff.set(self.AXIS_ON)
-            self._actAxisOnOff.setToolTip("On")
-        else:
-            self._actAxisOnOff.set(self.AXIS_OFF)
-            self._actAxisOnOff.setToolTip("Off")
-
-        self._actAxisOnOff.triggered.connect(self.__actAxisOnOffTriggered)
-        toolbar.addAction(self._actAxisOnOff)
+        # -- Axis On/Off --
+        actAxisOnOff = OnOffAction(toolbar)
+        actAxisOnOff.set(self._showXaxis)
+        actAxisOnOff.stateChanged.connect(self.__actAxisOnOffTriggered)
+        toolbar.addAction(actAxisOnOff)
         maxWidth = max(maxWidth,
                        toolbar.sizeHint().width() + toolbar.iconSize().width())
         vLayout.addWidget(toolbar)
-        # --End-Axis--
-        # --Flip--
-        toolbar = QToolBar(self._displayPanel)
-        toolbar.addWidget(QLabel('Flip ', toolbar))
-        self._actHorFlip = self.__createAction(parent=toolbar,
-                                               actionName="HFlip",
-                                               text="Horizontal Flip",
-                                               icon=qta.icon(
-                                                   'fa.long-arrow-right',
-                                                   'fa.long-arrow-left',
-                                                   options=[
-                                                       {'offset': (0, 0.2)},
-                                                       {'offset': (0, -0.2)}]),
-                                               checkable=True,
-                                               slot=self.horizontalFlip)
 
-        toolbar.addAction(self._actHorFlip)
-        self._actVerFlip = self.__createAction(parent=toolbar,
-                                               actionName="VFlip",
-                                               text="Vertical Flip",
-                                               icon=qta.icon(
-                                                   'fa.long-arrow-up',
-                                                   'fa.long-arrow-down',
-                                                   options=[
-                                                       {'offset': (0.2, 0)},
-                                                       {'offset': (-0.2, 0)}]),
-                                               checkable=True,
-                                               slot=self.verticalFlip)
-        toolbar.addAction(self._actVerFlip)
+        # -- Flip --
+        toolbar = QToolBar(displayPanel)
+        toolbar.addWidget(QLabel('Flip ', toolbar))
+        self._actHorFlip = self.__createAction(
+            parent=toolbar, actionName="HFlip", text="Horizontal Flip",
+            icon=qta.icon('fa.long-arrow-right', 'fa.long-arrow-left',
+                          options=[{'offset': (0, 0.2)}, {'offset': (0, -0.2)}]),
+            checkable=True, slot=self.horizontalFlip)
+
+        self._actVerFlip = self.__createAction(
+            parent=toolbar, actionName="VFlip", text="Vertical Flip",
+            icon=qta.icon('fa.long-arrow-up', 'fa.long-arrow-down',
+                          options=[{'offset': (0.2, 0)}, {'offset': (-0.2, 0)}]),
+            checkable=True, slot=self.verticalFlip)
         maxWidth = max(maxWidth,
                        toolbar.sizeHint().width()) + toolbar.iconSize().width()
         vLayout.addWidget(toolbar)
-        # --End-Flip--
+
         # --Rotate--
-        toolbar = QToolBar(self._displayPanel)
+        toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Rotate ', toolbar))
-        self._actRightRot = self.__createAction(parent=toolbar,
-                                                actionName="RRight",
-                                                text="Rotate Right",
-                                                faIconName="fa.rotate-right",
-                                                checkable=False,
-                                                slot=self.__rotateRight)
-        toolbar.addAction(self._actRightRot)
-        self._actLeftRot = self.__createAction(parent=toolbar,
-                                               actionName="RLeft",
-                                               text="Rotate Left",
-                                               faIconName="fa.rotate-left",
-                                               checkable=False,
-                                               slot=self.__rotateLeft)
-        toolbar.addAction(self._actLeftRot)
+        self.__createAction(parent=toolbar, actionName="RRight",
+                            text="Rotate Right", faIconName="fa.rotate-right",
+                            checkable=False, slot=self.__rotateRight)
+        self.__createAction(parent=toolbar, actionName="RLeft",
+                            text="Rotate Left", faIconName="fa.rotate-left",
+                            checkable=False, slot=self.__rotateLeft)
         maxWidth = max(maxWidth,
                        toolbar.sizeHint().width() + toolbar.iconSize().width())
         vLayout.addWidget(toolbar)
-        # --End-Rotate--
+
         # --Adjust--
-        self._btnAdjust = QPushButton(self._displayPanel)
-        self._btnAdjust.setText('Adjust')
-        self._btnAdjust.setIcon(qta.icon('fa.crosshairs'))
-        self._btnAdjust.setToolTip('Adjust image to the view')
-        self._btnAdjust.pressed.connect(self.fitToSize)
-        vLayout.addWidget(self._btnAdjust)
-        # --End-Adjust--
+        btnAdjust = QPushButton(displayPanel)
+        btnAdjust.setText('Adjust')
+        btnAdjust.setIcon(qta.icon('fa.crosshairs'))
+        btnAdjust.setToolTip('Adjust image to the view')
+        btnAdjust.pressed.connect(self.fitToSize)
+        vLayout.addWidget(btnAdjust)
+
         # --Reset--
-        self._btnReset = QPushButton(self._displayPanel)
-        self._btnReset.setText('Reset')
-        self._btnReset.setToolTip('Reset image operations')
-        self._btnReset.setIcon(qta.icon('fa.mail-reply-all'))
-        self._btnReset.pressed.connect(self.__resetView)
-        vLayout.addWidget(self._btnReset)
-        # --End-Reset--
+        btnReset = QPushButton(displayPanel)
+        btnReset.setText('Reset')
+        btnReset.setToolTip('Reset image operations')
+        btnReset.setIcon(qta.icon('fa.mail-reply-all'))
+        btnReset.pressed.connect(self.__resetView)
+        vLayout.addWidget(btnReset)
+
         vLayout.addStretch()
-        self._displayPanel.setFixedHeight(260)
-        self._actDisplay = QAction(None)
-        self._actDisplay.setIcon(qta.icon('fa.adjust'))
-        self._actDisplay.setText('Display')
+        displayPanel.setFixedHeight(260)
+        actDisplay = QAction(None)
+        actDisplay.setIcon(qta.icon('fa.adjust'))
+        actDisplay.setText('Display')
         #  setting a reasonable width for display panel
-        self._displayPanel.setGeometry(0, 0, maxWidth,
-                                       self._displayPanel.height())
-        self._toolBar.addAction(self._actDisplay, self._displayPanel,
-                                exclusive=False)
+
+        # FIXME: This logic of the maxWidth, should be managed by the Toolbar
+        # NOT FROM OUTSIDE HERE...if not, it will be duplicated from every
+        # place where the Toolbar is used
+        displayPanel.setGeometry(0, 0, maxWidth,
+                                       displayPanel.height())
+
+        self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
+
         # --File-Info--
-        self._fileInfoPanel = self._toolBar.createSidePanel()
-        self._fileInfoPanel.setObjectName('fileInfoPanel')
-        self._fileInfoPanel.setStyleSheet(
-            'QWidget#fileInfoPanel{border-left: 1px solid lightgray;}')
-        self._fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
-                                          QSizePolicy.Minimum)
-        vLayout = QVBoxLayout(self._fileInfoPanel)
-        self._textEditPath = QTextEdit(self._fileInfoPanel)
+        fileInfoPanel = self._toolBar.createSidePanel('fileInfoPanel')
+        fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
+                                    QSizePolicy.Minimum)
+        vLayout = QVBoxLayout(fileInfoPanel)
+        self._textEditPath = QTextEdit(fileInfoPanel)
         self._textEditPath.viewport().setAutoFillBackground(False)
 
         vLayout.addWidget(self._textEditPath)
-        self._fileInfoPanel.setMinimumHeight(30)
+        fileInfoPanel.setMinimumHeight(30)
 
-        self._actFileInfo = QAction(None)
-        self._actFileInfo.setIcon(qta.icon('fa.info-circle'))
-        self._actFileInfo.setText('File Info')
-        self._toolBar.addAction(self._actFileInfo, self._fileInfoPanel,
-                                exclusive=False)
+        actFileInfo = QAction(None)
+        actFileInfo.setIcon(qta.icon('fa.info-circle'))
+        actFileInfo.setText('File Info')
+        self._toolBar.addAction(actFileInfo, fileInfoPanel, exclusive=False)
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._splitter)
@@ -301,6 +262,8 @@ class ImageView(QWidget):
 
         if slot:
             a.triggered.connect(slot)
+
+        parent.addAction(a)
         return a
 
     def setAxisOrientation(self, orientation):
@@ -394,7 +357,7 @@ class ImageView(QWidget):
 
     def __imageViewKeyPressEvent(self, ev):
         if ev.key() == Qt.Key_H:
-            self.__actHistogramOnOffTriggered(True)
+            self.__actHistOnOffChanged(True)
 
         if ev.key() == Qt.Key_A:
             self.__actAxisOnOffTriggered(True)
@@ -423,24 +386,20 @@ class ImageView(QWidget):
         self.__resetOperationParams()
         self.setImage(self._imageView.image)
 
-    @pyqtSlot(bool)
-    def __actAxisTriggered(self, checked):
+    @pyqtSlot(int)
+    def __actAxisTriggered(self, state):
         """ This slot is invoked when the action histogram is triggered """
-        self._actAxis.next()
-        self.setAxisOrientation(self._actAxis.get())
+        self.setAxisOrientation(state)
 
     @pyqtSlot(int)
-    def __actHistogramOnOffTriggered(self, state):
+    def __actHistOnOffChanged(self, state):
         """ This slot is invoked when the action histogram is triggered """
         self._imageView.ui.histogram.setVisible(bool(state))
 
-    @pyqtSlot(bool)
-    def __actAxisOnOffTriggered(self, checked):
+    @pyqtSlot(int)
+    def __actAxisOnOffTriggered(self, state):
         """ This slot is invoked when the action histogram is triggered """
-        self._actAxisOnOff.next()
-        self._showXaxis = self._actAxisOnOff.get() == self.AXIS_ON
-        self._showYaxis = self._showXaxis
-        self._actAxisOnOff.setToolTip("On" if self._showXaxis else "Off")
+        self._showYaxis = self._showXaxis = bool(state)
         self.__setupAxis()
 
     @pyqtSlot()

@@ -1,12 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from collections import OrderedDict
-
 from PyQt5.QtCore import Qt, QObject, pyqtSlot, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
                              QAction, QActionGroup, QSizePolicy, QMainWindow,
                              QDockWidget, QToolButton)
+import qtawesome as qta
 
 
 class MultiStateAction(QAction):
@@ -63,6 +62,17 @@ class MultiStateAction(QAction):
         self.stateChanged.emit(int(self.get()))
 
 
+class OnOffAction(MultiStateAction):
+    """ Subclass of MultiStateAction that provide just to states: on/off. """
+    def __init__(self, parent=None, **kwargs):
+        # Set states to On/Off
+        kwargs['states'] = [
+            (True, qta.icon('fa.toggle-on'), 'On'),
+            (False, qta.icon('fa.toggle-off'), 'Off')
+        ]
+        MultiStateAction.__init__(self, parent, **kwargs)
+
+
 class ToolBar(QWidget):
     """ Toolbar tha can contain a drop-down panel with additional options """
 
@@ -107,6 +117,9 @@ class ToolBar(QWidget):
         self._actionGroup.setExclusive(True)
         self._lastAction = None
         self._visibleDocks = []
+
+        # Set default buttons style
+        self.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
         self.destroyed.connect(self.__destroySidePanel)
 
@@ -285,9 +298,13 @@ class ToolBar(QWidget):
         for dock in self._docks:
             dock.setMaximumWidth(width)
 
-    def createSidePanel(self):
+    def createSidePanel(self, name, style='QWidget#displayPanel{border-left: '
+                                          '1px solid lightgray;}'):
         """ Create a widget with the preferred width"""
         widget = QWidget()
         widget.setGeometry(0, 0, self._panelMinWidth, widget.height())
+        widget.setObjectName(name)
+        widget.setStyleSheet(style)
+        widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         return widget
 
