@@ -19,35 +19,35 @@ class MultiStateAction(QAction):
 
     def __init__(self, parent=None, **kwargs):
         QAction.__init__(self, parent)
-        self._states = OrderedDict()
-        for state, icon, tooltip in kwargs.get('states', []):
-            self.add(state, icon, tooltip)
-        self._current = kwargs.get('current', -1)
+        # List of internal states
+        self._states = list(kwargs.get('states', []))
+        # Current selected index
+        self._current = kwargs.get('current', 0 if self._states else -1)
         self.triggered.connect(self.__onTriggered)
 
     def add(self, state, icon, tooltip=""):
         """ Add a new state. """
-        self._states[state] = (icon, tooltip)
+        self._states.append((state, icon, tooltip))
 
     def get(self):
         """ Get the currently active state. """
-        return self._states[self._current] if self._current >= 0 else -1
+        return self._states[self._current][0] if self._current >= 0 else -1
 
     def set(self, state):
         """ Change the current active state. """
-        if state not in self._states:
+        values = [s[0] for s in self._states]
+        if state not in values:
             raise Exception("Invalid state %s" % state)
-        icon, tooltip = self._states(state)
+        self._current = values.index(state)
+        _, icon, tooltip = self._states[self._current]
         self.setIcon(icon)
         self.setToolTip(tooltip)
 
     def __move(self, shift):
         """ Move the current active state.
         """
-        keys = list(self._states.keys())
-        currentIndex = keys.index(self._current)
-        newIndex = (currentIndex + shift) % len(keys)
-        self.set(keys[newIndex])
+        newIndex = (self._current + shift) % len(self._states)
+        self.set(self._states[newIndex][0])
 
     def next(self):
         """ Move the active state to the next one. """

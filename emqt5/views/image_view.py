@@ -429,10 +429,10 @@ class ImageView(QWidget):
         self._actAxis.next()
         self.setAxisOrientation(self._actAxis.get())
 
-    @pyqtSlot(bool)
-    def __actHistogramOnOffTriggered(self, checked):
+    @pyqtSlot(int)
+    def __actHistogramOnOffTriggered(self, state):
         """ This slot is invoked when the action histogram is triggered """
-        self._imageView.ui.histogram.setVisible(checked)
+        self._imageView.ui.histogram.setVisible(bool(state))
 
     @pyqtSlot(bool)
     def __actAxisOnOffTriggered(self, checked):
@@ -608,18 +608,23 @@ class ImageView(QWidget):
     def setImageInfo(self, **kwargs):
         """
         Sets the image info that will be displayed.
-        kwargs  arguments:
-        path : (str) the image path
-        format: (str) the image format
-        data_type: (str) the image data type
+        **kwargs:
+            text: (str) if passed, it will be used as the info
+                to be displayed, if not, other arguments are considered
+            path : (str) the image path
+            format: (str) the image format
+            data_type: (str) the image data type
         """
-        text = "<p><strong>Path: </strong>%s</p>" \
-               "<p><strong>Format: </strong>%s</p>" \
-               "<p><strong>Type: </strong>%s</p>"
-        text = text % (kwargs.get('path', ''),
-                       kwargs.get('format', ''),
-                       kwargs.get('data_type', '').replace("<", "&lt;").
-                       replace(">", "&gt;"))
+        text = kwargs.get('text', None)
+        if text is None:
+            text = ("<p><strong>Path: </strong>%s</p>"
+                    "<p><strong>Format: </strong>%s</p>"
+                    "<p><strong>Type: </strong>%s</p>")
+            text = text % (kwargs.get('path', ''),
+                           kwargs.get('format', ''),
+                           kwargs.get('data_type', '').replace("<", "&lt;").
+                           replace(">", "&gt;"))
+        print("Setting text: %s" % text)
         self._textEditPath.setText(text)
 
     def getViewRect(self):
