@@ -17,6 +17,15 @@ class MultiStateAction(QAction):
     stateChanged = pyqtSignal(int)
 
     def __init__(self, parent=None, **kwargs):
+        """
+        Constructor for MultiStateAction objects.
+        :param parent:   (QObject) Specifies the parent object to which
+                         this MultiStateAction will belong
+        :param kwargs:
+                states:  (list of (value, icon, tooltip)) All possible states
+                         for the MultiStateAction.
+               current:  (int) The initial state index in states list.
+        """
         QAction.__init__(self, parent)
         # List of internal states
         self._states = list(kwargs.get('states', []))
@@ -25,7 +34,12 @@ class MultiStateAction(QAction):
         self.triggered.connect(self.__onTriggered)
 
     def add(self, state, icon, tooltip=""):
-        """ Add a new state. """
+        """
+        Add a new state to the internal states list.
+        :param state:    The state
+        :param icon:     (QIcon) Icon for the specified state
+        :param tooltip:  (str) The tooltip
+        """
         self._states.append((state, icon, tooltip))
 
     def get(self):
@@ -33,7 +47,11 @@ class MultiStateAction(QAction):
         return self._states[self._current][0] if self._current >= 0 else -1
 
     def set(self, state):
-        """ Change the current active state. """
+        """
+        Change the current active state. Rise an Exception if the specified
+        state is invalid.
+        :param state: The state.
+        """
         values = [s[0] for s in self._states]
         if state not in values:
             raise Exception("Invalid state %s" % state)
@@ -43,7 +61,9 @@ class MultiStateAction(QAction):
         self.setToolTip(tooltip)
 
     def __move(self, shift):
-        """ Move the current active state.
+        """
+        Move the current active state.
+        :param shift: (int) Positions for move the current state
         """
         newIndex = (self._current + shift) % len(self._states)
         self.set(self._states[newIndex][0])
@@ -74,14 +94,16 @@ class OnOffAction(MultiStateAction):
 
 
 class ActionsToolBar(QWidget):
-    """ Toolbar tha can contain a drop-down panel with additional options """
+    """ Toolbar that can contain a drop-down panel with additional options """
 
     def __init__(self, parent, **kwargs):
         """
-        Construct an Toolbar to be used as part of any widget
+        Construct an ActionsToolBar to be used as part of any widget
+        :param parent:
         **kwargs: Optional arguments.
-             - orientation: one of Qt.Orientation values (default=Qt.Horizontal)
-             - panel_width (int): the minimum side panel width
+             orientation:   one of Qt.Orientation values (default=Qt.Horizontal)
+             panelMinWidth: (int): the minimum side panel width
+             panelMaxWidth: (int): the maximum side panel width
         """
         QWidget.__init__(self, parent=parent)
 
@@ -91,10 +113,11 @@ class ActionsToolBar(QWidget):
         self._orientation = kwargs.get("orientation", Qt.Vertical)
         self._buttonWidth = 0
         self._docks = []
-        self.__setupUi(**kwargs)
+        self.__setupUi()
 
-    def __setupUi(self, **kwargs):
-        layout = QHBoxLayout(self) if self._orientation == Qt.Vertical else QVBoxLayout(self)
+    def __setupUi(self):
+        layout = QHBoxLayout(self) \
+            if self._orientation == Qt.Vertical else QVBoxLayout(self)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
                                        QSizePolicy.Fixed))
         layout.setSpacing(0)
@@ -104,10 +127,6 @@ class ActionsToolBar(QWidget):
         layout.addWidget(self._toolBar)
         self._sidePanel = QMainWindow(None)
         layout.addWidget(self._sidePanel)
-        # TODO[hv]: review the next lines
-        #s = kwargs.get("show_panel", False)
-        #self._sidePanel.setVisible(s)
-
         self._actionGroup = QActionGroup(self)
         self._actionGroup.setExclusive(True)
         self._lastAction = None
@@ -119,10 +138,19 @@ class ActionsToolBar(QWidget):
         self.destroyed.connect(self.__destroySidePanel)
 
     def __visibilityChanged(self, action, dock):
+        """
+        Invoked when the visibility is changed for the given dock widget
+        :param action: The parent action for the dock
+        :param dock:   (QDockWidget) The dock widget
+        """
         action.setChecked(dock.isVisible())
         self.__dockShowHide(dock)
 
     def __dockShowHide(self, dock):
+        """
+        Show or hide the specified dock widget according to the current state
+        :param dock: (QDockWidget)
+        """
         if not dock.isVisible() and dock in self._visibleDocks:
             self._visibleDocks.remove(dock)
         else:
@@ -135,10 +163,16 @@ class ActionsToolBar(QWidget):
 
     @pyqtSlot(QObject)
     def __destroySidePanel(self, obj):
+        """
+        Invoked when the ActionsToolBar will be destroyed.
+        We need to destroy the side panel
+        """
+        # FIXME[phv]: Review if self.destroyed can be connected to deleteLater
         self._sidePanel.deleteLater()
 
     @pyqtSlot(bool)
     def __actionTriggered(self, checked):
+        """ Invoked when an action is triggered. """
         action = self.sender()
         if isinstance(action, QAction):
             dock = self._panelsDict.get(action)
@@ -147,6 +181,7 @@ class ActionsToolBar(QWidget):
 
     @pyqtSlot(bool)
     def __groupActionTriggered(self, checked):
+        """ Invoked when an exclusive action is triggered """
         action = self.sender()
         dock = self._panelsDict.get(action)
         if action.isCheckable():
@@ -166,20 +201,24 @@ class ActionsToolBar(QWidget):
 
     @pyqtSlot(Qt.ToolButtonStyle)
     def setToolButtonStyle(self, toolButtonStyle):
+        """
+        Set the button style for this MultiStateAction
+        :param toolButtonStyle: (Qt.ToolButtonStyle) The style for all buttons
+        """
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
     def addAction(self, action, widget=None, index=None, exclusive=True,
                   showTitle=True, checked=False, floating=False):
         """
-        Add a new action with the associated widget. This widget will be shown
-        in the side panel when the action is active.
+        Add a new action with the associated widget(side panel). This widget
+        will be shown in the side panel when the action is active.
         If exclusive=True then the action will be exclusive respect to other
-        actions
+        actions.
         if showTitle=True then the action text will be visible as title in the
         side panel
         if checked=True then it will be activated and the corresponding  action
-        will be executed.
-        if floating=True then the dock widget can be detached from the toolbar,
+        will be triggered.
+        if floating=True then the dock widget can be detached from the toolbar
         and floated as an independent window.
 
         * Ownership of the widget is transferred to the toolbar.
@@ -224,8 +263,8 @@ class ActionsToolBar(QWidget):
                                self._sidePanel)
             dock.setFloating(floating)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-            features = QDockWidget.DockWidgetClosable | \
-                       QDockWidget.DockWidgetMovable
+            features = \
+                QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable
             if floating:
                 features |= QDockWidget.DockWidgetFloatable
             dock.setFeatures(features)
@@ -272,12 +311,6 @@ class ActionsToolBar(QWidget):
         """ Returns the current active action """
         return self._lastAction
 
-    # FIXME: Check if this function is used
-    def hidePanel(self):
-        """ Hide the side panel."""
-        if self._lastAction is not None:
-            self.__groupActionTriggered(self._lastAction)
-
     def setPanelMinSize(self, width):
         """ Sets the side panel minimum width """
         self._panelMinWidth = width
@@ -294,13 +327,18 @@ class ActionsToolBar(QWidget):
         for dock in self._docks:
             dock.setMaximumWidth(width)
 
-    def createPanel(self, name, style='QWidget#displayPanel{border-left: '
-                                          '1px solid lightgray;}'):
-        """ Create a widget with the preferred width"""
+    def createPanel(self, name, style=None):
+        """
+        Create a widget with the preferred width.
+        :param name:   (str) The panel name
+        :param style:  (str) The panel style
+        """
         widget = QWidget()
         # FIXME: If the toolbar can be either vertical or horizontal
         # then this needs to be taken into account for the geometry
         # (it should be either width or height)
+        if style is None:
+            style = 'QWidget#%s{border-left:1px solid lightgray;}' % name
         widget.setGeometry(0, 0, self._panelMinWidth, widget.height())
         widget.setObjectName(name)
         widget.setStyleSheet(style)

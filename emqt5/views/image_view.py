@@ -30,32 +30,29 @@ class ImageView(QWidget):
         """
         By default, ImageView show a toolbar for image operations.
         **Arguments**
-        parent : (QWidget) Specifies the parent widget to which this ImageView
-                 will belong. If None, then the ImageView is created with
-                 no parent.
-        tool_bar: (str) If specified, this will be used to set visible the
-                  ToolBar. Possible values are "on"(by default) or "off"
-        roi: (str) If specified, this will be used to set visible the
-                  ROI button. Possible values are "on" or "off"(by default)
-        menu: (str) If specified, this will be used to set visible the
-                  Menu button. Possible values are "on" or "off"(by default)
-        histogram: (str) If specified, this will be used to set visible the
-                  Menu button. Possible values are "on"(by default) or "off"
-        img_desc: (str) If specified, this will be used to set visible the
-                  image description widget. Possible values are "on"(by default)
-                  or "off"
-        fit: (str) If specified, this will be used to automatically
-                     auto-range the image whenever the view is resized.
-                     Possible values are "on"(by default) or "off"
-        auto_fill: (str) This property holds whether the widget background
-                         is filled automatically. The color used is defined by
-                         the QPalette::Window color role from the widget's
-                         palette. Possible values are "on" or "off" (by default)
-        hide_buttons: (str) Hide/show the internal pg buttons. For example,
-                            the button used to center an image. Possible values
-                            are "on" or "off" (by default)
-        axis_pos: (str) The axis position. Possible values: bottom-left,
-                        bottom-right, top-left, top-right
+        parent :   (QWidget) Specifies the parent widget to which this ImageView
+                   will belong. If None, then the ImageView is created with
+                   no parent.
+        toolBar:   (Bool) If specified, this will be used to set visible the
+                   ToolBar. By default, the toolbar is visible.
+        roi:       (Bool) If specified, this will be used to set visible the
+                   ROI button. False by default.
+        menu:      (Bool) If specified, this will be used to set visible the
+                   Menu button. False by default.
+        histogram: (Bool) If specified, this will be used to set visible the
+                   Menu button. True by default.
+        fit:       (Bool) If specified, this will be used to automatically
+                   auto-range the image whenever the view is resized.
+                   True by default.
+        autoFill:  (Bool) This property holds whether the widget background
+                   is filled automatically. The color used is defined by
+                   the QPalette::Window color role from the widget's palette.
+                   False by default.
+        hideButtons: (Bool) Hide/show the internal pg buttons. For example,
+                     the button used to center an image. False by default.
+        axisPos:   (Bool) The axis position.
+                   Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
+                   AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
         """
         QWidget.__init__(self, parent=parent)
 
@@ -69,7 +66,6 @@ class ImageView(QWidget):
         self._showMenuBtn = False
         self._showHistogram = False
         self._showPopup = False
-        self._showImgDesc = False
         self._showXaxis = True
         self._showYaxis = True
         self._fitToSize = True
@@ -78,10 +74,32 @@ class ImageView(QWidget):
         self._axisPos = self.AXIS_BOTTOM_LEFT
         self._scale = 1
 
-        self.__setupUI(**kwargs)
+        self.__setupUI()
         self.setup(**kwargs)
 
-    def __setupUI(self, **kwargs):
+    def __readKwargs(self, **kwargs):
+        """
+        Reads all kwargs params. This is the standard function for read kwargs
+        in all classes.
+        :param kwargs: See the constructor params
+        """
+        self._rotation_step = 90
+        self._showToolBar = kwargs.get("toolBar", True)
+        self._showRoiBtn = kwargs.get("roi", False)
+        self._showMenuBtn = kwargs.get("menu", False)
+        self._showHistogram = kwargs.get("histogram", False)
+        self._showPopup = kwargs.get("popup", False)
+        self._showXaxis = kwargs.get("axis", True)
+        self._showYaxis = kwargs.get("axis", True)
+        self._fitToSize = kwargs.get("fit", True)
+        self._autoFill = kwargs.get("autoFill", False)
+        self._pgButtons = kwargs.get("hideButtons", False)
+        self._axisPos = kwargs.get("axisPos", self.AXIS_BOTTOM_LEFT)
+
+    def __setupUI(self):
+        """
+        Setups the user interface
+        """
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -119,7 +137,6 @@ class ImageView(QWidget):
         self._actHistOnOff.set(self._showHistogram)
         self._actHistOnOff.stateChanged.connect(self.__actHistOnOffChanged)
         toolbar.addAction(self._actHistOnOff)
-        maxWidth = toolbar.sizeHint().width() + toolbar.iconSize().width()
         vLayout.addWidget(toolbar)
 
         # -- Axis --
@@ -152,8 +169,6 @@ class ImageView(QWidget):
         actAxisOnOff.set(self._showXaxis)
         actAxisOnOff.stateChanged.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(actAxisOnOff)
-        maxWidth = max(maxWidth,
-                       toolbar.sizeHint().width() + toolbar.iconSize().width())
         vLayout.addWidget(toolbar)
 
         # -- Flip --
@@ -162,16 +177,16 @@ class ImageView(QWidget):
         self._actHorFlip = self.__createAction(
             parent=toolbar, actionName="HFlip", text="Horizontal Flip",
             icon=qta.icon('fa.long-arrow-right', 'fa.long-arrow-left',
-                          options=[{'offset': (0, 0.2)}, {'offset': (0, -0.2)}]),
+                          options=[{'offset': (0, 0.2)},
+                                   {'offset': (0, -0.2)}]),
             checkable=True, slot=self.horizontalFlip)
 
         self._actVerFlip = self.__createAction(
             parent=toolbar, actionName="VFlip", text="Vertical Flip",
             icon=qta.icon('fa.long-arrow-up', 'fa.long-arrow-down',
-                          options=[{'offset': (0.2, 0)}, {'offset': (-0.2, 0)}]),
+                          options=[{'offset': (0.2, 0)},
+                                   {'offset': (-0.2, 0)}]),
             checkable=True, slot=self.verticalFlip)
-        maxWidth = max(maxWidth,
-                       toolbar.sizeHint().width()) + toolbar.iconSize().width()
         vLayout.addWidget(toolbar)
 
         # --Rotate--
@@ -183,8 +198,6 @@ class ImageView(QWidget):
         self.__createAction(parent=toolbar, actionName="RLeft",
                             text="Rotate Left", faIconName="fa.rotate-left",
                             checkable=False, slot=self.__rotateLeft)
-        maxWidth = max(maxWidth,
-                       toolbar.sizeHint().width() + toolbar.iconSize().width())
         vLayout.addWidget(toolbar)
 
         # --Adjust--
@@ -208,16 +221,8 @@ class ImageView(QWidget):
         actDisplay = QAction(None)
         actDisplay.setIcon(qta.icon('fa.adjust'))
         actDisplay.setText('Display')
-        #  setting a reasonable width for display panel
-
-        # FIXME: This logic of the maxWidth, should be managed by the Toolbar
-        # NOT FROM OUTSIDE HERE...if not, it will be duplicated from every
-        # place where the Toolbar is used
-        displayPanel.setGeometry(0, 0, maxWidth,
-                                       displayPanel.height())
 
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
-
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
         fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
@@ -242,13 +247,13 @@ class ImageView(QWidget):
         """
         Create a QAction with the given name, text and icon. If slot is not None
         then the signal QAction.triggered is connected to it
-        :param actionName: The action name
-        :param text: Action text
-        :param faIconName: qtawesome icon name
-        :param icon: QIcon (used if faIconName=None)
-        :param checkable: if this action is checkable
-        :param slot: the slot to connect QAction.triggered signal
-        :return: The QAction
+        :param actionName:   (str) The action name
+        :param text:         (str) Action text
+        :param faIconName:   (str) qtawesome icon name
+        :param icon:         (QIcon) used if faIconName=None
+        :param checkable:    (Bool) if this action is checkable
+        :param slot:         (slot) the slot to connect QAction.triggered signal
+        :return: The created QAction
         """
         a = QAction(parent)
         a.setObjectName(str(actionName))
@@ -266,18 +271,11 @@ class ImageView(QWidget):
         parent.addAction(a)
         return a
 
-    def setAxisOrientation(self, orientation):
-        """
-        Sets the axis orientation for this ImageView. Possible values are:
-         AXIS_TOP_LEFT :axis in top-left
-         AXIS_TOP_RIGHT :axis in top-right
-         AXIS_BOTTOM_RIGHT :axis in bottom-right
-         AXIS_BOTTOM_LEFT :axis in bottom-left
-         """
-        self._axisPos = orientation
-        self.__setupAxis()
-
     def __setupAxis(self):
+        """
+        Setups the axis according to the axis orientation.
+        See setAxisOrientation method.
+        """
         plotItem = self._imageView.getView()
         viewBox = plotItem
 
@@ -322,8 +320,10 @@ class ImageView(QWidget):
                 right = True and self._showYaxis
                 top = False
 
-            if not self._pgButtons:
+            if self._pgButtons:
                 plotItem.hideButtons()
+            else:
+                plotItem.showButtons()
 
             plotItem.setAutoFillBackground(self._autoFill)
 
@@ -356,6 +356,7 @@ class ImageView(QWidget):
                 axis.linkedViewChanged(viewBox)
 
     def __imageViewKeyPressEvent(self, ev):
+        """ Handles the key press event """
         if ev.key() == Qt.Key_H:
             self.__actHistOnOffChanged(True)
 
@@ -363,7 +364,10 @@ class ImageView(QWidget):
             self.__actAxisOnOffTriggered(True)
 
     def __setupImageView(self):
-        """ Configure the pg.ImageView widget """
+        """
+        Setups the pg.ImageView widget according to the internal
+        configuration params
+        """
         self._imageView.ui.menuBtn.setVisible(self._showMenuBtn)
         self._imageView.ui.histogram.setVisible(self._showHistogram)
         self._imageView.ui.roiBtn.setVisible(self._showRoiBtn)
@@ -373,7 +377,7 @@ class ImageView(QWidget):
         self.__setupAxis()
 
     def __resetOperationParams(self):
-        """ Reset the image operations params """
+        """ Reset the image operations params (rotations and flips) """
         self._oddFlips = False
         self._oddRotations = False
         self._isVerticalFlip = False
@@ -383,6 +387,10 @@ class ImageView(QWidget):
 
     @pyqtSlot()
     def __resetView(self):
+        """
+        Resets the view. The image operations (flips, rotations)
+        will be reverted to their initial state
+        """
         self.__resetOperationParams()
         self.setImage(self._imageView.image)
 
@@ -414,6 +422,9 @@ class ImageView(QWidget):
 
     @pyqtSlot()
     def __onSpinBoxScaleValueChanged(self):
+        """
+        This slot is invoked when the spinbox value for image scale is changed
+        """
         viewBox = self.getViewBox()
         val = self._spinBoxScale.value() * 0.01
         if val == 0:
@@ -435,30 +446,21 @@ class ImageView(QWidget):
             self._scale = abs(linev.dy())
             self._spinBoxScale.setValue(self._scale * 100)
 
+    def setAxisOrientation(self, orientation):
+        """
+        Sets the axis orientation for this ImageView.
+        Possible values are:
+            AXIS_TOP_LEFT :axis in top-left
+            AXIS_TOP_RIGHT :axis in top-right
+            AXIS_BOTTOM_RIGHT :axis in bottom-right
+            AXIS_BOTTOM_LEFT :axis in bottom-left
+         """
+        self._axisPos = orientation
+        self.__setupAxis()
+
     def setup(self, **kwargs):
         """ Configure the ImageView. See constructor comments for the params """
-        self._rotation_step = 90
-        self._showToolBar = kwargs.get("tool_bar", "on") == "on"
-        self._showRoiBtn = kwargs.get("roi", "off") == "on"
-        self._showMenuBtn = kwargs.get("menu", "off") == "on"
-        self._showHistogram = kwargs.get("histogram", "off") == "on"
-        self._showPopup = kwargs.get("popup", "off") == "on"
-        self._showImgDesc = kwargs.get("img_desc", "off") == "on"
-        self._showXaxis = kwargs.get("axis", "on") == "on"
-        self._showYaxis = kwargs.get("axis", "on") == "on"
-        self._fitToSize = kwargs.get("fit", "on") == "on"
-        self._autoFill = kwargs.get("auto_fill", "off") == "on"
-        self._pgButtons = kwargs.get("hide_buttons", "off") == "on"
-
-        pos = {
-            "bottom-left": self.AXIS_BOTTOM_LEFT,
-            "bottom-right": self.AXIS_BOTTOM_RIGHT,
-            "top-left": self.AXIS_TOP_LEFT,
-            "top-right": self.AXIS_TOP_RIGHT
-        }
-
-        self._axisPos = pos.get(kwargs.get("axis_pos", "bottom-left"),
-                                self.AXIS_BOTTOM_LEFT)
+        self.__readKwargs(**kwargs)
         self.__setupImageView()
 
     def getViewBox(self):
@@ -469,7 +471,10 @@ class ImageView(QWidget):
         return view
 
     def setImage(self, image):
-        """ Set the image to be displayed """
+        """
+        Set the image to be displayed
+        :param image: (numpy array) The image to be displayed
+        """
         self.clear()
         self._imageView.setImage(image, autoRange=self._fitToSize)
         self.fitToSize()
@@ -477,8 +482,9 @@ class ImageView(QWidget):
     @pyqtSlot(int)
     def rotate(self, angle):
         """
-        Make a rotation according to the given angle (in degrees).
+        Make a rotation according to the given angle.
         Does not modify the image.
+        :param angle: (int) The angle(in degrees)
         """
         imgItem = self._imageView.getImageItem()
 
@@ -549,30 +555,42 @@ class ImageView(QWidget):
         self._imageView.getView().autoRange()
 
     def showToolBar(self, visible=True):
-        """ Show or hide the tool bar """
+        """
+        Show or hide the tool bar
+        :param visible: (Bool) Visible state
+        """
         self._toolBar.setVisible(visible)
 
     def showMenuButton(self, visible=True):
-        """ Show or hide the menu button """
+        """
+        Show or hide the menu button
+        :param visible: (Bool) Visible state
+        """
         self._imageView.ui.menuBtn.setVisible(visible)
 
     def showRoiButton(self, visible=True):
-        """ Show or hide the ROI button """
+        """
+        Show or hide the ROI button
+        :param visible: (Bool) Visible state
+        """
         self._imageView.ui.menuBtn.setVisible(visible)
 
     def showHistogram(self, visible=True):
-        """ Show or hide the histogram widget """
+        """
+        Show or hide the histogram widget
+        :param visible: (Bool) Visible state
+        """
         self._imageView.ui.histogram.setVisible(visible)
 
     def setImageInfo(self, **kwargs):
         """
         Sets the image info that will be displayed.
         **kwargs:
-            text: (str) if passed, it will be used as the info
-                to be displayed, if not, other arguments are considered
-            path : (str) the image path
-            format: (str) the image format
-            data_type: (str) the image data type
+            text:     (str) if passed, it will be used as the info
+                      to be displayed, if not, other arguments are considered
+            path :    (str) the image path
+            format:   (str) the image format
+            dataType: (str) the image data type
         """
         text = kwargs.get('text', None)
         if text is None:
@@ -581,9 +599,8 @@ class ImageView(QWidget):
                     "<p><strong>Type: </strong>%s</p>")
             text = text % (kwargs.get('path', ''),
                            kwargs.get('format', ''),
-                           kwargs.get('data_type', '').replace("<", "&lt;").
+                           kwargs.get('dataType', '').replace("<", "&lt;").
                            replace(">", "&gt;"))
-        print("Setting text: %s" % text)
         self._textEditPath.setText(text)
 
     def getViewRect(self):
@@ -601,11 +618,6 @@ class ImageView(QWidget):
     def setViewSize(self, x, y, width, height):
         """ Sets the view size """
         # TODO review
-        tw = self._toolBar.width() if self._showToolBar else 0
-        th = self._toolBar.height() if self._showToolBar else 0
-        hw = self._imageView.ui.histogram.item.width() \
-            if self._showHistogram else 0
-
         plot = self._imageView.getView()
         if isinstance(plot, pg.PlotItem):
             if self._showXaxis:
@@ -636,6 +648,7 @@ class ImageView(QWidget):
         return self._imageView.getImageItem()
 
     def getToolBar(self):
+        """ Getter for left toolbar """
         return self._toolBar
 
     def eventFilter(self, obj, event):

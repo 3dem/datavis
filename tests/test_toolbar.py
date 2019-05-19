@@ -76,7 +76,7 @@ layout = QVBoxLayout(widgetE)
 layout.addWidget(QLineEdit("Not Exclusive", widgetE))
 layout.addWidget(QTableWidget(widgetE))
 
-toolBar.addAction(e, widgetE, False)
+toolBar.addAction(action=e, widget=widgetE, exclusive=False)
 
 b = QAction(None)
 b.setIcon(qta.icon('fa.info-circle'))
