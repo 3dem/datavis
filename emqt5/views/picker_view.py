@@ -1,6 +1,7 @@
 import sys
 import os
 from math import cos, sin
+from numpy import pi
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import (pyqtSlot, Qt, QFile, QIODevice, QJsonDocument,
@@ -15,9 +16,11 @@ from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
                          QIntValidator)
 import pyqtgraph as pg
 import qtawesome as qta
-from numpy import pi
+
 
 import em
+from emqt5.widgets import MultiStateAction
+from emqt5.utils import EmPath, ImageManager
 
 from .model import TableDataModel
 from .picker_model import Micrograph, Coordinate
@@ -25,9 +28,8 @@ from .utils import ImageElemParser
 from .image_view import ImageView
 from .config import TableViewConfig
 from .columns import ColumnsView
-from .toolbar import MultiAction
+
 from .base import OptionList
-from ..utils import EmPath, ImageManager
 
 SHAPE_RECT = 0
 SHAPE_CIRCLE = 1
@@ -261,7 +263,7 @@ class PickerView(QWidget):
         self._imageView.setObjectName("imageView")
         imgViewToolBar = self._imageView.getToolBar()
 
-        self._micPanel = imgViewToolBar.createSidePanel()
+        self._micPanel = imgViewToolBar.createPanel()
         self._micPanel.setSizePolicy(QSizePolicy.Ignored,
                                      QSizePolicy.Minimum)
         #  setting a reasonable panel width for micrographs table
@@ -296,7 +298,7 @@ class PickerView(QWidget):
         actPickerROIS.setIcon(qta.icon('fa.object-group'))
         actPickerROIS.setText('Picker Tools')
 
-        boxPanel = imgViewToolBar.createSidePanel()
+        boxPanel = imgViewToolBar.createPanel()
         boxPanel.setObjectName('boxPanel')
         boxPanel.setStyleSheet(
             'QWidget#boxPanel{border-left: 1px solid lightgray;}')
@@ -382,12 +384,12 @@ class PickerView(QWidget):
         self._actionPickCenter.setShortcut(QtGui.QKeySequence(Qt.Key_D))
         self._actionPickCenter.setChecked(False)
 
-        self._actionPickShowHide = MultiAction(toolbar)
-        self._actionPickShowHide.addState(SHOW_ON, qta.icon('fa5s.toggle-on'),
+        self._actionPickShowHide = MultiStateAction(toolbar)
+        self._actionPickShowHide.add(SHOW_ON, qta.icon('fa5s.toggle-on'),
                                           "Hide coordinates")
-        self._actionPickShowHide.addState(SHOW_OFF, qta.icon('fa5s.toggle-off'),
+        self._actionPickShowHide.add(SHOW_OFF, qta.icon('fa5s.toggle-off'),
                                           "Show coordinates")
-        self._actionPickShowHide.setState(SHOW_ON)
+        self._actionPickShowHide.set(SHOW_ON)
         self._actionPickShowHide.setShortcut(QtGui.QKeySequence(Qt.Key_N))
         self._actionPickShowHide.triggered.connect(
             self.__onPickShowHideTriggered)
@@ -428,7 +430,7 @@ class PickerView(QWidget):
         actMics.setIcon(qta.icon('fa.list-alt'))
         actMics.setText('Micrographs')
 
-        controlsPanel = imgViewToolBar.createSidePanel()
+        controlsPanel = imgViewToolBar.createPanel()
         controlsPanel.setObjectName('boxPanel')
         controlsPanel.setStyleSheet(
             'QWidget#boxPanel{border-left: 1px solid lightgray;}')
@@ -993,7 +995,7 @@ class PickerView(QWidget):
 
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         # roi.sigClicked.connect(self._roiMouseClicked)
-        roi.setVisible(self._actionPickShowHide.getCurrentState() == SHOW_ON)
+        roi.setVisible(self._actionPickShowHide.get() == SHOW_ON)
         self._imageView.getViewBox().addItem(roi)
         roi.setFlag(QGraphicsItem.ItemIsSelectable, self._clickAction == ERASE)
         self._roiList.append(coordROI)
@@ -1200,9 +1202,9 @@ class PickerView(QWidget):
     @pyqtSlot()
     def __onPickShowHideTriggered(self):
         """ Invoked when action pick-show-hide is triggered """
-        self._actionPickShowHide.changeToNextState()
+        self._actionPickShowHide.next()
         self.__showHidePickCoord(
-            self._actionPickShowHide.getCurrentState() == SHOW_ON)
+            self._actionPickShowHide.get() == SHOW_ON)
 
     @pyqtSlot(int)
     def __onCurrentRowChanged(self, row):

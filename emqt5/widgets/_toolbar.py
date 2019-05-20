@@ -1,64 +1,156 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, QObject
+from PyQt5.QtCore import Qt, QObject, pyqtSlot, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
                              QAction, QActionGroup, QSizePolicy, QMainWindow,
                              QDockWidget, QToolButton)
+import qtawesome as qta
 
 
-class ToolBar(QWidget):
-    """ Toolbar tha can contain a drop-down panel with additional options """
+class MultiStateAction(QAction):
+    """ Action handling multiple internal states.
+     Each state is a tuple containing:
+        (value, icon, tooltip)
+    """
+    # Emitted when the internal state changed
+    stateChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None, **kwargs):
+        """
+        Constructor for MultiStateAction objects.
+        :param parent:   (QObject) Specifies the parent object to which
+                         this MultiStateAction will belong
+        :param kwargs:
+                states:  (list of (value, icon, tooltip)) All possible states
+                         for the MultiStateAction.
+               current:  (int) The initial state index in states list.
+        """
+        QAction.__init__(self, parent)
+        # List of internal states
+        self._states = list(kwargs.get('states', []))
+        # Current selected index
+        self._current = kwargs.get('current', 0 if self._states else -1)
+        self.triggered.connect(self.__onTriggered)
+
+    def add(self, state, icon, tooltip=""):
+        """
+        Add a new state to the internal states list.
+        :param state:    The state
+        :param icon:     (QIcon) Icon for the specified state
+        :param tooltip:  (str) The tooltip
+        """
+        self._states.append((state, icon, tooltip))
+
+    def get(self):
+        """ Get the currently active state. """
+        return self._states[self._current][0] if self._current >= 0 else -1
+
+    def set(self, state):
+        """
+        Change the current active state. Rise an Exception if the specified
+        state is invalid.
+        :param state: The state.
+        """
+        values = [s[0] for s in self._states]
+        if state not in values:
+            raise Exception("Invalid state %s" % state)
+        self._current = values.index(state)
+        _, icon, tooltip = self._states[self._current]
+        self.setIcon(icon)
+        self.setToolTip(tooltip)
+
+    def __move(self, shift):
+        """
+        Move the current active state.
+        :param shift: (int) Positions for move the current state
+        """
+        newIndex = (self._current + shift) % len(self._states)
+        self.set(self._states[newIndex][0])
+
+    def next(self):
+        """ Move the active state to the next one. """
+        self.__move(1)
+
+    def previous(self):
+        """ Move the active state to the previous one. """
+        self.__move(-1)
+
+    @pyqtSlot()
+    def __onTriggered(self):
+        self.next()
+        self.stateChanged.emit(int(self.get()))
+
+
+class OnOffAction(MultiStateAction):
+    """ Subclass of MultiStateAction that provide just to states: on/off. """
+    def __init__(self, parent=None, **kwargs):
+        # Set states to On/Off
+        kwargs['states'] = [
+            (True, qta.icon('fa.toggle-on'), 'On'),
+            (False, qta.icon('fa.toggle-off'), 'Off')
+        ]
+        MultiStateAction.__init__(self, parent, **kwargs)
+
+
+class ActionsToolBar(QWidget):
+    """ Toolbar that can contain a drop-down panel with additional options """
 
     def __init__(self, parent, **kwargs):
         """
-        Construct an Toolbar to be used as part of any widget
+        Construct an ActionsToolBar to be used as part of any widget
+        :param parent:
         **kwargs: Optional arguments.
-             - orientation: one of Qt.Orientation values (default=Qt.Horizontal)
-             - panel_width (int): the minimum side panel width
+             orientation:   one of Qt.Orientation values (default=Qt.Horizontal)
+             panelMinWidth: (int): the minimum side panel width
+             panelMaxWidth: (int): the maximum side panel width
         """
         QWidget.__init__(self, parent=parent)
 
         self._panelsDict = dict()
-        self._panelMinWidth = kwargs.get("panel_min_width", 160)
-        self._panelMaxWidth = kwargs.get('panel_max_width', 300)
+        self._panelMinWidth = kwargs.get("panelMinWidth", 160)
+        self._panelMaxWidth = kwargs.get('panelMaxWidth', 300)
+        self._orientation = kwargs.get("orientation", Qt.Vertical)
         self._buttonWidth = 0
         self._docks = []
-        self.__setupUi(**kwargs)
+        self.__setupUi()
 
-    def __setupUi(self, **kwargs):
-
-        orientation = kwargs.get("orientation", Qt.Horizontal)
-        if orientation == Qt.Vertical:
-            self._mainLayout = QHBoxLayout(self)
-        else:
-            self._mainLayout = QVBoxLayout(self)
-
+    def __setupUi(self):
+        layout = QHBoxLayout(self) \
+            if self._orientation == Qt.Vertical else QVBoxLayout(self)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
                                        QSizePolicy.Fixed))
-        self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
         self._toolBar = QToolBar(self)
-        self._toolBar.setOrientation(orientation)
-        self._mainLayout.addWidget(self._toolBar)
+        self._toolBar.setOrientation(self._orientation)
+        layout.addWidget(self._toolBar)
         self._sidePanel = QMainWindow(None)
-        self._mainLayout.addWidget(self._sidePanel)
-        # TODO[hv]: review the next lines
-        #s = kwargs.get("show_panel", False)
-        #self._sidePanel.setVisible(s)
-
+        layout.addWidget(self._sidePanel)
         self._actionGroup = QActionGroup(self)
         self._actionGroup.setExclusive(True)
         self._lastAction = None
         self._visibleDocks = []
 
+        # Set default buttons style
+        self.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+
         self.destroyed.connect(self.__destroySidePanel)
 
     def __visibilityChanged(self, action, dock):
+        """
+        Invoked when the visibility is changed for the given dock widget
+        :param action: The parent action for the dock
+        :param dock:   (QDockWidget) The dock widget
+        """
         action.setChecked(dock.isVisible())
         self.__dockShowHide(dock)
 
     def __dockShowHide(self, dock):
+        """
+        Show or hide the specified dock widget according to the current state
+        :param dock: (QDockWidget)
+        """
         if not dock.isVisible() and dock in self._visibleDocks:
             self._visibleDocks.remove(dock)
         else:
@@ -71,10 +163,16 @@ class ToolBar(QWidget):
 
     @pyqtSlot(QObject)
     def __destroySidePanel(self, obj):
+        """
+        Invoked when the ActionsToolBar will be destroyed.
+        We need to destroy the side panel
+        """
+        # FIXME[phv]: Review if self.destroyed can be connected to deleteLater
         self._sidePanel.deleteLater()
 
     @pyqtSlot(bool)
     def __actionTriggered(self, checked):
+        """ Invoked when an action is triggered. """
         action = self.sender()
         if isinstance(action, QAction):
             dock = self._panelsDict.get(action)
@@ -83,6 +181,7 @@ class ToolBar(QWidget):
 
     @pyqtSlot(bool)
     def __groupActionTriggered(self, checked):
+        """ Invoked when an exclusive action is triggered """
         action = self.sender()
         dock = self._panelsDict.get(action)
         if action.isCheckable():
@@ -102,20 +201,24 @@ class ToolBar(QWidget):
 
     @pyqtSlot(Qt.ToolButtonStyle)
     def setToolButtonStyle(self, toolButtonStyle):
+        """
+        Set the button style for this MultiStateAction
+        :param toolButtonStyle: (Qt.ToolButtonStyle) The style for all buttons
+        """
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
     def addAction(self, action, widget=None, index=None, exclusive=True,
                   showTitle=True, checked=False, floating=False):
         """
-        Add a new action with the associated widget. This widget will be shown
-        in the side panel when the action is active.
+        Add a new action with the associated widget(side panel). This widget
+        will be shown in the side panel when the action is active.
         If exclusive=True then the action will be exclusive respect to other
-        actions
+        actions.
         if showTitle=True then the action text will be visible as title in the
         side panel
         if checked=True then it will be activated and the corresponding  action
-        will be executed.
-        if floating=True then the dock widget can be detached from the toolbar,
+        will be triggered.
+        if floating=True then the dock widget can be detached from the toolbar
         and floated as an independent window.
 
         * Ownership of the widget is transferred to the toolbar.
@@ -160,8 +263,8 @@ class ToolBar(QWidget):
                                self._sidePanel)
             dock.setFloating(floating)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-            features = QDockWidget.DockWidgetClosable | \
-                       QDockWidget.DockWidgetMovable
+            features = \
+                QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetMovable
             if floating:
                 features |= QDockWidget.DockWidgetFloatable
             dock.setFeatures(features)
@@ -208,72 +311,36 @@ class ToolBar(QWidget):
         """ Returns the current active action """
         return self._lastAction
 
-    def hideSidePanel(self):
-        """ Hide the side panel."""
-        if self._lastAction is not None:
-            self.__groupActionTriggered(self._lastAction)
-
-    def setSidePanelMinimumWidth(self, width):
+    def setPanelMinSize(self, width):
         """ Sets the side panel minimum width """
         self._panelMinWidth = width
         for dock in self._docks:
             dock.setMinimumWidth(width)
 
-    def getSidePanelMinimumWidth(self):
+    def getPanelMinSize(self):
         """ Returns the side panel minimum width """
         return self._panelMinWidth
 
-    def setSidePanelMaximumWidth(self, width):
+    def setPanelMaxSize(self, width):
         """ Sets the side panel maximum width """
         self._panelMaxWidth = width
         for dock in self._docks:
             dock.setMaximumWidth(width)
 
-    def createSidePanel(self):
-        """ Create a widget with the preferred width"""
+    def createPanel(self, name, style=None):
+        """
+        Create a widget with the preferred width.
+        :param name:   (str) The panel name
+        :param style:  (str) The panel style
+        """
         widget = QWidget()
+        # FIXME: If the toolbar can be either vertical or horizontal
+        # then this needs to be taken into account for the geometry
+        # (it should be either width or height)
+        if style is None:
+            style = 'QWidget#%s{border-left:1px solid lightgray;}' % name
         widget.setGeometry(0, 0, self._panelMinWidth, widget.height())
+        widget.setObjectName(name)
+        widget.setStyleSheet(style)
+        widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         return widget
-
-
-class MultiAction(QAction):
-    """ Action for multiple states """
-
-    def __init__(self, parent=None):
-        QAction.__init__(self, parent)
-        self._stateIndex = -1
-        self._icons = dict()
-        self._tooltip = dict()
-        self._states = list()
-
-    def addState(self, state, icon, tooltip=""):
-        self._states.append(state)
-        self._icons[state] = icon, len(self._states) - 1
-        self._tooltip[state] = tooltip
-
-    def getCurrentState(self):
-        return self._states[self._stateIndex] if self._stateIndex >= 0 else -1
-
-    def setState(self, state):
-        s = self._icons.get(state)
-
-        if s is not None:
-            self._stateIndex = s[1]
-            self.setIcon(self._icons[self._states[self._stateIndex]][0])
-
-        self.setToolTip(self._tooltip.get(state, ""))
-
-    def changeToNextState(self):
-        if self._stateIndex >= 0:
-            self._stateIndex = (self._stateIndex + 1) % len(self._states)
-            self.setIcon(self._icons[self._states[self._stateIndex]][0])
-            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
-                                              ""))
-
-    def changeToPreviousState(self):
-        if self._states:
-            n = len(self._states)
-            self._stateIndex = (n - self._stateIndex - 1) % n
-            self.setIcon(self._icons[self._states[self._stateIndex]][0])
-            self.setToolTip(self._tooltip.get(self._states[self._stateIndex],
-                                              ""))

@@ -19,9 +19,9 @@ from .gallery import GalleryView
 from .items import ItemsView
 from .base import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
 from .config import TableViewConfig
-from .toolbar import ToolBar
 
-from ..utils import ImageManager, EmTable
+from emqt5.widgets import ActionsToolBar
+from emqt5.utils import ImageManager, EmTable
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
@@ -111,7 +111,7 @@ class DataView(QWidget):
         self._stackedLayoud.setSpacing(0)
 
         # toolbar
-        self._toolBarLeft = ToolBar(self, orientation=Qt.Vertical)
+        self._toolBarLeft = ActionsToolBar(self, orientation=Qt.Vertical)
         self._toolBarLeft.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self._splitter = QSplitter(self)
         self._splitter.addWidget(self._toolBarLeft)
@@ -119,7 +119,7 @@ class DataView(QWidget):
         self._splitter.addWidget(self._mainContainer)
         # selection panel
         self._selectionMenu = QMenu(self)
-        self._selectionPanel = self._toolBarLeft.createSidePanel()
+        self._selectionPanel = self._toolBarLeft.createPanel()
         self._selectionPanel.setObjectName('selectionPanel')
         self._selectionPanel.setStyleSheet(
             'QWidget#selectionPanel{border-left: 1px solid lightgray;}')
@@ -181,7 +181,7 @@ class DataView(QWidget):
         self._toolBarLeft.addAction(self._actSelections, self._selectionPanel,
                                     exclusive=False)
 
-        self._columnsPanel = self._toolBarLeft.createSidePanel()
+        self._columnsPanel = self._toolBarLeft.createPanel()
         self._columnsPanel.setObjectName('columnsPanel')
         self._columnsPanel.setStyleSheet(
             'QWidget#columnsPanel{border-left: 1px solid lightgray;}')
@@ -225,7 +225,7 @@ class DataView(QWidget):
         self._toolBarLeft.addAction(self._actColumns, self._columnsPanel,
                                     exclusive=False)
         # Plot panel
-        self._plotPanel = self._toolBarLeft.createSidePanel()
+        self._plotPanel = self._toolBarLeft.createPanel()
         self._plotPanel.setObjectName('plotPanel')
         self._plotPanel.setStyleSheet(
             'QWidget#plotPanel{border-left: 1px solid lightgray;}')
@@ -693,7 +693,7 @@ class DataView(QWidget):
             params = [col.getName() for col in self._model.getColumnConfig()]
 
         self._plotConfigWidget.setParams(params=params)
-        self._toolBarLeft.setSidePanelMinimumWidth(
+        self._toolBarLeft.setPanelMinSize(
             self._plotConfigWidget.sizeHint().width())
 
     def __initTableColumnProp(self):

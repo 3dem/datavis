@@ -14,14 +14,14 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
                              QPushButton, QAbstractItemView)
 
 from emqt5.utils import EmPath, EmTable, ImageManager, VolImageManager
-from emqt5.views import (DataView, PERCENT_UNITS, PIXEL_UNITS, TableViewConfig,
+from emqt5.views import (DataView, PIXEL_UNITS, TableViewConfig,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel)
 from emqt5.views.base import AbstractView, DynamicWidgetsFactory
-from emqt5.views.toolbar import ToolBar
+from emqt5.widgets import ActionsToolBar
 from emqt5.views.columns import ColumnsView
 from emqt5.views.volume_view import VolumeView
 from emqt5.windows import BrowserWindow
@@ -145,17 +145,19 @@ if __name__ == '__main__':
             self._mainSplitter = QSplitter(self)
 
             self._splitter = QSplitter(self)
-            self._toolBar = ToolBar(self, orientation=Qt.Vertical)
+            self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
             self._toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             self._splitter.addWidget(self._toolBar)
             self._splitter.setCollapsible(0, False)
             self._splitter.addWidget(self._mainSplitter)
-            self._filesPanel = self._toolBar.createSidePanel()
+
+            self._filesPanel = self._toolBar.createPanel()
             self._filesPanel.setObjectName('filesPanel')
             self._filesPanel.setStyleSheet(
                 'QWidget#filesPanel{border-left: 1px solid lightgray;}')
             self._filesPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
+
             vLayout = QVBoxLayout(self._filesPanel)
             vLayout.setContentsMargins(0, 0, 0, 0)
             self._columnsViewFiles = ColumnsView(self._filesPanel)
@@ -169,7 +171,7 @@ if __name__ == '__main__':
             self._toolBar.addAction(self._actFiles, self._filesPanel,
                                     exclusive=False, checked=True)
 
-            self._paramsPanel = self._toolBar.createSidePanel()
+            self._paramsPanel = self._toolBar.createPanel()
             self._paramsPanel.setObjectName('paramsPanel')
             self._paramsPanel.setStyleSheet(
                 'QWidget#paramsPanel{border-left: 1px solid lightgray;}')
@@ -547,7 +549,7 @@ if __name__ == '__main__':
                 toolWith = 0
             else:
                 toolBar = viewWidget.getToolBar()
-                toolWith = toolBar.getSidePanelMinimumWidth() + toolBar.width()
+                toolWith = toolBar.getPanelMinSize() + toolBar.width()
 
             x, y, w, h = getPreferedBounds(max(viewWidget.width(), imageDim.x),
                                            max(viewWidget.height(),
