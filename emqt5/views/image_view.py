@@ -20,11 +20,6 @@ class ImageView(QWidget):
     AXIS_TOP_RIGHT = 1  # axis in top-right
     AXIS_BOTTOM_RIGHT = 2  # axis in bottom-right
     AXIS_BOTTOM_LEFT = 3  # axis in bottom-left
-    AXIS_ON = 4  # axis is on (visible)
-    AXIS_OFF = 5  # axis is off (not visible)
-
-    HIST_ON = 1  # histogram is on (visible)
-    HIST_OFF = 2  # histogram is off (not visible)
 
     def __init__(self, parent, **kwargs):
         """
@@ -60,30 +55,9 @@ class ImageView(QWidget):
         self._oddRotations = False
         self._isVerticalFlip = False
         self._isHorizontalFlip = False
-        self._rotation_step = 90
-        self._showToolBar = True
-        self._showRoiBtn = False
-        self._showMenuBtn = False
-        self._showHistogram = False
-        self._showPopup = False
-        self._showXaxis = True
-        self._showYaxis = True
-        self._fitToSize = True
-        self._autoFill = False
-        self._pgButtons = None
-        self._axisPos = self.AXIS_BOTTOM_LEFT
+        self._rotationStep = 90
         self._scale = 1
 
-        self.__setupUI()
-        self.setup(**kwargs)
-
-    def __readKwargs(self, **kwargs):
-        """
-        Reads all kwargs params. This is the standard function for read kwargs
-        in all classes.
-        :param kwargs: See the constructor params
-        """
-        self._rotation_step = 90
         self._showToolBar = kwargs.get("toolBar", True)
         self._showRoiBtn = kwargs.get("roi", False)
         self._showMenuBtn = kwargs.get("menu", False)
@@ -95,6 +69,9 @@ class ImageView(QWidget):
         self._autoFill = kwargs.get("autoFill", False)
         self._pgButtons = kwargs.get("hideButtons", False)
         self._axisPos = kwargs.get("axisPos", self.AXIS_BOTTOM_LEFT)
+
+        self.__setupUI()
+        self.__setupImageView()
 
     def __setupUI(self):
         """
@@ -280,6 +257,8 @@ class ImageView(QWidget):
         viewBox = plotItem
 
         if isinstance(plotItem, pg.PlotItem):
+            visible = {
+                'bottom': False, 'left': False, 'top': False, 'right': False}
             viewBox = viewBox.getViewBox()
             if self._axisPos == self.AXIS_BOTTOM_LEFT:
                 if viewBox.yInverted():
@@ -288,10 +267,7 @@ class ImageView(QWidget):
                         viewBox, tuple(viewBox.state['viewRange'][1]))
                 if viewBox.xInverted():
                     plotItem.invertX(False)
-                bottom = True and self._showXaxis
-                left = True and self._showYaxis
-                right = False
-                top = False
+                visible.update(bottom=True, left=True)
             elif self._axisPos == self.AXIS_TOP_LEFT:
                 if not viewBox.yInverted():
                     plotItem.invertY(True)
@@ -299,26 +275,17 @@ class ImageView(QWidget):
                         viewBox, tuple(viewBox.state['viewRange'][1]))
                 if viewBox.xInverted():
                     plotItem.invertX(False)
-                bottom = False
-                left = True and self._showYaxis
-                right = False
-                top = True and self._showXaxis
+                visible.update(top=True, left=True)
             elif self._axisPos == self.AXIS_TOP_RIGHT:
                 if not viewBox.xInverted():
                     plotItem.invertX(True)
-                bottom = False
-                left = False
-                right = True and self._showYaxis
-                top = True and self._showXaxis
+                visible.update(top=True, right=True)
             else:  # self.AXIS_BOTTOM_RIGHT:
                 if viewBox.yInverted():
                     plotItem.invertY(False)
                     viewBox.sigYRangeChanged.emit(
                         viewBox, tuple(viewBox.state['viewRange'][0]))
-                bottom = True and self._showXaxis
-                left = False
-                right = True and self._showYaxis
-                top = False
+                visible.update(bottom=True, right=True)
 
             if self._pgButtons:
                 plotItem.hideButtons()
@@ -326,34 +293,14 @@ class ImageView(QWidget):
                 plotItem.showButtons()
 
             plotItem.setAutoFillBackground(self._autoFill)
-
-            plotItem.showAxis('bottom', bottom)
-            if bottom:
-                axis = plotItem.getAxis("bottom")
-                axis.setAutoFillBackground(self._autoFill)
-                axis.setZValue(0)
-                axis.linkedViewChanged(viewBox)
-
-            plotItem.showAxis('left', left)
-            if left:
-                axis = plotItem.getAxis("left")
-                axis.setAutoFillBackground(self._autoFill)
-                axis.setZValue(0)
-                axis.linkedViewChanged(viewBox)
-
-            plotItem.showAxis('top', top)
-            if top:
-                axis = plotItem.getAxis("top")
-                axis.setZValue(0)
-                axis.setAutoFillBackground(self._autoFill)
-                axis.linkedViewChanged(viewBox)
-
-            plotItem.showAxis('right', right)
-            if right:
-                axis = plotItem.getAxis("right")
-                axis.setZValue(0)
-                axis.setAutoFillBackground(self._autoFill)
-                axis.linkedViewChanged(viewBox)
+            for k, v in visible.iteritems():
+                value = self._showXaxis and v
+                plotItem.showAxis(k, value)
+                if value:
+                    axis = plotItem.getAxis(k)
+                    axis.setAutoFillBackground(self._autoFill)
+                    axis.setZValue(0)
+                    axis.linkedViewChanged(viewBox)
 
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
@@ -413,12 +360,12 @@ class ImageView(QWidget):
     @pyqtSlot()
     def __rotateLeft(self):
         """ Rotate the image 90 degrees to the left """
-        self.rotate(-self._rotation_step)
+        self.rotate(-self._rotationStep)
 
     @pyqtSlot()
     def __rotateRight(self):
         """ Rotate the image 90 degrees to the right """
-        self.rotate(self._rotation_step)
+        self.rotate(self._rotationStep)
 
     @pyqtSlot()
     def __onSpinBoxScaleValueChanged(self):
@@ -457,11 +404,6 @@ class ImageView(QWidget):
          """
         self._axisPos = orientation
         self.__setupAxis()
-
-    def setup(self, **kwargs):
-        """ Configure the ImageView. See constructor comments for the params """
-        self.__readKwargs(**kwargs)
-        self.__setupImageView()
 
     def getViewBox(self):
         """ Return the pyqtgraph.ViewBox """
