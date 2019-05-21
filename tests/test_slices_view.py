@@ -70,7 +70,6 @@ slicesView = SlicesView(None, slicesModel, text=slicesModel.text,
 
 # Create window with ImageView widget
 win = QMainWindow()
-win.resize(800, 800)
 win.setCentralWidget(slicesView)
 win.show()
 win.setWindowTitle('Slices Example')
