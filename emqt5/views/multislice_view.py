@@ -5,7 +5,7 @@ from PyQt5.QtCore import QSize, pyqtSlot
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
 from emqt5.utils import ImageManager
-from .slices_view import SlicesView
+from ._slices_view import SlicesView
 from .model import VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS
 
 
@@ -15,33 +15,19 @@ class MultiSliceView(QWidget):
     by 3 SlicerViews and a custom 2D plot showing the axis and the slider
     position. This view is the default for Volumes.
     """
-    def __init__(self, parent, path=None, model=None, **kwargs):
+    def __init__(self, parent, slicesModelDict, **kwargs):
         """
-        path: the volume path
-        model: the model
-        imageManager: the ImageManager
+        parent: Parent QWidget
+        slicesModelDict: a dict with keys of axis () and values of the model
+            for each axis.
         """
         QWidget.__init__(self, parent=parent)
-        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
-        self._dx = 0
-        self._dy = 0
-        self._dz = 0
-        self._axis = X_AXIS
-        self._slice = 0
-        self._model = model or VolumeDataModel(path, parent=self) \
-            if path is not None else None
-        if self._model is not None:
-            self.__loadImageDim(self._model.getDataSource())
-        else:
-            self.__loadImageDim(None)
-
-        if kwargs.get('imageManager') is None:
-            kwargs['imageManager'] = self._imageManager
+        self._slicesModelDict = slicesModelDict
         self.__setupUi(**kwargs)
-        if self._model is not None:
-            self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
-            self._onTopViewIndexChanged(self._topView.getSliceIndex())
-            self._onRightViewIndexChanged(self._rightView.getSliceIndex())
+        # if self._model is not None:
+        #     self._onFrontViewIndexChanged(self._frontView.getSliceIndex())
+        #     self._onTopViewIndexChanged(self._topView.getSliceIndex())
+        #     self._onRightViewIndexChanged(self._rightView.getSliceIndex())
 
     def __setupUi(self, **kwargs):
         self._mainLayout = QGridLayout(self)

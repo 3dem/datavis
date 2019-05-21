@@ -25,7 +25,7 @@ from emqt5.utils import EmPath, ImageManager
 from .model import TableDataModel
 from .picker_model import Micrograph, Coordinate
 from .utils import ImageElemParser
-from .image_view import ImageView
+from ._image_view import ImageView
 from .config import TableViewConfig
 from .columns import ColumnsView
 

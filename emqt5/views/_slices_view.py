@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSlider, QSizePolicy,
                              QGridLayout, QSpinBox, QLabel)
 
 from emqt5.widgets import SpinSlider
-from .image_view import ImageView
+from ._image_view import ImageView
 
 
 class SlicesView(QWidget):
@@ -18,7 +18,7 @@ class SlicesView(QWidget):
     but for movies (stacks of frames), this view is very useful since these are
     big images and will take much memory loading all of them at once.
     """
-    sigCurrentIndexChanged = pyqtSignal(int)  # Signal for current index changed
+    valueChanged = pyqtSignal(int)  # Signal for current index changed
 
     def __init__(self, parent, sliceModel, **kwargs):
         """
@@ -73,6 +73,8 @@ class SlicesView(QWidget):
                                                    padding=0.0)
         else:
             self._imageView.clear()
+
+        self.valueChanged.emit(value)
 
     # FIXME: Check if this method is needed
     def eventFilter(self, obj, event):

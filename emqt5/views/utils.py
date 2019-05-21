@@ -5,8 +5,8 @@ import os
 
 import em
 
-from .image_view import ImageView
-from .slices_view import SlicesView
+from ._image_view import ImageView
+from ._slices_view import SlicesView
 from .volume_view import VolumeView
 from .data_view import DataView
 from .model import TableDataModel

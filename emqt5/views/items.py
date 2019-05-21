@@ -11,7 +11,7 @@ from PyQt5 import QtCore
 
 from .base import AbstractView
 from ..utils import EmPath, parseImagePath, ImageRef, ImageManager
-from .image_view import ImageView
+from ._image_view import ImageView
 
 
 class ItemsView(AbstractView):
