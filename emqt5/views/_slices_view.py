@@ -37,11 +37,12 @@ class SlicesView(QWidget):
         self._viewRect = None
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
+        self._imageViewKwargs = kwargs.get('imageViewKwargs', {})
         self.__setupUI()
 
     def __setupUI(self):
         # Create ImageView widget
-        self._imageView = ImageView(self)
+        self._imageView = ImageView(self, **self._imageViewKwargs)
         self._imageView.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding,
                                                   QSizePolicy.MinimumExpanding))
         self._imageView.installEventFilter(self)
@@ -98,13 +99,13 @@ class SlicesView(QWidget):
 
     def getValue(self):
         """ Returns the value of the current slice. """
-        return self._index
+        return self._spinSlider.getValue()
 
-    def setValue(self, newValue):
+    def setValue(self, value):
         """ Set the current value to a different one. """
-        self._spinSlider.setValue(newValue)
+        self._spinSlider.setValue(value)
 
     def getRange(self):
         """ Returns a tuple (min, max) with the slices range. """
-        return self._slider.minimum(), self._slider.maximum()
+        return self._spinSlider.getRange()
 

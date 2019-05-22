@@ -84,6 +84,18 @@ class SpinSlider(QWidget):
         """ Invoked when change the spinbox value """
         self._onValueChanged(value, self._spinBox)
 
+    def getValue(self):
+        """ Return the current value.
+        (Same in both the slider and the spinbox).
+        """
+        return self._slider.value
+
+    def setValue(self, value):
+        """ Set a new value. """
+        self._slider.setValue(value)
+
+    def getRange(self):
+        return self._slider.minimum(), self._slider.maximum()
 
 
 
