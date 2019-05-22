@@ -17,8 +17,8 @@ from .model import (VolumeDataModel, TableDataModel, AXIS_X, AXIS_Y, AXIS_Z)
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
-from .base import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
-from .config import TableViewConfig
+from emqt5.widgets._delegates import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
+from emqt5.models.config import TableViewConfig
 
 from emqt5.widgets import ActionsToolBar
 from emqt5.utils import ImageManager, EmTable

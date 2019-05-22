@@ -10,7 +10,7 @@ from ._slices_view import SlicesView
 from .volume_view import VolumeView
 from .data_view import DataView
 from .model import TableDataModel
-from .picker_model import Coordinate, Micrograph, PickerDataModel
+from emqt5.models._picking import Coordinate, Micrograph, PickerDataModel
 
 from emqt5.utils import ImageManager, EmPath
 

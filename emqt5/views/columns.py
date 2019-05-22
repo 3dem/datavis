@@ -8,7 +8,7 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
-from .base import AbstractView, EMImageItemDelegate
+from emqt5.widgets._delegates import AbstractView, EMImageItemDelegate
 from ..utils import ImageManager
 
 

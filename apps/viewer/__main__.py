@@ -20,7 +20,7 @@ from emqt5.views import (DataView, PIXEL_UNITS, TableViewConfig,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel)
-from emqt5.views.base import AbstractView, DynamicWidgetsFactory
+from emqt5.widgets._delegates import AbstractView, DynamicWidgetsFactory
 from emqt5.widgets import ActionsToolBar
 from emqt5.views.columns import ColumnsView
 from emqt5.views.volume_view import VolumeView

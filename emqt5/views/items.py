@@ -9,7 +9,7 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
 
-from .base import AbstractView
+from emqt5.widgets._delegates import AbstractView
 from ..utils import EmPath, parseImagePath, ImageRef, ImageManager
 from ._image_view import ImageView
 

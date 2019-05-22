@@ -23,13 +23,13 @@ from emqt5.widgets import MultiStateAction
 from emqt5.utils import EmPath, ImageManager
 
 from .model import TableDataModel
-from .picker_model import Micrograph, Coordinate
+from emqt5.models._picking import Micrograph, Coordinate
 from .utils import ImageElemParser
 from ._image_view import ImageView
-from .config import TableViewConfig
+from emqt5.models.config import TableViewConfig
 from .columns import ColumnsView
 
-from .base import OptionList
+from emqt5.widgets import OptionList
 
 SHAPE_RECT = 0
 SHAPE_CIRCLE = 1

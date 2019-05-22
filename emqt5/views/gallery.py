@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QAbstractItemView, QListView
 
 from PyQt5 import QtCore
 
-from .base import AbstractView, EMImageItemDelegate
+from emqt5.widgets._delegates import AbstractView, EMImageItemDelegate
 from ..utils import ImageManager
 
 from random import sample as random_sample

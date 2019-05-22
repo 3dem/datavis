@@ -5,7 +5,7 @@ import os
 import sys
 import random
 
-from emqt5.views.base import PlotConfigWidget
+from emqt5.widgets._delegates import PlotConfigWidget
 from emqt5.views import TableViewConfig
 from emqt5.utils import EmTable
 
