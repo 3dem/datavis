@@ -17,16 +17,14 @@ from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
 import pyqtgraph as pg
 import qtawesome as qta
 
-
 import em
 from emqt5.widgets import MultiStateAction
 from emqt5.utils import EmPath, ImageManager
+from emqt5.models import Micrograph, Coordinate, TableViewConfig
 
 from .model import TableDataModel
-from emqt5.models._picking import Micrograph, Coordinate
 from .utils import ImageElemParser
 from ._image_view import ImageView
-from emqt5.models.config import TableViewConfig
 from .columns import ColumnsView
 
 from emqt5.widgets import OptionList

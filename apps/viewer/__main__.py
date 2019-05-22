@@ -14,20 +14,18 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
                              QPushButton, QAbstractItemView)
 
 from emqt5.utils import EmPath, EmTable, ImageManager, VolImageManager
-from emqt5.views import (DataView, PIXEL_UNITS, TableViewConfig,
+from emqt5.views import (DataView, PIXEL_UNITS,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
-                         createPickerModel, PagingView)
+                         createPickerModel, PagingView, ColumnsView, VolumeView,
+                         TableDataModel)
 from emqt5.widgets import ActionsToolBar, DynamicWidgetsFactory
-from emqt5.views.columns import ColumnsView
-from emqt5.views.volume_view import VolumeView
 from emqt5.windows import BrowserWindow
-from emqt5.views.model import TableDataModel
-
 
 import em
+
 
 tool_params1 = [
     [

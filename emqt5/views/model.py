@@ -5,8 +5,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
-from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z
-from emqt5.models.config import TableViewConfig
+from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z, TableViewConfig
 from emqt5.utils import ImageManager, EmTable
 
 

@@ -5,11 +5,12 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication
 
-from emqt5.views.data_view import ColumnsView, TableViewConfig
-from emqt5.views.model import TableDataModel
+from emqt5.models import TableViewConfig
+from emqt5.views import ColumnsView, TableDataModel
 from emqt5.utils import ImageManager
 
 import em
+
 
 app = QApplication(sys.argv)
 testDataPath = os.environ.get("EM_TEST_DATA", None)
