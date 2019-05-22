@@ -33,7 +33,7 @@ class EmSlicesModel(SlicesModel):
     """ Example class about how to implement an SlicesModel
     that can be used by the SlicesView
     """
-    def __init__(self, path):
+    def __init__(self, imgPath):
         SlicesModel.__init__(self)
         imgio = em.ImageIO()
         imgio.open(imgPath, em.File.READ_ONLY)
@@ -64,8 +64,6 @@ slicesModel = EmSlicesModel(imgPath)
 
 
 slicesView = SlicesView(None, slicesModel, text=slicesModel.text,
-                        axis=False, view_name='Top View',
-                        volume_axis='h', index=0, back_color='#BBAAFF',
                         currentValue=slicesModel.initialSlice)
 
 # Create window with ImageView widget
