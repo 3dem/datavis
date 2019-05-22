@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
 from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
-from .model import (VolumeDataModel, TableDataModel, X_AXIS, Y_AXIS, Z_AXIS)
+from .model import (VolumeDataModel, TableDataModel, AXIS_X, AXIS_Y, AXIS_Z)
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
@@ -958,13 +958,13 @@ class DataView(QWidget):
                     length = len(t)
                     if length > 1:
                         s = t[length-1]
-                        axis = X_AXIS
+                        axis = AXIS_X
                         if s == "X)":
-                            axis = X_AXIS
+                            axis = AXIS_X
                         elif s == "Y)":
-                            axis = Y_AXIS
+                            axis = AXIS_Y
                         elif s == "Z)":
-                            axis = Z_AXIS
+                            axis = AXIS_Z
 
                         for viewWidget in self._viewsDict.values():
                             model = viewWidget.getModel()

@@ -5,14 +5,9 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
+from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z
 from emqt5.views.config import TableViewConfig
 from emqt5.utils import ImageManager, EmTable
-
-
-X_AXIS = 0
-Y_AXIS = 1
-Z_AXIS = 2
-N_DIM = -1
 
 
 class TableDataModel(QAbstractItemModel):
@@ -519,10 +514,10 @@ class VolumeDataModel(QAbstractItemModel):
         t = kwargs.get('title', 'Axis-') + "(%s)"
         self._titles = [t % 'X', t % 'Y', t % 'Z']
         self._dim = ImageManager.getDim(path)
-        self._axis = kwargs.get('axis', X_AXIS)
+        self._axis = kwargs.get('axis', AXIS_X)
         self._rows = 0
         self._volumeIndex = kwargs.get('volumeIndex', 0)
-        self.setAxis(kwargs.get('axis', X_AXIS))
+        self.setAxis(kwargs.get('axis', AXIS_X))
         self._defaultFont = QFont()
         
     def clone(self):
@@ -563,11 +558,11 @@ class VolumeDataModel(QAbstractItemModel):
 
     def setAxis(self, axis):
         """ Sets the current axis """
-        if axis == X_AXIS:
+        if axis == AXIS_X:
             self._rows = self._dim.x
-        elif axis == Y_AXIS:
+        elif axis == AXIS_Y:
             self._rows = self._dim.y
-        elif axis == Z_AXIS:
+        elif axis == AXIS_Z:
             self._rows = self._dim.z
         else:
             self._rows = 0
@@ -642,9 +637,9 @@ class VolumeDataModel(QAbstractItemModel):
         """
         vc = (self._page + 1) * self._pageSize
 
-        if self._axis == X_AXIS:
+        if self._axis == AXIS_X:
             ts = self._dim.x
-        elif self._axis == Y_AXIS:
+        elif self._axis == AXIS_Y:
             ts = self._dim.y
         else:
             ts = self._dim.z
@@ -674,9 +669,9 @@ class VolumeDataModel(QAbstractItemModel):
         """
         Return the row count for the entire model
         """
-        if self._axis == X_AXIS:
+        if self._axis == AXIS_X:
             return self._dim.x
-        elif self._axis == Y_AXIS:
+        elif self._axis == AXIS_Y:
             return self._dim.y
 
         return self._dim.z
@@ -884,6 +879,6 @@ def createStackModel(imagePath, title='Stack'):
                           dataSource=imagePath)
 
 
-def createVolumeModel(imagePath, axis=X_AXIS, titles=["Volume"]):
+def createVolumeModel(imagePath, axis=AXIS_X, titles=["Volume"]):
 
     return VolumeDataModel(imagePath, parent=None, axis=axis, titles=titles)

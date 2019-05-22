@@ -13,9 +13,6 @@ from ._image_view import ImageView
 from ._slices_view import SlicesView
 from .multislice_view import MultiSliceView
 from .volume_view import VolumeView
-from .model import (TableDataModel, VolumeDataModel, X_AXIS, Y_AXIS, Z_AXIS,
-                    N_DIM, createStackModel, createTableModel,
-                    createVolumeModel)
 from .utils import (createDataView, createSlicesView, createVolumeView,
                     createImageView, MOVIE_SIZE, parseTextCoordinates,
                     ImageElemParser, createPickerModel)
