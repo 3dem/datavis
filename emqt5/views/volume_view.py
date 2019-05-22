@@ -10,7 +10,7 @@ import qtawesome as qta
 
 from .model import VolumeDataModel
 from .base import PageBar
-from .multislice_view import MultiSliceView
+from ._multislice_view import MultiSliceView
 from .gallery import GalleryView
 
 PIXEL_UNITS = 1
