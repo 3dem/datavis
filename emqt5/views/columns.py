@@ -8,11 +8,12 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
-from emqt5.widgets._delegates import AbstractView, EMImageItemDelegate
-from ..utils import ImageManager
+from emqt5.utils import ImageManager
+from emqt5.widgets import EMImageItemDelegate
+from ._paging_view import PagingView
 
 
-class ColumnsView(AbstractView):
+class ColumnsView(PagingView):
     """
     The ColumnsView class provides some functionality for show large numbers of
     items with simple paginate elements in columns view. """
@@ -23,14 +24,14 @@ class ColumnsView(AbstractView):
     sigTableSizeChanged = QtCore.pyqtSignal(object, object)
 
     def __init__(self, parent, **kwargs):
-        AbstractView.__init__(self, parent=parent)
+        PagingView.__init__(self, parent=parent)
         self._pageSize = 0
         self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._selection = set()
         self._currentRow = 0
         self.__setupUI(**kwargs)
         self.setSelectionMode(kwargs.get("selection_mode",
-                                         AbstractView.SINGLE_SELECTION))
+                                         PagingView.SINGLE_SELECTION))
 
     def __setupUI(self, **kwargs):
         self._tableView = QTableView(self)
@@ -165,8 +166,8 @@ class ColumnsView(AbstractView):
         Invoked when a section is clicked.
         The section's logical index is specified by logicalIndex.
         """
-        if self._selectionMode == AbstractView.SINGLE_SELECTION or \
-                self._selectionMode == AbstractView.NO_SELECTION:
+        if self._selectionMode == PagingView.SINGLE_SELECTION or \
+                self._selectionMode == PagingView.NO_SELECTION:
             self.__updateSelectionInView(self._model.getPage())
         else:
             self._selection.clear()
@@ -189,7 +190,7 @@ class ColumnsView(AbstractView):
         if self._model is not None:
             size = self._model.getPageSize()
             self._currentRow = page * size
-            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
                 self._selection.clear()
                 self._selection.add(self._currentRow)
 
@@ -202,7 +203,7 @@ class ColumnsView(AbstractView):
         if current.isValid():
             row = current.row()
             self._currentRow = row + self._pageSize * self._model.getPage()
-            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
                 self._selection.clear()
                 self._selection.add(self._currentRow)
             self.__updateSelectionInView(self._model.getPage())
@@ -263,7 +264,7 @@ class ColumnsView(AbstractView):
         #  remove sort indicator from all columns
         self._tableView.horizontalHeader().setSortIndicator(-1,
                                                             Qt.AscendingOrder)
-        AbstractView.setModel(self, model)
+        PagingView.setModel(self, model)
         if model:
             self.updateViewConfiguration()
             s = self._tableView.verticalHeader().defaultSectionSize()
@@ -312,7 +313,7 @@ class ColumnsView(AbstractView):
                 if not page == self._model.getPage():
                     self._model.loadPage(page)
 
-                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                if self._selectionMode == PagingView.SINGLE_SELECTION:
                     self._selection.clear()
                     self._selection.add(row)
 
@@ -367,7 +368,7 @@ class ColumnsView(AbstractView):
         Indicates how the view responds to user selections:
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
-        AbstractView.setSelectionMode(self, selectionMode)
+        PagingView.setSelectionMode(self, selectionMode)
         self._selectionMode = selectionMode
         if selectionMode == self.SINGLE_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -377,7 +378,7 @@ class ColumnsView(AbstractView):
         elif selectionMode == self.MULTI_SELECTION:
             self._tableView.setSelectionMode(QAbstractItemView.MultiSelection)
         else:
-            AbstractView.setSelectionMode(self, AbstractView.NO_SELECTION)
+            PagingView.setSelectionMode(self, PagingView.NO_SELECTION)
             self._tableView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):

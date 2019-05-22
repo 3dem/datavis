@@ -13,15 +13,18 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
 from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
+
+from emqt5.utils import ImageManager, EmTable
+from emqt5.models import TableViewConfig
+from emqt5.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
+                           PlotConfigWidget)
+
 from .model import (VolumeDataModel, TableDataModel, AXIS_X, AXIS_Y, AXIS_Z)
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
-from emqt5.widgets._delegates import (AbstractView, ColumnPropertyItemDelegate, PlotConfigWidget)
-from emqt5.models.config import TableViewConfig
+from ._paging_view import PagingView
 
-from emqt5.widgets import ActionsToolBar
-from emqt5.utils import ImageManager, EmTable
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
@@ -89,7 +92,7 @@ class DataView(QWidget):
         self._currentRow = 0  # selected table row
         self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
-        self._selectionMode = AbstractView.NO_SELECTION
+        self._selectionMode = PagingView.NO_SELECTION
         self._tablePref = dict()
         self.__initProperties(**kwargs)
         self.__setupUi(**kwargs)
@@ -514,7 +517,7 @@ class DataView(QWidget):
         self.__loadPreferencesForCurrentTable()
         self.__setupCurrentViewMode()
         if self._model is not None and \
-                self._selectionMode == AbstractView.SINGLE_SELECTION:
+                self._selectionMode == PagingView.SINGLE_SELECTION:
             self._selection.add(0)
             self.__makeSelectionInView(self._view)
 
@@ -663,7 +666,7 @@ class DataView(QWidget):
         self._views = kwargs.get("views", [self.COLUMNS, self.GALLERY,
                                            self.ITEMS])
         self._selectionMode = kwargs.get("selection_mode",
-                                         AbstractView.MULTI_SELECTION)
+                                         PagingView.MULTI_SELECTION)
 
     def __setupActions(self):
         for v in self._actionGroupViews.actions():
@@ -940,7 +943,7 @@ class DataView(QWidget):
             block = self._spinBoxCurrentRow.blockSignals(True)
             self._spinBoxCurrentRow.setValue(row + 1)
             self._spinBoxCurrentRow.blockSignals(block)
-            if self._selectionMode == AbstractView.SINGLE_SELECTION:
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
                 self._selection.clear()
                 self._selection.add(self._currentRow)
                 self.__makeSelectionInView(self._view)
@@ -1100,7 +1103,7 @@ class DataView(QWidget):
         if self._model and row in range(1, self._model.totalRowCount() + 1):
                 self._currentRow = row - 1
 
-                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                if self._selectionMode == PagingView.SINGLE_SELECTION:
                     self._selection.clear()
                     self._selection.add(self._currentRow)
 
@@ -1238,14 +1241,14 @@ class DataView(QWidget):
     def setSelectionMode(self, selectionMode):
         """
         Indicates how the view responds to user selections:
-        AbstractView:
+        PagingView:
                     SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
         """
 
         self._selectionMode = selectionMode
 
-        visible = not (selectionMode == AbstractView.NO_SELECTION
-                       or selectionMode == AbstractView.SINGLE_SELECTION)
+        visible = not (selectionMode == PagingView.NO_SELECTION
+                       or selectionMode == PagingView.SINGLE_SELECTION)
         self._actSelections.setVisible(visible)
         self._toolBarLeft.setVisible(visible)
 
@@ -1266,7 +1269,7 @@ class DataView(QWidget):
         This property holds whether selections are done in terms of
         single items, rows or columns.
 
-        AbstractView:
+        PagingView:
                         SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
         """
         for viewWidget in self._viewsDict.values():

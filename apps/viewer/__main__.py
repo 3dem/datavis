@@ -19,9 +19,8 @@ from emqt5.views import (DataView, PIXEL_UNITS, TableViewConfig,
                          createVolumeView, createImageView, createSlicesView,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
-                         createPickerModel)
-from emqt5.widgets._delegates import AbstractView, DynamicWidgetsFactory
-from emqt5.widgets import ActionsToolBar
+                         createPickerModel, PagingView)
+from emqt5.widgets import ActionsToolBar, DynamicWidgetsFactory
 from emqt5.views.columns import ColumnsView
 from emqt5.views.volume_view import VolumeView
 from emqt5.windows import BrowserWindow
@@ -500,7 +499,7 @@ if __name__ == '__main__':
              'items': DataView.ITEMS,
              'slices': DataView.SLICES}
     kwargs['view'] = views.get(args.view, DataView.COLUMNS)
-    kwargs['selection_mode'] = AbstractView.MULTI_SELECTION
+    kwargs['selection_mode'] = PagingView.MULTI_SELECTION
 
     # Picker params
     kwargs['boxsize'] = args.boxsize
@@ -590,7 +589,7 @@ if __name__ == '__main__':
         if args.picker == 'on' or isinstance(args.picker, dict):
             if files and files[0] == str(os.getcwd()):
                 files = None
-            kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
+            kwargs["selection_mode"] = PagingView.SINGLE_SELECTION
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               sources=args.picker, **kwargs)
             view.setWindowTitle("EM-PICKER")
@@ -611,7 +610,7 @@ if __name__ == '__main__':
                 raise Exception("Input file '%s' does not exists. " % files)
 
             if os.path.isdir(files):
-                kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
+                kwargs["selection_mode"] = PagingView.SINGLE_SELECTION
                 view = BrowserWindow(None, files, **kwargs)
             elif EmPath.isTable(files):  # Display the file as a Table:
                 if not args.view == 'slices':
@@ -659,13 +658,13 @@ if __name__ == '__main__':
                             kwargs['tool_bar'] = 'off'
                             kwargs['axis'] = 'off'
                             kwargs["selection_mode"] = \
-                                AbstractView.SINGLE_SELECTION
+                                PagingView.SINGLE_SELECTION
                             view = createVolumeView(files, **kwargs)
                         else:
                             raise Exception("Invalid display mode for volume: "
                                             "'%s'" % mode)
                 else:  # Stack
-                    kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
+                    kwargs["selection_mode"] = PagingView.SINGLE_SELECTION
                     if d.z > 1:  # volume stack
                         mode = args.view or 'slices'
                         if mode == 'slices':

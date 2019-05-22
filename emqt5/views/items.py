@@ -9,12 +9,12 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from PyQt5 import QtCore
 
-from emqt5.widgets._delegates import AbstractView
-from ..utils import EmPath, parseImagePath, ImageRef, ImageManager
+from emqt5.utils import EmPath, parseImagePath, ImageRef, ImageManager
+from ._paging_view import PagingView
 from ._image_view import ImageView
 
 
-class ItemsView(AbstractView):
+class ItemsView(PagingView):
     """
     The Items class provides functionality for show large numbers of
     items with simple paginate elements in items view """
@@ -27,7 +27,7 @@ class ItemsView(AbstractView):
          - imageManager: the ImageManager for internal read/manage
                          image operations.
         """
-        AbstractView.__init__(self, parent)
+        PagingView.__init__(self, parent)
         self._column = 0
         self._row = 0
         self._selection = set()
@@ -61,7 +61,7 @@ class ItemsView(AbstractView):
         model.clear()
         self.loadCurrentItems()
         self.loadImages(row)
-        if self._selectionMode == AbstractView.SINGLE_SELECTION:
+        if self._selectionMode == PagingView.SINGLE_SELECTION:
             self._selection.clear()
             self._selection.add(row)
             self.sigSelectionChanged.emit()
@@ -69,7 +69,7 @@ class ItemsView(AbstractView):
         self.sigCurrentRowChanged.emit(row)
 
     def __updateSelectionInView(self):
-        if self._selectionMode == AbstractView.MULTI_SELECTION and \
+        if self._selectionMode == PagingView.MULTI_SELECTION and \
                 self.__selectionItem is not None:
             if self._row in self._selection:
                 self.__selectionItem.setCheckState(Qt.Checked)
@@ -82,7 +82,7 @@ class ItemsView(AbstractView):
         Invoked when the item data is changed. Used for selection purposes
         """
         if item == self.__selectionItem:
-            if self._selectionMode == AbstractView.MULTI_SELECTION:
+            if self._selectionMode == PagingView.MULTI_SELECTION:
                 if item.checkState() == Qt.Checked:
                     self._selection.add(self._row)
                 else:
@@ -135,7 +135,7 @@ class ItemsView(AbstractView):
             self._model.sigPageChanged.disconnect(self.__onCurrentPageChanged)
             self._model.dataChanged.disconnect(self.__onDataChanged)
 
-        AbstractView.setModel(self, model)
+        PagingView.setModel(self, model)
 
         if self._model:
             self._imageView.setVisible(self._model.hasRenderableColumn())
@@ -177,7 +177,7 @@ class ItemsView(AbstractView):
         self._imageView.setImageInfo(**kwargs)
 
     def updateViewConfiguration(self):
-        """ Reimplemented from AbstractView """
+        """ Reimplemented from PagingView """
         self._imageView.setVisible(self._model is not None and
                                    self._model.hasRenderableColumn())
         self.__loadItem(self._row)
@@ -216,7 +216,7 @@ class ItemsView(AbstractView):
                 and self._row in range(0, self._model.totalRowCount()) \
                 and self._column in range(0, self._model.columnCount()):
             vLabels = []
-            if self._selectionMode == AbstractView.MULTI_SELECTION:
+            if self._selectionMode == PagingView.MULTI_SELECTION:
                 vLabels = ["SELECTED"]
                 self.__selectionItem = QStandardItem()
                 self.__selectionItem.setCheckable(True)

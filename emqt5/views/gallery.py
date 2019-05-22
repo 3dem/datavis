@@ -1,20 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+from random import sample as random_sample
 
 from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
                           QItemSelectionModel, QItemSelectionRange)
 from PyQt5.QtWidgets import QAbstractItemView, QListView
-
 from PyQt5 import QtCore
 
-from emqt5.widgets._delegates import AbstractView, EMImageItemDelegate
-from ..utils import ImageManager
+from emqt5.widgets import EMImageItemDelegate
+from emqt5.utils import ImageManager
 
-from random import sample as random_sample
+from ._paging_view import PagingView
 
 
-class GalleryView(AbstractView):
+
+class GalleryView(PagingView):
     """
     The GalleryView class provides some functionality for show large numbers of
     items with simple paginate elements in gallery view.
@@ -30,7 +31,7 @@ class GalleryView(AbstractView):
          - imageManager: the ImageManager for internal read/manage
                           image operations.
         """
-        AbstractView.__init__(self, parent=parent)
+        PagingView.__init__(self, parent=parent)
         self._pageSize = 0
         self._pRows = 0
         self._pCols = 0
@@ -40,7 +41,7 @@ class GalleryView(AbstractView):
         self._currentRow = 0
         self.__setupUI(**kwargs)
         self.setSelectionMode(kwargs.get('selection_mode',
-                                         AbstractView.SINGLE_SELECTION))
+                                         PagingView.SINGLE_SELECTION))
 
     def __setupUI(self, **kwargs):
         self._listView = QListView(self)
@@ -187,7 +188,7 @@ class GalleryView(AbstractView):
         self._listView.setModel(model)
         self._selection.clear()
         self._currentRow = 0
-        AbstractView.setModel(self, model)
+        PagingView.setModel(self, model)
         if model:
             model.setupPage(self._pageSize, 0)
             self.setIconSize(self._listView.iconSize())
@@ -260,7 +261,7 @@ class GalleryView(AbstractView):
             page = self.__getPage(row)
             if row in range(0, self._model.totalRowCount()):
                 self._currentRow = row
-                if self._selectionMode == AbstractView.SINGLE_SELECTION:
+                if self._selectionMode == PagingView.SINGLE_SELECTION:
                     self._selection.clear()
                     self._selection.add(self._currentRow)
                 self._model.loadPage(page)
@@ -320,7 +321,7 @@ class GalleryView(AbstractView):
         Indicates how the view responds to user selections:
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION
         """
-        AbstractView.setSelectionMode(self, selectionMode)
+        PagingView.setSelectionMode(self, selectionMode)
         if selectionMode == self.SINGLE_SELECTION:
             self._listView.setSelectionMode(QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
@@ -329,7 +330,7 @@ class GalleryView(AbstractView):
         elif selectionMode == self.MULTI_SELECTION:
             self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
         else:
-            AbstractView.setSelectionMode(self, AbstractView.NO_SELECTION)
+            PagingView.setSelectionMode(self, PagingView.NO_SELECTION)
             self._listView.setSelectionMode(QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
