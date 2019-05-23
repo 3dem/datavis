@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QTextEdit, QDoubleSpinBox)
 
-from emqt5.widgets import ActionsToolBar, MultiStateAction, OnOffAction
+from emviz.widgets import ActionsToolBar, MultiStateAction, OnOffAction
 
 
 class ImageView(QWidget):

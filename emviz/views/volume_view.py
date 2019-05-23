@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QAction, QSpinBox,
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 import qtawesome as qta
 
-from emqt5.widgets import PageBar
+from emviz.widgets import PageBar
 
 from .model import VolumeDataModel
 from ._multislice_view import MultiSliceView

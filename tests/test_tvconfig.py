@@ -5,7 +5,7 @@
 import os
 
 import em
-from emqt5.views import TableViewConfig
+from emviz.views import TableViewConfig
 
 
 testDataPath = os.environ.get("EM_TEST_DATA", None)

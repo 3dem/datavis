@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction,
                              QLineEdit, QTreeView, QVBoxLayout, QHBoxLayout,
                              QToolButton, QMenu, QSpacerItem, QSizePolicy,
                              QTableWidget, QLabel)
-from emqt5.widgets import SpinSlider
+from emviz.widgets import SpinSlider
 
 
 # Connect to the valueChanged signal and print value

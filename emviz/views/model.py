@@ -5,7 +5,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
-from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z, TableViewConfig
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableViewConfig
 
 
 class TableDataModel(QAbstractItemModel):
@@ -864,7 +864,7 @@ def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
     # FIXME: The following import is here because it cause a cyclic dependency
     # FIXME: we should remove the use of EmTable
-    from emqt5.core import EmTable
+    from emviz.core import EmTable
     t = EmTable.load(path)  # [names], table
     return TableDataModel(t[1], parent=None, titles=t[0],
                           tableViewConfig=TableViewConfig.fromTable(t[1]),
@@ -875,7 +875,7 @@ def createStackModel(imagePath, title='Stack'):
     """ Return a stack model for the given image """
     # FIXME: The following import is here because it cause a cyclic dependency
     # FIXME: we should remove the use of EmTable
-    from emqt5.core import EmTable
+    from emviz.core import EmTable
     table = EmTable.fromStack(imagePath)
 
     return TableDataModel(table, titles=[title],

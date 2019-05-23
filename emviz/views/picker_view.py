@@ -13,10 +13,10 @@ import pyqtgraph as pg
 import qtawesome as qta
 
 
-# FIXME: We should not import neither em or emqt5.core from other submodules
+# FIXME: We should not import neither em or emviz.core from other submodules
 import em
-from emqt5.widgets import MultiStateAction, OptionList
-from emqt5.models import Micrograph, Coordinate, TableViewConfig
+from emviz.widgets import MultiStateAction, OptionList
+from emviz.models import Micrograph, Coordinate, TableViewConfig
 
 from .model import TableDataModel
 from ._image_view import ImageView
@@ -689,7 +689,7 @@ class PickerView(qtw.QWidget):
         # FIXME: The following import is here because it cause a cyclic dependency
         # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
         # FIXME: Check if we want ImageManager or other data model here
-        from emqt5.core import ImageManager, EmPath
+        from emviz.core import ImageManager, EmPath
         image = ImageManager.readImage(path)
         self._currentImageDim = image.getDim()
         self._imageView.setImage(ImageManager.getNumPyArray(image))
@@ -767,12 +767,12 @@ class PickerView(qtw.QWidget):
         if ext == '.json':
             self.openPickingFile(path)
         elif ext == '.box':
-            from emqt5.core.utils import parseTextCoordinates
+            from emviz.core.utils import parseTextCoordinates
             self._loadMicCoordinates(path, parserFunc=parseTextCoordinates,
                                      clear=not kwargs.get("appendCoord", False),
                                      showMic=kwargs.get("showMic", True))
         else:
-            from emqt5.core.utils import parseTextCoordinates
+            from emviz.core.utils import parseTextCoordinates
             c = kwargs.get("coord", None)
             coord = parseTextCoordinates(c) if isinstance(c, str) else c
 
@@ -1356,7 +1356,7 @@ class PickerView(qtw.QWidget):
                     else:
                         # FIXME: The following import is here because it cause a cyclic dependency
                         # FIXME: we should remove the use of ImageElemParser here
-                        from emqt5.core import ImageElemParser
+                        from emviz.core import ImageElemParser
                         parser = ImageElemParser()
                         imgElem = parser.parseImage(json.object())
                         if imgElem:

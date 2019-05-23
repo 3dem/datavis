@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QTableView, QSplitter, QVBoxLayout, QWidget
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5 import QtCore
 
-#from emqt5.core import EmPath, parseImagePath, ImageRef, ImageManager
+#from emviz.core import EmPath, parseImagePath, ImageRef, ImageManager
 from ._paging_view import PagingView
 from ._image_view import ImageView
 
@@ -35,7 +35,7 @@ class ItemsView(PagingView):
         # FIXME: The following import is here because it cause a cyclic dependency
         # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
         # FIXME: Check if we want ImageManager or other data model here
-        from emqt5.core import ImageManager, ImageRef
+        from emviz.core import ImageManager, ImageRef
         self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._imageRef = ImageRef()
         self.__setupUI(**kwargs)
@@ -200,7 +200,7 @@ class ItemsView(PagingView):
             if indexes:
                 # FIXME: The following import is here because it cause a cyclic dependency
                 # FIXME: we should remove the use of parseImagePath and EmPath or find another way
-                from emqt5.core import parseImagePath, EmPath
+                from emviz.core import parseImagePath, EmPath
                 imgPath = self._model.getTableData(row, indexes[0])
                 imgRef = parseImagePath(
                     imgPath, self._imageRef,

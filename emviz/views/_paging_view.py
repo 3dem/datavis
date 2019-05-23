@@ -2,7 +2,7 @@
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 import PyQt5.QtWidgets as qtw
 
-from emqt5.widgets import PageBar
+from emviz.widgets import PageBar
 
 
 class PagingView(qtw.QWidget):

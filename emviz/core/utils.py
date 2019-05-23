@@ -4,8 +4,8 @@
 import os
 
 import em
-from emqt5.models import Coordinate, Micrograph, PickerDataModel
-from emqt5.views import (ImageView, SlicesView, VolumeView, DataView,
+from emviz.models import Coordinate, Micrograph, PickerDataModel
+from emviz.views import (ImageView, SlicesView, VolumeView, DataView,
                          TableDataModel)
 from .functions import EmPath
 from .image_manager import ImageManager

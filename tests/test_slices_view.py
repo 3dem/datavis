@@ -8,9 +8,9 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 import em
-from emqt5.core import ImageManager
-from emqt5.models import SlicesModel
-from emqt5.views import SlicesView
+from emviz.core import ImageManager
+from emviz.models import SlicesModel
+from emviz.views import SlicesView
 
 
 if len(sys.argv) > 1:

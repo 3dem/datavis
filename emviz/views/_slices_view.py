@@ -5,7 +5,7 @@ from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSlider, QSizePolicy,
                              QGridLayout, QSpinBox, QLabel)
 
-from emqt5.widgets import SpinSlider
+from emviz.widgets import SpinSlider
 from ._image_view import ImageView
 
 

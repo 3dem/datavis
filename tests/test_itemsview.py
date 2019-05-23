@@ -5,8 +5,8 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication
 
-from emqt5.views import TableViewConfig, ItemsView, TableDataModel
-from emqt5.core import ImageManager
+from emviz.views import TableViewConfig, ItemsView, TableDataModel
+from emviz.core import ImageManager
 
 import em
 

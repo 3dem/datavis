@@ -5,7 +5,7 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from emqt5.views import VolumeView
+from emviz.views import VolumeView
 
 
 app = QApplication(sys.argv)

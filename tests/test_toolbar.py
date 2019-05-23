@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QAction,
                              QToolButton, QMenu, QSpacerItem, QSizePolicy,
                              QTableWidget, QLabel)
 import qtawesome as qta
-from emqt5.widgets import ActionsToolBar
+from emviz.widgets import ActionsToolBar
 
 
 app = QApplication(sys.argv)

@@ -5,9 +5,9 @@ import os
 import sys
 import random
 
-from emqt5.widgets import PlotConfigWidget
-from emqt5.views import TableViewConfig
-from emqt5.core import EmTable
+from emviz.widgets import PlotConfigWidget
+from emviz.views import TableViewConfig
+from emviz.core import EmTable
 
 from matplotlib.figure import Figure
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5

@@ -9,12 +9,12 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
 from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
                           QItemSelectionModel, QEvent, pyqtSignal, pyqtSlot)
 
-from emqt5.views import (DataView, createTableModel, createStackModel,
+from emviz.views import (DataView, createTableModel, createStackModel,
                          VolumeView, ImageView, SlicesView, MOVIE_SIZE)
 
 import qtawesome as qta
 
-from emqt5.core import EmPath, ImageManager
+from emviz.core import EmPath, ImageManager
 
 
 class BrowserWindow(QMainWindow):

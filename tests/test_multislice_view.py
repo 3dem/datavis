@@ -8,8 +8,8 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 import em
-from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z, SlicesModel
-from emqt5.views import MultiSliceView
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, SlicesModel
+from emviz.views import MultiSliceView
 
 
 if len(sys.argv) > 1:

@@ -8,7 +8,7 @@ import sys
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 
-from emqt5.core.functions import EmPath
+from emviz.core.functions import EmPath
 
 import em
 

@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QGridLayout)
 from PyQt5.QtCore import QSize, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
 
 from ._slices_view import SlicesView
 
