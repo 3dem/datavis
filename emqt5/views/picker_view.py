@@ -15,8 +15,6 @@ import qtawesome as qta
 
 # FIXME: We should not import neither em or emqt5.core from other submodules
 import em
-from emqt5.utils import EmPath, ImageManager, ImageElemParser
-
 from emqt5.widgets import MultiStateAction, OptionList
 from emqt5.models import Micrograph, Coordinate, TableViewConfig
 
@@ -682,24 +680,23 @@ class PickerView(qtw.QWidget):
         Show the an image in the ImageView
         :param mic: the ImageElem
         """
-        try:
-            self.__eraseROI.setVisible(False)
-            self.__eraseROIText.setVisible(False)
-            self._destroyROIs()
-            self._imageView.clear()
-            self._currentMic = mic
-            path = mic.getPath()
-            image = ImageManager.readImage(path)
-            self._currentImageDim = image.getDim()
-            self._imageView.setImage(ImageManager.getNumPyArray(image))
-            self._imageView.setImageInfo(path=path,
-                                         format=EmPath.getExt(path),
-                                         data_type=str(image.getType()))
-            self._createROIs()
-        except RuntimeError as ex:
-            raise ex
-        except Exception as ex:
-            raise ex
+        self.__eraseROI.setVisible(False)
+        self.__eraseROIText.setVisible(False)
+        self._destroyROIs()
+        self._imageView.clear()
+        self._currentMic = mic
+        path = mic.getPath()
+        # FIXME: The following import is here because it cause a cyclic dependency
+        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
+        # FIXME: Check if we want ImageManager or other data model here
+        from emqt5.utils import ImageManager, EmPath
+        image = ImageManager.readImage(path)
+        self._currentImageDim = image.getDim()
+        self._imageView.setImage(ImageManager.getNumPyArray(image))
+        self._imageView.setImageInfo(path=path,
+                                     format=EmPath.getExt(path),
+                                     data_type=str(image.getType()))
+        self._createROIs()
 
     def _destroyROIs(self):
         """
@@ -1357,6 +1354,9 @@ class PickerView(qtw.QWidget):
                         self._showError("Parsing pick file: " +
                                         error.errorString())
                     else:
+                        # FIXME: The following import is here because it cause a cyclic dependency
+                        # FIXME: we should remove the use of ImageElemParser here
+                        from emqt5.utils import ImageElemParser
                         parser = ImageElemParser()
                         imgElem = parser.parseImage(json.object())
                         if imgElem:

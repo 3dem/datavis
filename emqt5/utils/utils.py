@@ -4,15 +4,11 @@
 import os
 
 import em
-
-from emqt5.views._image_view import ImageView
-from emqt5.views._slices_view import SlicesView
-from emqt5.views.volume_view import VolumeView
-from emqt5.views.data_view import DataView
-from emqt5.views.model import TableDataModel
 from emqt5.models import Coordinate, Micrograph, PickerDataModel
-
-from emqt5.utils import ImageManager, EmPath
+from emqt5.views import (ImageView, SlicesView, VolumeView, DataView,
+                         TableDataModel)
+from .functions import EmPath
+from .image_manager import ImageManager
 
 MOVIE_SIZE = 1000
 
