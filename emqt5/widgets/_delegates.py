@@ -16,8 +16,6 @@ from PyQt5.QtGui import (QPixmap, QPalette, QPen, QColor, QIntValidator,
 
 import pyqtgraph as pg
 
-from emqt5.utils import ImageManager, ImageRef, parseImagePath
-
 
 class EMImageItemDelegate(QStyledItemDelegate):
     """
@@ -31,6 +29,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
                           image operations.
         """
         QStyledItemDelegate.__init__(self, parent)
+        # FIXME: The following import is here because it cause a cyclic dependency
+        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
+        # FIXME: Check if we want ImageManager or other data model here
+        from emqt5.utils import ImageManager, ImageRef
         self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
@@ -163,6 +165,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
         if imgPath is None:
             return None
 
+        # FIXME: The following import is here because it cause a cyclic dependency
+        # FIXME: we should remove the use of parseImagePath
+        from emqt5.utils import parseImagePath
         imgRef = parseImagePath(imgPath, self._imageRef,
                                 os.path.split(index.model().getDataSource())[0])
 

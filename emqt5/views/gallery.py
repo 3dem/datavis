@@ -9,10 +9,7 @@ from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
 from emqt5.widgets import EMImageItemDelegate
-from emqt5.utils import ImageManager
-
 from ._paging_view import PagingView
-
 
 
 class GalleryView(PagingView):
@@ -20,7 +17,6 @@ class GalleryView(PagingView):
     The GalleryView class provides some functionality for show large numbers of
     items with simple paginate elements in gallery view.
     """
-
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
     sigPageSizeChanged = QtCore.pyqtSignal()
     sigListViewSizeChanged = QtCore.pyqtSignal()
@@ -36,6 +32,10 @@ class GalleryView(PagingView):
         self._pRows = 0
         self._pCols = 0
         self._cellSpacing = 0
+        # FIXME: The following import is here because it cause a cyclic dependency
+        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
+        # FIXME: Check if we want ImageManager or other data model here
+        from emqt5.utils import ImageManager
         self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
         self._currentRow = 0

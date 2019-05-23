@@ -8,7 +8,6 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
-from emqt5.utils import ImageManager
 from emqt5.widgets import EMImageItemDelegate
 from ._paging_view import PagingView
 
@@ -26,6 +25,10 @@ class ColumnsView(PagingView):
     def __init__(self, parent, **kwargs):
         PagingView.__init__(self, parent=parent)
         self._pageSize = 0
+        # FIXME: The following import is here because it cause a cyclic dependency
+        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
+        # FIXME: Check if we want ImageManager or other data model here
+        from emqt5.utils import ImageManager
         self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._selection = set()
         self._currentRow = 0

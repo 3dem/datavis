@@ -26,8 +26,7 @@ else:
                         "Either provide an input path or set the "
                         "variable environment EM_TEST_DATA")
 
-    imgPath = os.path.join(testDataPath, "relion_tutorial", "import",
-                           "classify2d", "extra", "relion_it025_classes.mrcs")
+    imgPath = os.path.join(testDataPath, "relion_tutorial", "micrographs", "068.mrc")
 
 imageView = ImageView(None, border_color='#FFAA33')
 img = ImageManager.readImage(imgPath, 1)

@@ -6,9 +6,6 @@ from ._image_view import ImageView
 from ._slices_view import SlicesView
 from ._multislice_view import MultiSliceView
 from .volume_view import VolumeView
-from .utils import (createDataView, createSlicesView, createVolumeView,
-                    createImageView, MOVIE_SIZE, parseTextCoordinates,
-                    ImageElemParser, createPickerModel)
 from .picker_view import (PickerView, SHAPE_RECT, SHAPE_CIRCLE, SHAPE_SEGMENT,
                           DEFAULT_MODE, FILAMENT_MODE, SHAPE_CENTER)
 

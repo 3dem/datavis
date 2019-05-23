@@ -6,7 +6,6 @@ from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
 from emqt5.models import AXIS_X, AXIS_Y, AXIS_Z, TableViewConfig
-from emqt5.utils import ImageManager, EmTable
 
 
 class TableDataModel(QAbstractItemModel):
@@ -863,6 +862,9 @@ class VolumeDataModel(QAbstractItemModel):
 
 def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
+    # FIXME: The following import is here because it cause a cyclic dependency
+    # FIXME: we should remove the use of EmTable
+    from emqt5.utils import EmTable
     t = EmTable.load(path)  # [names], table
     return TableDataModel(t[1], parent=None, titles=t[0],
                           tableViewConfig=TableViewConfig.fromTable(t[1]),
@@ -871,6 +873,9 @@ def createTableModel(path):
 
 def createStackModel(imagePath, title='Stack'):
     """ Return a stack model for the given image """
+    # FIXME: The following import is here because it cause a cyclic dependency
+    # FIXME: we should remove the use of EmTable
+    from emqt5.utils import EmTable
     table = EmTable.fromStack(imagePath)
 
     return TableDataModel(table, titles=[title],

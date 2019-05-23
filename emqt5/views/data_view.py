@@ -14,7 +14,6 @@ from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
 
-from emqt5.utils import ImageManager, EmTable
 from emqt5.models import TableViewConfig
 from emqt5.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
                            PlotConfigWidget)
@@ -90,6 +89,10 @@ class DataView(QWidget):
         self._view = None
         self._model = None
         self._currentRow = 0  # selected table row
+        # FIXME: The following import is here because it cause a cyclic dependency
+        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
+        # FIXME: Check if we want ImageManager or other data model here
+        from emqt5.utils import ImageManager
         self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
         self._selectionMode = PagingView.NO_SELECTION
@@ -977,6 +980,9 @@ class DataView(QWidget):
                     name = self._comboBoxCurrentTable.currentText()
                     path = self._model.getDataSource()
                     if path is not None:
+                        # FIXME: The following import is here because it cause a cyclic dependency
+                        # FIXME: we should remove the use of EmTable
+                        from emqt5.utils import EmTable
                         t = self._model.getEmTable()
                         EmTable.load(path, name, t)
                         self._model.setColumnConfig(
