@@ -14,7 +14,7 @@ from emqt5.views import (DataView, createTableModel, createStackModel,
 
 import qtawesome as qta
 
-from emqt5.utils import EmPath, ImageManager
+from emqt5.core import EmPath, ImageManager
 
 
 class BrowserWindow(QMainWindow):

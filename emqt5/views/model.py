@@ -864,7 +864,7 @@ def createTableModel(path):
     """ Return the TableDataModel for the given EM table file """
     # FIXME: The following import is here because it cause a cyclic dependency
     # FIXME: we should remove the use of EmTable
-    from emqt5.utils import EmTable
+    from emqt5.core import EmTable
     t = EmTable.load(path)  # [names], table
     return TableDataModel(t[1], parent=None, titles=t[0],
                           tableViewConfig=TableViewConfig.fromTable(t[1]),
@@ -875,7 +875,7 @@ def createStackModel(imagePath, title='Stack'):
     """ Return a stack model for the given image """
     # FIXME: The following import is here because it cause a cyclic dependency
     # FIXME: we should remove the use of EmTable
-    from emqt5.utils import EmTable
+    from emqt5.core import EmTable
     table = EmTable.fromStack(imagePath)
 
     return TableDataModel(table, titles=[title],

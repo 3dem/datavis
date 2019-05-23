@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
                              QSplitter, QSizePolicy, QVBoxLayout, QAction,
                              QPushButton, QAbstractItemView)
 
-from emqt5.utils import EmPath, EmTable, ImageManager, VolImageManager
+from emqt5.core import EmPath, EmTable, ImageManager, VolImageManager
 from emqt5.views import (DataView, PIXEL_UNITS,
                          ImageView, SlicesView, createDataView,
                          createVolumeView, createImageView, createSlicesView,

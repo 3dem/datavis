@@ -6,7 +6,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from emqt5.views import ImageView
-from emqt5.utils import ImageManager
+from emqt5.core import ImageManager
 
 import numpy as np
 

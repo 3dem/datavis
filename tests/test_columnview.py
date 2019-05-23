@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication
 
 from emqt5.models import TableViewConfig
 from emqt5.views import ColumnsView, TableDataModel
-from emqt5.utils import ImageManager
+from emqt5.core import ImageManager
 
 import em
 

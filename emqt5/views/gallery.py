@@ -35,7 +35,7 @@ class GalleryView(PagingView):
         # FIXME: The following import is here because it cause a cyclic dependency
         # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
         # FIXME: Check if we want ImageManager or other data model here
-        from emqt5.utils import ImageManager
+        from emqt5.core import ImageManager
         self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
         self._currentRow = 0
