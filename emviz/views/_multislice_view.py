@@ -15,22 +15,24 @@ class MultiSliceView(QWidget):
     by 3 SlicerViews and a custom 2D plot showing the axis and the slider
     position. This view is the default for Volumes.
     """
-    valueChanged = pyqtSignal(int, int)
+    # Signal for current slice changed(axis, slice)
+    sigSliceChanged = pyqtSignal(int, int)
 
     def __init__(self, parent, slicesKwargs):
         """
-        parent: Parent QWidget
-        slicesKwargs: a dict with keys of axis () and values f the model
-            for each axis.
+        parent:       (QWidget) Parent QWidget
+        slicesKwargs: (dict)A dict with keys of axis () and values for the model
+                      for each axis.
         """
         QWidget.__init__(self, parent=parent)
         self._slicesKwargs = slicesKwargs
         self._slicesDict = {}
         self._axis = -1
         self._slice = -1
-        self.__setupUi()
+        self.__setupGUI()
 
-    def __setupUi(self):
+    def __setupGUI(self):
+        """ This is the standard method for the GUI creation """
         layout = QGridLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -43,16 +45,21 @@ class MultiSliceView(QWidget):
 
         # Build one SlicesView for each axis, taking into account the
         # input parameters and some reasonable default values
-        for axis, args in self._slicesKwargs.iteritems():
+        defaultImgViewKargs = {'histogram': False,
+                               'toolBar': False,
+                               'autoFill': True,
+                               'axis': False
+                               }
+        for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
-            _, _, n = model.getDim()
+            _, _, n = model.getDim() if model else 0, 0, 2
             sv = SlicesView(self, model, text=args.get('text', text),
-                            currentValue=args.get('currentValue', n/2),
-                            imageViewKwargs={'histogram': False,
-                                             'toolBar': False
-                                             })
-            sv.valueChanged.connect(slot)
+                            currentValue=args.get('currentValue', int(n/2)),
+                            imageViewKwargs=dict(defaultImgViewKargs,
+                                                 **args.get('imageViewKwargs',
+                                                            dict())))
+            sv.sigSliceChanged.connect(slot)
             layout.addWidget(sv, *pos)
             self._slicesDict[axis] = sv
 
@@ -67,29 +74,53 @@ class MultiSliceView(QWidget):
         # Convert to 40 scale index that is required by the RenderArea
         renderAreaShift = int(40 * (1 - value / nMax))
         self._renderArea.setShift(axis, renderAreaShift)
-        self.valueChanged.emit(axis, value)
+        self.sigSliceChanged.emit(axis, value)
 
     @pyqtSlot(int)
     def _onSliceYChanged(self, value):
+        """ Called when the slice index is changed in Y axis """
         self._onSliceChanged(AXIS_Y, value)
 
     @pyqtSlot(int)
     def _onAxisZChanged(self, value):
+        """ Called when the slice index is changed in Z axis """
         self._onSliceChanged(AXIS_Z, value)
 
     @pyqtSlot(int)
     def _onSliceXChanged(self, value):
+        """ Called when the slice index is changed in Z axis """
         self._onSliceChanged(AXIS_X, value)
 
     def getValue(self, axis=None):
         """ Return the current slice index for a given axis.
-         (If none, the last changed axis is be used) """
+         (If none, the last changed axis is be used)
+        :param axis: AXIS_X or AXIS_Y or AXIS_Z
+        """
         return self._slicesDict[axis or self._axis].getValue()
 
     def setValue(self, value, axis=None):
         """ Sets the slice value for the given axis.
         (If axis is None the last modified axis is used) """
-        self._slicesDict[axis or self._axis].setValue(axis)
+        self._slicesDict[axis or self._axis].setValue(value)
+
+    def setModel(self, models):
+        """
+        Set the data models
+        :param model: (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z) for views
+                              or None for clear the view.
+        """
+        if models:
+            xModel, yModel, zModel = models
+            self._slicesDict[AXIS_X].setModel(xModel)
+            self._slicesDict[AXIS_Y].setModel(yModel)
+            self._slicesDict[AXIS_Z].setModel(zModel)
+        else:
+            self.clear()
+
+    def clear(self):
+        """ Clear the view """
+        for sliceWidget in self._slicesDict.values():
+            sliceWidget.clear()
 
 
 class RenderArea(QWidget):

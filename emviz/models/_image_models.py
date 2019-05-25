@@ -42,7 +42,7 @@ class SlicesModel:
             self._dim = x, y, n
 
     def getDim(self):
-        """ Return (n, xdim, ydim) """
+        """ Return (xdim, ydim, n) """
         return self._dim
 
     def getData(self, i):

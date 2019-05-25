@@ -9,17 +9,17 @@ class SpinSlider(QWidget):
     Both components will have the same range and the values will
     be synchronized.
     """
-    valueChanged = pyqtSignal(int)
+    sigValueChanged = pyqtSignal(int)
 
     def __init__(self, parent=None, **kwargs):
         """
         Create a new SliderSpin
         :param parent:
         :param kwargs:
-            text: Optional text to be used as label of the Widget
-            minValue: the minimum value to be shown
-            maxValue: the maxium value to be shown
-            currentValue: the currentValue
+            text:         (str) Optional text to be used as label of the Widget
+            minValue:     (int) The minimum value to be shown
+            maxValue:     (int) The maxium value to be shown
+            currentValue: (int) The currentValue
         """
         QWidget.__init__(self, parent=parent)
 
@@ -34,7 +34,7 @@ class SpinSlider(QWidget):
 
         # Slider
         slider = QSlider(self)
-        sp = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        sp = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
         sp.setHorizontalStretch(0)
         sp.setVerticalStretch(0)
         sp.setHeightForWidth(slider.sizePolicy().hasHeightForWidth())
@@ -55,15 +55,18 @@ class SpinSlider(QWidget):
         layout.addWidget(label)
         layout.addWidget(slider)
         layout.addWidget(spinBox)
+        layout.setAlignment(Qt.AlignCenter)
 
         # Connect signals when value change to synchronize
         slider.valueChanged.connect(self._onSliderChange)
         spinBox.valueChanged.connect(self._onSpinBoxChanged)
 
-        # Keep references to slider and spinbox
+        # Keep references to label, slider and spinbox
         self._slider = slider
         self._spinBox = spinBox
+        self._label = label
 
+    @pyqtSlot(int, object)
     def _onValueChanged(self, newIndex, widgetToUpdate):
         """ Either the slider or the spinbox changed the
         value. Let's update the other one and emit the signal.
@@ -72,7 +75,7 @@ class SpinSlider(QWidget):
         widgetToUpdate.setValue(newIndex)
         widgetToUpdate.blockSignals(False)
 
-        self.valueChanged.emit(newIndex)
+        self.sigValueChanged.emit(newIndex)
 
     @pyqtSlot(int)
     def _onSpinBoxChanged(self, value):
@@ -94,9 +97,29 @@ class SpinSlider(QWidget):
         """ Set a new value. """
         self._slider.setValue(value)
 
+    def setRange(self, minimum, maximum):
+        """
+        Set the minimum and maximum values
+        :param minimum: (int) The minimum possible value
+        :param maximum: (int) The maximum possible value
+        """
+        self._slider.setRange(minimum, maximum)
+        self._spinBox.setRange(minimum, maximum)
+
     def getRange(self):
+        """ Return a tuple (minimum, maximum) values
+        """
         return self._slider.minimum(), self._slider.maximum()
 
+    def setText(self, text):
+        """
+        Set the label text for the internal slider
+        :param text: (str) The text
+        """
+        self._label.setText(text)
 
-
-
+    def getText(self):
+        """
+        Returns the label text for the internal slider
+        """
+        return self._label.text()

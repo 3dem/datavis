@@ -48,6 +48,7 @@ class ImageView(QWidget):
         axisPos:   (Bool) The axis position.
                    Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                    AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
+        axis:      (Bool) Show/hide de view's axes
         """
         QWidget.__init__(self, parent=parent)
 
@@ -70,13 +71,11 @@ class ImageView(QWidget):
         self._pgButtons = kwargs.get("hideButtons", False)
         self._axisPos = kwargs.get("axisPos", self.AXIS_BOTTOM_LEFT)
 
-        self.__setupUI()
+        self.__setupGUI()
         self.__setupImageView()
 
-    def __setupUI(self):
-        """
-        Setups the user interface
-        """
+    def __setupGUI(self):
+        """ This is the standard method for the GUI creation """
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -293,7 +292,7 @@ class ImageView(QWidget):
                 plotItem.showButtons()
 
             plotItem.setAutoFillBackground(self._autoFill)
-            for k, v in visible.iteritems():
+            for k, v in visible.items():
                 value = self._showXaxis and v
                 plotItem.showAxis(k, value)
                 if value:
