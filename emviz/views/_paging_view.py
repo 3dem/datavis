@@ -35,8 +35,13 @@ class PagingView(qtw.QWidget):
         layout = qtw.QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(1, 1, 1, 1)
+        layout.addWidget(self._createContentWidget())
         self._pageBar = PageBar(self)
         layout.addWidget(self._pageBar)
+
+    def _createContentWidget(self):
+        """ Should be implemented in subclasses to build the content widget and return it. """
+        return None
 
     def __connectModelSignals(self, model):
         """ Connect all signals needed from the given model """
