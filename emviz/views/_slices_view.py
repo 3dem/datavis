@@ -19,7 +19,7 @@ class SlicesView(QWidget):
     """
     sigSliceChanged = pyqtSignal(int)  # Signal for current slice changed
 
-    def __init__(self, parent, sliceModel=None, **kwargs):
+    def __init__(self, parent, sliceModel, **kwargs):
         """ Constructor. SlicesView use an ImageView for display the slices,
         see ImageView class for initialization params.
 
@@ -46,7 +46,7 @@ class SlicesView(QWidget):
         self._imageView.installEventFilter(self)
 
         # Create SpinSlider widget
-        n = self._sliceModel.getDim()[2] if self._sliceModel else 1
+        _, _, n = self._sliceModel.getDim()
         self._spinSlider = SpinSlider(self, text=self._text,
                                       minValue=1, maxValue=n,
                                       currentValue=self._currentValue)
@@ -64,19 +64,16 @@ class SlicesView(QWidget):
     @pyqtSlot(int)
     def _onSliceChanged(self, value):
         """ Load the slice """
-        if self._sliceModel:
-            data = self._sliceModel.getData(value)
-            if data is not None:
-                self._imageView.setImage(data)
-                if self._viewRect:
-                    self._imageView.getView().setRange(rect=self._viewRect,
-                                                       padding=0.0)
-            else:
-                self._imageView.clear()
-
-            self.sigSliceChanged.emit(value)
+        data = self._sliceModel.getData(value)
+        if data is not None:
+            self._imageView.setImage(data)
+            if self._viewRect:
+                self._imageView.getView().setRange(rect=self._viewRect,
+                                                   padding=0.0)
         else:
             self._imageView.clear()
+
+        self.sigSliceChanged.emit(value)
 
     def eventFilter(self, obj, event):
         """

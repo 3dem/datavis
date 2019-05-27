@@ -4,3 +4,6 @@ AXIS_Y = 1
 AXIS_Z = 2
 
 DIM_N = -1
+
+PIXEL_UNITS = 1
+PERCENT_UNITS = 2
