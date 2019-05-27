@@ -5,8 +5,9 @@ class ImageModel:
     about the underlying image data.
     """
 
-    def __init__(self, data=None):
+    def __init__(self, data=None, location=None):
         self._data = data
+        self._location = location
 
     def getDim(self):
         """ Return (xdim, ydim) tuple with the 2D dimensions. """
@@ -22,7 +23,7 @@ class ImageModel:
         """ Return the (index, path) of the image file. It can be None
         if it does contains any associated location.
         """
-        return None
+        return self._location
 
 
 class SlicesModel:
@@ -58,3 +59,7 @@ class SlicesModel:
     def getLocation(self):
         # FIXME: Check if we need this one here
         return None
+
+    def getImageModel(self, i):
+        """ Return an ImageModel for a given slice. """
+        return ImageModel(data=self.getData(i))

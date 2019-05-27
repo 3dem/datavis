@@ -13,64 +13,7 @@ from .image_manager import ImageManager
 MOVIE_SIZE = 1000
 
 
-def createImageView(path, **kwargs):
-    """ Create an ImageView and load the image from the given path """
-    try:
-        image = em.Image()
-        loc2 = em.ImageLocation(path)
-        image.read(loc2)
-        imgView = ImageView(None, **kwargs)
-        data = ImageManager.getNumPyArray(image)
-        imgView.setImage(data)
-        imgView.setImageInfo(path=path, format=EmPath.getExt(path),
-                             data_type=str(image.getType()))
 
-        return imgView
-    except Exception as ex:
-        raise ex
-    except RuntimeError as ex:
-        raise ex
-
-
-def createSlicesView(path, **kwargs):
-    """ Create an SlicesView and load the slices from the given path """
-    try:
-        kwargs['path'] = path
-        slicesView = SlicesView(None, **kwargs)
-
-        return slicesView
-    except Exception as ex:
-        raise ex
-    except RuntimeError as ex:
-        raise ex
-
-
-def createVolumeView(path, **kwargs):
-    """ Create an VolumeView and load the volume from the given path """
-    try:
-        kwargs['path'] = path
-        volumeView = VolumeView(None, **kwargs)
-
-        return volumeView
-    except Exception as ex:
-        raise ex
-    except RuntimeError as ex:
-        raise ex
-
-
-def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
-    """ Create an DataView and load the volume from the given path """
-    kwargs['view'] = defaultView
-    dataView = DataView(None, **kwargs)
-    path = kwargs.get('dataSource')
-    dataView.setModel(TableDataModel(table, titles=titles,
-                                     tableViewConfig=tableViewConfig,
-                                     dataSource=path))
-    dataView.setView(defaultView)
-    if not (path is None or EmPath.isTable(path)):
-        dataView.setDataInfo(ImageManager.getInfo(path))
-
-    return dataView
 
 
 # FIXME: Check if this classes is needed?

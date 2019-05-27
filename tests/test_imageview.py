@@ -6,7 +6,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from emviz.views import ImageView
-from emviz.core import ImageManager
+from emviz.core import ModelsFactory
 
 import numpy as np
 
@@ -29,9 +29,10 @@ else:
     imgPath = os.path.join(testDataPath, "relion_tutorial", "micrographs", "068.mrc")
 
 imageView = ImageView(None, border_color='#FFAA33')
-img = ImageManager.readImage(imgPath, 1)
-data = np.array(img, copy=False)
-imageView.setImage(data)
+imgModel = ModelsFactory.createImageModel(imgPath)
+#img = ImageManager.readImage(imgPath, 1)
+#data = np.array(img, copy=False)
+imageView.setModel(imgModel)
 desc = "<html><head/><body><p><span style=\" color:#0055ff;\">Dimension: " \
        "</span><span style=\" color:#000000;\">(x,y,z)</span></p></body>" \
        "</html>"

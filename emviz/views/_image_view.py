@@ -52,6 +52,10 @@ class ImageView(QWidget):
         """
         QWidget.__init__(self, parent=parent)
 
+        # FIXME Allow to pass the model in the constructor and setup the
+        # FIXME:   ImageView accordingly
+        self._model = None
+
         self._oddFlips = False
         self._oddRotations = False
         self._isVerticalFlip = False
@@ -338,7 +342,7 @@ class ImageView(QWidget):
         will be reverted to their initial state
         """
         self.__resetOperationParams()
-        self.setImage(self._imageView.image)
+        self.setModel(self._model)
 
     @pyqtSlot(int)
     def __actAxisTriggered(self, state):
@@ -411,13 +415,15 @@ class ImageView(QWidget):
             view = view.getViewBox()
         return view
 
-    def setImage(self, image):
+    def setModel(self, imageModel):
         """
         Set the image to be displayed
         :param image: (numpy array) The image to be displayed
         """
+        self._model = imageModel
         self.clear()
-        self._imageView.setImage(image, autoRange=self._fitToSize)
+        self._imageView.setImage(imageModel.getData(),
+                                 autoRange=self._fitToSize)
         self.fitToSize()
 
     @pyqtSlot(int)

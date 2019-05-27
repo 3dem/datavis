@@ -65,10 +65,10 @@ class SlicesView(QWidget):
     def _onSliceChanged(self, value):
         """ Load the slice """
         if self._sliceModel:
-            data = self._sliceModel.getData(value)
-            if data is not None:
-                self._imageView.setImage(data)
-                if self._viewRect:
+            imgModel = self._sliceModel.getImageModel(value)
+            if imgModel is not None:
+                self._imageView.setModel(imgModel)
+                if self._viewRect is not None:
                     self._imageView.getView().setRange(rect=self._viewRect,
                                                        padding=0.0)
             else:
