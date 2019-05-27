@@ -53,7 +53,7 @@ class MultiSliceView(QWidget):
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
-            _, _, n = model.getDim() if model else 0, 0, 2
+            _, _, n = model.getDim()
             sv = SlicesView(self, model, text=args.get('text', text),
                             currentValue=args.get('currentValue', int(n/2)),
                             imageViewKwargs=dict(defaultImgViewKargs,

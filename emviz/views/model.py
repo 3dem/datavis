@@ -488,22 +488,24 @@ class VolumeDataModel(QAbstractItemModel):
     """
     sigVolumeIndexChanged = pyqtSignal(int)
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, **kwargs):
         """
         Constructs an DataModel to be used from a View for display volume data.
         VolumeDataModel has three columns: index, enabled, slice.
-        :param path: input path from where the volume will be read
-        :param **kwargs: Optional arguments:
+        :param kwargs: Optional arguments.
             - parent: a parent QObject of the model
             - title: a title for the model
-            - tableViewConfig: specify a config how we want to display the three
-                colums data. If it is None, a default one will be
-                created.
-            - pageSize: number of elements displayed per page (default 10)
+            - axisModels:      (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z)
+            - tableViewConfig: (TableViewConfig) Specify a config how we want
+                               to display the three data colums. If it is None,
+                               a default one will be created.
+            - pageSize:        (int) Number of elements displayed per page.
+            - axis:            Default axis: AXIS_X or AXIS_Y or AXIS_Z
+            - volumeIndex      (int) Default volume index. First index is 0.
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
-        self._dataSource = path
+        self._xModel, self._yModel, self._zModel = kwargs['axisModels']
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
                                  or TableViewConfig.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
@@ -511,16 +513,33 @@ class VolumeDataModel(QAbstractItemModel):
         self._pageCount = 0
         t = kwargs.get('title', 'Axis-') + "(%s)"
         self._titles = [t % 'X', t % 'Y', t % 'Z']
-        self._dim = ImageManager.getDim(path)
+        self._dim = self._zModel.getDim()
         self._axis = kwargs.get('axis', AXIS_X)
-        self._rows = 0
         self._volumeIndex = kwargs.get('volumeIndex', 0)
-        self.setAxis(kwargs.get('axis', AXIS_X))
+        self.setAxis(self._axis)
         self._defaultFont = QFont()
         
+    def __setupModel(self):
+        """
+        Configure the model according to the pageSize and current page
+        values
+        """
+        s = self._dim[2]
+        offset = self._page * self._pageSize
+
+        if s < self._pageSize:
+            self._pageCount = 1
+        else:
+            self._pageCount = int(s / self._pageSize) + \
+                              (1 if s % self._pageSize else 0)
+
+        self._page = int(offset / self._pageSize)
+
     def clone(self):
         """ Clone this model """
-        clo = VolumeDataModel(self._dataSource,
+        clo = VolumeDataModel(axisModels=(self._xModel,
+                                          self._yModel,
+                                          self._zModel),
                               tableViewConfig=self._tableViewConfig,
                               pageSize=self._pageSize, axis=self._axis,
                               volumeIndex=self._volumeIndex)
@@ -536,34 +555,27 @@ class VolumeDataModel(QAbstractItemModel):
         Sets the volume index.
         For volume stacks: 0 <= index < em-image.dim.n
         """
-        if self._dim is None:
-            self._volumeIndex = 0
-        elif index in range(0, self._dim.n):
-            self._volumeIndex = index
-        else:
-            self._volumeIndex = 0
-
+        self._volumeIndex = index
         self.sigVolumeIndexChanged.emit(self._volumeIndex)
         self.setupPage(self._pageSize, 0)
 
     def getVolumeCount(self):
         """
         Return the volumes count for this model
+        TODO[phv] Review when multiples volumes
         """
-        if self._dim is None:
-            return 0
-        return self._dim.n
+        return 1
 
     def setAxis(self, axis):
-        """ Sets the current axis """
+        """ Sets the current axis. Raise Exception for invalid axis values """
         if axis == AXIS_X:
-            self._rows = self._dim.x
+            self._dim = self._xModel.getDim()
         elif axis == AXIS_Y:
-            self._rows = self._dim.y
+            self._dim = self._yModel.getDim()
         elif axis == AXIS_Z:
-            self._rows = self._dim.z
+            self._dim = self._zModel.getDim()
         else:
-            self._rows = 0
+            raise Exception("Invalid axis value: %d" % axis)
 
         self._axis = axis
         self.setupPage(self._pageSize, 0)
@@ -635,13 +647,7 @@ class VolumeDataModel(QAbstractItemModel):
         """
         vc = (self._page + 1) * self._pageSize
 
-        if self._axis == AXIS_X:
-            ts = self._dim.x
-        elif self._axis == AXIS_Y:
-            ts = self._dim.y
-        else:
-            ts = self._dim.z
-
+        ts = self._dim[2]
         if vc > ts:  # last page
             return self._pageSize - (vc - ts)
 
@@ -667,31 +673,11 @@ class VolumeDataModel(QAbstractItemModel):
         """
         Return the row count for the entire model
         """
-        if self._axis == AXIS_X:
-            return self._dim.x
-        elif self._axis == AXIS_Y:
-            return self._dim.y
-
-        return self._dim.z
+        return self._dim[2]
 
     def setData(self, qModelIndex, value, role=Qt.EditRole):
         """
-        Reimplemented from QAbstractItemModel
-        """
-        if not qModelIndex.isValid():
-            return False
-
-        if self.flags(qModelIndex) & Qt.ItemIsEditable:
-            return self.setTableData(qModelIndex.row(),
-                                     qModelIndex.column(),
-                                     value)
-
-        return False
-
-    def setTableData(self, row, column, value):
-        """
-        Set table data.
-        TODO: how to store "enable" column
+        Reimplemented from QAbstractItemModel. VolumeDataModel is not editable.
         """
         return False
 
@@ -699,7 +685,7 @@ class VolumeDataModel(QAbstractItemModel):
         """
         Return the data for specified column and row
         """
-        if row in range(0, self._rows) \
+        if row in range(0, self._dim[2]) \
                 and col in range(0, len(self._tableViewConfig)):
             if col == 0:
                 return row + 1
@@ -724,17 +710,19 @@ class VolumeDataModel(QAbstractItemModel):
             self.sigPageChanged.emit(self._page)
 
     def prevPage(self):
-        self._page = self._page - 1 \
-            if self._page > 0 else 0
+        """ Change to the previous page """
+        self._page = self._page - 1 if self._page > 0 else 0
         self.loadPage()
 
     def nextPage(self):
+        """ Change to the next page """
         self._page = self._page + 1 \
-            if (self._page + 1) * self._pageSize <= len(self._emTable) else \
+            if (self._page + 1) * self._pageSize <= len(self._dim[2]) else \
             self._page
         self.loadPage()
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
+        """ Reimplemented from QAbstractItemModel """
         if self._tableViewConfig and \
                 column in range(0, len(self._tableViewConfig)) \
                 and orientation == Qt.Horizontal and role == Qt.DisplayRole:
@@ -742,7 +730,8 @@ class VolumeDataModel(QAbstractItemModel):
 
     def setItemsPerPage(self, pageSize):
         """
-        Set the items per page value and calculates the current configuration
+        Set the items per page value and calculates the current configuration.
+        :param pageSize: (int) The page size
         """
         if pageSize <= 0:
             pageSize = 1
@@ -753,9 +742,8 @@ class VolumeDataModel(QAbstractItemModel):
     def setupPage(self, pageSize, currentPage):
         """
         Configure paging properties. Load the model data for the specified page
-        :param pageSize:
-        :param currentPage:
-        :return:
+        :param pageSize:     (int) The page size
+        :param currentPage:  (int) The current page
         """
         if pageSize <= 0:
             pageSize = 1
@@ -788,15 +776,16 @@ class VolumeDataModel(QAbstractItemModel):
     def setColumnConfig(self, colConfig):
         """
         Set the column properties for the model
+        :param colConfig: (TableViewConfig) The columns configuration
         """
         self._tableViewConfig = colConfig
 
     def getColumnConfig(self, column=-1):
         """
         Return column configuration for the given column index
-        :param column: column index, first column is 0.
-                       column <0 return entire list
-        :return: ColumnConfig.
+        :param column: (int) Column index, first column is 0.
+                       If column<0 then return the entire list
+        :return: ColumnConfig object.
         """
         if column < 0 or not self._tableViewConfig:
             return self._tableViewConfig
@@ -809,7 +798,7 @@ class VolumeDataModel(QAbstractItemModel):
     def setIconSize(self, size):
         """
         Sets the size for renderable items
-        :param size: QSize
+        :param size: (QSize) The icon size
         """
         self._iconSize = size
 
@@ -838,26 +827,10 @@ class VolumeDataModel(QAbstractItemModel):
 
     def getDataSource(self):
         """ Return the path of this volume model """
-        return self._dataSource
+        return self._xModel.getLocation()
 
     def getTableViewConfig(self):
         return self._tableViewConfig
-
-    def __setupModel(self):
-        """
-        Configure the model according to the pageSize and current page
-        values
-        """
-        s = self._rows
-        offset = self._page * self._pageSize
-
-        if s < self._pageSize:
-            self._pageCount = 1
-        else:
-            self._pageCount = int(s / self._pageSize) + \
-                              (1 if s % self._pageSize else 0)
-
-        self._page = int(offset / self._pageSize)
 
 
 def createTableModel(path):
