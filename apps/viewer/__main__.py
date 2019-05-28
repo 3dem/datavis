@@ -23,6 +23,7 @@ from emviz.views import (DataView, PIXEL_UNITS,
                          TableDataModel)
 from emviz.widgets import ActionsToolBar, DynamicWidgetsFactory
 from emviz.windows import BrowserWindow
+from emviz.models import TableConfig
 
 import em
 
@@ -220,14 +221,14 @@ if __name__ == '__main__':
             Column = em.Table.Column
             emTable = em.Table([Column(1, "File Name", em.typeString),
                                 Column(2, "Path", em.typeString)])
-            tableViewConfig = TableViewConfig()
+            tableViewConfig = TableConfig()
             tableViewConfig.addColumnConfig(name='File Name',
-                                            dataType=TableViewConfig.TYPE_STRING,
+                                            dataType=TableConfig.TYPE_STRING,
                                             label='File Name',
                                             editable=False,
                                             visible=True)
             tableViewConfig.addColumnConfig(name='Path',
-                                            dataType=TableViewConfig.TYPE_STRING,
+                                            dataType=TableConfig.TYPE_STRING,
                                             label='Path',
                                             editable=False,
                                             visible=False)
@@ -615,7 +616,7 @@ if __name__ == '__main__':
                     t = EmTable.load(files)  # name, table
                     if args.visible or args.render:
                         tableViewConfig = \
-                            TableViewConfig.fromTable(t[1], args.visible)
+                            TableConfig.fromTable(t[1], args.visible)
                         renderCount = 0
                         for colConfig in tableViewConfig:
                             colName = colConfig.getName()
@@ -672,7 +673,7 @@ if __name__ == '__main__':
                         else:
                             view = createDataView(
                                 EmTable.fromStack(files),
-                                TableViewConfig.createStackConfig(),
+                                TableConfig.createStackConfig(),
                                 ['Stack'], views.get(args.view,
                                                      DataView.GALLERY),
                                 **kwargs)
@@ -684,7 +685,7 @@ if __name__ == '__main__':
                         else:
                             view = createDataView(
                                 EmTable.fromStack(files),
-                                TableViewConfig.createStackConfig(),
+                                TableConfig.createStackConfig(),
                                 ['Stack'], views.get(mode, DataView.GALLERY),
                                 **kwargs)
             elif EmPath.isStandardImage(files):

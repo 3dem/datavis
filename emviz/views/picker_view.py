@@ -16,7 +16,7 @@ import qtawesome as qta
 # FIXME: We should not import neither em or emviz.core from other submodules
 import em
 from emviz.widgets import MultiStateAction, OptionList
-from emviz.models import Micrograph, Coordinate, TableViewConfig
+from emviz.models import Micrograph, Coordinate, TableConfig
 
 from .model import TableDataModel
 from ._image_view import ImageView
@@ -797,19 +797,19 @@ class PickerView(qtw.QWidget):
         self.__emTable = em.Table([Column(1, "Id", em.typeSizeT),
                                    Column(2, "Micrograph", em.typeString),
                                    Column(3, "Coordinates", em.typeSizeT)])
-        tableViewConfig = TableViewConfig()
+        tableViewConfig = TableConfig()
         tableViewConfig.addColumnConfig(name='Id',
-                                        dataType=TableViewConfig.TYPE_INT,
+                                        dataType=TableConfig.TYPE_INT,
                                         label='Id',
                                         editable=True,
                                         visible=False)
         tableViewConfig.addColumnConfig(name='Micrograph',
-                                        dataType=TableViewConfig.TYPE_STRING,
+                                        dataType=TableConfig.TYPE_STRING,
                                         label='Micrograph',
                                         editable=True,
                                         visible=True)
         tableViewConfig.addColumnConfig(name='Coordinates',
-                                        dataType=TableViewConfig.TYPE_INT,
+                                        dataType=TableConfig.TYPE_INT,
                                         label='Coordinates',
                                         editable=True,
                                         visible=True)

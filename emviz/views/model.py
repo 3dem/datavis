@@ -5,7 +5,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableViewConfig
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableConfig
 
 
 class TableDataModel(QAbstractItemModel):
@@ -44,7 +44,7 @@ class TableDataModel(QAbstractItemModel):
         self._iconSize = QSize(32, 32)
         self._emTable = table
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
-                                 or TableViewConfig.fromTable(table))
+                                 or TableConfig.fromTable(table))
         self._pageData = []
         self._page = 0
         self._pageSize = kwargs.get('pageSize', 1)
@@ -62,13 +62,13 @@ class TableDataModel(QAbstractItemModel):
             emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
-            if t == TableViewConfig.TYPE_STRING:
+            if t == TableConfig.TYPE_STRING:
                 return emRow[emCol.getName()].toString()
-            elif t == TableViewConfig.TYPE_BOOL:
+            elif t == TableConfig.TYPE_BOOL:
                 return bool(int(emRow[emCol.getName()]))
-            elif t == TableViewConfig.TYPE_INT:
+            elif t == TableConfig.TYPE_INT:
                 return int(emRow[emCol.getName()])
-            elif t == TableViewConfig.TYPE_FLOAT:
+            elif t == TableConfig.TYPE_FLOAT:
                 return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
@@ -120,12 +120,12 @@ class TableDataModel(QAbstractItemModel):
         if role == Qt.DecorationRole:
             return QVariant()
         if role == Qt.DisplayRole:
-            if t == TableViewConfig.TYPE_BOOL:
+            if t == TableConfig.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.__getPageData(row, col))
         if role == Qt.CheckStateRole:
-            if t == TableViewConfig.TYPE_BOOL:
+            if t == TableConfig.TYPE_BOOL:
                 return Qt.Checked \
                     if self.__getPageData(row, col) else Qt.Unchecked
             return QVariant()
@@ -237,13 +237,13 @@ class TableDataModel(QAbstractItemModel):
             emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
-            if t == TableViewConfig.TYPE_STRING:
+            if t == TableConfig.TYPE_STRING:
                 return emRow[emCol.getName()].toString()
-            elif t == TableViewConfig.TYPE_BOOL:
+            elif t == TableConfig.TYPE_BOOL:
                 return bool(int(emRow[emCol.getName()]))
-            elif t == TableViewConfig.TYPE_INT:
+            elif t == TableConfig.TYPE_INT:
                 return int(emRow[emCol.getName()])
-            elif t == TableViewConfig.TYPE_FLOAT:
+            elif t == TableConfig.TYPE_FLOAT:
                 return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
@@ -356,7 +356,7 @@ class TableDataModel(QAbstractItemModel):
                 if self._tableViewConfig[col]["editable"]:
                     fl |= Qt.ItemIsEditable
                 if self._tableViewConfig[col].getType() == \
-                        TableViewConfig.TYPE_BOOL:
+                        TableConfig.TYPE_BOOL:
                     fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
@@ -505,7 +505,7 @@ class VolumeDataModel(QAbstractItemModel):
         self._iconSize = QSize(32, 32)
         self._dataSource = path
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
-                                 or TableViewConfig.createVolumeConfig())
+                                 or TableConfig.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
         self._page = 0
         self._pageCount = 0
@@ -587,13 +587,13 @@ class VolumeDataModel(QAbstractItemModel):
             return QVariant()
 
         if role == Qt.DisplayRole:
-            if t == TableViewConfig.TYPE_BOOL:
+            if t == TableConfig.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.CheckStateRole:
-            if t == TableViewConfig.TYPE_BOOL:
+            if t == TableConfig.TYPE_BOOL:
                 return Qt.Checked \
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
@@ -780,7 +780,7 @@ class VolumeDataModel(QAbstractItemModel):
                 if self._tableViewConfig[col]["editable"]:
                     fl |= Qt.ItemIsEditable
                 if self._tableViewConfig[col].getType() == \
-                        TableViewConfig.TYPE_BOOL:
+                        TableConfig.TYPE_BOOL:
                     fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
@@ -867,7 +867,7 @@ def createTableModel(path):
     from emviz.core import EmTable
     t = EmTable.load(path)  # [names], table
     return TableDataModel(t[1], parent=None, titles=t[0],
-                          tableViewConfig=TableViewConfig.fromTable(t[1]),
+                          tableViewConfig=TableConfig.fromTable(t[1]),
                           dataSource=path)
 
 
@@ -879,7 +879,7 @@ def createStackModel(imagePath, title='Stack'):
     table = EmTable.fromStack(imagePath)
 
     return TableDataModel(table, titles=[title],
-                          tableViewConfig=TableViewConfig.createStackConfig(),
+                          tableViewConfig=TableConfig.createStackConfig(),
                           dataSource=imagePath)
 
 

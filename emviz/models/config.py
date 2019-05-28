@@ -1,36 +1,17 @@
 
 import em
 
+from ._constants import *
 
-class TableViewConfig:
+
+class TableConfig:
     """
-    Class that allows to specify options for the behaviour of certain Views.
-    These views are related to the visualization of tabular data.
+    Contains the configuration properties of each Column that will control
+    how a table will be displayed by different views.
     """
-
-    """ Datatypes that will be used for the visualization. """
-    TYPE_BOOL = 0
-    TYPE_INT = 1
-    TYPE_FLOAT = 2
-    TYPE_STRING = 3
-    # TODO: other possibilities for the future:
-    # TYPE_URL, TYPE_IMAGE, etc
-
-    """ Basic type map between em.Type and current types. """
-    TYPE_MAP = {
-        em.typeBool: TYPE_BOOL,
-        em.typeInt8: TYPE_INT,
-        em.typeInt16: TYPE_INT,
-        em.typeInt32: TYPE_INT,
-        em.typeInt64: TYPE_INT,
-        em.typeFloat: TYPE_FLOAT,
-        em.typeDouble: TYPE_FLOAT,
-        em.typeString: TYPE_STRING
-    }
-
-    def __init__(self):
+    def __init__(self, *cols):
         # Store a list of ColumnConfig objects
-        self._cols = []
+        self._cols = cols
         self._rowIndex = True
 
     def addColumnConfig(self, *args, **kwargs):
@@ -39,14 +20,11 @@ class TableViewConfig:
 
     def hasRenderableColumn(self):
         """ Returns True if has any renderable column """
-        for colConfig in self._cols:
-            if colConfig["renderable"]:
-                return True
-        return False
+        return any(cc[RENDERABLE] for cc in self._cols)
 
     def isShowRowIndex(self):
-        """ Returns True if the row index should be displayed. By default,
-        this property is always True """
+        """ Returns True if the row index should be displayed.
+        By default, this property is always True """
         return self._rowIndex
 
     def setShowRowIndex(self, s):
@@ -54,17 +32,13 @@ class TableViewConfig:
 
     def getIndexes(self, propName, value):
         """ Return a indexes list having propName=value """
-        ret = []
-        for i, colConfig in enumerate(self):
-            if colConfig[propName] == value:
-                ret.append(i)
-        return ret
+        return [i for i, cc in enumerate(self) if cc[propName] == value]
 
     def clone(self):
-        tableViewConfig = TableViewConfig()
-        tableViewConfig._cols = [colConfig.clone() for colConfig in self._cols]
-        tableViewConfig._rowIndex = self._rowIndex
-        return tableViewConfig
+        tableConfig = TableConfig()
+        tableConfig._cols = [colConfig.clone() for colConfig in self._cols]
+        tableConfig._rowIndex = self._rowIndex
+        return tableConfig
 
     def __iter__(self):
         """ Iterate through all the column configs. """
@@ -105,7 +79,7 @@ class TableViewConfig:
         if colsConfig is None:
             colsConfig = tableColNames
 
-        tvConfig = TableViewConfig()
+        tvConfig = TableConfig()
         rest = list(tableColNames)
         for item in colsConfig:
             if isinstance(item, str) or isinstance(item, unicode):
@@ -123,7 +97,7 @@ class TableViewConfig:
                 cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
                 if 'description' not in properties:
                     properties['description'] = col.getDescription()
-                properties['editable'] = False
+                properties[EDITABLE] = False
                 tvConfig.addColumnConfig(name, cType, **properties)
                 rest.remove(name)
             else:
@@ -137,8 +111,8 @@ class TableViewConfig:
             cType = cls.TYPE_MAP.get(col.getType(), cls.TYPE_STRING)
             properties = dict()
             properties['description'] = col.getDescription()
-            properties['editable'] = False
-            properties['visible'] = visible
+            properties[EDITABLE] = False
+            properties[VISIBLE] = visible
             tvConfig.addColumnConfig(colName, cType, **properties)
 
         return tvConfig
@@ -146,38 +120,21 @@ class TableViewConfig:
     @classmethod
     def createStackConfig(cls):
         """ Create a TableViewConfig instance for a stack """
-        tableViewConfig = TableViewConfig()
-
-        tableViewConfig.addColumnConfig(name='path',
-                                        dataType=TableViewConfig.TYPE_STRING,
-                                        label='Image',
-                                        renderable=True,
-                                        editable=False,
-                                        visible=True)
-
-        return tableViewConfig
+        return TableConfig(
+            ColumnConfig(name='path', dataType=TYPE_STRING, label='Image',
+                         renderable=True, editable=False, visible=True))
 
     @classmethod
     def createVolumeConfig(cls):
         """ Create a TableViewConfig instance for a volume """
-        tableViewConfig = TableViewConfig()
-        tableViewConfig.addColumnConfig(name='index',
-                                        dataType=TableViewConfig.TYPE_INT,
-                                        label='Index',
-                                        editable=False,
-                                        visible=False)
-        tableViewConfig.addColumnConfig(name='enabled',
-                                        dataType=TableViewConfig.TYPE_BOOL,
-                                        label='Enabled',
-                                        editable=False,
-                                        visible=False)
-        tableViewConfig.addColumnConfig(name='slice',
-                                        dataType=TableViewConfig.TYPE_STRING,
-                                        label='Slice',
-                                        renderable=True,
-                                        editable=False,
-                                        visible=False)
-        return tableViewConfig
+        return TableConfig(
+            ColumnConfig(name='index', dataType=TYPE_INT, label='Index',
+                         editable=False, visible=False),
+            ColumnConfig(name='enabled', dataType=TYPE_BOOL, label='Enabled',
+                         editable=False, visible=False),
+            ColumnConfig(name='slice', dataType=TYPE_STRING, label='Slice',
+                         renderable=True, editable=False, visible=False)
+        )
 
 
 class ColumnConfig:
@@ -201,13 +158,14 @@ class ColumnConfig:
             - labelReadOnly (Bool)
         """
         self._name = name
+        # FIXME: label seems duplicated here and as a property
         self._label = kwargs.get('label', name)
         self._type = dataType
         self._description = kwargs.get('description', '')
         self._propertyNames = []
-        self.__setProperty__('visible', True, False, **kwargs)
-        self.__setProperty__('renderable', False, False, **kwargs)
-        self.__setProperty__('editable', False, True, **kwargs)
+        self.__setProperty__(VISIBLE, True, False, **kwargs)
+        self.__setProperty__(RENDERABLE, False, False, **kwargs)
+        self.__setProperty__(EDITABLE, False, True, **kwargs)
         self.__setProperty__('label', False, False, **kwargs)
 
     def __setProperty__(self, name, default, defaultRO, **kwargs):

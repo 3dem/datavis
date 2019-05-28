@@ -14,11 +14,11 @@ from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
 
-from emviz.models import TableViewConfig
+from emviz.models import TableConfig, AXIS_X, AXIS_Y, AXIS_Z
 from emviz.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
                            PlotConfigWidget)
 
-from .model import (VolumeDataModel, TableDataModel, AXIS_X, AXIS_Y, AXIS_Z)
+from .model import TableDataModel, VolumeDataModel
 from .columns import ColumnsView
 from .gallery import GalleryView
 from .items import ItemsView
@@ -986,7 +986,7 @@ class DataView(QWidget):
                         t = self._model.getEmTable()
                         EmTable.load(path, name, t)
                         self._model.setColumnConfig(
-                            TableViewConfig.fromTable(t))
+                            TableConfig.fromTable(t))
                         self.__clearViews()
                         self.__setupModel()
                         self.sigCurrentTableChanged.emit()

@@ -5,7 +5,7 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication
 
-from emviz.models import TableViewConfig
+from emviz.models import TableConfig, TYPE_INT, TYPE_STRING
 from emviz.views import TableDataModel, GalleryView
 from emviz.core import ImageManager
 
@@ -22,13 +22,13 @@ if testDataPath is not None:
     table = em.Table([em.Table.Column(0, "index", em.typeInt32, "Image index"),
                       em.Table.Column(1, "path", em.typeString, "Image path")])
 
-    tableViewConfig = TableViewConfig()
+    tableViewConfig = TableConfig()
     tableViewConfig.addColumnConfig(name='index',
-                                    dataType=TableViewConfig.TYPE_INT,
+                                    dataType=TYPE_INT,
                                     label='Index', editable=False, visible=True)
 
     tableViewConfig.addColumnConfig(name='path',
-                                    dataType=TableViewConfig.TYPE_STRING,
+                                    dataType=TYPE_STRING,
                                     label='Path', renderable=True,
                                     editable=False, visible=True)
 
