@@ -59,6 +59,14 @@ class AxisSlicesModel(SlicesModel):
         elif self._axis == AXIS_X:
             return self._data[:, :, i]
 
+    def getDim(self):
+        if self._axis == AXIS_Z:
+            return self._dim
+        elif self._axis == AXIS_Y:
+            return self._dim[0], self._dim[2], self._dim[1]
+        elif self._axis == AXIS_X:
+            return self._dim[1], self._dim[2], self._dim[0]
+
 
 msv = MultiSliceView(None,
                      {AXIS_X: {'model': AxisSlicesModel(AXIS_X, data)},

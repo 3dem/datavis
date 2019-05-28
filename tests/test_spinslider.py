@@ -27,7 +27,7 @@ spinSlider = SpinSlider(win,
                         text='Testing SpinSlider',
                         minValue=1, maxValue=100)
 
-spinSlider.valueChanged.connect(onValueChanged)
+spinSlider.sigValueChanged.connect(onValueChanged)
 
 win.setCentralWidget(spinSlider)
 win.show()

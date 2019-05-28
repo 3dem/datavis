@@ -1,9 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSlider, QSizePolicy,
-                             QGridLayout, QSpinBox, QLabel)
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSizePolicy)
 
 from emviz.widgets import SpinSlider
 from ._image_view import ImageView
@@ -18,19 +17,17 @@ class SlicesView(QWidget):
     but for movies (stacks of frames), this view is very useful since these are
     big images and will take much memory loading all of them at once.
     """
-    valueChanged = pyqtSignal(int)  # Signal for current index changed
+    sigSliceChanged = pyqtSignal(int)  # Signal for current slice changed
 
     def __init__(self, parent, sliceModel, **kwargs):
-        """
-        Constructor. SlicesView use an ImageView for display the slices,
+        """ Constructor. SlicesView use an ImageView for display the slices,
         see ImageView class for initialization params.
 
-        parent : (QWidget) Specifies the parent widget to which this ImageView
-                 will belong. If None, then the SlicesView is created with
-                 no parent.
-        text: Text to be display in the slider
-        currentValue: The index (starting at 1) of the initial slice to display
-
+        parent :        (QWidget) Specifies the parent widget to which
+                        this ImageView will belong.
+                        If None, then the SlicesView is created with no parent.
+        text:           (str) Text to be display in the slider.
+        currentValue:   (int) The index (starting at 1) of the initial slice.
         """
         QWidget.__init__(self, parent=parent)
         self._sliceModel = sliceModel
@@ -38,9 +35,10 @@ class SlicesView(QWidget):
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
         self._imageViewKwargs = kwargs.get('imageViewKwargs', {})
-        self.__setupUI()
+        self.__setupGUI()
 
-    def __setupUI(self):
+    def __setupGUI(self):
+        """ This is the standard method for the GUI creation """
         # Create ImageView widget
         self._imageView = ImageView(self, **self._imageViewKwargs)
         self._imageView.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding,
@@ -61,37 +59,36 @@ class SlicesView(QWidget):
         layout.addWidget(self._imageView)
         layout.addWidget(self._spinSlider)
 
-        self._spinSlider.valueChanged.connect(self._onSliceChanged)
+        self._spinSlider.sigValueChanged.connect(self._onSliceChanged)
 
     @pyqtSlot(int)
     def _onSliceChanged(self, value):
         """ Load the slice """
-        data = self._sliceModel.getData(value)
-        if data is not None:
-            self._imageView.setImage(data)
+        imgModel = self._sliceModel.getImageModel(value)
+        if imgModel is not None:
+            self._imageView.setModel(imgModel)
             if self._viewRect is not None:
                 self._imageView.getView().setRange(rect=self._viewRect,
                                                    padding=0.0)
         else:
             self._imageView.clear()
 
-        self.valueChanged.emit(value)
+        self.sigSliceChanged.emit(value)
 
-    # FIXME: Check if this method is needed
     def eventFilter(self, obj, event):
         """
         Filters events if this object has been installed as an event filter for
         the obj object.
         In our reimplementation of this function, we always filter the event.
-        In this case, the function return true.
+        In this case, the function return true. We install self as even filter
+        for ImageView.
         :param obj: object
         :param event: event
         :return: True
         """
         t = event.type()
-        # FIXME: If the image is moved, it should be kept there
-        # when changing the slice, tried with MouseMove, but not working
-        if t == QEvent.Wheel or t == QEvent.MouseMove:
+        if t == QEvent.Wheel or t == QEvent.MouseMove or \
+                QEvent.MouseButtonRelease:
             if obj == self._imageView:  # Calculate the View scale
                 self._viewRect = self._imageView.getViewRect()
 
@@ -108,4 +105,28 @@ class SlicesView(QWidget):
     def getRange(self):
         """ Returns a tuple (min, max) with the slices range. """
         return self._spinSlider.getRange()
+
+    def setText(self, text):
+        """
+        Set the label text for the internal slider
+        :param text: (str) The text
+        """
+        self._spinSlider.setText(text)
+
+    def setModel(self, model):
+        """
+        Set the data model
+        :param model: The model or None for clear the view
+        """
+        self._sliceModel = model
+        minValue, maxValue = (1, 1) if self._sliceModel is None else 1, \
+            self._sliceModel.getDim()[2]
+
+        self._spinSlider.setRange(minValue, maxValue)
+        self._currentValue = 1
+        self._spinSlider.setValue(self._currentValue)
+
+    def clear(self):
+        """ Clear the view """
+        self.setModel(None)
 

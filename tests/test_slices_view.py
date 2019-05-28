@@ -8,10 +8,8 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 import em
-from emviz.core import ImageManager
 from emviz.models import SlicesModel
 from emviz.views import SlicesView
-
 
 if len(sys.argv) > 1:
     imgPath = sys.argv[1]
@@ -45,7 +43,7 @@ class EmSlicesModel(SlicesModel):
             imgio.read(1, image)
             self._data = np.array(image, copy=False)
             self._dim = dim.x, dim.y, dim.z
-            self.initialSlice = dim.z / 2
+            self.initialSlice = int(dim.z / 2)
             self.text = 'Volume, Z slice: '
         elif dim.n > 1:
             print("Loading stack in memory, only first 100 images")

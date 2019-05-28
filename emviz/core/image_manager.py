@@ -22,8 +22,8 @@ Z_AXIS = 2
 
 class ImageManager:
     """
-    The image manager for centralize read/manage image operations. Contains a internal
-    image cache for loaded image access and thumbnails.
+    The image manager for centralize read/manage image operations.
+    Contains a internal image cache for loaded image access and thumbnails.
     """
     DATA_TYPE_MAP = {
         em.typeInt8: np.uint8,

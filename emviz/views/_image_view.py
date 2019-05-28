@@ -48,8 +48,13 @@ class ImageView(QWidget):
         axisPos:   (Bool) The axis position.
                    Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                    AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
+        axis:      (Bool) Show/hide de view's axes
         """
         QWidget.__init__(self, parent=parent)
+
+        # FIXME Allow to pass the model in the constructor and setup the
+        # FIXME:   ImageView accordingly
+        self._model = None
 
         self._oddFlips = False
         self._oddRotations = False
@@ -70,13 +75,11 @@ class ImageView(QWidget):
         self._pgButtons = kwargs.get("hideButtons", False)
         self._axisPos = kwargs.get("axisPos", self.AXIS_BOTTOM_LEFT)
 
-        self.__setupUI()
+        self.__setupGUI()
         self.__setupImageView()
 
-    def __setupUI(self):
-        """
-        Setups the user interface
-        """
+    def __setupGUI(self):
+        """ This is the standard method for the GUI creation """
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -293,7 +296,7 @@ class ImageView(QWidget):
                 plotItem.showButtons()
 
             plotItem.setAutoFillBackground(self._autoFill)
-            for k, v in visible.iteritems():
+            for k, v in visible.items():
                 value = self._showXaxis and v
                 plotItem.showAxis(k, value)
                 if value:
@@ -339,7 +342,7 @@ class ImageView(QWidget):
         will be reverted to their initial state
         """
         self.__resetOperationParams()
-        self.setImage(self._imageView.image)
+        self.setModel(self._model)
 
     @pyqtSlot(int)
     def __actAxisTriggered(self, state):
@@ -412,13 +415,15 @@ class ImageView(QWidget):
             view = view.getViewBox()
         return view
 
-    def setImage(self, image):
+    def setModel(self, imageModel):
         """
         Set the image to be displayed
         :param image: (numpy array) The image to be displayed
         """
+        self._model = imageModel
         self.clear()
-        self._imageView.setImage(image, autoRange=self._fitToSize)
+        self._imageView.setImage(imageModel.getData(),
+                                 autoRange=self._fitToSize)
         self.fitToSize()
 
     @pyqtSlot(int)

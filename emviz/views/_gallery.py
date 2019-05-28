@@ -18,7 +18,7 @@ class GalleryView(PagingView):
     items with simple paginate elements in gallery view.
     """
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
-    sigPageSizeChanged = QtCore.pyqtSignal()
+    sigPageSizeChanged = QtCore.pyqtSignal()  # Signal for page size changed
     sigListViewSizeChanged = QtCore.pyqtSignal()
 
     def __init__(self, parent, **kwargs):

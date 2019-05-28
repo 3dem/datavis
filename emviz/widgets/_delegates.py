@@ -52,55 +52,59 @@ class EMImageItemDelegate(QStyledItemDelegate):
         """
         Reimplemented from QStyledItemDelegate
         """
-        if index.isValid():
-            x = option.rect.x()
-            y = option.rect.y()
-            w = option.rect.width()
-            h = option.rect.height()
-            rect = QRectF()
-            if option.state & QStyle.State_Selected:
-                if option.state & QStyle.State_HasFocus or \
-                        option.state & QStyle.State_Active:
-                    colorGroup = QPalette.Active
-                else:
-                    colorGroup = QPalette.Inactive
-                painter.fillRect(option.rect,
-                                 option.palette.color(colorGroup,
-                                                      QPalette.Highlight))
-            else:
-                colorGroup = QPalette.Active
-                painter.fillRect(option.rect,
-                                 option.palette.color(colorGroup,
-                                                      QPalette.HighlightedText))
-            if self.__labelIndexes:
-                h -= self._textHeight * len(self.__labelIndexes)
-                self._setupText(index)
-            else:
-                self._labelText = []
+        if not index.isValid():
+            return
 
-            self._setupView(index, w, h)
-            rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
-                         h - 2 * self._sBorder)
-            self._imageView.ui.graphicsView.scene().setSceneRect(rect)
-            rect.setRect(x + self._sBorder, y + self._sBorder,
-                         w - 2 * self._sBorder, h - 2 * self._sBorder)
-            self._imageView.ui.graphicsView.scene().render(painter, rect)
-            if option.state & QStyle.State_HasFocus:
-                painter.save()
-                self._focusPen.setColor(
-                    option.palette.color(QPalette.Active,
-                                         QPalette.Highlight))
-                painter.setPen(self._focusPen)
-                rect.setRect(x, y, w - 1, h - 1)
-                if self._labelText:
-                    rect.setHeight(
-                        h + self._textHeight * len(self.__labelIndexes) - 1)
-                painter.drawRect(rect)
-                painter.restore()
-            for i, text in enumerate(self._labelText):
-                rect.setRect(x + self._sBorder, y + h + i * self._textHeight,
-                             w - 2 * self._sBorder, self._textHeight)
-                painter.drawText(rect, Qt.AlignLeft, text)
+        x = option.rect.x()
+        y = option.rect.y()
+        w = option.rect.width()
+        h = option.rect.height()
+        rect = QRectF()
+        selected = option.state & QStyle.State_Selected
+        hasFocus = option.state & QStyle.State_HasFocus
+        active = option.state & QStyle.State_Active
+
+        colorGroup = QPalette.Active
+        palette = QPalette.HighlightedText
+
+        if selected:
+            if not (hasFocus or active):
+                colorGroup = QPalette.Inactive
+            palette = QPalette.Highlight
+
+        painter.fillRect(option.rect, option.palette.color(colorGroup, palette))
+
+        if self.__labelIndexes:
+            h -= self._textHeight * len(self.__labelIndexes)
+            self._setupText(index)
+        else:
+            self._labelText = []
+
+        self._setupView(index, w, h)
+        rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
+                     h - 2 * self._sBorder)
+        self._imageView.ui.graphicsView.scene().setSceneRect(rect)
+        rect.setRect(x + self._sBorder, y + self._sBorder,
+                     w - 2 * self._sBorder, h - 2 * self._sBorder)
+        self._imageView.ui.graphicsView.scene().render(painter, rect)
+
+        if hasFocus:
+            painter.save()
+            self._focusPen.setColor(
+                option.palette.color(QPalette.Active,
+                                     QPalette.Highlight))
+            painter.setPen(self._focusPen)
+            rect.setRect(x, y, w - 1, h - 1)
+            if self._labelText:
+                rect.setHeight(
+                    h + self._textHeight * len(self.__labelIndexes) - 1)
+            painter.drawRect(rect)
+            painter.restore()
+
+        for i, text in enumerate(self._labelText):
+            rect.setRect(x + self._sBorder, y + h + i * self._textHeight,
+                         w - 2 * self._sBorder, self._textHeight)
+            painter.drawText(rect, Qt.AlignLeft, text)
 
     def _setupText(self, index):
         """ Configure the label text """

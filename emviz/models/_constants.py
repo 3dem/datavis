@@ -33,3 +33,7 @@ TYPE_MAP = {
     em.typeDouble: TYPE_FLOAT,
     em.typeString: TYPE_STRING
 }
+
+
+PIXEL_UNITS = 1
+PERCENT_UNITS = 2

@@ -20,7 +20,7 @@ from emviz.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
 
 from .model import TableDataModel, VolumeDataModel
 from .columns import ColumnsView
-from .gallery import GalleryView
+from ._gallery import GalleryView
 from .items import ItemsView
 from ._paging_view import PagingView
 

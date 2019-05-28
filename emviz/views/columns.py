@@ -22,21 +22,21 @@ class ColumnsView(PagingView):
     # when the Table has been resized (oldSize, newSize)
     sigTableSizeChanged = QtCore.pyqtSignal(object, object)
 
-    def __init__(self, parent, **kwargs):
-        PagingView.__init__(self, parent=parent)
-        self._pageSize = 0
+    def __init__(self, parent=None, **kwargs):
         # FIXME: The following import is here because it cause a cyclic dependency
         # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
         # FIXME: Check if we want ImageManager or other data model here
         from emviz.core import ImageManager
         self._imageManager = kwargs.get('imageManager') or ImageManager(150)
+
+        PagingView.__init__(self, parent=parent)
+        self._pageSize = 0
         self._selection = set()
         self._currentRow = 0
-        self.__setupUI(**kwargs)
         self.setSelectionMode(kwargs.get("selection_mode",
                                          PagingView.SINGLE_SELECTION))
 
-    def __setupUI(self, **kwargs):
+    def _createContentWidget(self):
         self._tableView = QTableView(self)
         hHeader = HeaderView(self._tableView)
         hHeader.setHighlightSections(False)
@@ -59,8 +59,8 @@ class ColumnsView(PagingView):
         self._tableView.resizeEvent = self.__tableViewResizeEvent
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageManager(self._imageManager)
-        self._mainLayout.insertWidget(0, self._tableView)
-        #self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
+
+        return self._tableView
 
     def __tableViewResizeEvent(self, evt):
         """
