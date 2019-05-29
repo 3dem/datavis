@@ -6,7 +6,7 @@ import os
 import em
 from emviz.models import Coordinate, Micrograph, PickerDataModel
 from emviz.views import (ImageView, SlicesView, VolumeView, DataView,
-                         TableDataModel)
+                         TablePageItemModel)
 from .functions import EmPath
 from .image_manager import ImageManager
 

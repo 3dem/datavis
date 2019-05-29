@@ -1,11 +1,11 @@
 
-# Quick and dirty test script for TableConfig class
+# Quick and dirty test script for TableModel class
 # TODO: Improve it and use a proper test class
 
 import os
 
 import em
-from emviz.views import TableConfig
+from emviz.views import TableModel
 
 
 testDataPath = os.environ.get("EM_TEST_DATA", None)
@@ -32,7 +32,7 @@ if testDataPath is not None:
         "rlnNrOfSignificantSamples", "rlnMaxValueProbDistribution"
     ]
 
-    tvc1 = TableConfig.fromTable(t)
+    tvc1 = TableModel.fromTable(t)
     #print(tvc1)
 
     colsConfigs = [
@@ -45,6 +45,6 @@ if testDataPath is not None:
                           })
     ]
 
-    tvc2 = TableConfig.fromTable(t, colsConfigs)
+    tvc2 = TableModel.fromTable(t, colsConfigs)
     print(tvc2)
 

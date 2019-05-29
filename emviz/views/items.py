@@ -141,7 +141,7 @@ class ItemsView(PagingView):
         PagingView.setModel(self, model)
 
         if self._model:
-            self._imageView.setVisible(self._model.hasRenderableColumn())
+            self._imageView.setVisible(self._model.hasColumn(renderable=True))
             self._model.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._model.setupPage(1, self._row)
             self._model.dataChanged.connect(self.__onDataChanged)
@@ -182,7 +182,7 @@ class ItemsView(PagingView):
     def updateViewConfiguration(self):
         """ Reimplemented from PagingView """
         self._imageView.setVisible(self._model is not None and
-                                   self._model.hasRenderableColumn())
+                                   self._model.hasColumn(renderable=True))
         self.__loadItem(self._row)
 
     def loadImages(self, row):

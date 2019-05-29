@@ -16,9 +16,9 @@ import qtawesome as qta
 # FIXME: We should not import neither em or emviz.core from other submodules
 import em
 from emviz.widgets import MultiStateAction, OptionList
-from emviz.models import Micrograph, Coordinate, TableConfig
+from emviz.models import Micrograph, Coordinate, TableModel
 
-from .model import TableDataModel
+from .model import TablePageItemModel
 from ._image_view import ImageView
 from .columns import ColumnsView
 
@@ -797,24 +797,24 @@ class PickerView(qtw.QWidget):
         self.__emTable = em.Table([Column(1, "Id", em.typeSizeT),
                                    Column(2, "Micrograph", em.typeString),
                                    Column(3, "Coordinates", em.typeSizeT)])
-        tableViewConfig = TableConfig()
+        tableViewConfig = TableModel()
         tableViewConfig.addColumnConfig(name='Id',
-                                        dataType=TableConfig.TYPE_INT,
+                                        dataType=TableModel.TYPE_INT,
                                         label='Id',
                                         editable=True,
                                         visible=False)
         tableViewConfig.addColumnConfig(name='Micrograph',
-                                        dataType=TableConfig.TYPE_STRING,
+                                        dataType=TableModel.TYPE_STRING,
                                         label='Micrograph',
                                         editable=True,
                                         visible=True)
         tableViewConfig.addColumnConfig(name='Coordinates',
-                                        dataType=TableConfig.TYPE_INT,
+                                        dataType=TableModel.TYPE_INT,
                                         label='Coordinates',
                                         editable=True,
                                         visible=True)
-        self._tvModel = TableDataModel(self.__emTable,
-                                       tableViewConfig=tableViewConfig)
+        self._tvModel = TablePageItemModel(self.__emTable,
+                                           tableViewConfig=tableViewConfig)
 
     def __showHandlers(self, roi, show=True):
         """ Show or hide the ROI handlers. """

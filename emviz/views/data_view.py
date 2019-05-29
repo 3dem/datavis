@@ -14,11 +14,11 @@ from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
 
-from emviz.models import TableConfig, AXIS_X, AXIS_Y, AXIS_Z
+from emviz.models import TableModel, AXIS_X, AXIS_Y, AXIS_Z
 from emviz.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
                            PlotConfigWidget)
 
-from .model import TableDataModel, VolumeDataModel
+from .model import TablePageItemModel, VolumeDataModel
 from .columns import ColumnsView
 from ._gallery import GalleryView
 from .items import ItemsView
@@ -545,7 +545,7 @@ class DataView(QWidget):
         """ Configure the row height spinbox """
         self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
 
-        if self._model is not None and not self._model.hasRenderableColumn():
+        if self._model is not None and not self._model.hasColumn(renderable=True):
             self._spinBoxRowHeight.setValue(25)
         else:
             self._spinBoxRowHeight.setValue(self._defaultRowHeight)
@@ -573,7 +573,7 @@ class DataView(QWidget):
         # row height
         model = self.getViewWidget(view).getModel()
 
-        rColumn = model is not None and model.hasRenderableColumn()
+        rColumn = model is not None and self._model.hasColumn(renderable=True)
 
         self._actLabelLupe.setVisible((view == self.GALLERY or
                                       view == self.COLUMNS) and
@@ -676,7 +676,7 @@ class DataView(QWidget):
             view = self._viewTypes[v.objectName()]
             v.setVisible(view in self._views)
             if self._model and view == DataView.GALLERY:
-                v.setVisible(self._model.hasRenderableColumn())
+                v.setVisible(self._model.hasColumn(renderable=True))
 
     def __makeSelectionInView(self, view):
         """ Makes the current selection in the given view """
@@ -976,7 +976,7 @@ class DataView(QWidget):
                             model = viewWidget.getModel()
                             model.setAxis(axis)
                         self._selectRow(1)
-                elif isinstance(self._model, TableDataModel):
+                elif isinstance(self._model, TablePageItemModel):
                     name = self._comboBoxCurrentTable.currentText()
                     path = self._model.getDataSource()
                     if path is not None:
@@ -986,7 +986,7 @@ class DataView(QWidget):
                         t = self._model.getEmTable()
                         EmTable.load(path, name, t)
                         self._model.setColumnConfig(
-                            TableConfig.fromTable(t))
+                            TableModel.fromTable(t))
                         self.__clearViews()
                         self.__setupModel()
                         self.sigCurrentTableChanged.emit()

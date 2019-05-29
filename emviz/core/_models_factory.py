@@ -35,7 +35,7 @@ class ModelsFactory:
     @classmethod
     def createTableConfig(cls, table, colsConfig=None):
         """
-        Create a TableConfig instance from a given em.Table input.
+        Create a TableModel instance from a given em.Table input.
         This function allows users to specify the minimum of properties
         and create the config from that.
         :param table: input em.Table that will be visualized
@@ -44,7 +44,7 @@ class ModelsFactory:
             a single string (the column name) or a tuple (column name and
             a dict with properties). If only the column name is provided,
             the property values will be inferred from the em.Table.Column.
-        :return: a new instance of TableConfig
+        :return: a new instance of TableModel
         """
         # TODO: Implement iterColumns in table
         # tableColNames = [col.getName() for col in table.iterColumns()]
@@ -54,7 +54,7 @@ class ModelsFactory:
         if colsConfig is None:
             colsConfig = tableColNames
 
-        tableConfig = emviz.models.TableConfig()
+        tableConfig = emviz.models.TableModel()
         rest = list(tableColNames)
         for item in colsConfig:
             if isinstance(item, str) or isinstance(item, unicode):

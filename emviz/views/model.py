@@ -5,52 +5,38 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableConfig
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableModel
 
 
-class TableDataModel(QAbstractItemModel):
+class TablePageItemModel(QAbstractItemModel):
     """
-    Model for EM Data
+    Model to display tabular data coming from a TableModel and using
+    a TableModel, but only showing a page of the whole data.
     """
 
     DataTypeRole = Qt.UserRole + 2
 
-    """ 
-    Signal emitted when change page configuration 
-    emit (page, pageCount, pageSize)
-    """
-    sigPageConfigChanged = pyqtSignal(int, int, int)
-
-    """ 
-        Signal emitted when change the current page 
-        emit (page)
-        """
-    sigPageChanged = pyqtSignal(int)
-
-    def __init__(self, table, **kwargs):
+    def __init__(self, tableModel, tableConfig, pageSize, currentPage=1, **kwargs):
         """
         Constructs an DataModel to be used from TableView
-        :param table: input em.Table from where the data will be read
+        :param tableModel: input TableModel from where the data will be read
+            and present in pages
+        :param tableConfig: input TableModel that will control how the
+            data fetched from the TableModel will be displayed
         :param **kwargs: Optional arguments:
             - parent: a parent QObject of the model (NOTE: see Qt framework)
             - titles: the titles that will be display
-            FIXME: should this be here in the model?
-            - tableViewConfig: specify a config how we want to display the
-                data in the em.Table. If it is None, a default one will be
-                created from the table.
             - pageSize: number of elements displayed per page (default 10)
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
-        self._iconSize = QSize(32, 32)
-        self._emTable = table
-        self._tableViewConfig = (kwargs.get('tableViewConfig', None)
-                                 or TableConfig.fromTable(table))
+        self._model = tableModel
+        self._config = tableConfig
+        self._page = currentPage
+        self._pageSize = pageSize
         self._pageData = []
-        self._page = 0
-        self._pageSize = kwargs.get('pageSize', 1)
-        self._pageCount = 0
-        self._titles = kwargs.get('titles', [''])
-        self._dataSource = kwargs.get('dataSource', None)
+        #self._pageCount = 0
+        #self._titles = kwargs.get('titles', [''])
+        #self._dataSource = kwargs.get('dataSource', None)
         self._defaultFont = QFont()
         self._indexWidth = 50
         self.__setupModel()
@@ -62,13 +48,13 @@ class TableDataModel(QAbstractItemModel):
             emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
-            if t == TableConfig.TYPE_STRING:
+            if t == TableModel.TYPE_STRING:
                 return emRow[emCol.getName()].toString()
-            elif t == TableConfig.TYPE_BOOL:
+            elif t == TableModel.TYPE_BOOL:
                 return bool(int(emRow[emCol.getName()]))
-            elif t == TableConfig.TYPE_INT:
+            elif t == TableModel.TYPE_INT:
                 return int(emRow[emCol.getName()])
-            elif t == TableConfig.TYPE_FLOAT:
+            elif t == TableModel.TYPE_FLOAT:
                 return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
@@ -91,11 +77,11 @@ class TableDataModel(QAbstractItemModel):
 
     def clone(self):
         """ Clone this Model """
-        clo = TableDataModel(self._emTable,
-                             tableViewConfig=self._tableViewConfig.clone(),
-                             pageSize=self._pageSize,
-                             titles=self._titles[:],
-                             dataSource=self._dataSource)
+        clo = TablePageItemModel(self._emTable,
+                                 tableViewConfig=self._tableViewConfig.clone(),
+                                 pageSize=self._pageSize,
+                                 titles=self._titles[:],
+                                 dataSource=self._dataSource)
         return clo
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
@@ -115,17 +101,17 @@ class TableDataModel(QAbstractItemModel):
         t = self._tableViewConfig[col].getType() \
             if self._tableViewConfig else None
 
-        if role == TableDataModel.DataTypeRole:
+        if role == TablePageItemModel.DataTypeRole:
             return t
         if role == Qt.DecorationRole:
             return QVariant()
         if role == Qt.DisplayRole:
-            if t == TableConfig.TYPE_BOOL:
+            if t == TableModel.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.__getPageData(row, col))
         if role == Qt.CheckStateRole:
-            if t == TableConfig.TYPE_BOOL:
+            if t == TableModel.TYPE_BOOL:
                 return Qt.Checked \
                     if self.__getPageData(row, col) else Qt.Unchecked
             return QVariant()
@@ -237,13 +223,13 @@ class TableDataModel(QAbstractItemModel):
             emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
-            if t == TableConfig.TYPE_STRING:
+            if t == TableModel.TYPE_STRING:
                 return emRow[emCol.getName()].toString()
-            elif t == TableConfig.TYPE_BOOL:
+            elif t == TableModel.TYPE_BOOL:
                 return bool(int(emRow[emCol.getName()]))
-            elif t == TableConfig.TYPE_INT:
+            elif t == TableModel.TYPE_INT:
                 return int(emRow[emCol.getName()])
-            elif t == TableConfig.TYPE_FLOAT:
+            elif t == TableModel.TYPE_FLOAT:
                 return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
@@ -356,7 +342,7 @@ class TableDataModel(QAbstractItemModel):
                 if self._tableViewConfig[col]["editable"]:
                     fl |= Qt.ItemIsEditable
                 if self._tableViewConfig[col].getType() == \
-                        TableConfig.TYPE_BOOL:
+                        TableModel.TYPE_BOOL:
                     fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
@@ -407,10 +393,7 @@ class TableDataModel(QAbstractItemModel):
 
     def hasRenderableColumn(self):
         """ Return True if the model has renderable columns """
-        if self._tableViewConfig is None:
-            return False
-        else:
-            return self._tableViewConfig.hasRenderableColumn()
+        return self._tableViewConfig.hasColumn(renderable=True)
 
     def getTableViewConfig(self):
         return self._tableViewConfig
@@ -507,7 +490,7 @@ class VolumeDataModel(QAbstractItemModel):
         self._iconSize = QSize(32, 32)
         self._xModel, self._yModel, self._zModel = kwargs['axisModels']
         self._tableViewConfig = (kwargs.get('tableViewConfig', None)
-                                 or TableConfig.createVolumeConfig())
+                                 or TableModel.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
         self._page = 0
         self._pageCount = 0
@@ -592,20 +575,20 @@ class VolumeDataModel(QAbstractItemModel):
         t = self._tableViewConfig[col].getType() \
             if self._tableViewConfig else None
 
-        if role == TableDataModel.DataTypeRole:
+        if role == TablePageItemModel.DataTypeRole:
             return t
 
         if role == Qt.DecorationRole:
             return QVariant()
 
         if role == Qt.DisplayRole:
-            if t == TableConfig.TYPE_BOOL:
+            if t == TableModel.TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.CheckStateRole:
-            if t == TableConfig.TYPE_BOOL:
+            if t == TableModel.TYPE_BOOL:
                 return Qt.Checked \
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
@@ -768,7 +751,7 @@ class VolumeDataModel(QAbstractItemModel):
                 if self._tableViewConfig[col]["editable"]:
                     fl |= Qt.ItemIsEditable
                 if self._tableViewConfig[col].getType() == \
-                        TableConfig.TYPE_BOOL:
+                        TableModel.TYPE_BOOL:
                     fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
@@ -834,14 +817,14 @@ class VolumeDataModel(QAbstractItemModel):
 
 
 def createTableModel(path):
-    """ Return the TableDataModel for the given EM table file """
+    """ Return the TablePageItemModel for the given EM table file """
     # FIXME: The following import is here because it cause a cyclic dependency
     # FIXME: we should remove the use of EmTable
     from emviz.core import EmTable
     t = EmTable.load(path)  # [names], table
-    return TableDataModel(t[1], parent=None, titles=t[0],
-                          tableViewConfig=TableConfig.fromTable(t[1]),
-                          dataSource=path)
+    return TablePageItemModel(t[1], parent=None, titles=t[0],
+                              tableViewConfig=TableModel.fromTable(t[1]),
+                              dataSource=path)
 
 
 def createStackModel(imagePath, title='Stack'):
@@ -851,9 +834,9 @@ def createStackModel(imagePath, title='Stack'):
     from emviz.core import EmTable
     table = EmTable.fromStack(imagePath)
 
-    return TableDataModel(table, titles=[title],
-                          tableViewConfig=TableConfig.createStackConfig(),
-                          dataSource=imagePath)
+    return TablePageItemModel(table, titles=[title],
+                              tableViewConfig=TableModel.createStackConfig(),
+                              dataSource=imagePath)
 
 
 def createVolumeModel(imagePath, axis=AXIS_X, titles=["Volume"]):

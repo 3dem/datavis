@@ -4,11 +4,40 @@ from ._constants import *
 
 class TableModel:
     """ Abstract base class to define the table model required by some views.
-    It provides a very general interface about tabular data.
+    It provides a very general interface about tabular data and how it will
+    be displayed.
     """
-    def getColumnsCount(self):
-        """ Return the number of columns. """
-        raise Exception("Not implemented")
+    def __init__(self, *cols):
+        # Store a list of ColumnConfig objects
+        self._cols = cols
+
+    def addColumn(self, columnConfig):
+        """ Add a new ColumnConfig to the list. """
+        self._cols.append(columnConfig)
+
+    def hasColumn(self, **props):
+        """ Returns True if has any there is any column with these properties.
+        Example to check if there is a column renderable:
+            hasColumn(renderable=True)
+        """
+        return any(c.check(props) for c in self._cols)
+
+    def getColumnsCount(self, **props):
+        """ Return the number of columns that have given properties. """
+        raise len(self.iterColumns(**props))
+
+    def iterColumns(self, **props):
+        return iter((i, c) for i, c in enumerate(self._cols)
+                    if c.check(**props))
+
+    # TODO: Check how this behave with subclasses
+    def clone(self):
+        tableConfig = TableModel()
+        tableConfig._cols = [colConfig.clone() for colConfig in self._cols]
+        tableConfig._rowIndex = self._rowIndex
+        return tableConfig
+
+    # ------ Abstract methods that should be implemented in subclasses ----------
 
     def getRowsCount(self):
         """ Return the number of rows. """
@@ -24,58 +53,11 @@ class TableModel:
         """
         raise Exception("Not implemented")
 
-
-class TableConfig:
-    """
-    Contains the configuration properties of each Column that will control
-    how a table will be displayed by different views.
-    """
-    def __init__(self, *cols):
-        # Store a list of ColumnConfig objects
-        self._cols = cols
-        self._rowIndex = True
-
-    def addColumnConfig(self, *args, **kwargs):
-        """ Add a new column config. """
-        self._cols.append(ColumnConfig(*args, **kwargs))
-
-    def hasRenderableColumn(self):
-        """ Returns True if has any renderable column """
-        return any(cc[RENDERABLE] for cc in self._cols)
-
-    def isShowRowIndex(self):
-        """ Returns True if the row index should be displayed.
-        By default, this property is always True """
-        return self._rowIndex
-
-    def setShowRowIndex(self, s):
-        self._rowIndex = s
-
-    def getIndexes(self, propName, value):
-        """ Return a indexes list having propName=value """
-        return [i for i, cc in enumerate(self) if cc[propName] == value]
-
-    def clone(self):
-        tableConfig = TableConfig()
-        tableConfig._cols = [colConfig.clone() for colConfig in self._cols]
-        tableConfig._rowIndex = self._rowIndex
-        return tableConfig
-
-    def __iter__(self):
-        """ Iterate through all the column configs. """
-        return iter(self._cols)
-
     def __str__(self):
-        s = "TableConfig columnConfigs: %d" % len(self._cols)
+        s = "TableModel columnConfigs: %d" % len(self._cols)
         for c in self._cols:
             s += '\n%s' % str(c)
         return s
-
-    def __getitem__(self, *args, **kwargs):
-        return self._cols[args[0]]
-
-    def __len__(self):
-        return len(self._cols)
 
 
 class ColumnConfig:
@@ -140,6 +122,15 @@ class ColumnConfig:
 
     def getPropertyNames(self):
         return self._propertyNames
+
+    def config(self, **props):
+        """ Configure with the provided properties key=value. """
+        for k, v in props.items():
+            self[k] = v
+
+    def check(self, **props):
+        """ Return True if this columns have these properties values. """
+        return all(self[k] == v for k, v in props.items())
 
     def clone(self):
         copy = ColumnConfig(self._name, self._type, label=self._label,

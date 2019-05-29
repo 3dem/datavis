@@ -6,7 +6,11 @@ from emviz.widgets import PageBar
 
 
 class PagingView(qtw.QWidget):
-    """ The base class for a view. AbstractView contains a paging bar """
+    """
+    Base class that contains paging logic and incorporates the
+    paging widgets. It will also emit signals related to the modification
+    of the current page or the page configuration (e.g rows per page)
+    """
 
     #  Selection Behavior
     SELECT_ROWS = 1  # Selecting single items.
@@ -19,11 +23,26 @@ class PagingView(qtw.QWidget):
     MULTI_SELECTION = 22  # See QAbstractItemView.MultiSelection
     NO_SELECTION = 23  # See QAbstractItemView.NoSelection
 
+    # TODO: Check to document this kind of things for Sphinx
     """ 
-        This signal is emitted when the current selection is changed
-        emit(selected, deselected) 
-        """
+    This signal is emitted when the current selection is changed
+    emit(selected, deselected)
+    """
     sigSelectionChanged = pyqtSignal()
+
+    # TODO: Check to document this kind of things for Sphinx
+    """
+    Signal emitted when change page configuration
+    emit (page, pageCount, pageSize)
+    """
+    sigPageConfigChanged = pyqtSignal(int, int, int)
+
+    # TODO: Check to document this kind of things for Sphinx
+    """
+    Signal emitted when change the current page
+    emit (page)
+    """
+    sigPageChanged = pyqtSignal(int)
 
     def __init__(self, parent=None):
         qtw.QWidget.__init__(self, parent=parent)

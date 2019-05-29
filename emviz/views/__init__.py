@@ -11,4 +11,4 @@ from .picker_view import (PickerView, SHAPE_RECT, SHAPE_CIRCLE, SHAPE_SEGMENT,
 
 from ._paging_view import PagingView
 
-from .model import TableDataModel, VolumeDataModel
+from .model import TablePageItemModel, VolumeDataModel

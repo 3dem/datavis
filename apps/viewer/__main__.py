@@ -20,10 +20,10 @@ from emviz.views import (DataView, PIXEL_UNITS,
                          MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
                          createPickerModel, PagingView, ColumnsView, VolumeView,
-                         TableDataModel)
+                         TablePageItemModel)
 from emviz.widgets import ActionsToolBar, DynamicWidgetsFactory
 from emviz.windows import BrowserWindow
-from emviz.models import TableConfig
+from emviz.models import TableModel
 
 import em
 
@@ -221,14 +221,14 @@ if __name__ == '__main__':
             Column = em.Table.Column
             emTable = em.Table([Column(1, "File Name", em.typeString),
                                 Column(2, "Path", em.typeString)])
-            tableViewConfig = TableConfig()
+            tableViewConfig = TableModel()
             tableViewConfig.addColumnConfig(name='File Name',
-                                            dataType=TableConfig.TYPE_STRING,
+                                            dataType=TableModel.TYPE_STRING,
                                             label='File Name',
                                             editable=False,
                                             visible=True)
             tableViewConfig.addColumnConfig(name='Path',
-                                            dataType=TableConfig.TYPE_STRING,
+                                            dataType=TableModel.TYPE_STRING,
                                             label='Path',
                                             editable=False,
                                             visible=False)
@@ -241,8 +241,8 @@ if __name__ == '__main__':
                     r[tableColumn.getName()] = file
                     emTable.addRow(r)
 
-            self._tvModel = TableDataModel(emTable,
-                                           tableViewConfig=tableViewConfig)
+            self._tvModel = TablePageItemModel(emTable,
+                                               tableViewConfig=tableViewConfig)
             self._columnsViewFiles.setModel(self._tvModel)
 
         @pyqtSlot()
@@ -616,7 +616,7 @@ if __name__ == '__main__':
                     t = EmTable.load(files)  # name, table
                     if args.visible or args.render:
                         tableViewConfig = \
-                            TableConfig.fromTable(t[1], args.visible)
+                            TableModel.fromTable(t[1], args.visible)
                         renderCount = 0
                         for colConfig in tableViewConfig:
                             colName = colConfig.getName()
@@ -673,7 +673,7 @@ if __name__ == '__main__':
                         else:
                             view = createDataView(
                                 EmTable.fromStack(files),
-                                TableConfig.createStackConfig(),
+                                TableModel.createStackConfig(),
                                 ['Stack'], views.get(args.view,
                                                      DataView.GALLERY),
                                 **kwargs)
@@ -685,7 +685,7 @@ if __name__ == '__main__':
                         else:
                             view = createDataView(
                                 EmTable.fromStack(files),
-                                TableConfig.createStackConfig(),
+                                TableModel.createStackConfig(),
                                 ['Stack'], views.get(mode, DataView.GALLERY),
                                 **kwargs)
             elif EmPath.isStandardImage(files):
