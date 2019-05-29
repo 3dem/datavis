@@ -2,6 +2,4 @@
 from ._constants import *
 from ._image_models import ImageModel, SlicesModel
 from ._picking import Micrograph, Coordinate, PickerDataModel
-
-# FIXME: Still needs to be reviewed
-from .config import TableConfig
+from ._table_models import TableModel, TableConfig, ColumnConfig

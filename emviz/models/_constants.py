@@ -20,19 +20,9 @@ RENDERABLE = 'renderable'
 RENDERABLE_RO = 'renderableReadOnly'
 EDITABLE = 'editable'
 EDITABLE_RO = 'editableReadOnly'
+DESCRIPTION = 'description'
 
-# FIXME: This should be moved to emviz/core
-""" Basic type map between em.Type and current types. """
-TYPE_MAP = {
-    em.typeBool: TYPE_BOOL,
-    em.typeInt8: TYPE_INT,
-    em.typeInt16: TYPE_INT,
-    em.typeInt32: TYPE_INT,
-    em.typeInt64: TYPE_INT,
-    em.typeFloat: TYPE_FLOAT,
-    em.typeDouble: TYPE_FLOAT,
-    em.typeString: TYPE_STRING
-}
+
 
 
 PIXEL_UNITS = 1
