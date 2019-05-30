@@ -44,9 +44,9 @@ class PagingView(qtw.QWidget):
     """
     sigPageChanged = pyqtSignal(int)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, **kwargs):
         qtw.QWidget.__init__(self, parent=parent)
-        self._model = None
+        self._model = kwargs['model']
         self._selectionMode = self.NO_SELECTION
         self.__setupUI()
 

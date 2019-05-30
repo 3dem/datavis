@@ -27,10 +27,10 @@ class GalleryView(PagingView):
          - imageManager: the ImageManager for internal read/manage
                           image operations.
         """
-        PagingView.__init__(self, parent=parent)
-        self._pageSize = 0
-        self._pRows = 0
-        self._pCols = 0
+        PagingView.__init__(self, parent=parent, **kwargs)
+        # self._pageSize = 0
+        # self._pRows = 0
+        # self._pCols = 0
         self._cellSpacing = 0
         # FIXME: The following import is here because it cause a cyclic dependency
         # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
@@ -44,27 +44,29 @@ class GalleryView(PagingView):
                                          PagingView.SINGLE_SELECTION))
 
     def __setupUI(self, **kwargs):
-        self._listView = QListView(self)
-        self._listView.setViewMode(QListView.IconMode)
-        self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._listView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._listView.setResizeMode(QListView.Adjust)
-        self._listView.setSpacing(self._cellSpacing)
-        self._listView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._listView.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
-        self._listView.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
-        self._listView.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._listView.setLayoutMode(QListView.Batched)
-        self._listView.setBatchSize(500)
-        self._listView.setMovement(QListView.Static)
-        self._listView.setIconSize(QSize(32, 32))
-        self._listView.setModel(None)
-        self._listView.resizeEvent = self.__listViewResizeEvent
+        lv = QListView(self)
+        lv.setViewMode(QListView.IconMode)
+        lv.setSelectionBehavior(QAbstractItemView.SelectRows)
+        lv.setSelectionMode(QAbstractItemView.SingleSelection)
+        lv.setResizeMode(QListView.Adjust)
+        lv.setSpacing(self._cellSpacing)
+        lv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        lv.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
+        lv.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
+        lv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        lv.setLayoutMode(QListView.Batched)
+        lv.setBatchSize(500)
+        lv.setMovement(QListView.Static)
+        lv.setIconSize(QSize(32, 32))
+        lv.setModel(None)
+        lv.resizeEvent = self.__listViewResizeEvent
         self.sigListViewSizeChanged.connect(self.__onSizeChanged)
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageManager(self._imageManager)
-        self._mainLayout.insertWidget(0, self._listView)
+        self._mainLayout.insertWidget(0, lv)
         self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
+
+        self._listView = lv
 
     def __listViewResizeEvent(self, evt):
         """

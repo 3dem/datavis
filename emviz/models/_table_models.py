@@ -23,7 +23,7 @@ class TableModel:
         return any(c.check(props) for c in self._cols)
 
     def getColumn(self, col):
-        return self._cols[col]
+        return self._cols[col] if 0 <= col < len(self._cols) else None
 
     def getColumnsCount(self, **props):
         """ Return the number of columns that have given properties. """

@@ -5,7 +5,7 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication
 
-from emviz.models import TableModel, TYPE_INT, TYPE_STRING
+from emviz.models import TableModel, TYPE_INT, TYPE_STRING, ColumnConfig
 from emviz.views import TablePageItemModel, GalleryView
 from emviz.core import ImageManager
 
@@ -22,15 +22,10 @@ if testDataPath is not None:
     table = em.Table([em.Table.Column(0, "index", em.typeInt32, "Image index"),
                       em.Table.Column(1, "path", em.typeString, "Image path")])
 
-    tableViewConfig = TableModel()
-    tableViewConfig.addColumnConfig(name='index',
-                                    dataType=TYPE_INT,
-                                    label='Index', editable=False, visible=True)
-
-    tableViewConfig.addColumnConfig(name='path',
-                                    dataType=TYPE_STRING,
-                                    label='Path', renderable=True,
-                                    editable=False, visible=True)
+    tableModel = TableModel(
+        ColumnConfig('index', dataType=TYPE_INT, editable=False, visible=True),
+        ColumnConfig('path', dataType=TYPE_STRING, renderable=True,
+                     editable=False, visible=True))
 
     row = table.createRow()
     n = ImageManager.getDim(path).n
@@ -42,7 +37,7 @@ if testDataPath is not None:
     galleryView.setIconSize((100, 100))
     galleryView.setModel(TablePageItemModel(table, parent=galleryView,
                                             title="Stack",
-                                            tableViewConfig=tableViewConfig))
+                                            tableViewConfig=tableModel))
     galleryView.setModelColumn(1)
     galleryView.show()
 

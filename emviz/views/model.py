@@ -5,7 +5,9 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableModel, TYPE_BOOL, RENDERABLE
+from emviz.models import (AXIS_X, AXIS_Y, AXIS_Z, TableModel,
+                          TYPE_BOOL, TYPE_STRING, TYPE_INT, TYPE_FLOAT,
+                          RENDERABLE, EDITABLE, VISIBLE)
 
 
 class TablePageItemModel(QAbstractItemModel):
@@ -167,10 +169,7 @@ class TablePageItemModel(QAbstractItemModel):
         """
         Return the row count for the entire model
         """
-        if self._emTable:
-            return self._emTable.getSize()
-
-        return 0
+        return self._model.getRowsCount()
 
     def setData(self, qModelIndex, value, role=Qt.EditRole):
         """
@@ -226,22 +225,22 @@ class TablePageItemModel(QAbstractItemModel):
         return None
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
-        if self._tableViewConfig:
-            if role == Qt.DisplayRole or role == Qt.ToolTipRole:
-                if orientation == Qt.Horizontal \
-                        and column in range(0, len(self._tableViewConfig)) \
-                        and self._tableViewConfig[column]['visible']:
-                    return self._tableViewConfig[column].getLabel()
-                elif orientation == Qt.Vertical \
-                        and self._tableViewConfig.isShowRowIndex():
-                    return column + self._page * self._pageSize + 1
-            elif role == Qt.SizeHintRole and orientation == Qt.Vertical:
-                if self._iconSize:
-                    size = QSize(self._indexWidth,
-                                 self._iconSize.height())
-                else:
-                    size = QSize(50, 20)
-                return size
+        if role == Qt.DisplayRole or role == Qt.ToolTipRole:
+            cc = self._model.getColumn(column)
+            if cc is not None and orientation == Qt.Horizontal and cc[VISIBLE]:
+                return cc.getLabel()
+            elif (orientation == Qt.Vertical and
+                  # FIXME: isShowRowIndex should not go to the model
+                  self._model.isShowRowIndex()):
+                # FIXME: Use self._pagingInfo
+                return column + self._page * self._pageSize + 1
+        elif role == Qt.SizeHintRole and orientation == Qt.Vertical:
+            if self._iconSize:
+                size = QSize(self._indexWidth,
+                             self._iconSize.height())
+            else:
+                size = QSize(50, 20)
+            return size
 
         return QVariant()
 
@@ -255,7 +254,7 @@ class TablePageItemModel(QAbstractItemModel):
         if qModelIndex.isValid():
             col = qModelIndex.column()
             cc = self._model.getColumn(col)
-            if cc["editable"]:
+            if cc[EDITABLE]:
                 fl |= Qt.ItemIsEditable
             if cc.getType() == TYPE_BOOL:
                 fl |= Qt.ItemIsUserCheckable
@@ -308,50 +307,53 @@ class TablePageItemModel(QAbstractItemModel):
 
     def hasRenderableColumn(self):
         """ Return True if the model has renderable columns """
-        return self._tableViewConfig.hasColumn(renderable=True)
+        return self._model.hasColumn(renderable=True)
 
-    def getTableViewConfig(self):
-        return self._tableViewConfig
+    def getModel(self):
+        return self._model
 
-    def setTableViewConfig(self, config):
+    def setModel(self, model):
         """
         Sets the config how we want to display the data
         """
-        self._tableViewConfig = config
+        self._model = model
 
-    def sort(self, column, order=Qt.AscendingOrder):
-        self.beginResetModel()
-        od = " DESC" if order == Qt.DescendingOrder else ""
-        self._emTable.sort([self._tableViewConfig[column].getName() + od])
-        self.endResetModel()
+    # TODO: We need to check about the sorting in the TableModel
+    # def sort(self, column, order=Qt.AscendingOrder):
+    #     self.beginResetModel()
+    #     od = " DESC" if order == Qt.DescendingOrder else ""
+    #     self._emTable.sort([self._tableViewConfig[column].getName() + od])
+    #     self.endResetModel()
 
-    def insertRows(self, row, count, parent=QModelIndex()):
-        """ Reimplemented from QAbstractItemModel """
-
-        if row < self._emTable.getSize():
-            self.beginInsertRows(parent, row, row + count)
-            for index in range(row, row + count):
-                r = self._emTable.createRow()
-                self._emTable.addRow(r)
-            self.endInsertRows()
-            self.__setupModel()
-            self.sigPageConfigChanged.emit(self._page, self._pageCount,
-                                           self._pageSize)
-            self.loadPage(self._page, force=True)
-            return True
-        return False
-
-    def appendRow(self, row):
-        """ Append a new row to the end of the model """
-        self.beginResetModel()
-        tr = self._emTable.getSize() - 1
-        self.insertRow(self._emTable.getSize() - 1)
-        tc = 0
-        tr = tr + 1
-        for value in row:
-            self.setTableData(tr, tc, value)
-            tc = tc + 1
-        self.endResetModel()
+    # TODO: I'm commeting out these functions for simplicity now
+    # TODO: although we migth need them, so better not to delete for now.
+    # def insertRows(self, row, count, parent=QModelIndex()):
+    #     """ Reimplemented from QAbstractItemModel """
+    #
+    #     if row < self._emTable.getSize():
+    #         self.beginInsertRows(parent, row, row + count)
+    #         for index in range(row, row + count):
+    #             r = self._emTable.createRow()
+    #             self._emTable.addRow(r)
+    #         self.endInsertRows()
+    #         self.__setupModel()
+    #         self.sigPageConfigChanged.emit(self._page, self._pageCount,
+    #                                        self._pageSize)
+    #         self.loadPage(self._page, force=True)
+    #         return True
+    #     return False
+    #
+    # def appendRow(self, row):
+    #     """ Append a new row to the end of the model """
+    #     self.beginResetModel()
+    #     tr = self._emTable.getSize() - 1
+    #     self.insertRow(self._emTable.getSize() - 1)
+    #     tc = 0
+    #     tr = tr + 1
+    #     for value in row:
+    #         self.setTableData(tr, tc, value)
+    #         tc = tc + 1
+    #     self.endResetModel()
 
 
 class VolumeDataModel(QAbstractItemModel):
@@ -394,7 +396,7 @@ class VolumeDataModel(QAbstractItemModel):
             - parent: a parent QObject of the model
             - title: a title for the model
             - axisModels:      (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z)
-            - tableViewConfig: (TableViewConfig) Specify a config how we want
+            - tableModel: (TableViewConfig) Specify a config how we want
                                to display the three data colums. If it is None,
                                a default one will be created.
             - pageSize:        (int) Number of elements displayed per page.
@@ -404,7 +406,7 @@ class VolumeDataModel(QAbstractItemModel):
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._iconSize = QSize(32, 32)
         self._xModel, self._yModel, self._zModel = kwargs['axisModels']
-        self._tableViewConfig = (kwargs.get('tableViewConfig', None)
+        self._tableViewConfig = (kwargs.get('tableModel', None)
                                  or TableModel.createVolumeConfig())
         self._pageSize = kwargs.get('pageSize', 10)
         self._page = 0

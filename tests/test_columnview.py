@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication
 
 from emviz.models import TableModel, TYPE_INT, TYPE_STRING
 from emviz.views import ColumnsView, TablePageItemModel
-from emviz.core import ImageManager
+from emviz.core import ImageManager, EmTableModel
 
 import em
 
@@ -16,33 +16,17 @@ app = QApplication(sys.argv)
 testDataPath = os.environ.get("EM_TEST_DATA", None)
 
 if testDataPath is not None:
-    path = os.path.join(testDataPath, "relion_tutorial", "import", "classify2d",
-                            "extra", "relion_it015_classes.mrcs")
+    path = os.path.join(testDataPath, "relion_tutorial", "gold",
+                        "relion_it020_data.star")
 
-    table = em.Table([em.Table.Column(0, "index", em.typeInt32, "Image index"),
-                      em.Table.Column(1, "path", em.typeString, "Image path")])
+    tio = em.TableIO()
+    tio.open(path)
+    table = em.Table()
+    tio.read(tio.getTableNames()[0], table)
+    tableModel = EmTableModel(table)
 
-    tableViewConfig = TableModel()
-    tableViewConfig.addColumnConfig(name='index',
-                                    dataType=TYPE_INT,
-                                    label='Index', editable=False, visible=True)
-
-    tableViewConfig.addColumnConfig(name='path',
-                                    dataType=TYPE_STRING,
-                                    label='Path', renderable=True,
-                                    editable=False, visible=True)
-
-    row = table.createRow()
-    n = ImageManager.getDim(path).n
-    for i in range(1, n+1):
-        row['index'] = i
-        row['path'] = '%d@%s' % (i, path)
-        table.addRow(row)
-    columnView = ColumnsView()
+    columnView = ColumnsView(model=tableModel)
     columnView.setRowHeight(100)
-    columnView.setModel(TablePageItemModel(table, parent=columnView,
-                                           title="Stack",
-                                           tableViewConfig=tableViewConfig))
     columnView.show()
 
 sys.exit(app.exec_())

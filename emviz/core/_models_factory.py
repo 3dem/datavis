@@ -33,7 +33,7 @@ class ModelsFactory:
             data=np.array(image, copy=False), location=loc)
 
     @classmethod
-    def createTableConfig(cls, table, colsConfig=None):
+    def createTableConfig(cls, table, *cols):
         """
         Create a TableModel instance from a given em.Table input.
         This function allows users to specify the minimum of properties

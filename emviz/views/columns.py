@@ -8,8 +8,9 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
-from emviz.widgets import EMImageItemDelegate
+from emviz.widgets import EMImageItemDelegate, PagingInfo
 from ._paging_view import PagingView
+from .model import TablePageItemModel
 
 
 class ColumnsView(PagingView):
@@ -23,44 +24,42 @@ class ColumnsView(PagingView):
     sigTableSizeChanged = QtCore.pyqtSignal(object, object)
 
     def __init__(self, parent=None, **kwargs):
-        # FIXME: The following import is here because it cause a cyclic dependency
-        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
-        # FIXME: Check if we want ImageManager or other data model here
-        from emviz.core import ImageManager
-        self._imageManager = kwargs.get('imageManager') or ImageManager(150)
+        PagingView.__init__(self, parent=parent, **kwargs)
 
-        PagingView.__init__(self, parent=parent)
-        self._pageSize = 0
         self._selection = set()
         self._currentRow = 0
         self.setSelectionMode(kwargs.get("selection_mode",
                                          PagingView.SINGLE_SELECTION))
 
     def _createContentWidget(self):
-        self._tableView = QTableView(self)
-        hHeader = HeaderView(self._tableView)
+        tv = QTableView(self)
+        hHeader = HeaderView(tv)
         hHeader.setHighlightSections(False)
         hHeader.sectionClicked.connect(self.__onHeaderClicked)
         hHeader.setSectionsMovable(True)
-        self._tableView.setHorizontalHeader(hHeader)
-        self._tableView.verticalHeader().setTextElideMode(Qt.ElideRight)
-        self._tableView.setObjectName("ColumnsViewTable")
-        self._defaultDelegate = self._tableView.itemDelegate()
+        tv.setHorizontalHeader(hHeader)
+        tv.verticalHeader().setTextElideMode(Qt.ElideRight)
+        tv.setObjectName("ColumnsViewTable")
+        self._defaultDelegate = tv.itemDelegate()
         self.sigTableSizeChanged.connect(self.__onSizeChanged)
-        self._tableView.setSelectionBehavior(QTableView.SelectRows)
-        self._tableView.setSelectionMode(QTableView.SingleSelection)
-        self._tableView.setSortingEnabled(True)
-        self._tableView.setModel(None)
-        self._tableView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        #self._tableView.setStyleSheet(
+        tv.setSelectionBehavior(QTableView.SelectRows)
+        tv.setSelectionMode(QTableView.SingleSelection)
+        tv.setSortingEnabled(True)
+        tv.setModel(None)
+        tv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        #tv.setStyleSheet(
         #    "QTableView#ColumnsViewTable::item:selected:!active{"
         #    "selection-background-color: red;}")  # palette(light);}")
 
-        self._tableView.resizeEvent = self.__tableViewResizeEvent
+        tv.resizeEvent = self.__tableViewResizeEvent
         self._delegate = EMImageItemDelegate(self)
         self._delegate.setImageManager(self._imageManager)
 
-        return self._tableView
+        self._pagingInfo = PagingInfo(self._model.getRowsCount(), 1)
+        self._pageItemModel = TablePageItemModel(self._model, self._pagingInfo,
+                                                 parent=self, title="Stack")
+        self._tableView = tv
+        return tv
 
     def __tableViewResizeEvent(self, evt):
         """

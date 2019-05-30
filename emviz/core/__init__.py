@@ -13,3 +13,4 @@ from .image_manager import (ImageManager, ImageRef, parseImagePath,
 from ._models_factory import ModelsFactory
 from ._views_factory import ViewsFactory
 from .utils import ImageElemParser
+from ._emtable_model import EmTableModel

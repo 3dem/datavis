@@ -22,8 +22,5 @@ EDITABLE = 'editable'
 EDITABLE_RO = 'editableReadOnly'
 DESCRIPTION = 'description'
 
-
-
-
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
