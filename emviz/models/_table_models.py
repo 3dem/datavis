@@ -22,6 +22,9 @@ class TableModel:
         """
         return any(c.check(props) for c in self._cols)
 
+    def getColumn(self, col):
+        return self._cols[col]
+
     def getColumnsCount(self, **props):
         """ Return the number of columns that have given properties. """
         raise len(self.iterColumns(**props))
@@ -81,7 +84,6 @@ class ColumnConfig:
             - labelReadOnly (Bool)
         """
         self._name = name
-        # FIXME: label seems duplicated here and as a property
         self._label = kwargs.get('label', name)
         self._type = dataType
         self._description = kwargs.get(DESCRIPTION, '')
@@ -89,7 +91,9 @@ class ColumnConfig:
         self.__setProperty__(VISIBLE, True, False, **kwargs)
         self.__setProperty__(RENDERABLE, False, False, **kwargs)
         self.__setProperty__(EDITABLE, False, True, **kwargs)
-        self.__setProperty__('label', False, False, **kwargs)
+
+        # FIXME: label seems duplicated here and as a property
+        #self.__setProperty__('label', False, False, **kwargs)
 
     def __setProperty__(self, name, default, defaultRO, **kwargs):
         """ Internal function to define a 'property' that will

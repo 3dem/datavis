@@ -5,6 +5,66 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QSpacerItem,
 import qtawesome as qta
 
 
+class PagingInfo:
+    """ Very simple class to store information about paging logic of
+    a group of items (usually rows) and ease some calculations.
+    """
+    def __init__(self, numberOfItems, pageSize, currentPage=1):
+        """
+        Initialize a PagingInfo instance.
+        :param numberOfItems: Total number of items that will be taken into
+            account for paging.
+        :param pageSize: Number of items will be in one page.
+        :param currentPage: Current page (first page is 1).
+        """
+        self.numberOfItems = numberOfItems
+        self.currentPage = -1
+        self.setPageSize(pageSize, currentPage)
+
+    def setCurrentPage(self, value):
+        """ Set the current page.
+        Return True if the current page is changed. """
+        if self.currentPage == value:
+            return False
+
+        if value < 1 or value > self.numberOfItems:
+            raise Exception("Page number %s, is out of bounds" % value)
+
+        self.currentPage = value
+        return True
+
+    def setPageSize(self, pageSize, currentPage=1):
+        self.pageSize = pageSize
+        self.numberOfPages = self.numberOfItems / pageSize
+        self.itemsInLastPage = self.numberOfItems % pageSize
+        if self.itemsInLastPage > 0:
+            self.numberOfPages += 1  # add page with items left
+        self.setCurrentPage(currentPage)
+
+    def nextPage(self):
+        """ Increase the current page by one.
+        If the current page is the last one, it will not be changed.
+        Return True if the currentPage was changed.
+        """
+        if self.currentPage < self.numberOfPages:
+            self.currentPage += 1
+            return True
+        return False
+
+    def prevPage(self):
+        """ Decreate the current page by one.
+        If the current page is 1, it will not be changed.
+        Return True if the currentPage was changed.
+        """
+        if self.currentPage > 1:
+            self.currentPage -= 1
+            return True
+        return False
+
+    def isLastPage(self):
+        return self.currentPage == self.numberOfPages
+
+
 # TODO: Review methods, global variables, documentation, etc
 # In the whole file
 
@@ -16,98 +76,92 @@ class PageBar(QWidget):
     """
     sigPageChanged = pyqtSignal(int)
 
-    """ 
-    This signal is emitted when the page configuration change.
-    emit(page, firstPage, lastPage, step) 
-    """
-    sigPageConfigChanged = pyqtSignal(int, int, int, int)
-
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, **kwargs):
+        """
+        :param parent: Parent QWidget
+        :param kwargs: pagingInfo should be passed
+        """
         QWidget.__init__(self, parent)
-        self._page = 0
-        self._firstPage = 0
-        self._lastPage = 0
-        self._step = 1
+        self._pagingInfo = kwargs['pagingInfo']
         self.__setupUI()
+        self.setPagingInfo(self._pagingInfo)
 
     def __setupUI(self):
         self.setMinimumHeight(40)
         self.setMaximumHeight(40)
-        self._mainLayout = QHBoxLayout(self)
-        self._mainLayout.setContentsMargins(1, 1, 1, 1)
-        self._mainLayout.addItem(QSpacerItem(40,
-                                             20,
-                                             QSizePolicy.Expanding,
-                                             QSizePolicy.Minimum))
-        self._pushButtonPrevPage = QPushButton(self)
-        self._mainLayout.addWidget(self._pushButtonPrevPage)
-        self._pushButtonPrevPage.setIcon(qta.icon('fa.angle-left'))
-        self._pushButtonPrevPage.clicked.connect(self._onPrevPage)
-        self._spinBoxCurrentPage = QSpinBox(self)
-        self._spinBoxCurrentPage.setButtonSymbols(QSpinBox.NoButtons)
-        self._spinBoxCurrentPage.editingFinished.connect(
-            self._onSpinBoxCurrentPageEditingFinished)
-        self._spinBoxCurrentPage.setMaximumSize(50, 25)
-        self._spinBoxCurrentPage.setMinimumSize(50, 25)
-        self._mainLayout.addWidget(self._spinBoxCurrentPage)
-        self._labelPageCount = QLabel(self)
-        self._mainLayout.addWidget(self._labelPageCount)
-        self._pushButtonNextPage = QPushButton(self)
-        self._pushButtonNextPage.setIcon(qta.icon('fa.angle-right'))
-        self._pushButtonNextPage.clicked.connect(self._onNextPage)
-        self._mainLayout.addWidget(self._pushButtonNextPage)
-        self._mainLayout.addItem(QSpacerItem(40,
-                                             20,
-                                             QSizePolicy.Expanding,
-                                             QSizePolicy.Minimum))
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.addItem(
+            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-    def __showPageCount(self):
-        """ Show page count """
-        t = " of %d" % (self._lastPage - self._firstPage + 1)
-        self._labelPageCount.setText(t)
+        # Previous page button
+        self._btnPagePrev = QPushButton(self)
+        self._btnPagePrev.setIcon(qta.icon('fa.angle-left'))
+        self._btnPagePrev.clicked.connect(self._onPrevPage)
+        layout.addWidget(self._btnPagePrev)
+
+        # Create a spinBox with the current page value
+        self._spinBox = QSpinBox(self)
+        self._spinBox.setButtonSymbols(QSpinBox.NoButtons)
+        self._spinBox.editingFinished.connect(
+            self._onSpinBoxCurrentPageEditingFinished)
+        self._spinBox.setMaximumSize(50, 25)
+        self._spinBox.setMinimumSize(50, 25)
+        layout.addWidget(self._spinBox)
+        self._label = QLabel(self)
+        layout.addWidget(self._label)
+
+        # Next button
+        self._btnPageNext = QPushButton(self)
+        self._btnPageNext.setIcon(qta.icon('fa.angle-right'))
+        self._btnPageNext.clicked.connect(self._onNextPage)
+        layout.addWidget(self._btnPageNext)
+
+        layout.addItem(
+            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
     @pyqtSlot()
     def _onPrevPage(self):
-        self.setPage(self._page - 1)
+        if self._pagingInfo.prevPage():
+            self._updateCurrentPage()
 
     @pyqtSlot()
     def _onNextPage(self):
-        self.setPage(self._page + 1)
+        if self._pagingInfo.nextPage():
+            self._updateCurrentPage()
 
     @pyqtSlot()
     def _onSpinBoxCurrentPageEditingFinished(self):
         """
         This slot is invoked when the user edit the page number and press ENTER
         """
-        self.setPage(self._spinBoxCurrentPage.value() - 1)
+        self.setCurrentPage(self._spinBox.value())
 
-    def setPage(self, page):
+    def _updateCurrentPage(self):
+        """ This method should be called after self._pagingInfo is updated. """
+        value = self._pagingInfo.currentPage
+        self._spinBox.setValue(value)
+        self.sigPageChanged.emit(value)
+        self._btnPagePrev.setEnabled(value != 1)
+        self._btnPageNext.setEnabled(not self._pagingInfo.isLastPage())
+
+    def setCurrentPage(self, page):
         """
         Sets page as current page.
         Emit the sigPageChanged signal
         """
-        if not page == self._page and page in range(self._firstPage,
-                                                    self._lastPage + 1):
-            self._page = page
-            self._spinBoxCurrentPage.setValue(page + 1)
-            self.sigPageChanged.emit(self._page)
+        # Only take actions if the setPage really change the current page
+        if self._pagingInfo.setCurrentPage(page):
+            self._updateCurrentPage()
 
-    def getPage(self):
+    def getCurrentPage(self):
         """ Return the current page """
-        return self._page
+        return self._pagingInfo.currentPage
 
-    def setup(self, page, firstPage, lastPage, step=1):
+    def setPagingInfo(self, pagingInfo, step=1):
         """ Setups the paging params """
-        if firstPage <= lastPage and page in range(firstPage, lastPage + 1):
-            self._page = page
-            self._firstPage = firstPage
-            self._lastPage = lastPage
-            self._step = step
-            self._spinBoxCurrentPage.setRange(firstPage + 1, lastPage + 1)
-            self._spinBoxCurrentPage.setSingleStep(step)
-            self._spinBoxCurrentPage.setValue(page + 1)
-            self.__showPageCount()
-            self.sigPageConfigChanged.emit(self._page, self._firstPage,
-                                           self._lastPage, self._step)
-
-
+        self._pagingInfo = pagingInfo
+        self._spinBox.setRange(1, pagingInfo.numberOfPages)
+        self._spinBox.setSingleStep(step)
+        self._label.setText(" of %d" % self._pagingInfo.numberOfPages)
+        self._updateCurrentPage()

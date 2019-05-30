@@ -5,7 +5,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtSlot, QVariant, QSize,
                           QAbstractItemModel, QModelIndex)
 
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableModel
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, TableModel, TYPE_BOOL, RENDERABLE
 
 
 class TablePageItemModel(QAbstractItemModel):
@@ -16,7 +16,7 @@ class TablePageItemModel(QAbstractItemModel):
 
     DataTypeRole = Qt.UserRole + 2
 
-    def __init__(self, tableModel, tableConfig, pageSize, currentPage=1, **kwargs):
+    def __init__(self, tableModel, pagingInfo, **kwargs):
         """
         Constructs an DataModel to be used from TableView
         :param tableModel: input TableModel from where the data will be read
@@ -30,16 +30,36 @@ class TablePageItemModel(QAbstractItemModel):
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._model = tableModel
-        self._config = tableConfig
-        self._page = currentPage
-        self._pageSize = pageSize
-        self._pageData = []
-        #self._pageCount = 0
-        #self._titles = kwargs.get('titles', [''])
-        #self._dataSource = kwargs.get('dataSource', None)
         self._defaultFont = QFont()
         self._indexWidth = 50
-        self.__setupModel()
+
+        # Internal variable related to the pages
+        self._pagingInfo = pagingInfo
+
+    @pyqtSlot(int, int)
+    def pageConfigChanged(self, pageSize, currentPage):
+        """
+        This function should be called, or the slot connect whenever the
+        page configuration changes, either the current page or the page
+        size (number of elements per page).
+        """
+
+        if force or (not self._page == pageIndex and pageIndex
+                     in range(0, self._pageCount)):
+            self.beginResetModel()
+            if not pageIndex == -1:
+                self._page = pageIndex
+            self._pageData = []
+            first = self._page * self._pageSize
+            last = first + self._pageSize
+            size = self._emTable.getSize()
+            if last > size:
+                last = size
+            for i in range(first, last):
+                self._pageData.append(self._emTable[i])
+            self.headerDataChanged.emit(Qt.Vertical, 0, 0)
+            self.endResetModel()
+            self.sigPageChanged.emit(self._page)
 
     def __getPageData(self, row, col):
         """ Return the data for specified column and row in the current page """
@@ -48,32 +68,16 @@ class TablePageItemModel(QAbstractItemModel):
             emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
-            if t == TableModel.TYPE_STRING:
+            if t ==TYPE_STRING:
                 return emRow[emCol.getName()].toString()
-            elif t == TableModel.TYPE_BOOL:
+            elif t ==TYPE_BOOL:
                 return bool(int(emRow[emCol.getName()]))
-            elif t == TableModel.TYPE_INT:
+            elif t ==TYPE_INT:
                 return int(emRow[emCol.getName()])
-            elif t == TableModel.TYPE_FLOAT:
+            elif t ==TYPE_FLOAT:
                 return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
-
-    def __setupModel(self):
-        """
-        Configure the model according to the pageSize and current page
-        values
-        """
-        s = self._emTable.getSize()
-        offset = self._page * self._pageSize
-
-        if s < self._pageSize:
-            self._pageCount = 1
-        else:
-            self._pageCount = int(s / self._pageSize) + \
-                              (1 if s % self._pageSize else 0)
-
-        self._page = int(offset / self._pageSize)
 
     def clone(self):
         """ Clone this Model """
@@ -93,36 +97,31 @@ class TablePageItemModel(QAbstractItemModel):
               So, we need to define what to do with Renderable data
               (may be return a QIcon or QPixmap)
         """
-        if not qModelIndex.isValid() or not self._pageData:
+        if not qModelIndex.isValid():
             return None
+
         row = qModelIndex.row()
         col = qModelIndex.column()
 
-        t = self._tableViewConfig[col].getType() \
-            if self._tableViewConfig else None
+        cc = self._model.getColumn(col)
+        t = cc.getType()
 
         if role == TablePageItemModel.DataTypeRole:
             return t
-        if role == Qt.DecorationRole:
-            return QVariant()
-        if role == Qt.DisplayRole:
-            if t == TableModel.TYPE_BOOL:
-                return QVariant()  # hide 'True' or 'False'
-            # we use Qt.UserRole for store data
-            return QVariant(self.__getPageData(row, col))
-        if role == Qt.CheckStateRole:
-            if t == TableModel.TYPE_BOOL:
-                return Qt.Checked \
-                    if self.__getPageData(row, col) else Qt.Unchecked
-            return QVariant()
 
-        if role == Qt.EditRole or role == Qt.UserRole:
+        if role == Qt.DisplayRole and t != TYPE_BOOL:
             return QVariant(self.__getPageData(row, col))
 
-        if role == Qt.SizeHintRole:
-            if self._tableViewConfig[col]["renderable"]:
-                return self._iconSize
-            return QVariant()
+        if role == Qt.CheckStateRole and t == TYPE_BOOL:
+            return Qt.Checked if self.__getPageData(row, col) else Qt.Unchecked
+
+        if (role == Qt.EditRole or role == Qt.UserRole or
+            role == Qt.AccessibleTextRole or
+            role == Qt.AccessibleDescriptionRole):
+            return QVariant(self.__getPageData(row, col))
+
+        if role == Qt.SizeHintRole and cc[RENDERABLE]:
+            return self._iconSize
 
         if role == Qt.TextAlignmentRole:
             return Qt.AlignVCenter
@@ -130,33 +129,21 @@ class TablePageItemModel(QAbstractItemModel):
         if role == Qt.FontRole:
             return self._defaultFont
 
-        # Is good practice to provide data for Qt.ToolTipRole,
-        # Qt.AccessibleTextRole and Qt.AccessibleDescriptionRole
-        if role == Qt.AccessibleTextRole or \
-           role == Qt.AccessibleDescriptionRole:
-            return QVariant(self.__getPageData(row, col))
-
         return QVariant()
 
     def columnCount(self, index=QModelIndex()):
+        """ Reimplemented from QAbstractItemModel.
+        Return the number of columns that are visible in the model.
         """
-        Reimplemented from QAbstractItemModel.
-        Return the column count
-        """
-
-        return len(self._tableViewConfig) if self._tableViewConfig else 0
+        return self._model.getColumnsCount(visible=True)
 
     def rowCount(self, index=QModelIndex()):
         """
         Reimplemented from QAbstractItemModel.
         Return the items per page.
         """
-        vc = (self._page + 1) * self._pageSize
-        ts = self._emTable.getSize()
-        if vc > ts:  # last page
-            return self._pageSize - (vc - ts)
-
-        return self._pageSize
+        p = self._pagingInfo  # short notation
+        return p.itemsInLastPage if p.isLastPage() else p.pageSize
 
     def index(self, row, column, parent=QModelIndex()):
         """
@@ -166,6 +153,7 @@ class TablePageItemModel(QAbstractItemModel):
         """
         return self.createIndex(row, column)
 
+    # TODO: Check if the re-implementation of this method is required
     def parent(self, index):
         """
         Reimplemented from QAbstractItemModel.
@@ -174,6 +162,7 @@ class TablePageItemModel(QAbstractItemModel):
         """
         return QModelIndex()
 
+    # TODO: Check if this method is really needed
     def totalRowCount(self):
         """
         Return the row count for the entire model
@@ -223,66 +212,20 @@ class TablePageItemModel(QAbstractItemModel):
             emCol = self._emTable.getColumn(self._tableViewConfig[col].getName())
             t = self._tableViewConfig[col].getType()
 
-            if t == TableModel.TYPE_STRING:
+            if t ==TYPE_STRING:
                 return emRow[emCol.getName()].toString()
-            elif t == TableModel.TYPE_BOOL:
+            elif t ==TYPE_BOOL:
                 return bool(int(emRow[emCol.getName()]))
-            elif t == TableModel.TYPE_INT:
+            elif t ==TYPE_INT:
                 return int(emRow[emCol.getName()])
-            elif t == TableModel.TYPE_FLOAT:
+            elif t ==TYPE_FLOAT:
                 return float(emRow[emCol.getName()])
 
             return emRow[emCol.getId()]
 
         return None
 
-    def getEmTable(self):
-        """ Returns the em.Table that contains the data """
-        return self._emTable
-
-    def getDataSource(self):
-        """
-        Returns the data source for this model.
-        For now we use the path of the table file.
-        """
-        return self._dataSource
-
-    @pyqtSlot(int)
-    def loadPage(self, pageIndex=-1, force=False):
-        """
-        Load the page specified by pageIndex. If pageIndex is not within
-        the page range then load the current page.
-        """
-        if force or (not self._page == pageIndex and pageIndex
-                     in range(0, self._pageCount)):
-            self.beginResetModel()
-            if not pageIndex == -1:
-                self._page = pageIndex
-            self._pageData = []
-            first = self._page * self._pageSize
-            last = first + self._pageSize
-            size = self._emTable.getSize()
-            if last > size:
-                last = size
-            for i in range(first, last):
-                self._pageData.append(self._emTable[i])
-            self.headerDataChanged.emit(Qt.Vertical, 0, 0)
-            self.endResetModel()
-            self.sigPageChanged.emit(self._page)
-
-    def prevPage(self):
-        self._page = self._page - 1 \
-            if self._page > 0 else 0
-        self.loadPage()
-
-    def nextPage(self):
-        self._page = self._page + 1 \
-            if (self._page + 1) * self._pageSize <= len(self._emTable) else \
-            self._page
-        self.loadPage()
-
     def headerData(self, column, orientation, role=Qt.DisplayRole):
-
         if self._tableViewConfig:
             if role == Qt.DisplayRole or role == Qt.ToolTipRole:
                 if orientation == Qt.Horizontal \
@@ -302,33 +245,6 @@ class TablePageItemModel(QAbstractItemModel):
 
         return QVariant()
 
-    def setItemsPerPage(self, pageSize):
-        """
-        Set the items per page value and calculates the current configuration
-        """
-        if pageSize <= 0:
-            pageSize = 1
-
-        self._pageSize = pageSize
-        self.__setupModel()
-
-    def setupPage(self, pageSize, currentPage):
-        """
-        Configure paging properties. Load the model data for the specified page
-        :param pageSize:
-        :param currentPage:
-        :return:
-        """
-        if pageSize <= 0:
-            pageSize = 1
-
-        self._pageSize = pageSize
-        self._page = currentPage if currentPage >= 0 else 0
-        self.__setupModel()
-        self.loadPage(currentPage, force=True)
-        self.sigPageConfigChanged.emit(self._page, self._pageCount,
-                                       self._pageSize)
-
     def flags(self, qModelIndex):
         """
         Reimplemented from QStandardItemModel
@@ -336,14 +252,13 @@ class TablePageItemModel(QAbstractItemModel):
         :return: The flags for the item. See :  Qt.ItemDataRole
         """
         fl = Qt.NoItemFlags
-        col = qModelIndex.column()
         if qModelIndex.isValid():
-            if self._tableViewConfig:
-                if self._tableViewConfig[col]["editable"]:
-                    fl |= Qt.ItemIsEditable
-                if self._tableViewConfig[col].getType() == \
-                        TableModel.TYPE_BOOL:
-                    fl |= Qt.ItemIsUserCheckable
+            col = qModelIndex.column()
+            cc = self._model.getColumn(col)
+            if cc["editable"]:
+                fl |= Qt.ItemIsEditable
+            if cc.getType() == TYPE_BOOL:
+                fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl
 
@@ -572,8 +487,8 @@ class VolumeDataModel(QAbstractItemModel):
         row = qModelIndex.row() + self._page * self._pageSize
         col = qModelIndex.column()
 
-        t = self._tableViewConfig[col].getType() \
-            if self._tableViewConfig else None
+        cc = self._model.getColumn(col)
+        t = cc.getType()
 
         if role == TablePageItemModel.DataTypeRole:
             return t
@@ -582,13 +497,13 @@ class VolumeDataModel(QAbstractItemModel):
             return QVariant()
 
         if role == Qt.DisplayRole:
-            if t == TableModel.TYPE_BOOL:
+            if t ==TYPE_BOOL:
                 return QVariant()  # hide 'True' or 'False'
             # we use Qt.UserRole for store data
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.CheckStateRole:
-            if t == TableModel.TYPE_BOOL:
+            if t ==TYPE_BOOL:
                 return Qt.Checked \
                     if self.getTableData(row, col) else Qt.Unchecked
             return QVariant()
@@ -597,7 +512,7 @@ class VolumeDataModel(QAbstractItemModel):
             return QVariant(self.getTableData(row, col))
 
         if role == Qt.SizeHintRole:
-            if self._tableViewConfig[col]["renderable"]:
+            if cc[RENDERABLE]:
                 return self._iconSize
             return QVariant()
 
@@ -751,7 +666,7 @@ class VolumeDataModel(QAbstractItemModel):
                 if self._tableViewConfig[col]["editable"]:
                     fl |= Qt.ItemIsEditable
                 if self._tableViewConfig[col].getType() == \
-                        TableModel.TYPE_BOOL:
+                       TYPE_BOOL:
                     fl |= Qt.ItemIsUserCheckable
 
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | fl

@@ -59,7 +59,8 @@ class PagingView(qtw.QWidget):
         layout.addWidget(self._pageBar)
 
     def _createContentWidget(self):
-        """ Should be implemented in subclasses to build the content widget and return it. """
+        """ Should be implemented in subclasses to build the content widget
+        and return it. """
         return None
 
     def __connectModelSignals(self, model):

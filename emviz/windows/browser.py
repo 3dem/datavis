@@ -313,7 +313,7 @@ class BrowserWindow(QMainWindow):
         using the VOLUME-SLICER or GALLERY-VIEW components, a image stack or
         a Table characteristics.
 
-        imageView provides:
+        pageBar provides:
 
         1. A zoomable region for displaying the image
         2. A combination histogram and gradient editor (HistogramLUTItem) for

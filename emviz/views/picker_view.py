@@ -16,7 +16,8 @@ import qtawesome as qta
 # FIXME: We should not import neither em or emviz.core from other submodules
 import em
 from emviz.widgets import MultiStateAction, OptionList
-from emviz.models import Micrograph, Coordinate, TableModel
+from emviz.models import (Micrograph, Coordinate, TableModel, ColumnConfig,
+                          TYPE_STRING, TYPE_INT)
 
 from .model import TablePageItemModel
 from ._image_view import ImageView
@@ -252,7 +253,7 @@ class PickerView(qtw.QWidget):
         self._horizontalLayout = qtw.QHBoxLayout(self)
         self._horizontalLayout.setContentsMargins(1, 1, 1, 1)
         self._imageView = ImageView(self, **kwargs)
-        self._imageView.setObjectName("imageView")
+        self._imageView.setObjectName("pageBar")
         imgViewToolBar = self._imageView.getToolBar()
 
         self._micPanel = imgViewToolBar.createPanel()
@@ -700,7 +701,7 @@ class PickerView(qtw.QWidget):
 
     def _destroyROIs(self):
         """
-        Remove and destroy all ROIs from the imageView
+        Remove and destroy all ROIs from the pageBar
         """
         if self._roiList:
             for coordROI in self._roiList:
@@ -797,22 +798,11 @@ class PickerView(qtw.QWidget):
         self.__emTable = em.Table([Column(1, "Id", em.typeSizeT),
                                    Column(2, "Micrograph", em.typeString),
                                    Column(3, "Coordinates", em.typeSizeT)])
-        tableViewConfig = TableModel()
-        tableViewConfig.addColumnConfig(name='Id',
-                                        dataType=TableModel.TYPE_INT,
-                                        label='Id',
-                                        editable=True,
-                                        visible=False)
-        tableViewConfig.addColumnConfig(name='Micrograph',
-                                        dataType=TableModel.TYPE_STRING,
-                                        label='Micrograph',
-                                        editable=True,
-                                        visible=True)
-        tableViewConfig.addColumnConfig(name='Coordinates',
-                                        dataType=TableModel.TYPE_INT,
-                                        label='Coordinates',
-                                        editable=True,
-                                        visible=True)
+        tableViewConfig = TableModel(
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True)
+        )
         self._tvModel = TablePageItemModel(self.__emTable,
                                            tableViewConfig=tableViewConfig)
 
@@ -1013,7 +1003,7 @@ class PickerView(qtw.QWidget):
 
     def _setupViewBox(self):
         """
-        Configures the View Widget for self.imageView
+        Configures the View Widget for self.pageBar
         """
         v = self._imageView.getViewBox()
 
