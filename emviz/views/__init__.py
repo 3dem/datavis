@@ -1,5 +1,5 @@
 from ._gallery import GalleryView
-from .columns import ColumnsView
+from ._columns import ColumnsView
 from .items import ItemsView
 from .data_view import DataView, PERCENT_UNITS, PIXEL_UNITS
 from ._image_view import ImageView

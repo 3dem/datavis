@@ -15,38 +15,26 @@ class ViewsFactory:
         imgView = emviz.views.ImageView(None, **kwargs)
         imgModel = ModelsFactory.createImageModel(path)
         imgView.setImage(imgModel.getData())
+        return imgView
 
     @staticmethod
     def createSlicesView(path, **kwargs):
         """ Create an SlicesView and load the slices from the given path """
-        try:
-            kwargs['path'] = path
-            slicesView = SlicesView(None, **kwargs)
+        kwargs['path'] = path
+        return emviz.views.SlicesView(None, **kwargs)
 
-            return slicesView
-        except Exception as ex:
-            raise ex
-        except RuntimeError as ex:
-            raise ex
 
     @staticmethod
     def createVolumeView(path, **kwargs):
         """ Create an VolumeView and load the volume from the given path """
-        try:
-            kwargs['path'] = path
-            volumeView = VolumeView(None, **kwargs)
-
-            return volumeView
-        except Exception as ex:
-            raise ex
-        except RuntimeError as ex:
-            raise ex
+        kwargs['path'] = path
+        return emviz.views.VolumeView(None, **kwargs)
 
     @staticmethod
     def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
         """ Create an DataView and load the volume from the given path """
         kwargs['view'] = defaultView
-        dataView = DataView(None, **kwargs)
+        dataView = emviz.views.DataView(None, **kwargs)
         path = kwargs.get('dataSource')
         dataView.setModel(TableDataModel(table, titles=titles,
                                          tableViewConfig=tableViewConfig,

@@ -21,7 +21,7 @@ from emviz.models import (Micrograph, Coordinate, TableModel, ColumnConfig,
 
 from .model import TablePageItemModel
 from ._image_view import ImageView
-from .columns import ColumnsView
+from ._columns import ColumnsView
 
 
 SHAPE_RECT = 0

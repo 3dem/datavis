@@ -8,7 +8,7 @@ from emviz.models import Coordinate, Micrograph, PickerDataModel
 from emviz.views import (ImageView, SlicesView, VolumeView, DataView,
                          TablePageItemModel)
 from .functions import EmPath
-from .image_manager import ImageManager
+from ._image_manager import ImageManager
 
 MOVIE_SIZE = 1000
 

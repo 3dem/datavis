@@ -1,18 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
-
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF, QVariant, QLocale
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSpinBox, QLabel,
-                             QStyledItemDelegate, QStyle, QHBoxLayout, QSlider,
-                             QSizePolicy, QSpacerItem, QPushButton, QCheckBox,
-                             QGraphicsPixmapItem, QRadioButton, QButtonGroup,
-                             QComboBox, QItemDelegate, QColorDialog,
-                             QTableWidget, QFormLayout, QTableWidgetItem,
-                             QLineEdit, QGridLayout, QWidgetItem)
-from PyQt5.QtGui import (QPixmap, QPalette, QPen, QColor, QIntValidator,
-                         QDoubleValidator)
+from PyQt5.QtCore import Qt, QRectF, QVariant
+from PyQt5.QtWidgets import (QStyledItemDelegate, QStyle, QGraphicsPixmapItem,
+                             QComboBox, QItemDelegate, QColorDialog)
+from PyQt5.QtGui import (QPixmap, QPalette, QPen)
 
 import pyqtgraph as pg
 
@@ -29,11 +21,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
                           image operations.
         """
         QStyledItemDelegate.__init__(self, parent)
-        # FIXME: The following import is here because it cause a cyclic dependency
-        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
-        # FIXME: Check if we want ImageManager or other data model here
-        from emviz.core import ImageManager, ImageRef
-        self._imageManager = kwargs.get('imageManager') or ImageManager(150)
         self._imageView = pg.ImageView(view=pg.ViewBox())
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
@@ -41,7 +28,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._labelText = []
         self._imageView.getView().addItem(self._noImageItem)
         self._noImageItem.setVisible(False)
-        self._imageRef = ImageRef()
         self._sBorder = 3  # selected state border (px)
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
@@ -116,8 +102,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
                     model.createIndex(index.row(), lIndex))
                 if isinstance(value, QVariant):
                     value = value.value()
+                cc = model.getDisplayConfig(lIndex)
                 self._labelText.append("%s=%s" %
-                                       (model.getColumnConfig(lIndex).getName(),
+                                       (cc.getName(),
                                         str(value)))
 
     def _setupView(self, index, width, height):
@@ -165,31 +152,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
         :param index: QModelIndex
         :param height: height to scale the image
         """
-        imgPath = index.data(Qt.UserRole)
-        if imgPath is None:
-            return None
+        imgData = index.data(Qt.UserRole + 2)
 
-        # FIXME: The following import is here because it cause a cyclic dependency
-        # FIXME: we should remove the use of parseImagePath
-        from emviz.core import parseImagePath
-        imgRef = parseImagePath(imgPath, self._imageRef,
-                                os.path.split(index.model().getDataSource())[0])
-
-        if imgRef is None:
-            return None
-
-        return self._imageManager.addImage(imgRef, (height, height))
-
-    def setImageManager(self, imageManager):
-        """
-        Set the ImageCache object to be use for this ImageDelegate
-        :param imageManager: ImageManager
-        """
-        self._imageManager = imageManager
-
-    def getImageManager(self):
-        """ Getter for ImageManager """
-        return self._imageManager
+        return imgData
 
     def setLabelIndexes(self, indexes):
         """
@@ -198,6 +163,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
         labels : (list)
         """
         self.__labelIndexes = indexes
+
+    def getLabelIndexes(self):
+        return self.__labelIndexes
 
     def getTextHeight(self):
         """ The height of text """
@@ -258,7 +226,7 @@ class ComboBoxStyleItemDelegate(QStyledItemDelegate):
 
 class MarkerStyleItemDelegate(QStyledItemDelegate):
     """
-    PenStyleItemDelegate class provides display and editing facilities for
+    MarkerStyleItemDelegate class provides display and editing facilities for
     QPen style selection.
     """
     def createEditor(self, parent, option, index):

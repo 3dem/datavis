@@ -4,25 +4,14 @@ import numpy as np
 import em
 import emviz.models
 from emviz.models import VISIBLE, EDITABLE, DESCRIPTION
+from .functions import EmTable
+from ._emtable_model import EmTableModel, EmStackModel, TYPE_MAP
 
 
 class ModelsFactory:
     """ Factory class to centralize the creation of Models using the
     underlying classes from em-core.
     """
-    # FIXME: This should be moved to emviz/core
-    """ Basic type map between em.Type and current types. """
-    TYPE_MAP = {
-        em.typeBool: emviz.models.TYPE_BOOL,
-        em.typeInt8: emviz.models.TYPE_INT,
-        em.typeInt16: emviz.models.TYPE_INT,
-        em.typeInt32: emviz.models.TYPE_INT,
-        em.typeInt64: emviz.models.TYPE_INT,
-        em.typeFloat: emviz.models.TYPE_FLOAT,
-        em.typeDouble: emviz.models.TYPE_FLOAT,
-        em.typeString: emviz.models.TYPE_STRING
-    }
-
     @classmethod
     def createImageModel(cls, path):
         """ Create an ImageModel reading path as an em.Image. """
@@ -30,7 +19,26 @@ class ModelsFactory:
         loc = em.ImageLocation(path)
         image.read(loc)
         return emviz.models.ImageModel(
-            data=np.array(image, copy=False), location=loc)
+            data=np.array(image, copy=False), location=(loc.index, loc.path))
+
+    @classmethod
+    def createTableModel(cls, path):
+        """
+        Creates an TableModel reading path as an em.Table
+        :param path: (str) The table path
+        :return:     Tuple ([table names], TableModel)
+        """
+        names, table = EmTable.load(path)
+        return names, EmTableModel(emTable=table)
+
+    @classmethod
+    def createStackModel(cls, path):
+        """
+        Creates an TableModel reading stack from the given path
+        :param path: (str) The stack path
+        :param load: (bool) If True, then the image data will be loaded
+        """
+        return EmStackModel(path=path)
 
     @classmethod
     def createTableConfig(cls, table, *cols):
@@ -51,12 +59,12 @@ class ModelsFactory:
         tableColNames = [table.getColumnByIndex(i).getName()
                          for i in range(table.getColumnsSize())]
 
-        if colsConfig is None:
-            colsConfig = tableColNames
+        if cols is None:
+            cols = tableColNames
 
         tableConfig = emviz.models.TableModel()
         rest = list(tableColNames)
-        for item in colsConfig:
+        for item in cols:
             if isinstance(item, str) or isinstance(item, unicode):
                 name = item
                 properties = {}
@@ -69,11 +77,11 @@ class ModelsFactory:
             if name in tableColNames and name in rest:
                 col = table.getColumn(name)
                 # Take the values from the 'properties' dict or infer from col
-                cType = cls.TYPE_MAP.get(col.getType(), emviz.models.TYPE_STRING)
+                cType = TYPE_MAP.get(col.getType(), emviz.models.TYPE_STRING)
                 if DESCRIPTION not in properties:
                     properties[DESCRIPTION] = col.getDescription()
                 properties[EDITABLE] = False
-                tableConfig.addColumnConfig(name, cType, **properties)
+                tableConfig.addColumn(name, cType, **properties)
                 rest.remove(name)
             else:
                 raise Exception("Invalid column name: %s" % name)
@@ -83,7 +91,7 @@ class ModelsFactory:
         for colName in rest:
             col = table.getColumn(colName)
             # Take the values from the 'properties' dict or infer from col
-            cType = cls.TYPE_MAP.get(col.getType(), emviz.models.TYPE_STRING)
+            cType = TYPE_MAP.get(col.getType(), emviz.models.TYPE_STRING)
             properties = dict()
             properties[DESCRIPTION] = col.getDescription()
             properties[EDITABLE] = False

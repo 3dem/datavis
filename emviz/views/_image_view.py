@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QTextEdit, QDoubleSpinBox)
 
-from emviz.widgets import ActionsToolBar, MultiStateAction, OnOffAction
+from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
+                           createQAction)
 
 
 class ImageView(QWidget):
@@ -21,7 +22,7 @@ class ImageView(QWidget):
     AXIS_BOTTOM_RIGHT = 2  # axis in bottom-right
     AXIS_BOTTOM_LEFT = 3  # axis in bottom-left
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, model=None, **kwargs):
         """
         By default, ImageView show a toolbar for image operations.
         **Arguments**
@@ -52,8 +53,6 @@ class ImageView(QWidget):
         """
         QWidget.__init__(self, parent=parent)
 
-        # FIXME Allow to pass the model in the constructor and setup the
-        # FIXME:   ImageView accordingly
         self._model = None
 
         self._oddFlips = False
@@ -77,6 +76,7 @@ class ImageView(QWidget):
 
         self.__setupGUI()
         self.__setupImageView()
+        self.setModel(model)
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
@@ -154,30 +154,40 @@ class ImageView(QWidget):
         # -- Flip --
         toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Flip ', toolbar))
-        self._actHorFlip = self.__createAction(
-            parent=toolbar, actionName="HFlip", text="Horizontal Flip",
-            icon=qta.icon('fa.long-arrow-right', 'fa.long-arrow-left',
-                          options=[{'offset': (0, 0.2)},
-                                   {'offset': (0, -0.2)}]),
-            checkable=True, slot=self.horizontalFlip)
-
-        self._actVerFlip = self.__createAction(
-            parent=toolbar, actionName="VFlip", text="Vertical Flip",
-            icon=qta.icon('fa.long-arrow-up', 'fa.long-arrow-down',
-                          options=[{'offset': (0.2, 0)},
-                                   {'offset': (-0.2, 0)}]),
-            checkable=True, slot=self.verticalFlip)
+        self._actHorFlip = createQAction(parent=toolbar, actionName="HFlip",
+                                         text="Horizontal Flip",
+                                         icon=qta.icon('fa.long-arrow-right',
+                                                       'fa.long-arrow-left',
+                                                       options=[
+                                                           {'offset': (0, 0.2)},
+                                                           {'offset': (0, -0.2)}
+                                                       ]),
+                                         checkable=True,
+                                         slot=self.horizontalFlip)
+        toolbar.addAction(self._actHorFlip)
+        self._actVerFlip = createQAction(parent=toolbar, actionName="VFlip",
+                                         text="Vertical Flip",
+                                         icon=qta.icon('fa.long-arrow-up',
+                                                       'fa.long-arrow-down',
+                                                       options=[
+                                                           {'offset': (0.2, 0)},
+                                                           {'offset': (-0.2, 0)}
+                                                       ]),
+                                         checkable=True, slot=self.verticalFlip)
+        toolbar.addAction(self._actVerFlip)
         vLayout.addWidget(toolbar)
 
         # --Rotate--
         toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Rotate ', toolbar))
-        self.__createAction(parent=toolbar, actionName="RRight",
+        act = createQAction(parent=toolbar, actionName="RRight",
                             text="Rotate Right", faIconName="fa.rotate-right",
                             checkable=False, slot=self.__rotateRight)
-        self.__createAction(parent=toolbar, actionName="RLeft",
+        toolbar.addAction(act)
+        act = createQAction(parent=toolbar, actionName="RLeft",
                             text="Rotate Left", faIconName="fa.rotate-left",
                             checkable=False, slot=self.__rotateLeft)
+        toolbar.addAction(act)
         vLayout.addWidget(toolbar)
 
         # --Adjust--
@@ -198,10 +208,8 @@ class ImageView(QWidget):
 
         vLayout.addStretch()
         displayPanel.setFixedHeight(260)
-        actDisplay = QAction(None)
-        actDisplay.setIcon(qta.icon('fa.adjust'))
-        actDisplay.setText('Display')
-
+        actDisplay = createQAction(parent=self._toolBar, actionName="ADisplay",
+                                   text='Display', faIconName='fa.adjust')
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
@@ -214,42 +222,13 @@ class ImageView(QWidget):
         vLayout.addWidget(self._textEditPath)
         fileInfoPanel.setMinimumHeight(30)
 
-        actFileInfo = QAction(None)
-        actFileInfo.setIcon(qta.icon('fa.info-circle'))
-        actFileInfo.setText('File Info')
+        actFileInfo = createQAction(parent=self._toolBar, actionName='FInfo',
+                                    text='File Info',
+                                    faIconName='fa.info-circle')
         self._toolBar.addAction(actFileInfo, fileInfoPanel, exclusive=False)
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._splitter)
-
-    def __createAction(self, parent, actionName, text="", faIconName=None,
-                       icon=None, checkable=False, slot=None):
-        """
-        Create a QAction with the given name, text and icon. If slot is not None
-        then the signal QAction.triggered is connected to it
-        :param actionName:   (str) The action name
-        :param text:         (str) Action text
-        :param faIconName:   (str) qtawesome icon name
-        :param icon:         (QIcon) used if faIconName=None
-        :param checkable:    (Bool) if this action is checkable
-        :param slot:         (slot) the slot to connect QAction.triggered signal
-        :return: The created QAction
-        """
-        a = QAction(parent)
-        a.setObjectName(str(actionName))
-        if faIconName:
-            a.setIcon(qta.icon(faIconName))
-        elif icon is not None:
-            a.setIcon(icon)
-
-        a.setCheckable(checkable)
-        a.setText(str(text))
-
-        if slot:
-            a.triggered.connect(slot)
-
-        parent.addAction(a)
-        return a
 
     def __setupAxis(self):
         """
@@ -417,14 +396,15 @@ class ImageView(QWidget):
 
     def setModel(self, imageModel):
         """
-        Set the image to be displayed
-        :param image: (numpy array) The image to be displayed
+        Set the image model to be used for this ImageView
+        :param imageModel: (emviz.models.ImageModel) The image model
         """
         self._model = imageModel
         self.clear()
-        self._imageView.setImage(imageModel.getData(),
-                                 autoRange=self._fitToSize)
-        self.fitToSize()
+        if imageModel:
+            self._imageView.setImage(imageModel.getData(),
+                                     autoRange=self._fitToSize)
+            self.fitToSize()
 
     @pyqtSlot(int)
     def rotate(self, angle):

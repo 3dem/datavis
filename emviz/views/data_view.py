@@ -19,7 +19,7 @@ from emviz.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
                            PlotConfigWidget)
 
 from .model import TablePageItemModel, VolumeDataModel
-from .columns import ColumnsView
+from ._columns import ColumnsView
 from ._gallery import GalleryView
 from .items import ItemsView
 from ._paging_view import PagingView

@@ -6,14 +6,15 @@ from PyQt5.QtGui import QIcon
 import qtawesome as qta
 
 
-def createQAction(parent, actionName, text="", faIconName=None, checkable=False,
-                  slot=None):
+def createQAction(parent, actionName, text="", faIconName=None, icon=None,
+                  checkable=False, slot=None):
     """
     Creates a QAction with the given name, text and icon. If slot is not None
     then the signal QAction.triggered is connected to it
-    :param actionName: The action name
-    :param text: Action text
-    :param faIconName: qtawesome icon name
+    :param actionName:   (str)The action name
+    :param text:         (str)Action text
+    :param faIconName:   (str)qtawesome icon name
+    :param icon:         (QIcon) used if faIconName=None
     :param checkable: if this action is checkable
     :param slot: the slot to connect QAction.triggered signal
     :return: The QAction
@@ -21,7 +22,8 @@ def createQAction(parent, actionName, text="", faIconName=None, checkable=False,
     a = QAction(parent)
     a.setObjectName(str(actionName))
     if faIconName:
-        a.setIcon(qta.icon(faIconName))
+        icon = qta.icon(faIconName)
+    a.setIcon(icon)
     a.setCheckable(checkable)
     a.setText(str(text))
 

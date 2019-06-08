@@ -3,42 +3,53 @@
 
 import os
 import sys
-from PyQt5.QtWidgets import QApplication
 
-from emviz.models import TableModel, TYPE_INT, TYPE_STRING, ColumnConfig
-from emviz.views import TablePageItemModel, GalleryView
-from emviz.core import ImageManager
+from PyQt5.QtWidgets import QApplication, QMainWindow
 
-import em
+from emviz.core import ModelsFactory
+from emviz.views import GalleryView
+from emviz.models import RENDERABLE, VISIBLE
+
+if len(sys.argv) > 1:
+    imagePath = sys.argv[1]
+else:
+    testDataPath = os.environ.get("EM_TEST_DATA", None)
+
+    if testDataPath is None:
+        raise Exception("Path not available to display ImageView. \n"
+                        "Either provide an input path or set the "
+                        "variable environment EM_TEST_DATA")
+
+    imagePath = os.path.join(testDataPath,
+                             "relion_tutorial", "import",
+                             "classify2d", "extra",
+                             "relion_it015_classes.mrcs")
+
+
+def getPreferedBounds(width=None, height=None):
+    size = QApplication.desktop().size()
+    p = 0.8
+    (w, h) = (int(p * size.width()), int(p * size.height()))
+    width = width or w
+    height = height or h
+    w = min(width, w)
+    h = min(height, h)
+    return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
 
 app = QApplication(sys.argv)
-testDataPath = os.environ.get("EM_TEST_DATA", None)
 
-if testDataPath is not None:
-    path = os.path.join(testDataPath, "relion_tutorial", "import", "classify2d",
-                            "extra", "relion_it015_classes.mrcs")
+model = ModelsFactory.createStackModel(imagePath)
 
-    table = em.Table([em.Table.Column(0, "index", em.typeInt32, "Image index"),
-                      em.Table.Column(1, "path", em.typeString, "Image path")])
-
-    tableModel = TableModel(
-        ColumnConfig('index', dataType=TYPE_INT, editable=False, visible=True),
-        ColumnConfig('path', dataType=TYPE_STRING, renderable=True,
-                     editable=False, visible=True))
-
-    row = table.createRow()
-    n = ImageManager.getDim(path).n
-    for i in range(1, n+1):
-        row['index'] = i
-        row['path'] = '%d@%s' % (i, path)
-        table.addRow(row)
-    galleryView = GalleryView()
-    galleryView.setIconSize((100, 100))
-    galleryView.setModel(TablePageItemModel(table, parent=galleryView,
-                                            title="Stack",
-                                            tableViewConfig=tableModel))
-    galleryView.setModelColumn(1)
-    galleryView.show()
+galleryView = GalleryView(parent=None, model=model)
+width, height = galleryView.getPreferedSize()
+# Create window with ImageView widget
+win = QMainWindow()
+win.setCentralWidget(galleryView)
+win.show()
+win.setWindowTitle('GalleryView Example')
+x, y, width, height = getPreferedBounds(width, height)
+win.setGeometry(x, y, width, height)
 
 sys.exit(app.exec_())
+

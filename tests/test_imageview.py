@@ -8,9 +8,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 from emviz.views import ImageView
 from emviz.core import ModelsFactory
 
-import numpy as np
-
-
 app = QApplication(sys.argv)
 
 # Test script that loads an image in a ImageView
@@ -26,16 +23,18 @@ else:
                         "Either provide an input path or set the "
                         "variable environment EM_TEST_DATA")
 
-    imgPath = os.path.join(testDataPath, "relion_tutorial", "micrographs", "068.mrc")
+    imgPath = os.path.join(testDataPath, "relion_tutorial", "micrographs",
+                           "068.mrc")
 
-imageView = ImageView(None, border_color='#FFAA33')
+imageView = ImageView(parent=None, border_color='#FFAA33')
 imgModel = ModelsFactory.createImageModel(imgPath)
-#img = ImageManager.readImage(imgPath, 1)
-#data = np.array(img, copy=False)
 imageView.setModel(imgModel)
-desc = "<html><head/><body><p><span style=\" color:#0055ff;\">Dimension: " \
-       "</span><span style=\" color:#000000;\">(x,y,z)</span></p></body>" \
-       "</html>"
+dim_x, dim_y = imgModel.getDim()
+index, path = imgModel.getLocation()
+desc = "<html><head/><body><p><span style=\" color:#0055ff;\">Dimensions: " \
+       "</span><span style=\" color:#000000;\">(%d,%d)</span></p>" \
+       "<p><strong>Path: </strong>%s</p></body>" \
+       "</html>" % (dim_x, dim_y, path)
 imageView.setImageInfo(text=desc)
 
 # Create window with ImageView widget

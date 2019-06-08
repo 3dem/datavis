@@ -9,7 +9,16 @@ class TableModel:
     """
     def __init__(self, *cols):
         # Store a list of ColumnConfig objects
-        self._cols = cols
+        self._cols = cols or []
+
+    def __str__(self):
+        s = "TableModel columnConfigs: %d" % len(self._cols)
+        for c in self._cols:
+            s += '\n%s' % str(c)
+        return s
+
+    def __getitem__(self, item):
+        return self._cols[item]
 
     def addColumn(self, columnConfig):
         """ Add a new ColumnConfig to the list. """
@@ -23,24 +32,21 @@ class TableModel:
         return any(c.check(props) for c in self._cols)
 
     def getColumn(self, col):
+        """
+        Returns the corresponding ColumnConfig for the given column
+        :param col: (int) The column index
+        """
         return self._cols[col] if 0 <= col < len(self._cols) else None
 
     def getColumnsCount(self, **props):
         """ Return the number of columns that have given properties. """
-        raise len(self.iterColumns(**props))
+        return len(list(self.iterColumns(**props)))
 
     def iterColumns(self, **props):
         return iter((i, c) for i, c in enumerate(self._cols)
                     if c.check(**props))
 
-    # TODO: Check how this behave with subclasses
-    def clone(self):
-        tableConfig = TableModel()
-        tableConfig._cols = [colConfig.clone() for colConfig in self._cols]
-        tableConfig._rowIndex = self._rowIndex
-        return tableConfig
-
-    # ------ Abstract methods that should be implemented in subclasses ----------
+    # ------ Abstract methods that should be implemented in subclasses ---------
 
     def getRowsCount(self):
         """ Return the number of rows. """
@@ -55,12 +61,6 @@ class TableModel:
          Used by rendering of images in a given cell of the table.
         """
         raise Exception("Not implemented")
-
-    def __str__(self):
-        s = "TableModel columnConfigs: %d" % len(self._cols)
-        for c in self._cols:
-            s += '\n%s' % str(c)
-        return s
 
 
 class ColumnConfig:

@@ -3,30 +3,47 @@
 
 import os
 import sys
-from PyQt5.QtWidgets import QApplication
 
-from emviz.models import TableModel, TYPE_INT, TYPE_STRING
-from emviz.views import ColumnsView, TablePageItemModel
-from emviz.core import ImageManager, EmTableModel
+from PyQt5.QtWidgets import QApplication, QMainWindow
 
-import em
+from emviz.core import ModelsFactory
+from emviz.views import ColumnsView
+
+if len(sys.argv) > 1:
+    tablePath = sys.argv[1]
+else:
+    testDataPath = os.environ.get("EM_TEST_DATA", None)
+
+    if testDataPath is None:
+        raise Exception("Path not available to display ImageView. \n"
+                        "Either provide an input path or set the "
+                        "variable environment EM_TEST_DATA")
+    #  FIXME[phv] Please, we need a real table path
+    tablePath = os.path.join(testDataPath, "relion_tutorial", "import",
+                             "classify2d", "extra", "relion_it015_classes.star")
+
+
+def getPreferedBounds(width=None, height=None):
+    size = QApplication.desktop().size()
+    p = 0.8
+    (w, h) = (int(p * size.width()), int(p * size.height()))
+    width = width or w
+    height = height or h
+    w = min(width, w)
+    h = min(height, h)
+    return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
 
 app = QApplication(sys.argv)
-testDataPath = os.environ.get("EM_TEST_DATA", None)
+names, model = ModelsFactory.createTableModel(tablePath)
 
-if testDataPath is not None:
-    path = os.path.join(testDataPath, "relion_tutorial", "gold",
-                        "relion_it020_data.star")
-
-    tio = em.TableIO()
-    tio.open(path)
-    table = em.Table()
-    tio.read(tio.getTableNames()[0], table)
-    tableModel = EmTableModel(table)
-
-    columnView = ColumnsView(model=tableModel)
-    columnView.setRowHeight(100)
-    columnView.show()
-
+columnsView = ColumnsView(parent=None, model=model)
+width, height = columnsView.getPreferedSize()
+# Create window with ImageView widget
+win = QMainWindow()
+win.setCentralWidget(columnsView)
+win.show()
+win.setWindowTitle('ColumsView Example')
+x, y, width, height = getPreferedBounds(width, height)
+win.setGeometry(x, y, width, height)
 sys.exit(app.exec_())

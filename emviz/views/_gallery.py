@@ -8,8 +8,10 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
-from emviz.widgets import EMImageItemDelegate
+from emviz.widgets import EMImageItemDelegate, PagingInfo
+from emviz.models import RENDERABLE, VISIBLE
 from ._paging_view import PagingView
+from .model import TablePageItemModel
 
 
 class GalleryView(PagingView):
@@ -19,37 +21,43 @@ class GalleryView(PagingView):
     """
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
     sigPageSizeChanged = QtCore.pyqtSignal()  # Signal for page size changed
-    sigListViewSizeChanged = QtCore.pyqtSignal()
+    sigGallerySizeChanged = QtCore.pyqtSignal(object, object)
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent=None, **kwargs):
         """
+        Constructs an GalleryView.
         kwargs:
-         - imageManager: the ImageManager for internal read/manage
-                          image operations.
+         model:             The data model
+            displayConfig:  Input TableModel that will control how the data
+                            fetched from the TableModel will be displayed.
+                            displayConfig can be None, in which case the model
+                            will be taken as displayConfig.
+            selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
+                            MULTI_SELECTION or NO_SELECTION
+            cellSpacing:    (int) The cell spacing
+            iconSize:       (tuple) The icon size (width, height).
+                            Default value: (100, 100)
         """
-        PagingView.__init__(self, parent=parent, **kwargs)
-        # self._pageSize = 0
-        # self._pRows = 0
-        # self._pCols = 0
-        self._cellSpacing = 0
-        # FIXME: The following import is here because it cause a cyclic dependency
-        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
-        # FIXME: Check if we want ImageManager or other data model here
-        from emviz.core import ImageManager
-        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
+        PagingView.__init__(self, parent=parent, pagingInfo=PagingInfo(1, 1),
+                            **kwargs)
         self._selection = set()
-        self._currentRow = 0
-        self.__setupUI(**kwargs)
-        self.setSelectionMode(kwargs.get('selection_mode',
+        self._delegate = EMImageItemDelegate(self)
+        self._pageItemModel = None
+        self._cellSpacing = kwargs.get('cellSpacing', 5)
+        self._listView.setSpacing(self._cellSpacing)
+        self.setSelectionMode(kwargs.get('selectionMode',
                                          PagingView.SINGLE_SELECTION))
+        self.setModel(model=kwargs['model'],
+                      displayConfig=kwargs.get('displayConfig'))
+        w, h = kwargs.get('iconSize', (100, 100))
+        self.setIconSize(QSize(w, h))
 
-    def __setupUI(self, **kwargs):
+    def _createContentWidget(self):
         lv = QListView(self)
         lv.setViewMode(QListView.IconMode)
         lv.setSelectionBehavior(QAbstractItemView.SelectRows)
         lv.setSelectionMode(QAbstractItemView.SingleSelection)
         lv.setResizeMode(QListView.Adjust)
-        lv.setSpacing(self._cellSpacing)
         lv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         lv.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
         lv.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
@@ -60,13 +68,25 @@ class GalleryView(PagingView):
         lv.setIconSize(QSize(32, 32))
         lv.setModel(None)
         lv.resizeEvent = self.__listViewResizeEvent
-        self.sigListViewSizeChanged.connect(self.__onSizeChanged)
-        self._delegate = EMImageItemDelegate(self)
-        self._delegate.setImageManager(self._imageManager)
-        self._mainLayout.insertWidget(0, lv)
-        self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
-
+        self.sigGallerySizeChanged.connect(self.__onSizeChanged)
         self._listView = lv
+        return lv
+
+    def __connectSignals(self):
+        """ Connects all signals related to the TablePageItemModel
+        """
+        if self._pageItemModel:
+            self._pageBar.sigPageChanged.connect(
+                self._pageItemModel.pageConfigChanged)
+            self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
+
+    def __disconnectSignals(self):
+        """ Disconnects all signals related to the TablePageItemModel
+        """
+        if self._pageItemModel:
+            self._pageBar.sigPageChanged.disconnect(
+                self._pageItemModel.pageConfigChanged)
+            self._pageBar.sigPageChanged.disconnect(self.__onCurrentPageChanged)
 
     def __listViewResizeEvent(self, evt):
         """
@@ -75,77 +95,90 @@ class GalleryView(PagingView):
         :param evt:
         """
         QListView.resizeEvent(self._listView, evt)
-        self.sigListViewSizeChanged.emit()
+        self.sigGallerySizeChanged.emit(evt.oldSize(), evt.size())
 
     def __calcPageSize(self):
         """
         Calculate the number of items per page according to the size of the
-        view area.
+        view area. Returns a tuple (rows, columns)
         """
-        self._pageSize = 0
-
         size = self._listView.viewport().size()
         s = self._listView.iconSize()
         spacing = self._listView.spacing()
 
         if size.width() > 0 and size.height() > 0 \
                 and s.width() > 0 and s.height() > 0:
-            self._pCols = int((size.width() - spacing - 1) /
-                              (s.width() + spacing))
-            self._pRows = int((size.height() - 1) / (s.height() + spacing))
+            cols = int((size.width() - spacing - 1) / (s.width() + spacing))
+            rows = int((size.height() - 1) / (s.height() + spacing))
             # if size.width() < iconSize.width() pRows may be 0
-            pRows = 1 if self._pRows == 0 else self._pRows
-            pCols = 1 if self._pCols == 0 else self._pCols
+            if rows == 0:
+                rows = 1
+            if cols == 0:
+                cols = 1
 
-            self._pageSize = pRows * pCols
+            return rows, cols
         else:
-            self._pRows = self._pCols = 0
+            return 1, 1
 
     def __getPage(self, row):
         """
         Return the page where row are located or -1 if it can not be calculated
+        :param row: (int) The row index. 0 is the first
+        :return:    (int) The page index. 0 is the first
         """
-        return int(row / self._pageSize) \
-            if self._pageSize > 0 and row >= 0 else -1
+        return int(row / self._pagingInfo.pageSize) \
+            if self._pagingInfo.pageSize > 0 and row >= 0 else -1
+
+    def __updatePageBar(self):
+        """Updates the PageBar paging settings """
+        rows, cols = self.__calcPageSize()
+        rows *= cols
+        if not rows == self._pagingInfo.pageSize:
+            self._pagingInfo.setPageSize(rows)
+            self._pagingInfo.setCurrentPage(
+                self.__getPage(self._currentRow) + 1)
+            self._pageBar.setPagingInfo(self._pagingInfo)
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
         if self._model is not None:
             selModel = self._listView.selectionModel()
             if selModel is not None:
-                pageSize = self._model.getPageSize()
+                pageSize = self._pagingInfo.pageSize
+                m = self._pageItemModel
                 sel = QItemSelection()
                 for row in range(page * pageSize, (page + 1) * pageSize):
                     if row in self._selection:
                         sel.append(
-                            QItemSelectionRange(
-                                self._model.index(row % pageSize, 0),
-                                self._model.index(
-                                    row % pageSize,
-                                    self._model.columnCount() - 1)))
-
-                allSel = QItemSelection(self._model.index(0, 0),
-                                        self._model.index(
-                                            pageSize - 1,
-                                            self._model.columnCount() - 1))
+                            QItemSelectionRange(m.index(row % pageSize, 0),
+                                                m.index(row % pageSize,
+                                                        m.columnCount() - 1)))
+                allSel = QItemSelection(m.index(0, 0),
+                                        m.index(pageSize - 1,
+                                                m.columnCount() - 1))
                 selModel.select(allSel, QItemSelectionModel.Deselect)
                 if not sel.isEmpty():
                     selModel.select(sel, QItemSelectionModel.Select)
 
-    @pyqtSlot()
-    def __onSizeChanged(self):
+    @pyqtSlot(object, object)
+    def __onSizeChanged(self, oldSize, newSize):
         """ Invoked when the gallery widget is resized """
-        self.__calcPageSize()
-        if self._model:
-            self._model.setupPage(self._pageSize,
-                                  self.__getPage(self._currentRow))
+        self.__updatePageBar()
+        self.selectRow(self._currentRow)
 
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
-        """ Invoked when change current page """
+        """
+        Invoked when change current page. Emits sigCurrentRowChanged signal.
+        1 is the index of the first page.
+        """
         if self._model is not None:
-            size = self._model.getPageSize()
-            self._currentRow = page * size
+            self._currentRow = (page - 1) * self._pagingInfo.pageSize
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
+
+            self.__updateSelectionInView(page - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
@@ -153,20 +186,25 @@ class GalleryView(PagingView):
         """ Invoked when current row change """
         if current.isValid():
             row = current.row()
-            self._currentRow = row + self._pageSize * self._model.getPage()
+            p = self._pagingInfo
+            self._currentRow = row + p.pageSize * (p.currentPage - 1)
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
+            self.__updateSelectionInView(p.currentPage - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(set)
     def changeSelection(self, selection):
         """ Invoked when the selection is changed """
         self._selection = selection
-        self.__updateSelectionInView(self._model.getPage())
+        self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
     @pyqtSlot(QItemSelection, QItemSelection)
     def __onInternalSelectionChanged(self, selected, deselected):
         """ Invoked when the internal selection is changed """
-        page = self._model.getPage()
-        pageSize = self._model.getPageSize()
+        page = self._pagingInfo.currentPage - 1
+        pageSize = self._pagingInfo.pageSize
 
         for sRange in selected:
             top = sRange.top() + page * pageSize
@@ -181,36 +219,49 @@ class GalleryView(PagingView):
 
         self.sigSelectionChanged.emit()
 
-    def setImageManager(self, imageManager):
-        """ Setter for ImageManager"""
-        self._imageManager = imageManager
-
-    def setModel(self, model):
+    def setModel(self, model, displayConfig=None):
         """ Sets the model """
-        self._listView.setModel(model)
+        if model is None:
+            raise Exception('Invalid model: None')
         self._selection.clear()
         self._currentRow = 0
-        PagingView.setModel(self, model)
-        if model:
-            model.setupPage(self._pageSize, 0)
-            self.setIconSize(self._listView.iconSize())
-            sModel = self._listView.selectionModel()
-            sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
-            sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
-            config = model.getTableViewConfig()
-            self.setLabelIndexes(
-                config.getIndexes('visible', True) if config else [])
-            self.updateViewConfiguration()
-        else:
-            self.setLabelIndexes([])
+        self.__disconnectSignals()
+        self._model = model
+        self._pagingInfo.numberOfItems = model.getRowsCount()
+        rows, cols = self.__calcPageSize()
+        self._pagingInfo.pageSize = rows * cols
+        self._pagingInfo.currentPage = 1
+        self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
+                                                 tableConfig=displayConfig,
+                                                 parent=self)
+        self.__connectSignals()
 
-    def resetGallery(self):
+        self._listView.setModel(self._pageItemModel)
+        sModel = self._listView.selectionModel()
+        sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
+        sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
+        self._pageBar.setPagingInfo(self._pagingInfo)
+        self.setIconSize(self._listView.iconSize())
+        #  FIXME[phv] Review. Initialize the indexes of the columns that will be
+        #             displayed as text below the images.
+        #config = displayConfig or model
+        #self.setLabelIndexes(
+        #    [i for i, c in config.iterColumns(**{VISIBLE: True})])
+        self.updateViewConfiguration()
+
+    def resetView(self):
+        """
+        Reset the internal state of the view.
+        """
         self._listView.reset()
-        if self._selection and self._model is not None:
-            self.__updateSelectionInView(self._model.getPage())
+        if self._selection:
+            self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
     def setModelColumn(self, column):
-        """ Holds the column in the model that is visible. """
+        """
+        Holds the column in the model that is visible.
+        :param column: (int) Column index. 0 is the first index.
+        """
         self._listView.setModelColumn(column)
         self._listView.setItemDelegateForColumn(column, self._delegate)
 
@@ -224,87 +275,75 @@ class GalleryView(PagingView):
         else:
             s = size
             size = size.width(), size.height()
-        if self._model is not None:
-            colConfig = self._model.getColumnConfig()
-            if colConfig is not None:
-                vIndexes = colConfig.getIndexes('visible', True)
-                lSize = len(vIndexes)
-                s = QSize(size[0], size[1])
-                if lSize > 0:
-                    maxWidth = 0
-                    r = self._model.totalRowCount()
-                    fontMetrics = self._listView.fontMetrics()
-                    for i in random_sample(range(r), min(10, r)):
-                        for j in vIndexes:
-                            text = ' %s = %s ' % (
-                                self._model.getColumnConfig(j).getName(),
-                                str(self._model.getTableData(i, j)))
-                            # TODO [HV]:  fontMetrics.width(text) cause error
-                            w = fontMetrics.boundingRect(text).width() # len(text) * 7.3
-                            maxWidth = max(maxWidth, w)
-                    s.setWidth(max(s.width(), maxWidth))
-                    s.setHeight(s.height() + lSize * 16)
+        dispConfig = self._pageItemModel.getDisplayConfig()
+        if dispConfig is not None:
+            vIndexes = self._delegate.getLabelIndexes()
+            # FIXME[phv] Review. Initialize the indexes of the columns that will
+            # be displayed as text below the images.
+            #vIndexes = [(i, c) for i, c in dispConfig.iterColumns(
+            #    **{VISIBLE: True})]
+            lSize = len(vIndexes)
+            s = QSize(size[0], size[1])
+            if lSize > 0:
+                maxWidth = 0
+                r = self._model.getRowsCount()
+                fontMetrics = self._listView.fontMetrics()
+                for i in random_sample(range(r), min(10, r)):
+                    for j, c in vIndexes:
+                        text = ' %s = %s ' % (
+                            c.getLabel(),
+                            str(self._model.getValue(i, j)))
+                        w = fontMetrics.boundingRect(text).width()
+                        maxWidth = max(maxWidth, w)
+                s.setWidth(max(s.width(), maxWidth))
+                s.setHeight(s.height() + lSize * 16)
         self._listView.setIconSize(s)
-        self.__calcPageSize()
-        if self._model is not None:
-            self._model.setIconSize(s)
-            self._model.setupPage(self._pageSize, self._model.getPage())
-
+        self._pageItemModel.setIconSize(s)
+        self.__updatePageBar()
         self.sigPageSizeChanged.emit()
-
-    def setImageManager(self, imageManager):
-        """ Sets the image manager """
-        self._imageManager = imageManager
-        self._delegate.setImageManager(imageManager)
 
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model is not None:
-            page = self.__getPage(row)
-            if row in range(0, self._model.totalRowCount()):
-                self._currentRow = row
-                if self._selectionMode == PagingView.SINGLE_SELECTION:
-                    self._selection.clear()
-                    self._selection.add(self._currentRow)
-                self._model.loadPage(page)
-            self.__updateSelectionInView(page)
+        if 0 <= row < self._pagingInfo.numberOfItems:
+            page = self.__getPage(row) + 1
+            self._currentRow = row
+            if not page == self._pagingInfo.currentPage:
+                self._pageBar.setCurrentPage(page)
 
-    def currentRow(self):
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(row)
+
+            self.sigCurrentRowChanged.emit(row)
+            self.__updateSelectionInView(page - 1)
+
+    def getCurrentRow(self):
         """ Returns the current selected row """
-        if self._model is None:
-            return -1
-        r = self._listView.currentIndex().row()
-        return r if r <= 0 else r + self._pageSize * self._model.getPage()
+        return self._currentRow
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        if self._model is None or self._pCols == 0:
-            return 0, 0
-        size = self._model.rowCount()
-
-        if size <= self._pCols:
+        size = self._model.getRowsCount()
+        rows, cols = self.__calcPageSize()
+        if size <= cols:
             return 1, size
 
-        r = size % self._pCols
+        r = size % cols
 
-        return int(size / self._pCols) + (1 if r > 0 else 0), self._pCols
+        return int(size / cols) + (1 if r > 0 else 0), cols
 
     def getPreferedSize(self):
         """
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data
         """
-        if self._model is None or self._model.rowCount() == 0:
-            return 0, 0
-
-        n = self._model.totalRowCount()
+        n = self._model.getRowsCount()
         s = self._listView.iconSize()
         spacing = self._listView.spacing()
         size = QSize(int(n**0.5) * (spacing + s.width()) + spacing,
                      int(n**0.5) * (spacing + s.height()) + spacing)
 
         w = int(size.width() / (spacing + s.width()))
-        n = self._model.totalRowCount()
         c = int(n / w)
         rest = n % w
 
@@ -352,24 +391,19 @@ class GalleryView(PagingView):
         elif selectionBehavior == self.SELECT_ROWS:
             self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
 
-    def getListView(self):
-        """ Return the QListView widget used to display the items """
-        return self._listView
-
     def setLabelIndexes(self, labels):
         """
         Initialize the indexes of the columns that will be displayed as text
-        below the images
-        labels (list)
+        below the images.
+        :param labels: (list) The column indexes
         """
         self._delegate.setLabelIndexes(labels)
 
     def updateViewConfiguration(self):
         """ Update the columns configuration """
-        if self._model is not None:
-            indexes = self._model.getColumnConfig().getIndexes('renderable',
-                                                               True)
-            if indexes:
-                self._listView.setModelColumn(indexes[0])
-                self._listView.setItemDelegateForColumn(indexes[0],
-                                                        self._delegate)
+        d = self._pageItemModel.getDisplayConfig()
+        indexes = [i for i, c in d.iterColumns(**{RENDERABLE: True})]
+        if indexes:
+            self._listView.setModelColumn(indexes[0])
+            self._listView.setItemDelegateForColumn(indexes[0],
+                                                    self._delegate)

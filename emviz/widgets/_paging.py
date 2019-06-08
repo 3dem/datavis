@@ -1,7 +1,7 @@
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QSpacerItem,
-                             QSizePolicy, QPushButton, QSpinBox, QLabel)
+from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QSpacerItem, QSizePolicy,
+                             QPushButton, QSpinBox, QLabel)
 import qtawesome as qta
 
 
@@ -12,18 +12,23 @@ class PagingInfo:
     def __init__(self, numberOfItems, pageSize, currentPage=1):
         """
         Initialize a PagingInfo instance.
-        :param numberOfItems: Total number of items that will be taken into
-            account for paging.
-        :param pageSize: Number of items will be in one page.
-        :param currentPage: Current page (first page is 1).
+        :param numberOfItems:  (int ) Total number of items that will be taken
+                               into account for paging.
+        :param pageSize:       (int) Number of items will be in one page.
+        :param currentPage:    (int) Current page (first page is 1).
         """
         self.numberOfItems = numberOfItems
-        self.currentPage = -1
-        self.setPageSize(pageSize, currentPage)
+        self.currentPage = 1
+        self.pageSize = 1
+        self.setPageSize(pageSize)
+        self.setCurrentPage(currentPage)
 
     def setCurrentPage(self, value):
-        """ Set the current page.
-        Return True if the current page is changed. """
+        """
+        Set the current page.
+        :param value: (int) The page number(1 is the first).
+        :return:      True if the current page is changed.
+        """
         if self.currentPage == value:
             return False
 
@@ -33,13 +38,21 @@ class PagingInfo:
         self.currentPage = value
         return True
 
-    def setPageSize(self, pageSize, currentPage=1):
+    def setPageSize(self, pageSize):
+        """
+        Sets the page size. Changing the page size implies changing
+        the current page.
+        :param pageSize:  (int) The number of items per page
+        """
+        # Calculating the current row: first index from the current page
+        row = (self.currentPage - 1) * self.pageSize
         self.pageSize = pageSize
-        self.numberOfPages = self.numberOfItems / pageSize
+        self.numberOfPages = int(self.numberOfItems / pageSize)
         self.itemsInLastPage = self.numberOfItems % pageSize
         if self.itemsInLastPage > 0:
             self.numberOfPages += 1  # add page with items left
-        self.setCurrentPage(currentPage)
+        # Preserving the current row
+        self.setCurrentPage(int(row / pageSize) + 1)
 
     def nextPage(self):
         """ Increase the current page by one.
@@ -52,7 +65,7 @@ class PagingInfo:
         return False
 
     def prevPage(self):
-        """ Decreate the current page by one.
+        """ Decrease the current page by one.
         If the current page is 1, it will not be changed.
         Return True if the currentPage was changed.
         """
@@ -62,19 +75,23 @@ class PagingInfo:
         return False
 
     def isLastPage(self):
+        """ Returns True if the current page is the last.
+        """
         return self.currentPage == self.numberOfPages
 
 
-# TODO: Review methods, global variables, documentation, etc
-# In the whole file
-
 class PageBar(QWidget):
-
     """
-    This signal is emitted when the current page change
+    Paging bar tha will allow users ti navigate through pages
+    """
+    """
+    This signal is emitted when the current page is changed
     emit(currentPage)
     """
     sigPageChanged = pyqtSignal(int)
+
+    """ This signal is emitted when the paging info is changed """
+    sigPagingInfoChanged = pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -82,11 +99,10 @@ class PageBar(QWidget):
         :param kwargs: pagingInfo should be passed
         """
         QWidget.__init__(self, parent)
-        self._pagingInfo = kwargs['pagingInfo']
-        self.__setupUI()
-        self.setPagingInfo(self._pagingInfo)
+        self.__setupGUI()
+        self.setPagingInfo(kwargs['pagingInfo'])
 
-    def __setupUI(self):
+    def __setupGUI(self):
         self.setMinimumHeight(40)
         self.setMaximumHeight(40)
         layout = QHBoxLayout(self)
@@ -122,11 +138,13 @@ class PageBar(QWidget):
 
     @pyqtSlot()
     def _onPrevPage(self):
+        """ Change to the previous page. """
         if self._pagingInfo.prevPage():
             self._updateCurrentPage()
 
     @pyqtSlot()
     def _onNextPage(self):
+        """ Change to the next page. """
         if self._pagingInfo.nextPage():
             self._updateCurrentPage()
 
@@ -138,25 +156,25 @@ class PageBar(QWidget):
         self.setCurrentPage(self._spinBox.value())
 
     def _updateCurrentPage(self):
-        """ This method should be called after self._pagingInfo is updated. """
+        """
+        Setups the PageBar according to the current page.
+        This method should be called after self._pagingInfo is updated.
+        Emits the sigPageChanged signal.
+        """
         value = self._pagingInfo.currentPage
         self._spinBox.setValue(value)
-        self.sigPageChanged.emit(value)
         self._btnPagePrev.setEnabled(value != 1)
         self._btnPageNext.setEnabled(not self._pagingInfo.isLastPage())
+        self.sigPageChanged.emit(value)
 
     def setCurrentPage(self, page):
         """
         Sets page as current page.
-        Emit the sigPageChanged signal
+        Emits the sigPageChanged signal
         """
         # Only take actions if the setPage really change the current page
         if self._pagingInfo.setCurrentPage(page):
             self._updateCurrentPage()
-
-    def getCurrentPage(self):
-        """ Return the current page """
-        return self._pagingInfo.currentPage
 
     def setPagingInfo(self, pagingInfo, step=1):
         """ Setups the paging params """

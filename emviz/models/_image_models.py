@@ -11,7 +11,10 @@ class ImageModel:
 
     def getDim(self):
         """ Return (xdim, ydim) tuple with the 2D dimensions. """
-        pass
+
+        if self._data is not None:
+            return self._data.shape
+        return None
 
     def getData(self):
         """ Return a 2D array-like object (e.g numpy array) containing

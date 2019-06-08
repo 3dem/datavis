@@ -1,11 +1,11 @@
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
-import PyQt5.QtWidgets as qtw
+import PyQt5.QtWidgets as QtW
 
 from emviz.widgets import PageBar
 
 
-class PagingView(qtw.QWidget):
+class PagingView(QtW.QWidget):
     """
     Base class that contains paging logic and incorporates the
     paging widgets. It will also emit signals related to the modification
@@ -45,47 +45,29 @@ class PagingView(qtw.QWidget):
     sigPageChanged = pyqtSignal(int)
 
     def __init__(self, parent=None, **kwargs):
-        qtw.QWidget.__init__(self, parent=parent)
-        self._model = kwargs['model']
-        self._selectionMode = self.NO_SELECTION
-        self.__setupUI()
+        """
+        Constructor
+        :param parent:  (QWidget) The parent widget
+        :param kwargs:
+            pagingInfo:     (PagingInfo) The initial paging configuration
+        """
+        QtW.QWidget.__init__(self, parent=parent)
+        self._pagingInfo = kwargs['pagingInfo']
+        self._selectionMode = PagingView.NO_SELECTION
+        self.__setupGUI()
 
-    def __setupUI(self):
-        layout = qtw.QVBoxLayout(self)
+    def __setupGUI(self):
+        layout = QtW.QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(1, 1, 1, 1)
         layout.addWidget(self._createContentWidget())
-        self._pageBar = PageBar(self)
+        self._pageBar = PageBar(parent=self, pagingInfo=self._pagingInfo)
         layout.addWidget(self._pageBar)
 
     def _createContentWidget(self):
         """ Should be implemented in subclasses to build the content widget
         and return it. """
         return None
-
-    def __connectModelSignals(self, model):
-        """ Connect all signals needed from the given model """
-        if model:
-            model.sigPageConfigChanged.connect(self.__onPageConfigChanged)
-            model.sigPageChanged.connect(self.__onPageChanged)
-            self._pageBar.sigPageChanged.connect(self._model.loadPage)
-
-    def __disconnectModelSignals(self, model):
-        """ Connect all signals needed from the given model """
-        if model:
-            model.sigPageConfigChanged.disconnect(self.__onPageConfigChanged)
-            model.sigPageChanged.disconnect(self.__onPageChanged)
-            self._pageBar.sigPageChanged.disconnect(self._model.loadPage)
-
-    @pyqtSlot(int, int, int)
-    def __onPageConfigChanged(self, page, pageCount, pageSize):
-        """ Invoked when the model change his page configuration """
-        self._pageBar.setup(page, 0, pageCount - 1, 1)
-
-    @pyqtSlot(int)
-    def __onPageChanged(self, page):
-        """ Invoked when the model change his current page """
-        self._pageBar.setPage(page)
 
     @pyqtSlot(set)
     def changeSelection(self, selection):
@@ -94,21 +76,6 @@ class PagingView(qtw.QWidget):
         This method must be reimplemented in inherited classes
         """
         pass
-
-    def setModel(self, model):
-        """ Sets the model for the this abstract view """
-        self.__disconnectModelSignals(self._model)
-        self._model = model
-        self.__connectModelSignals(model)
-
-        if model:
-            self.__onPageConfigChanged(model.getPage(), model.getPageCount(),
-                                       model.getPageSize())
-        else:
-            self.__onPageConfigChanged(0, 0, 0)
-
-    def getModel(self):
-        return self._model
 
     def showPageBar(self, visible):
         """ Show or hide the paging bar """
