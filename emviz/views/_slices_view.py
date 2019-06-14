@@ -4,6 +4,7 @@
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSizePolicy)
 
+from emviz.models import EmptySlicesModel
 from emviz.widgets import SpinSlider
 from ._image_view import ImageView
 
@@ -35,6 +36,7 @@ class SlicesView(QWidget):
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
         self._imageViewKwargs = kwargs.get('imageViewKwargs', {})
+        self._imageModel = None
         self.__setupGUI()
 
     def __setupGUI(self):
@@ -64,14 +66,20 @@ class SlicesView(QWidget):
     @pyqtSlot(int)
     def _onSliceChanged(self, value):
         """ Load the slice """
-        imgModel = self._sliceModel.getImageModel(value)
-        if imgModel is not None:
-            self._imageView.setModel(imgModel)
-            if self._viewRect is not None:
-                self._imageView.getView().setRange(rect=self._viewRect,
-                                                   padding=0.0)
+        value -= 1
+        if self._imageModel is None:
+            self._imageModel = self._sliceModel.getImageModel(value)
+            self._imageView.setModel(self._imageModel)
         else:
-            self._imageView.clear()
+            imgData = self._sliceModel.getData(value)
+            if imgData is not None:
+                self._imageModel.setData(imgData)
+                self._imageView.imageModelChanged()
+                if self._viewRect is not None:
+                    self._imageView.getView().setRange(rect=self._viewRect,
+                                                       padding=0.0)
+            else:
+                self._imageView.clear()
 
         self.sigSliceChanged.emit(value)
 
@@ -113,20 +121,30 @@ class SlicesView(QWidget):
         """
         self._spinSlider.setText(text)
 
+    def getText(self):
+        """
+        Returns the label text for the internal slider
+        """
+        return self._spinSlider.getText()
+
     def setModel(self, model):
         """
         Set the data model
         :param model: The model or None for clear the view
         """
         self._sliceModel = model
+        self._imageModel = None
         minValue, maxValue = (1, 1) if self._sliceModel is None else 1, \
             self._sliceModel.getDim()[2]
 
         self._spinSlider.setRange(minValue, maxValue)
         self._currentValue = 1
-        self._spinSlider.setValue(self._currentValue)
+        if self._spinSlider.getValue() == self._currentValue:
+            self._onSliceChanged(self._currentValue)
+        else:
+            self._spinSlider.setValue(self._currentValue)
 
     def clear(self):
         """ Clear the view """
-        self.setModel(None)
+        self.setModel(EmptySlicesModel())
 

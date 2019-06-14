@@ -63,6 +63,27 @@ class TableModel:
         raise Exception("Not implemented")
 
 
+class EmptyTableModel(TableModel):
+    """
+    The EmptyModel represents an empty table model.
+    """
+    def __init__(self):
+        TableModel.__init__(self,
+                            ColumnConfig(name='', dataType=TYPE_STRING,
+                                         **{RENDERABLE: False,
+                                            VISIBLE: False}))
+
+    def getRowsCount(self):
+        return 0
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        return 0
+
+    def getData(self, row, col):
+        return None
+
+
 class ColumnConfig:
     """
     Store properties about the visualization of a given column.

@@ -4,12 +4,12 @@
 import pyqtgraph as pg
 import qtawesome as qta
 from PyQt5.QtCore import Qt, pyqtSlot, QEvent, QLineF
-from PyQt5.QtWidgets import (QWidget, QLabel, QAction, QHBoxLayout, QSplitter,
+from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QTextEdit, QDoubleSpinBox)
 
 from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
-                           createQAction)
+                           TriggerAction)
 
 
 class ImageView(QWidget):
@@ -154,7 +154,7 @@ class ImageView(QWidget):
         # -- Flip --
         toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Flip ', toolbar))
-        self._actHorFlip = createQAction(parent=toolbar, actionName="HFlip",
+        self._actHorFlip = TriggerAction(parent=toolbar, actionName="HFlip",
                                          text="Horizontal Flip",
                                          icon=qta.icon('fa.long-arrow-right',
                                                        'fa.long-arrow-left',
@@ -165,7 +165,7 @@ class ImageView(QWidget):
                                          checkable=True,
                                          slot=self.horizontalFlip)
         toolbar.addAction(self._actHorFlip)
-        self._actVerFlip = createQAction(parent=toolbar, actionName="VFlip",
+        self._actVerFlip = TriggerAction(parent=toolbar, actionName="VFlip",
                                          text="Vertical Flip",
                                          icon=qta.icon('fa.long-arrow-up',
                                                        'fa.long-arrow-down',
@@ -180,11 +180,11 @@ class ImageView(QWidget):
         # --Rotate--
         toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Rotate ', toolbar))
-        act = createQAction(parent=toolbar, actionName="RRight",
+        act = TriggerAction(parent=toolbar, actionName="RRight",
                             text="Rotate Right", faIconName="fa.rotate-right",
                             checkable=False, slot=self.__rotateRight)
         toolbar.addAction(act)
-        act = createQAction(parent=toolbar, actionName="RLeft",
+        act = TriggerAction(parent=toolbar, actionName="RLeft",
                             text="Rotate Left", faIconName="fa.rotate-left",
                             checkable=False, slot=self.__rotateLeft)
         toolbar.addAction(act)
@@ -208,7 +208,7 @@ class ImageView(QWidget):
 
         vLayout.addStretch()
         displayPanel.setFixedHeight(260)
-        actDisplay = createQAction(parent=self._toolBar, actionName="ADisplay",
+        actDisplay = TriggerAction(parent=self._toolBar, actionName="ADisplay",
                                    text='Display', faIconName='fa.adjust')
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
         # --File-Info--
@@ -222,7 +222,7 @@ class ImageView(QWidget):
         vLayout.addWidget(self._textEditPath)
         fileInfoPanel.setMinimumHeight(30)
 
-        actFileInfo = createQAction(parent=self._toolBar, actionName='FInfo',
+        actFileInfo = TriggerAction(parent=self._toolBar, actionName='FInfo',
                                     text='File Info',
                                     faIconName='fa.info-circle')
         self._toolBar.addAction(actFileInfo, fileInfoPanel, exclusive=False)
@@ -405,6 +405,17 @@ class ImageView(QWidget):
             self._imageView.setImage(imageModel.getData(),
                                      autoRange=self._fitToSize)
             self.fitToSize()
+
+    @pyqtSlot()
+    def imageModelChanged(self):
+        """
+        Call this function when the image model has been modified externally.
+        In this case, the ImageView will need to be notified so that the view
+        can be updated.
+        """
+        data = None if self._model is None else self._model.getData()
+        t = self._imageView.imageItem.transform()
+        self._imageView.setImage(data, autoRange=self._fitToSize, transform=t)
 
     @pyqtSlot(int)
     def rotate(self, angle):

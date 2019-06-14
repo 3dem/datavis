@@ -27,7 +27,7 @@ class MultiSliceView(QWidget):
         QWidget.__init__(self, parent=parent)
         self._slicesKwargs = slicesKwargs
         self._slicesDict = {}
-        self._axis = -1
+        self._axis = AXIS_X
         self._slice = -1
         self.__setupGUI()
 
@@ -55,7 +55,8 @@ class MultiSliceView(QWidget):
             model = args['model']
             _, _, n = model.getDim()
             sv = SlicesView(self, model, text=args.get('text', text),
-                            currentValue=args.get('currentValue', int(n/2)),
+                            currentValue=args.get('currentValue',
+                                                  int((n + 1)/2)),
                             imageViewKwargs=dict(defaultImgViewKargs,
                                                  **args.get('imageViewKwargs',
                                                             dict())))
@@ -70,7 +71,10 @@ class MultiSliceView(QWidget):
         """ Called when the slice index is changed in one of the axis. """
         self._axis = axis
         self._slice = value
-        nMax = float(self._slicesDict[axis].getRange()[1])
+        nMax = float(self._slicesDict[axis].getRange()[1] - 1)
+        if nMax == 0:
+            nMax = 1
+        value = nMax - value
         # Convert to 40 scale index that is required by the RenderArea
         renderAreaShift = int(40 * (1 - value / nMax))
         self._renderArea.setShift(axis, renderAreaShift)
@@ -103,10 +107,36 @@ class MultiSliceView(QWidget):
         (If axis is None the last modified axis is used) """
         self._slicesDict[axis or self._axis].setValue(value)
 
+    def getAxis(self):
+        """ Returns the current axis """
+        return self._axis
+
+    def setAxis(self, axis):
+        """
+        Sets the current axis. Updates the axis graphic.
+        :param axis: (int) The axis (AXIS_X or AXIS_Y or AXIS_Z)
+        """
+        if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+            self._axis = axis
+            self._onSliceChanged(axis, self.getValue(axis))
+        else:
+            raise Exception("Invalid axis value: %d" % axis)
+
+    def getText(self, axis):
+        """
+        Returns the label text for the given axis
+        :param axis: (int) The axis. (AXIS_X or AXIS_Y or AXIS_Z)
+        :return:     (str) The label text
+        """
+        if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+            return self._slicesDict[axis].getText()
+
+        raise Exception("Invalid axis: %d" % axis)
+
     def setModel(self, models):
         """
         Set the data models
-        :param model: (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z) for views
+        :param models: (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z) for views
                               or None for clear the view.
         """
         if models:

@@ -91,7 +91,7 @@ class SpinSlider(QWidget):
         """ Return the current value.
         (Same in both the slider and the spinbox).
         """
-        return self._slider.value
+        return self._slider.value()
 
     def setValue(self, value):
         """ Set a new value. """

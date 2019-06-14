@@ -6,30 +6,33 @@ from PyQt5.QtGui import QIcon
 import qtawesome as qta
 
 
-def createQAction(parent, actionName, text="", faIconName=None, icon=None,
+class TriggerAction(QAction):
+    """
+    The TriggerAction class offers an initialization of configuration params
+    not provided by Qt.
+    """
+    def __init__(self, parent, actionName, text="", faIconName=None, icon=None,
                   checkable=False, slot=None):
-    """
-    Creates a QAction with the given name, text and icon. If slot is not None
-    then the signal QAction.triggered is connected to it
-    :param actionName:   (str)The action name
-    :param text:         (str)Action text
-    :param faIconName:   (str)qtawesome icon name
-    :param icon:         (QIcon) used if faIconName=None
-    :param checkable: if this action is checkable
-    :param slot: the slot to connect QAction.triggered signal
-    :return: The QAction
-    """
-    a = QAction(parent)
-    a.setObjectName(str(actionName))
-    if faIconName:
-        icon = qta.icon(faIconName)
-    a.setIcon(icon)
-    a.setCheckable(checkable)
-    a.setText(str(text))
+        """
+        Creates a TriggerAction with the given name, text and icon. If slot is
+        not None then the signal QAction.triggered is connected to it.
+        :param actionName:   (str)The action name
+        :param text:         (str)Action text
+        :param faIconName:   (str)qtawesome icon name
+        :param icon:         (QIcon) used if faIconName=None
+        :param checkable:    (bool)if this action is checkable
+        :param slot:         (slot) the slot to connect QAction.triggered signal
+        """
+        QAction.__init__(self, parent)
+        self.setObjectName(str(actionName))
+        if faIconName:
+            icon = qta.icon(faIconName)
+        self.setIcon(icon)
+        self.setCheckable(checkable)
+        self.setText(str(text))
 
-    if slot:
-        a.triggered.connect(slot)
-    return a
+        if slot:
+            self.triggered.connect(slot)
 
 
 def createQPixmap(iconName, size):

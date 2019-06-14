@@ -5,7 +5,8 @@ import em
 import emviz.models
 from emviz.models import VISIBLE, EDITABLE, DESCRIPTION
 from .functions import EmTable
-from ._emtable_model import EmTableModel, EmStackModel, TYPE_MAP
+from ._emtable_model import (EmTableModel, EmSlicesModel, EmStackModel,
+                             EmVolumeModel, TYPE_MAP)
 
 
 class ModelsFactory:
@@ -36,9 +37,24 @@ class ModelsFactory:
         """
         Creates an TableModel reading stack from the given path
         :param path: (str) The stack path
-        :param load: (bool) If True, then the image data will be loaded
         """
-        return EmStackModel(path=path)
+        return EmStackModel(slicesModel=cls.createSlicesModel(path))
+
+    @classmethod
+    def createSlicesModel(cls, path):
+        """
+        Creates an SlicesModel reading slices from the given path
+        :param path: (str) The image path
+        """
+        return EmSlicesModel(path)
+
+    @classmethod
+    def createVolumeModel(cls, path):
+        """
+        Creates an VolumeModel reading image datas from the given path
+        :param path: (str) The volume path
+        """
+        return EmVolumeModel(path)
 
     @classmethod
     def createTableConfig(cls, table, *cols):
@@ -47,7 +63,7 @@ class ModelsFactory:
         This function allows users to specify the minimum of properties
         and create the config from that.
         :param table: input em.Table that will be visualized
-        :param colsConfig: list of elements to specify the values for each
+        :param cols: list of elements to specify the values for each
             ColumnConfig. Each element could be either
             a single string (the column name) or a tuple (column name and
             a dict with properties). If only the column name is provided,

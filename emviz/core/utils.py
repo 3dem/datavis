@@ -3,17 +3,9 @@
 
 import os
 
-import em
 from emviz.models import Coordinate, Micrograph, PickerDataModel
-from emviz.views import (ImageView, SlicesView, VolumeView, DataView,
-                         TablePageItemModel)
-from .functions import EmPath
-from ._image_manager import ImageManager
 
 MOVIE_SIZE = 1000
-
-
-
 
 
 # FIXME: Check if this classes is needed?

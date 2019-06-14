@@ -96,23 +96,13 @@ class EmSlicesModel(emviz.models.SlicesModel):
             image = em.Image()
 
             if dim.z > 1:
-                raise Exception("No valid image type: Volume. Current dim=%s" % dim)
+                raise Exception("No valid image type: Volume.")
             self._data = []
             self._dim = dim.x, dim.y, dim.n
             for i in range(1, dim.n + 1):
                 imgio.read(i, image)
                 self._data.append(np.array(image, copy=True))
             imgio.close()
-
-    def getData(self, i):
-        """ Return a 2D array of the slice data. i should be in (1, n). """
-        if not 0 < i <= self._dim[2]:
-            raise Exception("Index should be between 1 and %d" % self._dim[2])
-
-        if self._data is not None:
-            return self._data[i - 1]
-
-        raise Exception("Not implemented yet.")
 
     def getLocation(self):
         """ Returns the image location(the image path). """
@@ -124,22 +114,25 @@ class EmSlicesModel(emviz.models.SlicesModel):
         return emviz.models.ImageModel(data=self.getData(i), location=loc)
 
 
-class EmStackModel(EmSlicesModel, emviz.models.TableModel):
+class EmStackModel(emviz.models.TableModel):
     """
     The EmStackModel class provides the basic functionality for image stack.
+    The following methods are wrapped directly from SlicesModel:
+        - getDim
+        - getData
+        - getLocation
+        - getImageModel
     """
     def __init__(self, **kwargs):
         """
         Constructs an EmStackModel.
         Note that you can specify the path and/or image data.
         :param kwargs:
-         - path        : (str) The image path.
-         - data        : (numpy array) The image data.
+         - slicesModel : (SlicesModel) The SlicesModel from which this
+                         EmStackModel will be created.
          - col         : (emviz.models.ColumnConfig) The config for image column
                          if col is None, then 'Image' will be used.
         """
-        EmSlicesModel.__init__(self, path=kwargs.get('path'),
-                               data=kwargs.get('data'))
         pk = emviz.models
         emviz.models.TableModel.__init__(
             self,
@@ -148,15 +141,38 @@ class EmStackModel(EmSlicesModel, emviz.models.TableModel):
                                        dataType=pk.TYPE_STRING,
                                        **{pk.RENDERABLE: True,
                                           pk.VISIBLE: True})))
+        self._slicesModel = kwargs['slicesModel']  # mandatory
+
+    def getDim(self):
+        """
+        Wrapper for internal SlicesModel
+        :return: SlicesModel.getDim()
+        """
+        return self._slicesModel.getDim()
+
+    def getLocation(self):
+        """
+        Wrapper for internal SlicesModel
+        :return: SlicesModel.getLocation()
+        """
+        return self._slicesModel.getLocation()
+
+    def getImageModel(self, i):
+        """
+        Wrapper for internal SlicesModel
+        :return: SlicesModel.getImageModel()
+        """
+        return self._slicesModel.getImageModel(i)
 
     def getRowsCount(self):
         """ Return the number of rows. """
-        return self._dim[2]
+        return self._slicesModel.getDim()[2]
 
     def getValue(self, row, col):
         """ Return the value of the item in this row, column. """
-        if not 0 <= row < self._dim[2]:
-            raise Exception("Index should be between 0 - %d" % self._dim[2] - 1)
+        _, _, n = self._slicesModel.getDim()
+        if not 0 <= row < n:
+            raise Exception("Index should be between 0 - %d" % n - 1)
         return str(row + 1) if self._path is None else "%d@%s" % (row + 1,
                                                                   self._path)
 
@@ -164,4 +180,41 @@ class EmStackModel(EmSlicesModel, emviz.models.TableModel):
         """ Return the data (array like) for the item in this row, column.
          Used by rendering of images in a given cell of the table.
         """
-        return EmSlicesModel.getData(self, row + 1)
+        return self._slicesModel.getData(row)
+
+
+class EmVolumeModel(emviz.models.VolumeModel):
+    """
+    The EmVolumeModel class provides the basic functionality for image volume
+    """
+    def __init__(self, path, data=None):
+        """
+        Constructs an EmVolumeModel.
+        :param path: (str) The volume path
+        :param data: (numpy array) The volume data
+        """
+        self._path = path
+        if data is None:
+            imgio = em.ImageIO()
+            imgio.open(path, em.File.READ_ONLY)
+            dim = imgio.getDim()
+            image = em.Image()
+
+            if dim.z <= 1:
+                raise Exception("No valid image type.")
+            imgio.read(1, image)
+            data = np.array(image, copy=True)
+            imgio.close()
+
+        emviz.models.VolumeModel.__init__(self, data)
+
+    def getSlicesModel(self, axis):
+        """
+        Creates an SlicesModel for the given axis.
+        :param axis:  (int) axis should be AXIS_X, AXIS_Y or AXIS_Z
+        :return:      (SlicesModel)
+        """
+        sModel = emviz.models.VolumeModel.getSlicesModel(self, axis)
+        if sModel is None:
+            return None
+        return EmStackModel(slicesModel=sModel)

@@ -1,5 +1,6 @@
 
 import PyQt5.QtCore as qtc
+from PyQt5.QtCore import Qt
 import PyQt5.QtWidgets as qtw
 
 

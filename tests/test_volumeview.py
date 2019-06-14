@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 import em
 from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, SlicesModel
 from emviz.views import VolumeView
+from emviz.core import EmVolumeModel
 
 
 if len(sys.argv) > 1:
@@ -26,7 +27,6 @@ else:
                            "BPV_scale_filtered_windowed_110.vol")
 
 app = QApplication(sys.argv)
-
 
 imgio = em.ImageIO()
 imgio.open(imgPath, em.File.READ_ONLY)
@@ -68,12 +68,9 @@ class AxisSlicesModel(SlicesModel):
             return self._dim[1], self._dim[2], self._dim[0]
 
 
-v = VolumeView(None,
-               slicesKwargs={
-                   AXIS_X: {'model': AxisSlicesModel(AXIS_X, data)},
-                   AXIS_Y: {'model': AxisSlicesModel(AXIS_Y, data)},
-                   AXIS_Z: {'model': AxisSlicesModel(AXIS_Z, data)}
-               })
+volModel = EmVolumeModel(imgPath, data)
+
+v = VolumeView(None, model=volModel)
 
 
 # Create window with ImageView widget

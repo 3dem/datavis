@@ -57,7 +57,7 @@ class EmSlicesModel(SlicesModel):
                 self._data.append(np.array(image, copy=True))
         imgio.close()
 
-
+imgPath = '/media/pedro/Data/Work/Project/Repo/test-data/relion_it025_classes.mrcs'
 slicesModel = EmSlicesModel(imgPath)
 
 

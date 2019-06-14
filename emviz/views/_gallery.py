@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
 from emviz.widgets import EMImageItemDelegate, PagingInfo
-from emviz.models import RENDERABLE, VISIBLE
+from emviz.models import RENDERABLE
 from ._paging_view import PagingView
 from .model import TablePageItemModel
 
@@ -229,8 +229,8 @@ class GalleryView(PagingView):
         self._model = model
         self._pagingInfo.numberOfItems = model.getRowsCount()
         rows, cols = self.__calcPageSize()
-        self._pagingInfo.pageSize = rows * cols
-        self._pagingInfo.currentPage = 1
+        self._pagingInfo.setPageSize(rows * cols)
+        self._pagingInfo.setCurrentPage(1)
         self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
                                                  tableConfig=displayConfig,
                                                  parent=self)
@@ -248,6 +248,10 @@ class GalleryView(PagingView):
         #self.setLabelIndexes(
         #    [i for i, c in config.iterColumns(**{VISIBLE: True})])
         self.updateViewConfiguration()
+
+    def getModel(self):
+        """ Returns the current model """
+        return self._model
 
     def resetView(self):
         """

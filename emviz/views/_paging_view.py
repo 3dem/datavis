@@ -1,11 +1,11 @@
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
-import PyQt5.QtWidgets as QtW
+import PyQt5.QtWidgets as qtw
 
 from emviz.widgets import PageBar
 
 
-class PagingView(QtW.QWidget):
+class PagingView(qtw.QWidget):
     """
     Base class that contains paging logic and incorporates the
     paging widgets. It will also emit signals related to the modification
@@ -51,13 +51,13 @@ class PagingView(QtW.QWidget):
         :param kwargs:
             pagingInfo:     (PagingInfo) The initial paging configuration
         """
-        QtW.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=parent)
         self._pagingInfo = kwargs['pagingInfo']
         self._selectionMode = PagingView.NO_SELECTION
         self.__setupGUI()
 
     def __setupGUI(self):
-        layout = QtW.QVBoxLayout(self)
+        layout = qtw.QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(1, 1, 1, 1)
         layout.addWidget(self._createContentWidget())

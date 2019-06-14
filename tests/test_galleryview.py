@@ -8,7 +8,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from emviz.core import ModelsFactory
 from emviz.views import GalleryView
-from emviz.models import RENDERABLE, VISIBLE
 
 if len(sys.argv) > 1:
     imagePath = sys.argv[1]

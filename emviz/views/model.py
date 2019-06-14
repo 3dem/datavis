@@ -48,11 +48,11 @@ class TablePageItemModel(QAbstractItemModel):
         if role == self.DataRole:
             return self._model.getData(row, col)
 
-        t = self._displayConfig[col].getType()
-
         data = self._model.getValue(row, col)
         if data is None:
             return None
+
+        t = self._displayConfig[col].getType()
 
         if t == TYPE_STRING:
             return str(data)
