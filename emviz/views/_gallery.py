@@ -310,7 +310,6 @@ class GalleryView(PagingView):
         """ Selects the given row """
         if 0 <= row < self._pagingInfo.numberOfItems:
             page = self.__getPage(row) + 1
-            self._currentRow = row
             if not page == self._pagingInfo.currentPage:
                 self._pageBar.setCurrentPage(page)
 
@@ -318,8 +317,9 @@ class GalleryView(PagingView):
                 self._selection.clear()
                 self._selection.add(row)
 
-            self.sigCurrentRowChanged.emit(row)
+            self._currentRow = row
             self.__updateSelectionInView(page - 1)
+            self.sigCurrentRowChanged.emit(row)
 
     def getCurrentRow(self):
         """ Returns the current selected row """

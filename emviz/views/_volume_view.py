@@ -113,6 +113,7 @@ class VolumeView(qtw.QWidget):
         slicesKwargs[AXIS_Y] = {'model': model}
         slicesKwargs[AXIS_Z] = {'model': model}
         self._multiSlicesView = MultiSliceView(self, slicesKwargs)
+        self._multiSlicesView.sigAxisChanged.connect(self.__updateAxis)
         self._stackedLayoud.addWidget(self._multiSlicesView)
         model = EmptyTableModel()
         self._galleryView = GalleryView(parent=self, model=model,
@@ -126,7 +127,7 @@ class VolumeView(qtw.QWidget):
         """
         Configure the elements in combobox currentVolume for user selection.
         """
-        blocked = self._comboBoxCurrentAxis.blockSignals(True)
+        self._comboBoxCurrentAxis.blockSignals(True)
         model = self._comboBoxCurrentAxis.model()
         if not model:
             model = QStandardItemModel(self._comboBoxCurrentVolume)
@@ -138,7 +139,18 @@ class VolumeView(qtw.QWidget):
             item.setData(axis, Qt.UserRole)  # use UserRole for store
             model.appendRow([item])
 
-        self._comboBoxCurrentAxis.blockSignals(blocked)
+        self._comboBoxCurrentAxis.blockSignals(False)
+
+    @pyqtSlot(int)
+    def __updateAxis(self, axis):
+        """
+        Update the widget used to show the axis
+        :param axis: (int) The axis (AXIS_X, AXIS_Y or AXIS_Z)
+        """
+        self._comboBoxCurrentAxis.blockSignals(True)
+        self._comboBoxCurrentAxis.setCurrentIndex(
+            [AXIS_X, AXIS_Y, AXIS_Z].index(axis))
+        self._comboBoxCurrentAxis.blockSignals(False)
 
     @pyqtSlot()
     def _onChangeCellSize(self):
@@ -158,19 +170,22 @@ class VolumeView(qtw.QWidget):
     @pyqtSlot(int)
     def _onGalleryRowChanged(self, row):
         """ Invoked when change the current gallery row """
-        self._multiSlicesView.setValue(row + 1)
+        axis = self._comboBoxCurrentAxis.currentData(Qt.UserRole)
+        self._multiSlicesView.setValue(row + 1, axis)
 
     @pyqtSlot(bool)
     def _onGalleryViewTriggered(self, checked):
         """ Triggered function for gallery view action """
         if checked:
-            self._stackedLayoud.setCurrentWidget(self._galleryView)
             axis = self._multiSlicesView.getAxis()
             model = self._slicesModels[axis]
+            row = self._multiSlicesView.getValue() - 1
+            self._stackedLayoud.setCurrentWidget(self._galleryView)
             if not model == self._galleryView.getModel():
                 self._galleryView.setModel(model)
-            self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)
+            self._galleryView.selectRow(row)
         self._aSlices.setChecked(not checked)
+        self.__updateAxis(axis)
 
     @pyqtSlot(int)
     def _onAxisChanged(self, index):

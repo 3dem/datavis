@@ -18,6 +18,9 @@ class MultiSliceView(QWidget):
     # Signal for current slice changed(axis, slice)
     sigSliceChanged = pyqtSignal(int, int)
 
+    # Signal for current axis changed(axis)
+    sigAxisChanged = pyqtSignal(int)
+
     def __init__(self, parent, slicesKwargs):
         """
         parent:       (QWidget) Parent QWidget
@@ -69,6 +72,7 @@ class MultiSliceView(QWidget):
 
     def _onSliceChanged(self, axis, value):
         """ Called when the slice index is changed in one of the axis. """
+        e = not self._axis == axis
         self._axis = axis
         self._slice = value
         nMax = float(self._slicesDict[axis].getRange()[1] - 1)
@@ -78,7 +82,10 @@ class MultiSliceView(QWidget):
         # Convert to 40 scale index that is required by the RenderArea
         renderAreaShift = int(40 * (1 - value / nMax))
         self._renderArea.setShift(axis, renderAreaShift)
+        if e:
+            self.sigAxisChanged.emit(self._axis)
         self.sigSliceChanged.emit(axis, value)
+
 
     @pyqtSlot(int)
     def _onSliceYChanged(self, value):
@@ -117,7 +124,10 @@ class MultiSliceView(QWidget):
         :param axis: (int) The axis (AXIS_X or AXIS_Y or AXIS_Z)
         """
         if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+            e = not self._axis == axis
             self._axis = axis
+            if e:
+                self.sigAxisChanged.emit(self._axis)
             self._onSliceChanged(axis, self.getValue(axis))
         else:
             raise Exception("Invalid axis value: %d" % axis)
