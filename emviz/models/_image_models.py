@@ -134,14 +134,13 @@ class VolumeModel:
         if self._data is None:
             return None
 
-        dz, dy, dx = self._data.shape
-
+        z, y, x = (0, 1, 2)
         if axis == AXIS_Z:
-            data = np.reshape(self._data, (dz, dy, dx))
+            data = self._data
         elif axis == AXIS_Y:
-            data = np.reshape(self._data, (dy, dx, dz))
+            data = np.transpose(self._data, (y, x, z))
         elif axis == AXIS_X:
-            data = np.reshape(self._data, (dx, dz, dy))
+            data = np.transpose(self._data, (x, z, y))
         else:
             raise Exception("Axis should be AXIS_X, AXIS_Y or AXIS_Z")
 
