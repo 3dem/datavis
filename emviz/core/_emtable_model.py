@@ -173,8 +173,8 @@ class EmStackModel(emviz.models.TableModel):
         _, _, n = self._slicesModel.getDim()
         if not 0 <= row < n:
             raise Exception("Index should be between 0 - %d" % n - 1)
-        return str(row + 1) if self._path is None else "%d@%s" % (row + 1,
-                                                                  self._path)
+        loc = self._slicesModel.getLocation()
+        return str(row + 1) if loc is None else "%d@%s" % (row + 1, loc)
 
     def getData(self, row, col=0):
         """ Return the data (array like) for the item in this row, column.

@@ -47,13 +47,16 @@ class PagingView(qtw.QWidget):
     def __init__(self, parent=None, **kwargs):
         """
         Constructor
-        :param parent:  (QWidget) The parent widget
+        :param parent:      (QWidget) The parent widget
         :param kwargs:
             pagingInfo:     (PagingInfo) The initial paging configuration
+            selectionMode:  (int) The selection mode: SINGLE_SELECTION,
+                            EXTENDED_SELECTION, MULTI_SELECTION or NO_SELECTION
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._pagingInfo = kwargs['pagingInfo']
-        self._selectionMode = PagingView.NO_SELECTION
+        self._selectionMode = kwargs.get('selectionMode',
+                                         PagingView.NO_SELECTION)
         self.__setupGUI()
 
     def __setupGUI(self):

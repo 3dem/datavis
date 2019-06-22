@@ -29,7 +29,7 @@ class TableModel:
         Example to check if there is a column renderable:
             hasColumn(renderable=True)
         """
-        return any(c.check(props) for c in self._cols)
+        return any(c.check(**props) for c in self._cols)
 
     def getColumn(self, col):
         """

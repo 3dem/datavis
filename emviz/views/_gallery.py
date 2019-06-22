@@ -27,7 +27,7 @@ class GalleryView(PagingView):
         """
         Constructs an GalleryView.
         kwargs:
-         model:             The data model
+            model:          The data model
             displayConfig:  Input TableModel that will control how the data
                             fetched from the TableModel will be displayed.
                             displayConfig can be None, in which case the model

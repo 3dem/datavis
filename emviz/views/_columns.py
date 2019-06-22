@@ -144,36 +144,6 @@ class ColumnsView(PagingView):
                     delegate = self._delegate
                 self._tableView.setItemDelegateForColumn(i, delegate)
 
-    def setupVisibleColumns(self):
-        """
-        Hide the columns with visible property=True
-        """
-        for i, colConfig in self._model.iterColumns():
-            if not colConfig[VISIBLE]:
-                self._tableView.hideColumn(i)
-            else:
-                self._tableView.showColumn(i)
-
-    def setupColumnsWidth(self):
-        """  """
-        self._tableView.horizontalHeader().setStretchLastSection(True)
-        self._tableView.resizeColumnsToContents()
-        #print("calc: ", self._tableView.horizontalScrollBar().maximum())
-        #if self._model is not None:
-        #    if self._tableView.horizontalScrollBar().maximum() > 0:
-        #        option = QStyleOptionViewItem()
-        #       for col in range(0, self._model.columnCount()):
-        #            delegate = self._tableView.itemDelegateForColumn(0)
-        #            w = 0
-        #            for row in range(0, self._model.rowCount()):
-        #                s = delegate.sizeHint(option,
-        #                                      self._model.createIndex(row, col))
-        #                rw = s.width() + 3
-        #                w = max(rw, w)
-        #            self._tableView.setColumnWidth(
-        #                col,
-        #                min(w, self._tableView.columnWidth(col), 80))
-
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
         if self._model is not None:
@@ -261,12 +231,6 @@ class ColumnsView(PagingView):
             vHeader.setFixedWidth(w)
             vHeader.geometriesChanged.emit()
 
-    @pyqtSlot(set)
-    def changeSelection(self, selection):
-        """ Invoked when the selection is changed """
-        self._selection = selection
-        self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
-
     @pyqtSlot(QItemSelection, QItemSelection)
     def __onInternalSelectionChanged(self, selected, deselected):
         """ Invoked when the internal selection is changed """
@@ -285,6 +249,42 @@ class ColumnsView(PagingView):
                 self._selection.discard(row)
 
         self.sigSelectionChanged.emit()
+
+    @pyqtSlot(set)
+    def changeSelection(self, selection):
+        """ Invoked when the selection is changed """
+        self._selection = selection
+        self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
+
+    def setupVisibleColumns(self):
+        """
+        Hide the columns with visible property=True
+        """
+        for i, colConfig in self._model.iterColumns():
+            if not colConfig[VISIBLE]:
+                self._tableView.hideColumn(i)
+            else:
+                self._tableView.showColumn(i)
+
+    def setupColumnsWidth(self):
+        """  """
+        self._tableView.horizontalHeader().setStretchLastSection(True)
+        self._tableView.resizeColumnsToContents()
+        #print("calc: ", self._tableView.horizontalScrollBar().maximum())
+        #if self._model is not None:
+        #    if self._tableView.horizontalScrollBar().maximum() > 0:
+        #        option = QStyleOptionViewItem()
+        #       for col in range(0, self._model.columnCount()):
+        #            delegate = self._tableView.itemDelegateForColumn(0)
+        #            w = 0
+        #            for row in range(0, self._model.rowCount()):
+        #                s = delegate.sizeHint(option,
+        #                                      self._model.createIndex(row, col))
+        #                rw = s.width() + 3
+        #                w = max(rw, w)
+        #            self._tableView.setColumnWidth(
+        #                col,
+        #                min(w, self._tableView.columnWidth(col), 80))
 
     def updateViewConfiguration(self):
         """ Reimplementing from PagingView.
