@@ -28,7 +28,8 @@ else:
 app = QApplication(sys.argv)
 model = ModelsFactory.createStackModel(imagePath)
 
-itemsView = ItemsView(parent=None, model=model, selectionMode=ItemsView.MULTI_SELECTION)
+itemsView = ItemsView(parent=None, model=model,
+                      selectionMode=ItemsView.MULTI_SELECTION)
 # Create window with ItemsView widget
 win = QMainWindow()
 win.setCentralWidget(itemsView)

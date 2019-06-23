@@ -9,7 +9,7 @@ from PyQt5 import QtCore
 
 from ._paging_view import PagingView
 from emviz.widgets import PagingInfo
-from emviz.models import RENDERABLE, VISIBLE, ImageModel
+from emviz.models import RENDERABLE, VISIBLE, ImageModel, EmptyTableModel
 from ._image_view import ImageView
 from .model import TablePageItemModel
 
@@ -177,6 +177,16 @@ class ItemsView(PagingView):
     def currentRow(self):
         """ Returns the current selected row """
         return -1 if self._model is None else self._row
+
+    def getDisplayConfig(self):
+        """ Returns the display configuration """
+        if self._pageItemModel is not None:
+            return self._pageItemModel.getDisplayConfig()
+        return None
+
+    def clear(self):
+        """ Clear the view """
+        self.setModel(EmptyTableModel())
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """

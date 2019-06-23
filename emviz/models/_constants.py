@@ -24,3 +24,10 @@ DESCRIPTION = 'description'
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
+
+# view types
+COLUMNS = 1
+GALLERY = 2
+ITEMS = 4
+SLICES = 8
+

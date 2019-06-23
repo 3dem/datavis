@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
 from emviz.widgets import EMImageItemDelegate, PagingInfo
-from emviz.models import RENDERABLE
+from emviz.models import RENDERABLE, EmptyTableModel
 from ._paging_view import PagingView
 from .model import TablePageItemModel
 
@@ -252,6 +252,16 @@ class GalleryView(PagingView):
     def getModel(self):
         """ Returns the current model """
         return self._model
+
+    def getDisplayConfig(self):
+        """ Returns the display configuration """
+        if self._pageItemModel is not None:
+            return self._pageItemModel.getDisplayConfig()
+        return None
+
+    def clear(self):
+        """ Clear the view """
+        self.setModel(EmptyTableModel())
 
     def resetView(self):
         """

@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
 from emviz.widgets import EMImageItemDelegate, PagingInfo
-from emviz.models import VISIBLE, RENDERABLE
+from emviz.models import VISIBLE, RENDERABLE,EmptyTableModel
 from ._paging_view import PagingView
 from .model import TablePageItemModel
 
@@ -330,11 +330,21 @@ class ColumnsView(PagingView):
         self._pageItemModel.setIconSize(QSize(s, s))
         self.setupColumnsWidth()
 
+    def clear(self):
+        """ Clear the view """
+        self.setModel(EmptyTableModel())
+
     def resetView(self):
         """ Reset the internal state of the view. """
         self._tableView.reset()
         if self._selection:
             self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
+
+    def getDisplayConfig(self):
+        """ Returns the display configuration """
+        if self._pageItemModel is not None:
+            return self._pageItemModel.getDisplayConfig()
+        return None
 
     def setRowHeight(self, height):
         """

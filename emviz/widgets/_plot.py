@@ -1,6 +1,7 @@
 
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 import PyQt5.QtWidgets as qtw
+from PyQt5.QtGui import QIntValidator, QColor
 import qtawesome as qta
 
 from ._delegates import (ColorItemDelegate, ComboBoxStyleItemDelegate,
@@ -95,13 +96,13 @@ class PlotConfigWidget(qtw.QWidget):
         self._labelBins.setVisible(False)
         self._lineEditBins.setVisible(False)
         self._lineEditBins.setFixedWidth(80)
-        self._lineEditBins.setValidator(qtw.QIntValidator())
-        formLayout.setWidget(5, qtw.QFormLayout.LabelRole, qtw.QLabel(text='X Axis: ',
-                                                              parent=self))
+        self._lineEditBins.setValidator(QIntValidator())
+        formLayout.setWidget(5, qtw.QFormLayout.LabelRole,
+                             qtw.QLabel(text='X Axis: ', parent=self))
         self._comboBoxXaxis = qtw.QComboBox(parent=self)
         self._comboBoxXaxis.currentIndexChanged.connect(
             self.__onCurrentXaxisChanged)
-        formLayout.setWidget(5, qtw.qtw.QFormLayout.FieldRole, self._comboBoxXaxis)
+        formLayout.setWidget(5, qtw.QFormLayout.FieldRole, self._comboBoxXaxis)
         vLayout.addLayout(formLayout)
         label = qtw.QLabel(parent=self,
                        text="<strong>Plot columns:</strong>")
@@ -148,7 +149,7 @@ class PlotConfigWidget(qtw.QWidget):
             itemPlot.setCheckState(Qt.Unchecked)
             itemColor = qtw.QTableWidgetItem("")  # for color option
             itemColor.setData(Qt.BackgroundRole,
-                              qtw.QColor(self.__colors[i % nColors]))
+                              QColor(self.__colors[i % nColors]))
             itemLineStye = qtw.QTableWidgetItem("")  # for line style option
             itemLineStye.setData(Qt.DisplayRole,
                                  self.__styles[0].capitalize())

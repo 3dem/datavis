@@ -14,9 +14,11 @@ from PyQt5.QtGui import (QIcon, QStandardItemModel, QStandardItem, QKeySequence)
 import qtawesome as qta
 
 
-from emviz.models import TableModel, AXIS_X, AXIS_Y, AXIS_Z
+from emviz.models import (TableModel, AXIS_X, AXIS_Y, AXIS_Z, PIXEL_UNITS,
+                          RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO,
+                          COLUMNS, GALLERY, ITEMS, SLICES)
 from emviz.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
-                           PlotConfigWidget)
+                           PlotConfigWidget, TriggerAction)
 
 from .model import TablePageItemModel, VolumeDataModel
 from ._columns import ColumnsView
@@ -25,8 +27,6 @@ from ._items import ItemsView
 from ._paging_view import PagingView
 
 
-PIXEL_UNITS = 1
-PERCENT_UNITS = 2
 SCIPION_HOME = 'SCIPION_HOME'
 
 
@@ -34,10 +34,6 @@ class DataView(QWidget):
     """
     Widget used for display em data
     """
-    COLUMNS = 1
-    GALLERY = 2
-    ITEMS = 4
-    SLICES = 8
 
     """ This signal is emitted when the current item is changed """
     sigCurrentItemChanged = pyqtSignal(int, int)
@@ -48,38 +44,46 @@ class DataView(QWidget):
     """ This signal is emitted when the current row is changed """
     sigCurrentRowChanged = pyqtSignal(int)
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent=None, **kwargs):
+        """
+        Constructs a DataView.
+        :param parent:       (QWidget) Parent widget
+        :param kwargs:
+             model:          (TableModel) The data model
+             selectionMode:  (int) SINGLE_SELECTION(default),EXTENDED_SELECTION,
+                             MULTI_SELECTION or NO_SELECTION
+        """
         QWidget.__init__(self, parent=parent)
 
-        self._viewActions = {self.COLUMNS: {"name": "Columns",
-                                            "icon": "fa.table",
-                                            "action": None,
-                                            "view": None},
-                             self.GALLERY: {"name": "Gallery",
-                                            "icon": "fa.th",
-                                            "action": None,
-                                            "view": None},
-                             self.ITEMS: {"name": "Items",
-                                          "icon": "fa.columns",
-                                          "action": None,
-                                          "view": None}}
-        self._viewTypes = {"Columns": self.COLUMNS,
-                           "Gallery": self.GALLERY,
-                           "Items": self.ITEMS}
+        self._viewActions = {COLUMNS: {"name": "Columns",
+                                       "icon": "fa.table",
+                                       "action": None,
+                                       "view": None},
+                             GALLERY: {"name": "Gallery",
+                                       "icon": "fa.th",
+                                       "action": None,
+                                       "view": None},
+                             ITEMS: {"name": "Items",
+                                     "icon": "fa.columns",
+                                     "action": None,
+                                     "view": None}}
+        self._viewTypes = {"Columns": COLUMNS,
+                           "Gallery": GALLERY,
+                           "Items": ITEMS}
         self.__toolTip = dict()
-        self.__toolTip[self.COLUMNS] = {
+        self.__toolTip[COLUMNS] = {
             'visibleChecked': 'Hide this column',
             'visibleUnchecked': 'Show this column',
             'renderChecked': 'Do not render this column',
             'renderUnchecked': 'Render this column'
         }
-        self.__toolTip[self.GALLERY] = {
+        self.__toolTip[GALLERY] = {
             'visibleChecked': 'Hide this label',
             'visibleUnchecked': 'Show this label',
             'renderChecked': '',
             'renderUnchecked': 'Show this column'
         }
-        self.__toolTip[self.ITEMS] = {
+        self.__toolTip[ITEMS] = {
             'visibleChecked': 'Hide this label',
             'visibleUnchecked': 'Show this label',
             'renderChecked': '',
@@ -89,22 +93,18 @@ class DataView(QWidget):
         self._view = None
         self._model = None
         self._currentRow = 0  # selected table row
-        # FIXME: The following import is here because it cause a cyclic dependency
-        # FIXME: we should remove the use of ImageManager and  ImageRef or find another way
-        # FIXME: Check if we want ImageManager or other data model here
-        from emviz.core import ImageManager
-        self._imageManager = kwargs.get('imageManager') or ImageManager(50)
         self._selection = set()
         self._selectionMode = PagingView.NO_SELECTION
         self._tablePref = dict()
         self.__initProperties(**kwargs)
-        self.__setupUi(**kwargs)
+        self.__setupGUI(**kwargs)
         self.__setupCurrentViewMode()
         self.__setupActions()
         self.setSelectionMode(self._selectionMode)
+        self.setModel(kwargs['model'])
 
-    def __setupUi(self, **kwargs):
-
+    def __setupGUI(self, **kwargs):
+        """ This is the standard method for the GUI creation """
         self._mainLayout = QVBoxLayout(self)
         self._mainContainer = QWidget(self)
         self._mainContainerLayout = QVBoxLayout(self._mainContainer)
@@ -125,10 +125,7 @@ class DataView(QWidget):
         self._splitter.addWidget(self._mainContainer)
         # selection panel
         self._selectionMenu = QMenu(self)
-        self._selectionPanel = self._toolBarLeft.createPanel()
-        self._selectionPanel.setObjectName('selectionPanel')
-        self._selectionPanel.setStyleSheet(
-            'QWidget#selectionPanel{border-left: 1px solid lightgray;}')
+        self._selectionPanel = self._toolBarLeft.createPanel('selectionPanel')
         self._selectionPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
@@ -138,11 +135,17 @@ class DataView(QWidget):
         self._labelSelectionInfo = QLabel('Selected: 0', self._selectionPanel)
 
         def _addActionButton(text, icon, onTriggeredFunc):
-            a = QAction(None)
-            a.setText(text)
-            a.setIcon(icon)
-            a.triggered.connect(onTriggeredFunc)
-            self._selectionMenu.addAction(a)
+            """
+            Add an TriggerAction to the selection menu, and a QPushButton to the
+            selection panel
+            :param text:            (str) the action text
+            :param icon:            (QIcon) the action icon
+            :param onTriggeredFunc: Triggered function for the created action
+            :return:                (TriggerAction, QPushButton)
+            """
+            act = TriggerAction(parent=None, actionName=text, text=text,
+                                icon=icon, slot=onTriggeredFunc)
+            self._selectionMenu.addAction(act)
             self._selectionMenu.addSeparator()
             b = QPushButton(icon, text, self._selectionPanel)
             b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
@@ -150,7 +153,7 @@ class DataView(QWidget):
             b.clicked.connect(onTriggeredFunc)
             b.setStyleSheet("text-align:left")
             vLayout.addWidget(b, Qt.AlignLeft)
-            return a, b
+            return act, b
 
         selectAllIcon = qta.icon('fa.chevron-up', 'fa.chevron-down',
                                  options=[{'offset': (0, -0.3),
@@ -181,16 +184,13 @@ class DataView(QWidget):
         self._selectionPanel.setFixedHeight(
             vLayout.sizeHint().height() + self._labelSelectionInfo.height() * 3)
 
-        self._actSelections = QAction(None)
-        self._actSelections.setIcon(qta.icon('fa.check-circle'))
-        self._actSelections.setText('Selection')
+        self._actSelections = TriggerAction(parent=None, actionName="ASelect",
+                                            text='Selection',
+                                            faIconName='fa.check-circle')
         self._toolBarLeft.addAction(self._actSelections, self._selectionPanel,
                                     exclusive=False)
 
-        self._columnsPanel = self._toolBarLeft.createPanel()
-        self._columnsPanel.setObjectName('columnsPanel')
-        self._columnsPanel.setStyleSheet(
-            'QWidget#columnsPanel{border-left: 1px solid lightgray;}')
+        self._columnsPanel = self._toolBarLeft.createPanel('columnsPanel')
         self._columnsPanel.setSizePolicy(QSizePolicy.Ignored,
                                          QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._columnsPanel)
@@ -225,16 +225,12 @@ class DataView(QWidget):
                                           unCheckedIcon.pixmap(16).toImage()))
         vLayout.addWidget(self._tableColumnProp)
         self._columnsPanel.setMinimumHeight(vLayout.sizeHint().height())
-        self._actColumns = QAction(None)
-        self._actColumns.setIcon(qta.icon('fa5s.th'))
-        self._actColumns.setText('Columns')
+        self._actColumns = TriggerAction(parent=None, actionName='AColumns',
+                                         text='Columns', faIconName='fa5s.th')
         self._toolBarLeft.addAction(self._actColumns, self._columnsPanel,
                                     exclusive=False)
         # Plot panel
-        self._plotPanel = self._toolBarLeft.createPanel()
-        self._plotPanel.setObjectName('plotPanel')
-        self._plotPanel.setStyleSheet(
-            'QWidget#plotPanel{border-left: 1px solid lightgray;}')
+        self._plotPanel = self._toolBarLeft.createPanel('plotPanel')
         self._plotPanel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._plotPanel)
         self._plotConfigWidget = PlotConfigWidget(parent=self._plotPanel)
@@ -250,9 +246,9 @@ class DataView(QWidget):
         vLayout.addWidget(self._buttonPlot, 0, Qt.AlignLeft)
 
         self._plotPanel.setMinimumHeight(vLayout.sizeHint().height())
-        self._actPlot = QAction(None)
-        self._actPlot.setIcon(qta.icon('fa5s.file-signature'))
-        self._actPlot.setText('Plot')
+        self._actPlot = TriggerAction(parent=None, actionName='APlot',
+                                      text='Plot',
+                                      faIconName='fa5s.file-signature')
         self._toolBarLeft.addAction(self._actPlot, self._plotPanel,
                                     exclusive=False)
         # combobox current table
@@ -270,9 +266,9 @@ class DataView(QWidget):
         for view in self._viewTypes.values():
             #  create action with name=view
             v = self._viewActions[view]
-            a = self.__createNewAction(self._toolBar, v["name"], v["name"],
-                                       v["icon"], True,
-                                       self._onChangeViewTriggered)
+            a = TriggerAction(parent=self._toolBar, actionName=v['name'],
+                              text=v['name'], faIconName=v['icon'],
+                              checkable=True, slot=self._onChangeViewTriggered)
             v["action"] = a
             self._actionGroupViews.addAction(a)
             self._toolBar.addAction(a)
@@ -328,9 +324,10 @@ class DataView(QWidget):
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
         self._actSpinBoxHeight = self._toolBar.addWidget(self._spinBoxRowHeight)
         #  dataview actions
-        self.__actShowHideToolBar = QAction(self)
-        self.__actShowHideToolBar.setShortcut(QKeySequence(Qt.Key_T))
-        self.__actShowHideToolBar.triggered.connect(self.__onShowHideToolBar)
+        self.__actShowHideToolBar = TriggerAction(self, 'SHToolBar',
+                                                  slot=self.__onShowHideToolBar,
+                                                  shortCut=QKeySequence(
+                                                      Qt.Key_T))
         self.addAction(self.__actShowHideToolBar)
 
         self._statusBar = QStatusBar(self)
@@ -348,25 +345,18 @@ class DataView(QWidget):
         pref = dict()
         pref["view"] = self._view  # Preferred view
 
-        if self._model is not None and self._model.totalRowCount() == 1 \
-                and self.ITEMS in self._views:
-            pref["view"] = self.ITEMS
-        elif self.COLUMNS in self._views:
-            pref["view"] = self.COLUMNS
+        if self._model is not None and self._model.getRowsCount() == 1 \
+                and ITEMS in self._views:
+            pref["view"] = ITEMS
+        elif COLUMNS in self._views:
+            pref["view"] = COLUMNS
         else:
             pref["view"] = self._views[0] if self._views else None
 
-        galleryModel = self.getViewWidget(self.GALLERY).getModel()
-        columnsModel = self.getViewWidget(self.COLUMNS).getModel()
-        itemsModel = self.getViewWidget(self.ITEMS).getModel()
-
         pref['colConfig'] = {
-            self.GALLERY: galleryModel.getColumnConfig()
-            if galleryModel is not None else None,
-            self.COLUMNS: columnsModel.getColumnConfig()
-            if columnsModel is not None else None,
-            self.ITEMS: itemsModel.getColumnConfig()
-            if itemsModel is not None else None
+            GALLERY: self.getViewWidget(GALLERY).getDisplayConfig(),
+            COLUMNS: self.getViewWidget(COLUMNS).getDisplayConfig(),
+            ITEMS: self.getViewWidget(ITEMS).getDisplayConfig()
         }
         return pref
 
@@ -381,17 +371,10 @@ class DataView(QWidget):
         else:
             pref["view"] = self._view
 
-        galleryModel = self.getViewWidget(self.GALLERY).getModel()
-        columnsModel = self.getViewWidget(self.COLUMNS).getModel()
-        itemsModel = self.getViewWidget(self.ITEMS).getModel()
-
         pref['colConfig'] = {
-            self.GALLERY: galleryModel.getColumnConfig()
-            if galleryModel is not None else None,
-            self.COLUMNS: columnsModel.getColumnConfig()
-            if columnsModel is not None else None,
-            self.ITEMS: itemsModel.getColumnConfig()
-            if itemsModel is not None else None
+            GALLERY: self.getViewWidget(GALLERY).getDisplayConfig(),
+            COLUMNS: self.getViewWidget(COLUMNS).getDisplayConfig(),
+            ITEMS: self.getViewWidget(ITEMS).getDisplayConfig()
         }
 
     def __loadPreferencesForCurrentTable(self):
@@ -407,15 +390,15 @@ class DataView(QWidget):
 
     def __createView(self, viewType, **kwargs):
         """ Create and return a view. The parent of the view will be self """
-        if viewType == self.COLUMNS:
+        if viewType == COLUMNS:
             columns = ColumnsView(self, **kwargs)
             columns.sigTableSizeChanged.connect(self._showViewDims)
             return columns
-        if viewType == self.GALLERY:
+        if viewType == GALLERY:
             gallery = GalleryView(self, **kwargs)
             gallery.sigPageSizeChanged.connect(self._showViewDims)
             return gallery
-        if viewType == self.ITEMS:
+        if viewType == ITEMS:
             return ItemsView(self, **kwargs)
 
         return None
@@ -429,23 +412,15 @@ class DataView(QWidget):
                 viewWidget = self.__createView(v, **kwargs)
                 self._viewsDict[v] = viewWidget
                 if viewWidget is not None:
-                    viewWidget.setImageManager(self._imageManager)
-                    if isinstance(viewWidget, ColumnsView):
-                        view = viewWidget.getTableView()
-                    elif isinstance(viewWidget, GalleryView):
-                        view = viewWidget.getListView()
-                    else:
-                        view = viewWidget
-
-                    view.setContextMenuPolicy(Qt.ActionsContextMenu)
-                    view.addAction(self._actSelectAll)
-                    view.addAction(self._actSelectFromHere)
-                    view.addAction(self._actSelectToHere)
+                    viewWidget.setContextMenuPolicy(Qt.ActionsContextMenu)
+                    viewWidget.addAction(self._actSelectAll)
+                    viewWidget.addAction(self._actSelectFromHere)
+                    viewWidget.addAction(self._actSelectToHere)
 
                     self._stackedLayoud.addWidget(viewWidget)
                     viewWidget.sigCurrentRowChanged.connect(
                         self.__onViewRowChanged)
-                    viewWidget.getPageBar().sigPageConfigChanged.connect(
+                    viewWidget.getPageBar().sigPagingInfoChanged.connect(
                         self.__onPageConfigChanged)
                     viewWidget.sigSelectionChanged.connect(
                         self.__onCurrentViewSelectionChanged)
@@ -491,31 +466,29 @@ class DataView(QWidget):
 
         viewWidget = self.getViewWidget(self._view)
         for w in self._viewsDict.values():
-            m = w.getModel()
-            if m is not None:
-                m.sigPageChanged.disconnect(self.__onCurrentPageChanged)
             if self._model is not None:
-                m = self._model.clone()
-                m.sigPageChanged.connect(self.__onCurrentPageChanged)
                 tName = self._comboBoxCurrentTable.currentText()
                 pref = self._tablePref.get(tName)
                 if pref is not None:
                     if isinstance(w, GalleryView):
-                        viewType = self.GALLERY
+                        viewType = GALLERY
                     elif isinstance(w, ColumnsView):
-                        viewType = self.COLUMNS
+                        viewType = COLUMNS
                     else:
-                        viewType = self.ITEMS
+                        viewType = ITEMS
                     c = pref['colConfig'].get(viewType, None)
                     if c:
-                        m.setColumnConfig(c)
+                        pass  # m.setColumnConfig(c)
+                        #FIXME[phv] Restore display config
                 else:
                     if not viewWidget == w and isinstance(w, GalleryView):
-                        c = m.getColumnConfig()
-                        if c is not None:
-                            for colConf in c:
-                                colConf['visible'] = False
-            w.setModel(m)
+                        # FIXME[phv] configure display config for GalleryView
+                        #c = m.getColumnConfig()
+                        #if c is not None:
+                        #    for colConf in c:
+                        #        colConf['visible'] = False
+                        pass
+            w.setModel(self._model)
 
         self.__loadPreferencesForCurrentTable()
         self.__setupCurrentViewMode()
@@ -529,13 +502,13 @@ class DataView(QWidget):
             size = self.__getSelectionSize()
             if size:
                 textTuple = ("Selected items: ",
-                             "%s/%s" % (size, self._model.totalRowCount()))
+                             "%s/%s" % (size, self._model.getColumnsCount()))
             else:
                 textTuple = ("No selection", "")
             text = "<br><p><strong>%s</strong></p><p>%s</p>" % textTuple
             self._labelSelectionInfo.setText(text.ljust(20))
             self._labelElements.setText(" Elements: %d " %
-                                        self._model.totalRowCount())
+                                        self._model.getRowsCount())
         else:
             self._labelSelectionInfo.setText(
                 "<p><strong>Selection</strong></p>")
@@ -545,7 +518,8 @@ class DataView(QWidget):
         """ Configure the row height spinbox """
         self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
 
-        if self._model is not None and not self._model.hasColumn(renderable=True):
+        if self._model is not None and not self._model.hasColumn(
+                **{RENDERABLE: True}):
             self._spinBoxRowHeight.setValue(25)
         else:
             self._spinBoxRowHeight.setValue(self._defaultRowHeight)
@@ -554,33 +528,33 @@ class DataView(QWidget):
         """
         Configure the elements in combobox currentTable for user selection.
         """
-        blocked = self._comboBoxCurrentTable.blockSignals(True)
+        self._comboBoxCurrentTable.blockSignals(True)
         model = self._comboBoxCurrentTable.model()
         if not model:
             model = QStandardItemModel(self._comboBoxCurrentTable)
 
         model.clear()
-        if self._model:
-            for t in self._model.getTitles():
-                item = QStandardItem(t)
-                item.setData(0, Qt.UserRole)  # use UserRole for store
-                model.appendRow([item])
+        # FIXME[phv] Review the table names
+        #if self._model:
+        #    for t in self._model.getTitles():
+        #        item = QStandardItem(t)
+        #        item.setData(0, Qt.UserRole)  # use UserRole for store
+        #        model.appendRow([item])
 
-        self._comboBoxCurrentTable.blockSignals(blocked)
+        self._comboBoxCurrentTable.blockSignals(False)
 
     def __setupToolBarForView(self, view):
         """ Show/Hide relevant info/actions for the given view """
         # row height
-        model = self.getViewWidget(view).getModel()
+        rColumn = self._model is not None and self._model.hasColumn(
+            **{RENDERABLE: True})
 
-        rColumn = model is not None and self._model.hasColumn(renderable=True)
-
-        self._actLabelLupe.setVisible((view == self.GALLERY or
-                                      view == self.COLUMNS) and
+        self._actLabelLupe.setVisible((view == GALLERY or
+                                      view == COLUMNS) and
                                       rColumn)
         self._actSpinBoxHeight.setVisible(self._actLabelLupe.isVisible())
         # dims
-        self._actLabelCols.setVisible(not view == self.ITEMS)
+        self._actLabelCols.setVisible(not view == ITEMS)
         self._actLineEditCols.setVisible(self._actLabelCols.isVisible())
         self._lineEditCols.setEnabled(False)
 
@@ -605,10 +579,6 @@ class DataView(QWidget):
         self.__savePreferencesForCurrentTable()
         self.__initTableColumnProp()
 
-    def __clearSelections(self):
-        """ Clear all selections in the views """
-        self._selection.clear()
-
     def __setupModel(self):
         """
         Configure the current table model in all view modes
@@ -620,40 +590,13 @@ class DataView(QWidget):
         Configure the spinBox range consulting table mode and table dims
         """
         if self._model:
-            self._spinBoxCurrentRow.setRange(1, self._model.totalRowCount())
-
-    def __createNewAction(self, parent, actionName, text="", faIconName=None,
-                            checkable=False, slot=None):
-        """
-        Create a QAction with the given name, text and icon. If slot is not None
-        then the signal QAction.triggered is connected to it
-        :param actionName: The action name
-        :param text: Action text
-        :param faIconName: qtawesome icon name
-        :param checkable: if this action is checkable
-        :param slot: the slot to connect QAction.triggered signal
-        :return: The QAction
-        """
-        a = QAction(parent)
-        a.setObjectName(str(actionName))
-        if faIconName:
-            a.setIcon(qta.icon(faIconName))
-        a.setCheckable(checkable)
-        a.setText(str(text))
-
-        if slot:
-            a.triggered.connect(slot)
-        return a
+            self._spinBoxCurrentRow.setRange(1, self._model.getRowsCount())
 
     def __clearViews(self):
         """ Clear all views """
         for viewWidget in self._viewsDict.values():
             if viewWidget is not None:
-                m = viewWidget.getModel()
-                viewWidget.setModel(None)
-                if m is not None:
-                    m.setParent(None)
-                    del m
+                viewWidget.clear()
 
     def __initProperties(self, **kwargs):
         """ Configure all properties  """
@@ -661,13 +604,13 @@ class DataView(QWidget):
         self._maxRowHeight = kwargs.get("max_cell_size", 300)
         self._minRowHeight = kwargs.get("min_cell_size", 20)
         self._zoomUnits = kwargs.get("zoom_units", PIXEL_UNITS)
-        self._view = kwargs.get("view", self.COLUMNS)
+        self._view = kwargs.get("view", COLUMNS)
         # The following dict is a map between views(COLUMNS, GALLERY, ITEMS) and
         # view widgets (GalleryView, ColumnsView, ItemsView)
         self._viewsDict = {}
         # List of configured views
-        self._views = kwargs.get("views", [self.COLUMNS, self.GALLERY,
-                                           self.ITEMS])
+        self._views = kwargs.get("views", [COLUMNS, GALLERY,
+                                           ITEMS])
         self._selectionMode = kwargs.get("selection_mode",
                                          PagingView.MULTI_SELECTION)
 
@@ -675,17 +618,15 @@ class DataView(QWidget):
         for v in self._actionGroupViews.actions():
             view = self._viewTypes[v.objectName()]
             v.setVisible(view in self._views)
-            if self._model and view == DataView.GALLERY:
-                v.setVisible(self._model.hasColumn(renderable=True))
+            if self._model and view == GALLERY:
+                v.setVisible(self._model.hasColumn(**{RENDERABLE: True}))
 
     def __makeSelectionInView(self, view):
         """ Makes the current selection in the given view """
         view = self.getViewWidget(view)
 
-        if view is not None:
-            model = view.getModel()
-            if model:
-                view.changeSelection(self._selection)
+        if view is not None and self._model is not None:
+            view.changeSelection(self._selection)
 
     def __getSelectionSize(self):
         """ Returns the current selection size """
@@ -696,7 +637,7 @@ class DataView(QWidget):
         if self._model is None:
             params = []
         else:
-            params = [col.getName() for col in self._model.getColumnConfig()]
+            params = [col.getName() for i, col in self._model.iterColumns()]
 
         self._plotConfigWidget.setParams(params=params)
         self._toolBarLeft.setPanelMinSize(
@@ -708,24 +649,24 @@ class DataView(QWidget):
         self._tableColumnProp.clear()
         self._tableColumnProp.setHorizontalHeaderLabels(["", "", 'Name'])
         viewWidget = self.getViewWidget(self._view)
-        viewModel = viewWidget.getModel()
+        dConfig = viewWidget.getDisplayConfig()
 
-        if viewModel is not None:
+        if dConfig is not None:
             row = 0
-            self._tableColumnProp.setRowCount(viewModel.columnCount())
+            self._tableColumnProp.setRowCount(dConfig.getColumnsCount())
 
-            for colConfig in viewModel.getColumnConfig():
+            for _, colConfig in dConfig.iterColumns():
                 item = QTableWidgetItem(colConfig.getName())
                 itemV = QTableWidgetItem("")  # for 'visible' property
                 itemR = QTableWidgetItem("")  # for 'renderable' property
                 self._tableColumnProp.setItem(row, 0, itemV)
                 self._tableColumnProp.setItem(row, 1, itemR)
                 self._tableColumnProp.setItem(row, 2, item)
-                if not colConfig['renderableReadOnly']:
+                if not colConfig[RENDERABLE_RO]:
                     flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
                 else:
                     flags = Qt.NoItemFlags
-                render = colConfig['renderable']
+                render = colConfig[RENDERABLE]
                 if flags & Qt.ItemIsUserCheckable == Qt.ItemIsUserCheckable:
                     itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
                 itemR.setData(
@@ -733,8 +674,8 @@ class DataView(QWidget):
                     self.__toolTip[self._view]
                     ['renderChecked' if render else 'renderUnchecked'])
                 itemR.setFlags(flags)
-                visible = colConfig['visible']
-                if not colConfig['visibleReadOnly']:
+                visible = colConfig[VISIBLE]
+                if not colConfig[VISIBLE_RO]:
                     flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
                 else:
                     flags = Qt.NoItemFlags
@@ -765,13 +706,13 @@ class DataView(QWidget):
                 item.setData(Qt.ToolTipRole,
                              self.__toolTip[self._view]['visibleChecked'
                              if display else 'visibleUnchecked'])
-                if self._view == self.GALLERY:
+                if self._view == GALLERY:
                     viewWidget.setLabelIndexes(
                         model.getColumnConfig().getIndexes('visible', True))
                     viewWidget.setIconSize((self._spinBoxRowHeight.value(),
                                            self._spinBoxRowHeight.value()))
                     viewWidget.resetGallery()
-                elif self._view == self.COLUMNS:
+                elif self._view == COLUMNS:
                     viewWidget.setupVisibleColumns()
                     viewWidget.resetTable()
                 else:
@@ -781,13 +722,13 @@ class DataView(QWidget):
                 if not render:
                     colConfig['renderable'] = render
                     state = \
-                        Qt.Checked if self._view == self.GALLERY or \
-                                      self._view == self.ITEMS else Qt.Unchecked
+                        Qt.Checked if self._view == GALLERY or \
+                                      self._view == ITEMS else Qt.Unchecked
                     item.setCheckState(state)
                 else:
                     col = item.column()
                     row = item.row()
-                    if self._view == self.GALLERY or self._view == self.ITEMS:
+                    if self._view == GALLERY or self._view == ITEMS:
                         # renderable is exclusive for GALLERY and ITEMS
                         blocked = self._tableColumnProp.blockSignals(True)
                         for i in range(self._tableColumnProp.rowCount()):
@@ -856,7 +797,7 @@ class DataView(QWidget):
                 markers += ' %s' % p['marker']
 
             # sorted column
-            columnsWidget = self.getViewWidget(self.COLUMNS)
+            columnsWidget = self.getViewWidget(COLUMNS)
             sOrder = None
             if columnsWidget is not None:
                 hHeader = columnsWidget.getHorizontalHeader()
@@ -928,8 +869,8 @@ class DataView(QWidget):
             self._selection.update(range(0, self._model.totalRowCount()))
             self.__makeSelectionInView(self._view)
 
-    @pyqtSlot(int, int, int, int)
-    def __onPageConfigChanged(self, page, fist, last, step):
+    @pyqtSlot()
+    def __onPageConfigChanged(self):
         """ Invoked when views change his page configuration """
         self.__makeSelectionInView(self._view)
 
@@ -1055,23 +996,20 @@ class DataView(QWidget):
     def _onChangeCellSize(self):
         """
         This slot is invoked when the cell size need to be rearranged
-        TODO:[developers]Review implementation. Change row height for the moment
+        TODO: Review implementation. Change row height for the moment
         """
         size = self._spinBoxRowHeight.value()
 
         row = self._currentRow
         for viewWidget in self._viewsDict.values():
-            model = viewWidget.getModel()
-            if model is not None:
-                model.setIconSize(QSize(size, size))
             if isinstance(viewWidget, ColumnsView):
                 viewWidget.setRowHeight(size)
                 if self._model is not None:
-                    cConfig = self._model.getColumnConfig()
+                    cConfig = viewWidget.getDisplayConfig()
                     if cConfig:
-                        for i, colConfig in enumerate(cConfig):
-                            if colConfig["renderable"] and \
-                                    colConfig["visible"] and \
+                        for i, colConfig in cConfig.iterColumns():
+                            if colConfig[RENDERABLE] and \
+                                    colConfig[VISIBLE] and \
                                     viewWidget.getColumnWidth(i) < size:
                                 viewWidget.setColumnWidth(i, size)
             elif isinstance(viewWidget, GalleryView):
@@ -1106,7 +1044,7 @@ class DataView(QWidget):
         This slot is invoked when the value of the current spinbox changes.
         :param row: the row, 1 is the first
         """
-        if self._model and row in range(1, self._model.totalRowCount() + 1):
+        if self._model and row in range(1, self._model.getRowsCount() + 1):
                 self._currentRow = row - 1
 
                 if self._selectionMode == PagingView.SINGLE_SELECTION:
@@ -1146,15 +1084,8 @@ class DataView(QWidget):
     def setModel(self, model):
         """ Set the table model for display. """
         self.__clearViews()
-        if self._model is not None:
-            self._model.rowsInserted.disconnect(self.__onRowsInserted)
-            self._model.dataChanged.disconnect(self.__onDataChanged)
         self._model = model
-        if self._model is not None:
-            self._model.rowsInserted.connect(self.__onRowsInserted)
-            self._model.dataChanged.connect(self.__onDataChanged)
-
-        self.__clearSelections()
+        self._selection.clear()
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel()
@@ -1181,14 +1112,6 @@ class DataView(QWidget):
                     Qt.SizeHintRole
         """
         self._sortRole = role
-
-    def setup(self, **kwargs):
-        """ TODO: Reconfigure the views, eliminating those that will not be used
-                  and creating the new ones.
-        """
-        self.__initProperties(**kwargs)
-        self.__createViews(**kwargs)
-        self.__setupActions()
 
     def showToolBar(self, visible):
         """ Show or hide the toolbar """
@@ -1262,11 +1185,6 @@ class DataView(QWidget):
 
         for viewWidget in self._viewsDict.values():
             viewWidget.setSelectionMode(selectionMode)
-            if isinstance(viewWidget, ColumnsView):
-                viewWidget = viewWidget.getTableView()
-            elif isinstance(viewWidget, GalleryView):
-                viewWidget = viewWidget.getListView()
-
             viewWidget.setContextMenuPolicy(policy)
 
     def setSelectionBehavior(self, selectionBehavior):
@@ -1315,15 +1233,10 @@ class DataView(QWidget):
         v = self.getViewWidget()
         if isinstance(v, ColumnsView) or isinstance(v, GalleryView):
             w, h = v.getPreferedSize()
-            return w + self._toolBarLeft.width() + 180, h + self._toolBar.height()
+            return \
+                w + self._toolBarLeft.width() + 180, h + self._toolBar.height()
 
         return 800, 600
-
-    def setDataInfo(self, **kwargs):
-        """ Sets the data info """
-        widget = self.getViewWidget(self.ITEMS)
-        if widget is not None:
-            widget.setInfo(**kwargs)
 
     def setLabelIndexes(self, labels):
         """
@@ -1331,12 +1244,14 @@ class DataView(QWidget):
         below the images
         labels (list)
         """
-        widget = self.getViewWidget(self.GALLERY)
-        if widget is not None:
-            widget.setLabelIndexes(labels)
+        # FIXME[phv] Review the label indexes
+        #widget = self.getViewWidget(GALLERY)
+        #if widget is not None:
+        #    widget.setLabelIndexes(labels)
 
-        widget = self.getViewWidget(self.COLUMNS)
-        if widget is not None:
-            widget.setLabelIndexes(labels)
+        #widget = self.getViewWidget(COLUMNS)
+        #if widget is not None:
+        #    widget.setLabelIndexes(labels)
+        pass
 
 
