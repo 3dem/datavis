@@ -39,12 +39,14 @@ class ItemsView(PagingView):
         PagingView.__init__(self, parent=parent, pagingInfo=PagingInfo(1, 1),
                             **kwargs)
         self._column = 0
-        self._row = 0
+        self._row = -1
         self._selection = set()
         self.__selectionItem = None
         self._disableFitToSize = False
+        self._model = None
+        self._config = None
         self._pageItemModel = None
-        self.setModel(kwargs['model'])
+        self.setModel(kwargs['model'], kwargs.get('config', None))
 
     def _createContentWidget(self):
         mainWidget = QWidget(self)
@@ -63,27 +65,9 @@ class ItemsView(PagingView):
         layout.insertWidget(0, self._splitter)
         return mainWidget
 
-    def __loadItem(self, row):
-        """
-        Show the item at (row, col)
-        :param row: (int) The row index. First index is 0.
-        """
-        self._imageView.clear()
-        model = self._itemsViewTable.model()
-        model.clear()
-        self.loadCurrentItems()
-        self.loadImages(row)
-        if self._selectionMode == PagingView.SINGLE_SELECTION:
-            self._selection.clear()
-            self._selection.add(row)
-            self.sigSelectionChanged.emit()
-        self.__updateSelectionInView()
-        self.sigCurrentRowChanged.emit(row)
-
     def __updateSelectionInView(self):
         """ Updates the internal selection in the view widgets """
-        if self._selectionMode == PagingView.MULTI_SELECTION and \
-                self.__selectionItem is not None:
+        if self.isMultiSelection() and self.__selectionItem is not None:
             if self._row in self._selection:
                 self.__selectionItem.setCheckState(Qt.Checked)
             else:
@@ -111,7 +95,7 @@ class ItemsView(PagingView):
         Invoked when the item data is changed. Used for selection purposes
         """
         if item == self.__selectionItem:
-            if self._selectionMode == PagingView.MULTI_SELECTION:
+            if self.isMultiSelection():
                 if item.checkState() == Qt.Checked:
                     self._selection.add(self._row)
                 else:
@@ -123,8 +107,7 @@ class ItemsView(PagingView):
     @pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """ Invoked when change the current page """
-        self._row = page - 1
-        self.__loadItem(self._row)
+        self.__loadRow(page - 1)
 
     @pyqtSlot(set)
     def changeSelection(self, selection):
@@ -132,20 +115,9 @@ class ItemsView(PagingView):
         self._selection = selection
         self.__updateSelectionInView()
 
-    def setModelColumn(self, column):
-        """ Holds the column in the model that is visible. """
-        self._column = column
-        self.updateViewConfiguration()
-
     def selectRow(self, row):
         """ Selects the given row """
-        if self._model is not None and 0 <= row < self._model.getRowsCount():
-            self._row = row
-            self.__loadItem(self._row)
-
-    def getModelColumn(self):
-        """ Returns the column in the model that is visible. """
-        return self._column
+        self.__loadRow(self._row)
 
     def setModel(self, model, displayConfig=None):
         """
@@ -163,26 +135,25 @@ class ItemsView(PagingView):
         self._column = 0
         self.__selectionItem = None
         self.__disconnectSignals()
-        self._model = model
         self._pagingInfo.numberOfItems = model.getRowsCount()
         self._pagingInfo.setPageSize(1)
         self._pagingInfo.currentPage = 1
+        self._model = model
+        self._config = displayConfig or model.createDefaultConfig()
         self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
-                                                 tableConfig=displayConfig,
-                                                 parent=self)
+                                                 parent=self,
+                                                 tableConfig=self._config)
         self.__connectSignals()
         self._imageView.setVisible(self._pageItemModel.hasRenderableColumn())
         self._pageBar.setPagingInfo(self._pagingInfo)
 
     def currentRow(self):
         """ Returns the current selected row """
-        return -1 if self._model is None else self._row
+        return self._row
 
     def getDisplayConfig(self):
         """ Returns the display configuration """
-        if self._pageItemModel is not None:
-            return self._pageItemModel.getDisplayConfig()
-        return None
+        return self._config
 
     def clear(self):
         """ Clear the view """
@@ -190,69 +161,86 @@ class ItemsView(PagingView):
 
     def getViewDims(self):
         """ Returns a tuple (rows, columns) with the data size """
-        if self._model is not None:
-            return self._model.getColumnsCount(), 1
-        return 0, 0
+        return self._config.getColumnsCount(), 1
 
     def updateViewConfiguration(self):
         """ Reimplemented from PagingView """
-        self._imageView.setVisible(self._model is not None and
-                                   self._model.hasColumn(**{RENDERABLE: True}))
-        self.__loadItem(self._row)
+        self._imageView.setVisible(self._config.hasColumnConfig(renderable=True))
+        self.__loadRow(self._row)
 
-    def loadImages(self, row):
+    def __loadRow(self, row):
+        """
+        Show the item at (row, col)
+        :param row: (int) The row index. First index is 0.
+        """
+        self._imageView.clear()
+        model = self._itemsViewTable.model()
+        model.clear()
+        self._row = row
+        self._loadRowValues()
+        self.__loadRowImages()
+        if self.isSingleSelection():
+            self._selection.clear()
+            self._selection.add(row)
+            self.sigSelectionChanged.emit()
+        self.__updateSelectionInView()
+        self.sigCurrentRowChanged.emit(row)
+
+    def _loadRowValues(self):
+        """ Load the table values for the current row.
+         Values will be displayed as rows of this view.
+         """
+        model = self._itemsViewTable.model()
+        model.clear()
+        # FIXME: (Important) Every time that we change the selected row
+        # FIXME: do we need to create new QStandardItems() ?????
+        # FIXME: This might be the cause of some noticeable flickering
+        # FIXME: If the model haven't changed, we can populate the model once
+        # FIXME: and then set the values
+        vLabels = []
+        if self.isMultiSelection():
+            vLabels = ["SELECTED"]
+            self.__selectionItem = QStandardItem()
+            self.__selectionItem.setCheckable(True)
+            self.__selectionItem.setEditable(False)
+            if self._selection is not None and self._row in self._selection:
+                self.__selectionItem.setCheckState(Qt.Checked)
+            model.appendRow([self.__selectionItem])
+        else:
+            self.__selectionItem = None
+
+        for i, colConfig in self._config.iterColumns(visible=True):
+            item = QStandardItem()
+            # FIXME: Check when not columns are visible and the index
+            # mismatch with the column id in the tableModel
+            print("col: %d (%s), value: %s" % (i, colConfig.getName(),
+                                               self._model.getValue(self._row, i)))
+            item.setData(self._model.getValue(self._row, i),
+                         Qt.DisplayRole)
+            item.setEditable(False)
+            model.appendRow([item])
+            label = self._pageItemModel.headerData(i, Qt.Horizontal)
+            if isinstance(label, str) or isinstance(label, unicode):
+                vLabels.append(label)
+        model.setHorizontalHeaderLabels(["Values"])
+        model.setVerticalHeaderLabels(vLabels)
+        self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
+
+    def __loadRowImages(self):
         """
         Load the images referenced by the given row and all the columns marked
         as renderable.
         TODO[hv]: Now only one image is displayed, but in the future all
-        renderable columns will be displayed
+        renderable columns could be displayed
         """
-        if self._model is not None \
-                and 0 <= row < self._model.getRowsCount() \
-                and 0 <= self._column < self._model.getColumnsCount():
-            indexes = [i for i, c in
-                       self._model.iterColumns(**{RENDERABLE: True})]
-            if indexes:
-                data = self._model.getData(row, self._column)
-                if data is not None:
-                    self._imageView.setModel(ImageModel(data))
-                    self._imageView.setImageInfo(
-                        path=self._model.getValue(row, self._column),
-                        format=' ',  # FIXME[phv] set image format and type
-                        data_type=' ')
-            else:
-                self._imageView.clear()
-
-    def loadCurrentItems(self):
-        """ Load the side table of values """
-        model = self._itemsViewTable.model()
-        model.clear()
-        if self._model is not None \
-                and 0 <= self._row < self._model.getRowsCount() \
-                and 0 <= self._column < self._model.getColumnsCount():
-            vLabels = []
-            if self._selectionMode == PagingView.MULTI_SELECTION:
-                vLabels = ["SELECTED"]
-                self.__selectionItem = QStandardItem()
-                self.__selectionItem.setCheckable(True)
-                self.__selectionItem.setEditable(False)
-                if self._selection is not None and self._row in self._selection:
-                    self.__selectionItem.setCheckState(Qt.Checked)
-                model.appendRow([self.__selectionItem])
-            else:
-                self.__selectionItem = None
-
-            for i in range(self._model.getColumnsCount()):
-                colConfig = self._model.getColumn(i)
-                if colConfig is not None and colConfig[VISIBLE]:
-                    item = QStandardItem()
-                    item.setData(self._model.getValue(self._row, i),
-                                 Qt.DisplayRole)
-                    item.setEditable(False)
-                    model.appendRow([item])
-                    label = self._pageItemModel.headerData(i, Qt.Horizontal)
-                    if isinstance(label, str) or isinstance(label, unicode):
-                        vLabels.append(label)
-            model.setHorizontalHeaderLabels(["Values"])
-            model.setVerticalHeaderLabels(vLabels)
-            self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
+        indexes = [i for i, c in self._config.iterColumns(renderable=True)]
+        if indexes:
+            data = self._model.getData(self._row, self._column)
+            if data is not None:
+                self._imageView.setModel(ImageModel(data))
+                self._imageView.setImageInfo(
+                    path=self._model.getValue(self._row, self._column),
+                    format=' ',  # FIXME[phv] set image format and type
+                    data_type=' ')
+        else:
+            self._imageView.clear()

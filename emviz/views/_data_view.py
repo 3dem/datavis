@@ -67,6 +67,9 @@ class DataView(QWidget):
                                      "icon": "fa.columns",
                                      "action": None,
                                      "view": None}}
+        # FIXME: Review if the following dict is necessary
+        # the labels are in self._viewActions (with "name")
+        # and the TriggerAction could contain the value instead of the string
         self._viewTypes = {"Columns": COLUMNS,
                            "Gallery": GALLERY,
                            "Items": ITEMS}
@@ -92,6 +95,7 @@ class DataView(QWidget):
         self._views = []
         self._view = None
         self._model = None
+        self._displayConfig = None
         self._currentRow = 0  # selected table row
         self._selection = set()
         self._selectionMode = PagingView.NO_SELECTION
@@ -514,12 +518,15 @@ class DataView(QWidget):
                 "<p><strong>Selection</strong></p>")
             self._labelElements.setText("")
 
+    def __hasRenderableColumn(self):
+        return (self._displayConfig is not None and
+                self._displayConfig.hasColumnConfig(renderable=True))
+
     def __setupSpinBoxRowHeigth(self):
         """ Configure the row height spinbox """
         self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
 
-        if self._model is not None and not self._model.hasColumn(
-                **{RENDERABLE: True}):
+        if self.__hasRenderableColumn():
             self._spinBoxRowHeight.setValue(25)
         else:
             self._spinBoxRowHeight.setValue(self._defaultRowHeight)
@@ -546,8 +553,7 @@ class DataView(QWidget):
     def __setupToolBarForView(self, view):
         """ Show/Hide relevant info/actions for the given view """
         # row height
-        rColumn = self._model is not None and self._model.hasColumn(
-            **{RENDERABLE: True})
+        rColumn = self.__hasRenderableColumn()
 
         self._actLabelLupe.setVisible((view == GALLERY or
                                       view == COLUMNS) and
@@ -619,7 +625,7 @@ class DataView(QWidget):
             view = self._viewTypes[v.objectName()]
             v.setVisible(view in self._views)
             if self._model and view == GALLERY:
-                v.setVisible(self._model.hasColumn(**{RENDERABLE: True}))
+                v.setVisible(self.__hasRenderableColumn())
 
     def __makeSelectionInView(self, view):
         """ Makes the current selection in the given view """
@@ -634,10 +640,10 @@ class DataView(QWidget):
 
     def __initPlotConfWidgets(self):
         """ Initialize the plot configurations widgets """
-        if self._model is None:
+        if self._displayConfig is None:
             params = []
         else:
-            params = [col.getName() for i, col in self._model.iterColumns()]
+            params = [c.getName() for i, c in self._displayConfig.iterColumns()]
 
         self._plotConfigWidget.setParams(params=params)
         self._toolBarLeft.setPanelMinSize(
@@ -897,53 +903,41 @@ class DataView(QWidget):
     @pyqtSlot(int)
     def _onCurrentTableChanged(self, index):
         """ Invoked when user change the current table """
-        try:
-            if self._model:
-                self._selection.clear()
-                if isinstance(self._model, VolumeDataModel):
-                    t = self._comboBoxCurrentTable.currentText().split("(")
-                    length = len(t)
-                    if length > 1:
-                        s = t[length-1]
+        # FIXME: If the table has changed, it should have a model
+        # so, I think it does not make sense this check here
+        if self._model:
+            self._selection.clear()
+            if isinstance(self._model, VolumeDataModel):
+                t = self._comboBoxCurrentTable.currentText().split("(")
+                length = len(t)
+                if length > 1:
+                    s = t[length-1]
+                    axis = AXIS_X
+                    if s == "X)":
                         axis = AXIS_X
-                        if s == "X)":
-                            axis = AXIS_X
-                        elif s == "Y)":
-                            axis = AXIS_Y
-                        elif s == "Z)":
-                            axis = AXIS_Z
+                    elif s == "Y)":
+                        axis = AXIS_Y
+                    elif s == "Z)":
+                        axis = AXIS_Z
 
-                        for viewWidget in self._viewsDict.values():
-                            model = viewWidget.getModel()
-                            model.setAxis(axis)
-                        self._selectRow(1)
-                elif isinstance(self._model, TablePageItemModel):
-                    name = self._comboBoxCurrentTable.currentText()
-                    path = self._model.getDataSource()
-                    if path is not None:
-                        # FIXME: The following import is here because it cause a cyclic dependency
-                        # FIXME: we should remove the use of EmTable
-                        from emviz.core import EmTable
-                        t = self._model.getEmTable()
-                        EmTable.load(path, name, t)
-                        self._model.setColumnConfig(
-                            TableModel.fromTable(t))
-                        self.__clearViews()
-                        self.__setupModel()
-                        self.sigCurrentTableChanged.emit()
-        except Exception as ex:
-            self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
-                              str(ex))
-            print(traceback.format_exc())
-
-        except RuntimeError as ex:
-            self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
-                              str(ex))
-            print(traceback.format_exc())
-        except ValueError as ex:
-            self.__showMsgBox("Can't perform the action", QMessageBox.Critical,
-                              str(ex))
-            print(traceback.format_exc())
+                    for viewWidget in self._viewsDict.values():
+                        model = viewWidget.getModel()
+                        model.setAxis(axis)
+                    self._selectRow(1)
+            elif isinstance(self._model, TablePageItemModel):
+                name = self._comboBoxCurrentTable.currentText()
+                path = self._model.getDataSource()
+                if path is not None:
+                    # FIXME: The following import is here because it cause a cyclic dependency
+                    # FIXME: we should remove the use of EmTable
+                    from emviz.core import EmTable
+                    t = self._model.getEmTable()
+                    EmTable.load(path, name, t)
+                    self._model.setColumnConfig(
+                        TableModel.fromTable(t))
+                    self.__clearViews()
+                    self.__setupModel()
+                    self.sigCurrentTableChanged.emit()
 
     @pyqtSlot(QModelIndex, int, int)
     def __onRowsInserted(self, parent, first, last):
@@ -1007,10 +1001,9 @@ class DataView(QWidget):
                 if self._model is not None:
                     cConfig = viewWidget.getDisplayConfig()
                     if cConfig:
-                        for i, colConfig in cConfig.iterColumns():
-                            if colConfig[RENDERABLE] and \
-                                    colConfig[VISIBLE] and \
-                                    viewWidget.getColumnWidth(i) < size:
+                        for i, colConfig in cConfig.iterColumns(renderable=True,
+                                                                visible=True):
+                            if viewWidget.getColumnWidth(i) < size:
                                 viewWidget.setColumnWidth(i, size)
             elif isinstance(viewWidget, GalleryView):
                 viewWidget.setIconSize((size, size))
@@ -1025,7 +1018,6 @@ class DataView(QWidget):
         """
         Show column and row count in the QLineEdits
         """
-
         viewWidget = self._viewsDict.get(self._view)
         if viewWidget is None:
             rows = "0"
@@ -1045,22 +1037,22 @@ class DataView(QWidget):
         :param row: the row, 1 is the first
         """
         if self._model and row in range(1, self._model.getRowsCount() + 1):
-                self._currentRow = row - 1
+            self._currentRow = row - 1
 
-                if self._selectionMode == PagingView.SINGLE_SELECTION:
-                    self._selection.clear()
-                    self._selection.add(self._currentRow)
+            if self._selectionMode == PagingView.SINGLE_SELECTION:
+                self._selection.clear()
+                self._selection.add(self._currentRow)
 
-                viewWidget = self._viewsDict.get(self._view)
+            viewWidget = self._viewsDict.get(self._view)
 
-                if viewWidget is not None:
-                    self.__makeSelectionInView(self._view)
-                    viewWidget.selectRow(self._currentRow)
+            if viewWidget is not None:
+                self.__makeSelectionInView(self._view)
+                viewWidget.selectRow(self._currentRow)
 
-                if not row == self._spinBoxCurrentRow.value():
-                    self._spinBoxCurrentRow.setValue(row)
-                self.sigCurrentRowChanged.emit(self._currentRow)
-                self.__showTableSize()
+            if not row == self._spinBoxCurrentRow.value():
+                self._spinBoxCurrentRow.setValue(row)
+            self.sigCurrentRowChanged.emit(self._currentRow)
+            self.__showTableSize()
 
     @pyqtSlot(bool)
     def _onChangeViewTriggered(self, checked):
@@ -1103,13 +1095,13 @@ class DataView(QWidget):
         Set the item role that is used to query the source model's data
         when sorting items
         :param role:
-                    Qt.DisplayRole
-                    Qt.DecorationRole
-                    Qt.EditRole
-                    Qt.ToolTipRole
-                    Qt.StatusTipRole
-                    Qt.WhatsThisRole
-                    Qt.SizeHintRole
+            Qt.DisplayRole
+            Qt.DecorationRole
+            Qt.EditRole
+            Qt.ToolTipRole
+            Qt.StatusTipRole
+            Qt.WhatsThisRole
+            Qt.SizeHintRole
         """
         self._sortRole = role
 

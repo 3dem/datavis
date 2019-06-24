@@ -2,51 +2,38 @@
 from ._constants import *
 
 
+class ColumnInfo:
+    """ Class containing basic info about a column: name and type. """
+    def __init__(self, name, dataType=TYPE_STRING):
+        """
+        Create a new instance of a ColumnInfo
+        :param name: (string) The name of the column
+        :param dataType: (int) the type of the column
+        """
+        self._name = name
+        self._type = dataType
+
+    def getName(self):
+        """ Return the original name of the represented column."""
+        return self._name
+
+    def getType(self):
+        return self._type
+
+
 class TableModel:
     """ Abstract base class to define the table model required by some views.
     It provides a very general interface about tabular data and how it will
     be displayed.
     """
-    def __init__(self, *cols):
-        # Store a list of ColumnConfig objects
-        self._cols = cols or []
-
-    def __str__(self):
-        s = "TableModel columnConfigs: %d" % len(self._cols)
-        for c in self._cols:
-            s += '\n%s' % str(c)
-        return s
-
-    def __getitem__(self, item):
-        return self._cols[item]
-
-    def addColumn(self, columnConfig):
-        """ Add a new ColumnConfig to the list. """
-        self._cols.append(columnConfig)
-
-    def hasColumn(self, **props):
-        """ Returns True if has any there is any column with these properties.
-        Example to check if there is a column renderable:
-            hasColumn(renderable=True)
-        """
-        return any(c.check(**props) for c in self._cols)
-
-    def getColumn(self, col):
-        """
-        Returns the corresponding ColumnConfig for the given column
-        :param col: (int) The column index
-        """
-        return self._cols[col] if 0 <= col < len(self._cols) else None
-
-    def getColumnsCount(self, **props):
-        """ Return the number of columns that have given properties. """
-        return len(list(self.iterColumns(**props)))
-
-    def iterColumns(self, **props):
-        return iter((i, c) for i, c in enumerate(self._cols)
-                    if c.check(**props))
-
     # ------ Abstract methods that should be implemented in subclasses ---------
+    def iterColumns(self):
+        """ Generate a ColumnInfo iterator over the columns of the model. """
+        raise Exception("Not implemented")
+
+    def getColumnsCount(self):
+        """ Return the number of columns. """
+        raise Exception("Not implemented")
 
     def getRowsCount(self):
         """ Return the number of rows. """
@@ -62,16 +49,53 @@ class TableModel:
         """
         raise Exception("Not implemented")
 
+    def createDefaultConfig(self):
+        """ Create the default TableConfig based on the columns on this table.
+        """
+        cols = [ColumnConfig(c.getName(), c.getType())
+                for c in self.iterColumns()]
+        return TableConfig(*cols)
+
+
+class SlicesTableModel(TableModel):
+    """ Simple table model based on the data from a given SlicesModel.
+    """
+    def __init__(self, slicesModel, columnName):
+        self._slicesModel = slicesModel
+        self._columnName = columnName
+
+    def iterColumns(self):
+        yield ColumnInfo(self._columnName)
+
+    def getColumnsCount(self):
+        return 1
+
+    def getRowsCount(self):
+        return self._slicesModel.getDim()[2]
+
+    def getValue(self, row, col):
+        return row + 1
+
+    def getData(self, row, col):
+        return self._slicesModel.getData(row)
+
+    def createDefaultConfig(self):
+        """ Reimplement this method to make the only column renderable.
+        """
+        cols = [ColumnConfig(c.getName(), c.getType(), renderable=True)
+                for c in self.iterColumns()]
+        return TableConfig(*cols)
+
 
 class EmptyTableModel(TableModel):
     """
     The EmptyModel represents an empty table model.
     """
-    def __init__(self):
-        TableModel.__init__(self,
-                            ColumnConfig(name='', dataType=TYPE_STRING,
-                                         **{RENDERABLE: False,
-                                            VISIBLE: False}))
+    def iterColumns(self):
+        return iter(())
+
+    def getColumnsCount(self):
+        return 0
 
     def getRowsCount(self):
         return 0
@@ -84,9 +108,54 @@ class EmptyTableModel(TableModel):
         return None
 
 
-class ColumnConfig:
+class TableConfig:
     """
-    Store properties about the visualization of a given column.
+    Store visualization properties of the columns of a table.
+    """
+    def __init__(self, *cols):
+        # Store a list of ColumnConfig objects
+        self._cols = cols or []
+
+    def __str__(self):
+        s = "TableConfig columnConfigs: %d" % len(self._cols)
+        for c in self._cols:
+            s += '\n%s' % str(c)
+        return s
+
+    def __getitem__(self, item):
+        return self._cols[item]
+
+    def addColumnConfig(self, columnConfig):
+        """ Add a new ColumnConfig to the list. """
+        self._cols.append(columnConfig)
+
+    def hasColumnConfig(self, **props):
+        """ Returns True if has any there is any column with these properties.
+        Example to check if there is a column renderable:
+            hasColumnConfig(renderable=True)
+        """
+        return any(c.check(**props) for c in self._cols)
+
+    def getColumnConfig(self, col):
+        """
+        Returns the corresponding ColumnConfig for the given column
+        :param col: (int) The column index
+        """
+        return self._cols[col] if 0 <= col < len(self._cols) else None
+
+    def getColumnsCount(self, **props):
+        """ Return the number of columns that have given properties. """
+        return len(list(self.iterColumns(**props)))
+
+    def iterColumns(self, **props):
+        return iter((i, c) for i, c in enumerate(self._cols)
+                    if c.check(**props))
+
+
+class ColumnConfig(ColumnInfo):
+    """
+    Extend ColumnInfo class to store properties about
+    the visualization of a given column.
     """
     def __init__(self, name, dataType, **kwargs):
         """
@@ -104,17 +173,13 @@ class ColumnConfig:
             - label (Bool)
             - labelReadOnly (Bool)
         """
-        self._name = name
+        ColumnInfo.__init__(self, name, dataType)
         self._label = kwargs.get('label', name)
-        self._type = dataType
         self._description = kwargs.get(DESCRIPTION, '')
         self._propertyNames = []
         self.__setProperty__(VISIBLE, True, False, **kwargs)
         self.__setProperty__(RENDERABLE, False, False, **kwargs)
         self.__setProperty__(EDITABLE, False, True, **kwargs)
-
-        # FIXME: label seems duplicated here and as a property
-        #self.__setProperty__('label', False, False, **kwargs)
 
     def __setProperty__(self, name, default, defaultRO, **kwargs):
         """ Internal function to define a 'property' that will
@@ -131,16 +196,9 @@ class ColumnConfig:
         setattr(self, '__%s' % roName, kwargs.get(roName, defaultRO))
         self._propertyNames.append(roName)
 
-    def getName(self):
-        """ Return the original name of the represented column."""
-        return self._name
-
     def getLabel(self):
         """ Return the string that will be used to display this column. """
         return self._label
-
-    def getType(self):
-        return self._type
 
     def getDescrition(self):
         return self._description

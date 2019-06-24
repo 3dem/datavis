@@ -26,7 +26,7 @@ else:
 
 
 app = QApplication(sys.argv)
-model = ModelsFactory.createStackModel(imagePath)
+tables, model = ModelsFactory.createTableModel(imagePath)
 
 itemsView = ItemsView(parent=None, model=model,
                       selectionMode=ItemsView.MULTI_SELECTION)

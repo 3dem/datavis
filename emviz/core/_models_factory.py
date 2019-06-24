@@ -2,11 +2,9 @@
 import numpy as np
 
 import em
-import emviz.models
-from emviz.models import VISIBLE, EDITABLE, DESCRIPTION
-from .functions import EmTable
-from ._emtable_model import (EmTableModel, EmSlicesModel, EmStackModel,
-                             EmVolumeModel, TYPE_MAP)
+import emviz.models as models
+from .functions import EmTable, EmPath
+from ._emtable_model import (EmTableModel, EmStackModel, EmVolumeModel, TYPE_MAP)
 
 
 class ModelsFactory:
@@ -19,7 +17,7 @@ class ModelsFactory:
         image = em.Image()
         loc = em.ImageLocation(path)
         image.read(loc)
-        return emviz.models.ImageModel(
+        return models.ImageModel(
             data=np.array(image, copy=False), location=(loc.index, loc.path))
 
     @classmethod
@@ -29,8 +27,20 @@ class ModelsFactory:
         :param path: (str) The table path
         :return:     Tuple ([table names], TableModel)
         """
-        names, table = EmTable.load(path)
-        return names, EmTableModel(emTable=table)
+        names = []
+
+        if EmPath.isTable(path):
+            names, table = EmTable.load(path)
+            model = EmTableModel(emTable=table)
+        elif EmPath.isVolume(path):
+            slicesModel = EmVolumeModel(path).getSlicesModel(models.AXIS_Z)
+            model = models.SlicesTableModel(slicesModel, 'Slice')
+        elif EmPath.isStack(path):
+            model = models.SlicesTableModel(EmStackModel(path), 'Index')
+        else:
+            raise Exception("Unknown file type: %s" % path)
+
+        return names, model
 
     @classmethod
     def createStackModel(cls, path):
@@ -38,15 +48,7 @@ class ModelsFactory:
         Creates an TableModel reading stack from the given path
         :param path: (str) The stack path
         """
-        return EmStackModel(slicesModel=cls.createSlicesModel(path))
-
-    @classmethod
-    def createSlicesModel(cls, path):
-        """
-        Creates an SlicesModel reading slices from the given path
-        :param path: (str) The image path
-        """
-        return EmSlicesModel(path)
+        return EmStackModel(path)
 
     @classmethod
     def createVolumeModel(cls, path):
@@ -56,6 +58,8 @@ class ModelsFactory:
         """
         return EmVolumeModel(path)
 
+    # FIXME: This method is duplicated with the one in TableModel
+    # here seems a good place to have it
     @classmethod
     def createTableConfig(cls, table, *cols):
         """
@@ -78,7 +82,7 @@ class ModelsFactory:
         if cols is None:
             cols = tableColNames
 
-        tableConfig = emviz.models.TableModel()
+        tableConfig = models.TableConfig()
         rest = list(tableColNames)
         for item in cols:
             if isinstance(item, str) or isinstance(item, unicode):
@@ -93,11 +97,11 @@ class ModelsFactory:
             if name in tableColNames and name in rest:
                 col = table.getColumn(name)
                 # Take the values from the 'properties' dict or infer from col
-                cType = TYPE_MAP.get(col.getType(), emviz.models.TYPE_STRING)
-                if DESCRIPTION not in properties:
-                    properties[DESCRIPTION] = col.getDescription()
-                properties[EDITABLE] = False
-                tableConfig.addColumn(name, cType, **properties)
+                cType = TYPE_MAP.get(col.getType(), models.TYPE_STRING)
+                if models.DESCRIPTION not in properties:
+                    properties[models.DESCRIPTION] = col.getDescription()
+                properties[models.EDITABLE] = False
+                tableConfig.addColumnConfig(name, cType, **properties)
                 rest.remove(name)
             else:
                 raise Exception("Invalid column name: %s" % name)
@@ -107,11 +111,11 @@ class ModelsFactory:
         for colName in rest:
             col = table.getColumn(colName)
             # Take the values from the 'properties' dict or infer from col
-            cType = TYPE_MAP.get(col.getType(), emviz.models.TYPE_STRING)
+            cType = TYPE_MAP.get(col.getType(), models.TYPE_STRING)
             properties = dict()
-            properties[DESCRIPTION] = col.getDescription()
-            properties[EDITABLE] = False
-            properties[VISIBLE] = visible
+            properties[models.DESCRIPTION] = col.getDescription()
+            properties[models.EDITABLE] = False
+            properties[models.VISIBLE] = visible
             tableConfig.addColumnConfig(colName, cType, **properties)
 
         return tableConfig
