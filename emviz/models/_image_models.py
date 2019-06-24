@@ -96,31 +96,6 @@ class VolumeModel:
         """ Return (xdim, ydim, zdim) """
         return self._dim
 
-    def getData(self, i, axis):
-        """ Return a 2D array of the slice data. i should be in (0, axis_n -1).
-        axis should be AXIS_X, AXIS_Y or AXIS_Z
-        """
-        if self._data is None:
-            return None
-
-        if axis == AXIS_Z:
-            if not 0 <= i < self._dim[2]:
-                raise Exception(
-                    "Index should be between 0 and %d" % self._dim[2]-1)
-            return self._data[i]
-        elif axis == AXIS_Y:
-            if not 0 <= i < self._dim[1]:
-                raise Exception(
-                    "Index should be between 0 and %d" % self._dim[1]-1)
-            return self._data[:, i, :]
-        elif axis == AXIS_X:
-            if not 0 <= i < self._dim[0]:
-                raise Exception(
-                    "Index should be between 0 and %d" % self._dim[0]-1)
-            return self._data[:, :, i]
-        else:
-            raise Exception("Axis should be one of: AXIS_X, AXIS_Y, AXIS_Z")
-
     def getLocation(self):
         # FIXME: Check if we need this one here
         return None
@@ -146,7 +121,28 @@ class VolumeModel:
 
         return SlicesModel(data)
 
-    def getImageModel(self, i, axis):
+    def getSliceData(self, i, axis):
+        """ Return a 2D array of the slice data. i should be in (0, axis_n -1).
+        axis should be AXIS_X, AXIS_Y or AXIS_Z
+        """
+        if self._data is None:
+            return None
+
+        d = self._dim[axis]
+        if not 0 <= i < d:
+            raise Exception(
+                "Index should be between 0 and %d" % d - 1)
+
+        if axis == AXIS_Z:
+            return self._data[i]
+        elif axis == AXIS_Y:
+            return self._data[:, i, :]
+        elif axis == AXIS_X:
+            return self._data[:, :, i]
+        else:
+            raise Exception("Axis should be one of: AXIS_X, AXIS_Y, AXIS_Z")
+
+    def getSliceImageModel(self, i, axis):
         """
         Creates an ImageModel for the given slice index and axis.
         :param i:     (int) The image index. i should be in (1, axis-n)
@@ -155,7 +151,8 @@ class VolumeModel:
         """
         if self._data is None:
             return None
-        return ImageModel(data=self.getData(i, axis))
+
+        return ImageModel(data=self.getSliceData(i, axis))
 
 
 class EmptySlicesModel(SlicesModel):
