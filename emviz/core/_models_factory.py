@@ -3,7 +3,7 @@ import numpy as np
 
 import em
 import emviz.models as models
-from .functions import EmTable
+from .functions import EmTable, EmPath
 from ._emtable_model import (EmTableModel, EmStackModel, EmVolumeModel, TYPE_MAP)
 
 
@@ -27,8 +27,20 @@ class ModelsFactory:
         :param path: (str) The table path
         :return:     Tuple ([table names], TableModel)
         """
-        names, table = EmTable.load(path)
-        return names, EmTableModel(emTable=table)
+        names = []
+
+        if EmPath.isTable(path):
+            names, table = EmTable.load(path)
+            model = EmTableModel(emTable=table)
+        elif EmPath.isVolume(path):
+            slicesModel = EmVolumeModel(path).getSlicesModel(models.AXIS_Z)
+            model = models.SlicesTableModel(slicesModel, 'Slice')
+        elif EmPath.isStack(path):
+            model = models.SlicesTableModel(EmStackModel(path), 'Index')
+        else:
+            raise Exception("Unknown file type: %s" % path)
+
+        return names, model
 
     @classmethod
     def createStackModel(cls, path):
