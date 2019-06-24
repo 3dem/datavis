@@ -104,6 +104,21 @@ class PagingView(qtw.QWidget):
         """ Returns the selection mode """
         return self._selectionMode
 
+    def isSingleSelection(self):
+        """ Shortcut to check whether the selection mode is SINGLE_SELECTION
+        """
+        return self._selectionMode == self.SINGLE_SELECTION
+
+    def isMultiSelection(self):
+        """ Shortcut to check whether the selection mode is MULTI_SELECTION
+        """
+        return self._selectionMode == self.MULTI_SELECTION
+
+    def isNoSelection(self):
+        """ Shortcut to check whether the selection mode is NO_SELECTION
+        """
+        return self._selectionMode == self.NO_SELECTION
+
     def setSelectionBehavior(self, selectionBehavior):
         """
         This property holds which selection behavior the view uses.
