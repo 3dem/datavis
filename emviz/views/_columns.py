@@ -138,7 +138,7 @@ class ColumnsView(PagingView):
         """
         # we have defined one delegate for the moment: ImageItemDelegate
         if self._model:
-            for i, colConfig in self._model.iterColumns():
+            for i, colConfig in self._displayConfig.iterColumns():
                 delegate = self._defaultDelegate
                 if colConfig[RENDERABLE]:
                     delegate = self._delegate
@@ -171,8 +171,7 @@ class ColumnsView(PagingView):
         Invoked when a section is clicked.
         The section's logical index is specified by logicalIndex.
         """
-        if self._selectionMode == PagingView.SINGLE_SELECTION or \
-                self._selectionMode == PagingView.NO_SELECTION:
+        if self.isSingleSelection() or self.isNoSelection():
             self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
         else:
             self._selection.clear()
@@ -193,7 +192,7 @@ class ColumnsView(PagingView):
         """
         if self._model is not None:
             self._currentRow = (page - 1) * self._pagingInfo.pageSize
-            if self._selectionMode == PagingView.SINGLE_SELECTION:
+            if self.isSingleSelection():
                 self._selection.clear()
                 self._selection.add(self._currentRow)
 
@@ -207,7 +206,7 @@ class ColumnsView(PagingView):
             row = current.row()
             p = self._pagingInfo
             self._currentRow = row + p.pageSize * (p.currentPage - 1)
-            if self._selectionMode == PagingView.SINGLE_SELECTION:
+            if self.isSingleSelection():
                 self._selection.clear()
                 self._selection.add(self._currentRow)
             self.__updateSelectionInView(p.currentPage - 1)
@@ -260,7 +259,7 @@ class ColumnsView(PagingView):
         """
         Hide the columns with visible property=True
         """
-        for i, colConfig in self._model.iterColumns():
+        for i, colConfig in self._displayConfig.iterColumns():
             if not colConfig[VISIBLE]:
                 self._tableView.hideColumn(i)
             else:
@@ -309,6 +308,7 @@ class ColumnsView(PagingView):
         self._currentRow = 0
         self.__disconnectSignals()
         self._model = model
+        self._displayConfig = displayConfig or model.createDefaultConfig()
         self._pagingInfo.numberOfItems = model.getRowsCount()
         self._pagingInfo.pageSize = self.__calcPageSize()
         self._pagingInfo.currentPage = 1
@@ -342,9 +342,7 @@ class ColumnsView(PagingView):
 
     def getDisplayConfig(self):
         """ Returns the display configuration """
-        if self._pageItemModel is not None:
-            return self._pageItemModel.getDisplayConfig()
-        return None
+        return self._displayConfig
 
     def setRowHeight(self, height):
         """

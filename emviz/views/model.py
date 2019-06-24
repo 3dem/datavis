@@ -32,7 +32,7 @@ class TablePageItemModel(QAbstractItemModel):
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self._model = tableModel
-        self._displayConfig = tableConfig or tableModel
+        self._displayConfig = tableConfig or tableModel.createDefaultConfig()
         self._defaultFont = QFont()
         self._indexWidth = 50
         self._iconSize = None
@@ -91,7 +91,7 @@ class TablePageItemModel(QAbstractItemModel):
         row = qModelIndex.row()
         col = qModelIndex.column()
 
-        cc = self._displayConfig.getColumn(col)
+        cc = self._displayConfig.getColumnConfig(col)
         t = cc.getType()
 
         if role == TablePageItemModel.DataRole:
@@ -123,7 +123,7 @@ class TablePageItemModel(QAbstractItemModel):
         """ Reimplemented from QAbstractItemModel.
         Return the number of columns that are visible in the model.
         """
-        return self._displayConfig.getColumnsCount(**{VISIBLE: True})
+        return self._displayConfig.getColumnsCount(visible=True)
 
     def rowCount(self, index=QModelIndex()):
         """
@@ -171,7 +171,7 @@ class TablePageItemModel(QAbstractItemModel):
 
     def headerData(self, column, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole or role == Qt.ToolTipRole:
-            cc = self._displayConfig.getColumn(column)
+            cc = self._displayConfig.getColumnConfig(column)
             if cc is not None and orientation == Qt.Horizontal and cc[VISIBLE]:
                 return cc.getLabel()
             elif orientation == Qt.Vertical:
@@ -196,7 +196,7 @@ class TablePageItemModel(QAbstractItemModel):
         fl = Qt.NoItemFlags
         if qModelIndex.isValid():
             col = qModelIndex.column()
-            cc = self._model.getColumn(col)
+            cc = self._displayConfig.getColumnConfig(col)
             if cc[EDITABLE]:
                 fl |= Qt.ItemIsEditable
             if cc.getType() == TYPE_BOOL:
@@ -217,7 +217,7 @@ class TablePageItemModel(QAbstractItemModel):
 
     def hasRenderableColumn(self):
         """ Return True if the model has renderable columns """
-        return self._displayConfig.hasColumn(**{RENDERABLE: True})
+        return self._displayConfig.hasColumnConfig(renderable=True)
 
     def getModel(self):
         """ Returns the current data model """
@@ -415,7 +415,7 @@ class VolumeDataModel(QAbstractItemModel):
         row = qModelIndex.row() + self._page * self._pageSize
         col = qModelIndex.column()
 
-        cc = self._model.getColumn(col)
+        cc = self._model.getColumnConfig(col)
         t = cc.getType()
 
         if role == TablePageItemModel.DataTypeRole:
