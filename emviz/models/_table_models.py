@@ -57,12 +57,45 @@ class TableModel:
         return TableConfig(*cols)
 
 
+class SlicesTableModel(TableModel):
+    """ Simple table model based on the data from a given SlicesModel.
+    """
+    def __init__(self, slicesModel, columnName):
+        self._slicesModel = slicesModel
+        self._columnName = columnName
+
+    def iterColumns(self):
+        yield ColumnInfo(self._columnName)
+
+    def getColumnsCount(self):
+        return 1
+
+    def getRowsCount(self):
+        return self._slicesModel.getDim()[2]
+
+    def getValue(self, row, col):
+        return row + 1
+
+    def getData(self, row, col):
+        return self._slicesModel.getData(row)
+
+    def createDefaultConfig(self):
+        """ Reimplement this method to make the only column renderable.
+        """
+        cols = [ColumnConfig(c.getName(), c.getType(), renderable=True)
+                for c in self.iterColumns()]
+        return TableConfig(*cols)
+
+
 class EmptyTableModel(TableModel):
     """
     The EmptyModel represents an empty table model.
     """
-    def __init__(self):
-        TableModel.__init__(self)
+    def iterColumns(self):
+        return iter(())
+
+    def getColumnsCount(self):
+        return 0
 
     def getRowsCount(self):
         return 0
