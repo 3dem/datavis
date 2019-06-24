@@ -19,8 +19,9 @@ else:
                         "Either provide an input path or set the "
                         "variable environment EM_TEST_DATA")
     #  FIXME[phv] Please, we need a real table path
+    # FIXME: You have plenty of .star or .xmd files in the TEST folder
     tablePath = os.path.join(testDataPath, "relion_tutorial", "import",
-                             "classify2d", "extra", "relion_it015_classes.star")
+                             "classify2d", "extra", "relion_it015_classes.mrcs")
 
 
 def getPreferedBounds(width=None, height=None):
@@ -34,7 +35,7 @@ def getPreferedBounds(width=None, height=None):
     return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
 app = QApplication(sys.argv)
-model = ModelsFactory.createStackModel(tablePath)
+tableNames, model = ModelsFactory.createTableModel(tablePath)
 
 dataView = DataView(parent=None, model=model)
 width, height = dataView.getPreferedSize()
