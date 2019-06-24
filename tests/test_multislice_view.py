@@ -42,50 +42,10 @@ else:
 
 imgio.close()
 
-
-class AxisSlicesModel(SlicesModel):
-    """ Example class about how to implement an SlicesModel for different axis.
-    """
-    def __init__(self, axis, data):
-        SlicesModel.__init__(self, data)
-        self._axis = axis
-
-    def getData(self, i):
-        i -= 1
-        if self._axis == AXIS_Z:
-            return self._data[i]
-        elif self._axis == AXIS_Y:
-            return self._data[:, i, :]
-        elif self._axis == AXIS_X:
-            return self._data[:, :, i]
-
-    def getDim(self):
-        if self._axis == AXIS_Z:
-            return self._dim
-        elif self._axis == AXIS_Y:
-            return self._dim[0], self._dim[2], self._dim[1]
-        elif self._axis == AXIS_X:
-            return self._dim[1], self._dim[2], self._dim[0]
-
-
 volModel = ModelsFactory.createVolumeModel(imgPath)
-xModel = volModel.getSlicesModel(AXIS_X)
-print('X: ', xModel.getDim())
-yModel = volModel.getSlicesModel(AXIS_Y)
-print('Y: ', yModel.getDim())
-zModel = volModel.getSlicesModel(AXIS_Z)
-print('Z: ', zModel.getDim())
 msv = MultiSliceView(None,
-                     {AXIS_X: {'model': xModel},
-                      AXIS_Y: {'model': yModel},
-                      AXIS_Z: {'model': zModel}
-                      })
-#msv = MultiSliceView(None,
-#                     {AXIS_X: {'model': AxisSlicesModel(AXIS_X, data)},
-#                     AXIS_Y: {'model': AxisSlicesModel(AXIS_Y, data)},
-#                      AXIS_Z: {'model': AxisSlicesModel(AXIS_Z, data)}
-#                      })
-
+                     {axis: {'model': volModel.getSlicesModel(axis)}
+                      for axis in [AXIS_X, AXIS_Y, AXIS_Z]})
 # Create window with ImageView widget
 win = QMainWindow()
 win.setCentralWidget(msv)
