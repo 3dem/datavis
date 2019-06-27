@@ -198,8 +198,9 @@ class ItemsView(PagingView):
         # FIXME: If the model haven't changed, we can populate the model once
         # FIXME: and then set the values
         vLabels = []
+
         if self.isMultiSelection():
-            vLabels = ["SELECTED"]
+            vLabels.append('SELECTED')
             self.__selectionItem = QStandardItem()
             self.__selectionItem.setCheckable(True)
             self.__selectionItem.setEditable(False)
@@ -214,9 +215,11 @@ class ItemsView(PagingView):
             # FIXME: Check when not columns are visible and the index
             # mismatch with the column id in the tableModel
             print("col: %d (%s), value: %s" % (i, colConfig.getName(),
-                                               self._model.getValue(self._row, i)))
-            item.setData(self._model.getValue(self._row, i),
-                         Qt.DisplayRole)
+                                               self._model.getValue(self._row,
+                                                                    i)))
+            item.setData(
+                self._pageItemModel.data(self._pageItemModel.createIndex(
+                    self._row, i)), Qt.DisplayRole)
             item.setEditable(False)
             model.appendRow([item])
             label = self._pageItemModel.headerData(i, Qt.Horizontal)

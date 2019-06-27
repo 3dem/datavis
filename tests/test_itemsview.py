@@ -24,9 +24,8 @@ else:
                              "classify2d", "extra",
                              "relion_it015_classes.mrcs")
 
-
 app = QApplication(sys.argv)
-tables, model = ModelsFactory.createTableModel(imagePath)
+names, model = ModelsFactory.createTableModel(imagePath)
 
 itemsView = ItemsView(parent=None, model=model,
                       selectionMode=ItemsView.MULTI_SELECTION)

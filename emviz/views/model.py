@@ -23,7 +23,7 @@ class TablePageItemModel(QAbstractItemModel):
         Constructs an DataModel to be used from TableView
         :param tableModel: (TableModel) Input TableModel from where the data
                            will be read and present in pages.
-        :param tableConfig: input TableModel that will control how the data
+        :param tableConfig: input TableConfig that will control how the data
                             fetched from the TableModel will be displayed
         :param pagingInfo: (PagingInfo) Page configuration
         :param **kwargs: Optional arguments:

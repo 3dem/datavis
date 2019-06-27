@@ -55,7 +55,7 @@ class EmTableModel(models.TableModel):
         raise Exception("Not implemented")
 
 
-class EmStackModel(models.SlicesModel):
+class EmStackModel(models.SlicesTableModel):
     """
     The EmStackModel class provides the basic functionality for image stack.
     The following methods are wrapped directly from SlicesModel:
@@ -64,22 +64,22 @@ class EmStackModel(models.SlicesModel):
         - getLocation
         - getImageModel
     """
-    def __init__(self, path, data=None, **kwargs):
+    def __init__(self, path, **kwargs):
         """
         Constructs an EmStackModel.
-        Note that you can specify the path and/or image data.
+        Note that you can specify the path and/or SlicesModel.
+        :param path:     (str) The image path
         :param kwargs:
          - slicesModel : (SlicesModel) The SlicesModel from which this
                          EmStackModel will be created.
-         - col         : (models.ColumnConfig) The config for image column
-                         if col is None, then 'Image' will be used.
+         - columnName  : (str) The column name for image column.
+                         if columnName is None, then 'Image' will be used.
         """
-        models.SlicesModel.__init__(self, data)
-        if path is None and data is None:
-            raise Exception("Invalid initialization params. "
-                            "The image path and data can not be None.")
+        models.SlicesTableModel.__init__(self, kwargs.get('slicesModel'),
+                                         columnName=kwargs.get('columnName',
+                                                               'Image'))
         self._path = path
-        if data is None:
+        if path is not None:
             imgio = em.ImageIO()
             imgio.open(path, em.File.READ_ONLY)
             dim = imgio.getDim()
@@ -96,6 +96,18 @@ class EmStackModel(models.SlicesModel):
                 self._data.append(np.array(image, copy=True))
             imgio.close()
 
+    def getRowsCount(self):
+        if self._path is not None:
+            return len(self._data)
+
+        return models.SlicesTableModel.getRowsCount(self)
+
+    def getData(self, row, col):
+        if self._path is not None:
+            return self._data[row]
+
+        return models.SlicesTableModel.getData(self, row, col)
+
     def getLocation(self):
         """ Returns the image location(the image path). """
         return self._path
@@ -103,7 +115,7 @@ class EmStackModel(models.SlicesModel):
     def getImageModel(self, i):
         """ Return an ImageModel for the given slice. """
         loc = (i, self._path) if self._path else None
-        return models.ImageModel(data=self.getData(i), location=loc)
+        return models.ImageModel(data=self.getData(i, 0), location=loc)
 
 
 class EmVolumeModel(models.VolumeModel):
