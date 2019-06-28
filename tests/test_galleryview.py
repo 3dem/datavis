@@ -36,7 +36,7 @@ def getPreferedBounds(width=None, height=None):
     return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
 app = QApplication(sys.argv)
-model = ModelsFactory.createStackModel(imagePath)
+names, model = ModelsFactory.createTableModel(imagePath)
 
 galleryView = GalleryView(parent=None, model=model)
 width, height = galleryView.getPreferedSize()

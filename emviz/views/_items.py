@@ -121,12 +121,11 @@ class ItemsView(PagingView):
 
     def setModel(self, model, displayConfig=None):
         """
-        Sets the model for this view.
+        Set the model for this view.
         Raise Exception when the model is None
         :param model:         (emviz.model.TableModel) The data model
-        :param displayConfig: (emviz.model.TableModel) Input TableModel that
-                              will control how the data fetched from the
-                              TableModel will be displayed.
+        :param displayConfig: (emviz.model.TableConfig) control how the data
+            fetched from the TableModel will be displayed.
         """
         if model is None:
             raise Exception('Invalid model: None')
