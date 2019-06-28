@@ -130,8 +130,7 @@ class VolumeModel:
 
         d = self._dim[axis]
         if not 0 <= i < d:
-            raise Exception(
-                "Index should be between 0 and %d" % d - 1)
+            raise Exception("Index should be between 0 and %d" % d - 1)
 
         if axis == AXIS_Z:
             return self._data[i]
@@ -149,10 +148,9 @@ class VolumeModel:
         :param axis:  (int) axis should be AXIS_X, AXIS_Y or AXIS_Z
         :return:      (ImageModel)
         """
-        if self._data is None:
-            return None
+        sliceData = self.getSliceData(i, axis)
 
-        return ImageModel(data=self.getSliceData(i, axis))
+        return None if sliceData is None else ImageModel(data=sliceData)
 
 
 class EmptySlicesModel(SlicesModel):

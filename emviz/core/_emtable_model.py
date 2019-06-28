@@ -55,7 +55,7 @@ class EmTableModel(models.TableModel):
         raise Exception("Not implemented")
 
 
-class EmStackModel(models.SlicesTableModel):
+class EmStackModel(models.SlicesModel):
     """
     The EmStackModel class provides the basic functionality for image stack.
     The following methods are wrapped directly from SlicesModel:
@@ -75,9 +75,7 @@ class EmStackModel(models.SlicesTableModel):
          - columnName  : (str) The column name for image column.
                          if columnName is None, then 'Image' will be used.
         """
-        models.SlicesTableModel.__init__(self, kwargs.get('slicesModel'),
-                                         columnName=kwargs.get('columnName',
-                                                               'Image'))
+        models.SlicesModel.__init__(self, **kwargs)
         self._path = path
         if path is not None:
             imgio = em.ImageIO()
@@ -96,26 +94,12 @@ class EmStackModel(models.SlicesTableModel):
                 self._data.append(np.array(image, copy=True))
             imgio.close()
 
-    def getRowsCount(self):
-        if self._path is not None:
-            return len(self._data)
-
-        return models.SlicesTableModel.getRowsCount(self)
-
-    def getData(self, row, col):
-        if self._path is not None:
-            return self._data[row]
-
-        return models.SlicesTableModel.getData(self, row, col)
-
     def getLocation(self):
         """ Returns the image location(the image path). """
         return self._path
 
-    def getImageModel(self, i):
-        """ Return an ImageModel for the given slice. """
-        loc = (i, self._path) if self._path else None
-        return models.ImageModel(data=self.getData(i, 0), location=loc)
+    # TODO: Maybe we will need to implement the getData in
+    # the case that we don't want to store the whole stack in memory
 
 
 class EmVolumeModel(models.VolumeModel):
@@ -142,17 +126,3 @@ class EmVolumeModel(models.VolumeModel):
             imgio.close()
 
         models.VolumeModel.__init__(self, data)
-
-    # FIXME: Why the following method is re-implemented?
-    # the implementation in the base class seems to work here as well
-
-    # def getSlicesModel(self, axis):
-    #     """
-    #     Creates an SlicesModel for the given axis.
-    #     :param axis:  (int) axis should be AXIS_X, AXIS_Y or AXIS_Z
-    #     :return:      (SlicesModel)
-    #     """
-    #     sModel = models.VolumeModel.getSlicesModel(self, axis)
-    #     if sModel is None:
-    #         return None
-    #     return EmStackModel(slicesModel=sModel)
