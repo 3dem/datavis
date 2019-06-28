@@ -176,6 +176,14 @@ class PageBar(QWidget):
         if self._pagingInfo.setCurrentPage(page):
             self._updateCurrentPage()
 
+    def getCurrentPage(self):
+        """ Returns the current page """
+        return self._pagingInfo.currentPage
+
+    def getPageCount(self):
+        """ Returns the number of pages """
+        return self._pagingInfo.numberOfPages
+
     def setPagingInfo(self, pagingInfo, step=1):
         """ Setups the paging params """
         self._pagingInfo = pagingInfo

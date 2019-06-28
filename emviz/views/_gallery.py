@@ -11,6 +11,7 @@ from PyQt5 import QtCore
 from emviz.widgets import EMImageItemDelegate, PagingInfo
 from emviz.models import RENDERABLE, EmptyTableModel
 from ._paging_view import PagingView
+from ._constants import GALLERY
 from .model import TablePageItemModel
 
 
@@ -21,7 +22,7 @@ class GalleryView(PagingView):
     """
     sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
     sigPageSizeChanged = QtCore.pyqtSignal()  # Signal for page size changed
-    sigGallerySizeChanged = QtCore.pyqtSignal(object, object)
+    sigSizeChanged = QtCore.pyqtSignal(object, object)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -68,7 +69,7 @@ class GalleryView(PagingView):
         lv.setIconSize(QSize(32, 32))
         lv.setModel(None)
         lv.resizeEvent = self.__listViewResizeEvent
-        self.sigGallerySizeChanged.connect(self.__onSizeChanged)
+        self.sigSizeChanged.connect(self.__onSizeChanged)
         self._listView = lv
         return lv
 
@@ -95,7 +96,7 @@ class GalleryView(PagingView):
         :param evt:
         """
         QListView.resizeEvent(self._listView, evt)
-        self.sigGallerySizeChanged.emit(evt.oldSize(), evt.size())
+        self.sigSizeChanged.emit(evt.oldSize(), evt.size())
 
     def __calcPageSize(self):
         """
@@ -253,6 +254,10 @@ class GalleryView(PagingView):
         """ Returns the current model """
         return self._model
 
+    def getViewType(self):
+        """ Returns the view type """
+        return GALLERY
+
     def getDisplayConfig(self):
         """ Returns the display configuration """
         if self._pageItemModel is not None:
@@ -346,7 +351,7 @@ class GalleryView(PagingView):
 
         return int(size / cols) + (1 if r > 0 else 0), cols
 
-    def getPreferedSize(self):
+    def getPreferredSize(self):
         """
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data

@@ -537,7 +537,7 @@ if __name__ == '__main__':
             return
 
         if isinstance(viewWidget, DataView):
-            size = viewWidget.getPreferedSize()
+            size = viewWidget.getPreferredSize()
             x, y, w, h = getPreferedBounds(size[0], size[1])
         elif (isinstance(viewWidget, ImageView) or
                 isinstance(viewWidget, SlicesView) or

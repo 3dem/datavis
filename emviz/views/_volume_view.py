@@ -7,10 +7,11 @@ import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from emviz.widgets import PageBar, TriggerAction, createQPixmap, PagingInfo
-from emviz.models import (PIXEL_UNITS, AXIS_X, AXIS_Y, AXIS_Z, EmptySlicesModel,
+from emviz.models import (AXIS_X, AXIS_Y, AXIS_Z, EmptySlicesModel,
                           EmptyTableModel, EmptyVolumeModel)
 from ._multislice_view import MultiSliceView
 from ._gallery import GalleryView
+from ._constants import PIXEL_UNITS
 
 
 class VolumeView(qtw.QWidget):

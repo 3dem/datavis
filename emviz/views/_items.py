@@ -8,8 +8,9 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5 import QtCore
 
 from ._paging_view import PagingView
+from ._constants import ITEMS
 from emviz.widgets import PagingInfo
-from emviz.models import RENDERABLE, VISIBLE, ImageModel, EmptyTableModel
+from emviz.models import ImageModel, EmptyTableModel
 from ._image_view import ImageView
 from .model import TablePageItemModel
 
@@ -21,6 +22,8 @@ class ItemsView(PagingView):
 
     """ Signal for current row changed """
     sigCurrentRowChanged = QtCore.pyqtSignal(int)
+    """ Signal for size changed """
+    sigSizeChanged = QtCore.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -89,6 +92,43 @@ class ItemsView(PagingView):
                 self._pageItemModel.pageConfigChanged)
             self._pageBar.sigPageChanged.disconnect(self.__onCurrentPageChanged)
 
+    def __loadRow(self, row):
+        """
+        Show the item at (row, col)
+        :param row: (int) The row index. First index is 0.
+        """
+        self._imageView.clear()
+        model = self._itemsViewTable.model()
+        model.clear()
+        self._row = row
+        self._loadRowValues()
+        self.__loadRowImages()
+        if self.isSingleSelection():
+            self._selection.clear()
+            self._selection.add(row)
+            self.sigSelectionChanged.emit()
+        self.__updateSelectionInView()
+        self.sigCurrentRowChanged.emit(row)
+
+    def __loadRowImages(self):
+        """
+        Load the images referenced by the given row and all the columns marked
+        as renderable.
+        TODO[hv]: Now only one image is displayed, but in the future all
+        renderable columns could be displayed
+        """
+        indexes = [i for i, c in self._config.iterColumns(renderable=True)]
+        if indexes:
+            data = self._model.getData(self._row, self._column)
+            if data is not None:
+                self._imageView.setModel(ImageModel(data))
+                self._imageView.setImageInfo(
+                    path=self._model.getValue(self._row, self._column),
+                    format=' ',  # FIXME[phv] set image format and type
+                    data_type=' ')
+        else:
+            self._imageView.clear()
+
     @pyqtSlot('QStandardItem*')
     def __onItemDataChanged(self, item):
         """
@@ -109,6 +149,49 @@ class ItemsView(PagingView):
         """ Invoked when change the current page """
         self.__loadRow(page - 1)
 
+    def _loadRowValues(self):
+        """ Load the table values for the current row.
+         Values will be displayed as rows of this view.
+         """
+        model = self._itemsViewTable.model()
+        model.clear()
+        # FIXME: (Important) Every time that we change the selected row
+        # FIXME: do we need to create new QStandardItems() ?????
+        # FIXME: This might be the cause of some noticeable flickering
+        # FIXME: If the model haven't changed, we can populate the model once
+        # FIXME: and then set the values
+        vLabels = []
+
+        if self.isMultiSelection():
+            vLabels.append('SELECTED')
+            self.__selectionItem = QStandardItem()
+            self.__selectionItem.setCheckable(True)
+            self.__selectionItem.setEditable(False)
+            if self._selection is not None and self._row in self._selection:
+                self.__selectionItem.setCheckState(Qt.Checked)
+            model.appendRow([self.__selectionItem])
+        else:
+            self.__selectionItem = None
+
+        for i, colConfig in self._config.iterColumns(visible=True):
+            item = QStandardItem()
+            # FIXME: Check when not columns are visible and the index
+            # mismatch with the column id in the tableModel
+            print("col: %d (%s), value: %s" % (i, colConfig.getName(),
+                                               self._model.getValue(self._row,
+                                                                    i)))
+            item.setData(
+                self._pageItemModel.data(self._pageItemModel.createIndex(
+                    self._row, i)), Qt.DisplayRole)
+            item.setEditable(False)
+            model.appendRow([item])
+            label = self._pageItemModel.headerData(i, Qt.Horizontal)
+            if isinstance(label, str) or isinstance(label, unicode):
+                vLabels.append(label)
+        model.setHorizontalHeaderLabels(["Values"])
+        model.setVerticalHeaderLabels(vLabels)
+        self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
+
     @pyqtSlot(set)
     def changeSelection(self, selection):
         """ Invoked when the selection is changed """
@@ -117,7 +200,7 @@ class ItemsView(PagingView):
 
     def selectRow(self, row):
         """ Selects the given row """
-        self.__loadRow(self._row)
+        self._pageBar.setCurrentPage(row + 1)
 
     def setModel(self, model, displayConfig=None):
         """
@@ -163,87 +246,22 @@ class ItemsView(PagingView):
         """ Returns a tuple (rows, columns) with the data size """
         return self._config.getColumnsCount(), 1
 
+    def getViewType(self):
+        """ Returns the view type
+        """
+        return ITEMS
+
     def updateViewConfiguration(self):
         """ Reimplemented from PagingView """
-        self._imageView.setVisible(self._config.hasColumnConfig(renderable=True))
+        self._imageView.setVisible(
+            self._config.hasColumnConfig(renderable=True))
         self.__loadRow(self._row)
 
-    def __loadRow(self, row):
+    def getPreferredSize(self):
+        """ Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the data
         """
-        Show the item at (row, col)
-        :param row: (int) The row index. First index is 0.
-        """
-        self._imageView.clear()
-        model = self._itemsViewTable.model()
-        model.clear()
-        self._row = row
-        self._loadRowValues()
-        self.__loadRowImages()
-        if self.isSingleSelection():
-            self._selection.clear()
-            self._selection.add(row)
-            self.sigSelectionChanged.emit()
-        self.__updateSelectionInView()
-        self.sigCurrentRowChanged.emit(row)
+        w, h = self._imageView.getPreferredSize()
+        return 2*w, 2*h
 
-    def _loadRowValues(self):
-        """ Load the table values for the current row.
-         Values will be displayed as rows of this view.
-         """
-        model = self._itemsViewTable.model()
-        model.clear()
-        # FIXME: (Important) Every time that we change the selected row
-        # FIXME: do we need to create new QStandardItems() ?????
-        # FIXME: This might be the cause of some noticeable flickering
-        # FIXME: If the model haven't changed, we can populate the model once
-        # FIXME: and then set the values
-        vLabels = []
 
-        if self.isMultiSelection():
-            vLabels.append('SELECTED')
-            self.__selectionItem = QStandardItem()
-            self.__selectionItem.setCheckable(True)
-            self.__selectionItem.setEditable(False)
-            if self._selection is not None and self._row in self._selection:
-                self.__selectionItem.setCheckState(Qt.Checked)
-            model.appendRow([self.__selectionItem])
-        else:
-            self.__selectionItem = None
-
-        for i, colConfig in self._config.iterColumns(visible=True):
-            item = QStandardItem()
-            # FIXME: Check when not columns are visible and the index
-            # mismatch with the column id in the tableModel
-            print("col: %d (%s), value: %s" % (i, colConfig.getName(),
-                                               self._model.getValue(self._row,
-                                                                    i)))
-            item.setData(
-                self._pageItemModel.data(self._pageItemModel.createIndex(
-                    self._row, i)), Qt.DisplayRole)
-            item.setEditable(False)
-            model.appendRow([item])
-            label = self._pageItemModel.headerData(i, Qt.Horizontal)
-            if isinstance(label, str) or isinstance(label, unicode):
-                vLabels.append(label)
-        model.setHorizontalHeaderLabels(["Values"])
-        model.setVerticalHeaderLabels(vLabels)
-        self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
-
-    def __loadRowImages(self):
-        """
-        Load the images referenced by the given row and all the columns marked
-        as renderable.
-        TODO[hv]: Now only one image is displayed, but in the future all
-        renderable columns could be displayed
-        """
-        indexes = [i for i, c in self._config.iterColumns(renderable=True)]
-        if indexes:
-            data = self._model.getData(self._row, self._column)
-            if data is not None:
-                self._imageView.setModel(ImageModel(data))
-                self._imageView.setImageInfo(
-                    path=self._model.getValue(self._row, self._column),
-                    format=' ',  # FIXME[phv] set image format and type
-                    data_type=' ')
-        else:
-            self._imageView.clear()

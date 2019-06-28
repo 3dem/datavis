@@ -8,6 +8,7 @@ from ._multislice_view import MultiSliceView
 from ._volume_view import VolumeView
 from .picker_view import (PickerView, SHAPE_RECT, SHAPE_CIRCLE, SHAPE_SEGMENT,
                           DEFAULT_MODE, FILAMENT_MODE, SHAPE_CENTER)
+from ._constants import *
 
 from ._paging_view import PagingView
 

@@ -589,6 +589,13 @@ class ImageView(QWidget):
         """ Getter for left toolbar """
         return self._toolBar
 
+    def getPreferredSize(self):
+        """ Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the image """
+        if self._model is None:
+            return 800, 600
+        return self._model.getDim()
+
     def eventFilter(self, obj, event):
         """
         Filters events if this object has been installed as an event filter for

@@ -39,7 +39,7 @@ app = QApplication(sys.argv)
 model = ModelsFactory.createStackModel(imagePath)
 
 galleryView = GalleryView(parent=None, model=model)
-width, height = galleryView.getPreferedSize()
+width, height = galleryView.getPreferredSize()
 # Create window with ImageView widget
 win = QMainWindow()
 win.setCentralWidget(galleryView)

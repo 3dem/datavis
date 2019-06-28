@@ -11,6 +11,7 @@ from PyQt5 import QtCore
 from emviz.widgets import EMImageItemDelegate, PagingInfo
 from emviz.models import VISIBLE, RENDERABLE,EmptyTableModel
 from ._paging_view import PagingView
+from ._constants import COLUMNS
 from .model import TablePageItemModel
 
 
@@ -22,7 +23,7 @@ class ColumnsView(PagingView):
     # For current row changed
     sigCurrentRowChanged = QtCore.pyqtSignal(int)
     # when the Table has been resized (oldSize, newSize)
-    sigTableSizeChanged = QtCore.pyqtSignal(object, object)
+    sigSizeChanged = QtCore.pyqtSignal(object, object)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -57,7 +58,7 @@ class ColumnsView(PagingView):
         tv.verticalHeader().setTextElideMode(Qt.ElideRight)
         tv.setObjectName("ColumnsViewTable")
         self._defaultDelegate = tv.itemDelegate()
-        self.sigTableSizeChanged.connect(self.__onSizeChanged)
+        self.sigSizeChanged.connect(self.__onSizeChanged)
         tv.setSelectionBehavior(QTableView.SelectRows)
         tv.setSelectionMode(QTableView.SingleSelection)
         tv.setSortingEnabled(True)
@@ -94,11 +95,11 @@ class ColumnsView(PagingView):
     def __tableViewResizeEvent(self, evt):
         """
         Reimplemented to receive QTableView resize events which are passed
-        in the event parameter. Emits sigTableSizeChanged
+        in the event parameter. Emits sigSizeChanged
         :param evt: The event
         """
         QTableView.resizeEvent(self._tableView, evt)
-        self.sigTableSizeChanged.emit(evt.oldSize(), evt.size())
+        self.sigSizeChanged.emit(evt.oldSize(), evt.size())
 
     def __getPage(self, row):
         """
@@ -344,6 +345,10 @@ class ColumnsView(PagingView):
         """ Returns the display configuration """
         return self._displayConfig
 
+    def getViewType(self):
+        """ Returns the view type """
+        return COLUMNS
+
     def setRowHeight(self, height):
         """
         Sets the height for all rows
@@ -359,6 +364,24 @@ class ColumnsView(PagingView):
         :param width:  (int) The column width
         """
         self._tableView.setColumnWidth(column, width)
+
+    def setIconSize(self, size):
+        """
+        Sets the icon size for renderable columns.
+        size: (width, height) or QSize
+        """
+        if isinstance(size, QSize):
+            w, h = size.width(), size.height()
+        else:
+            w, h = size
+
+        self.setRowHeight(h)
+        config = self.getDisplayConfig()
+        if config is not None:
+            for i, colConfig in config.iterColumns(renderable=True,
+                                                   visible=True):
+                if self.getColumnWidth(i) < w:
+                    self.setColumnWidth(i, w)
 
     def getColumnWidth(self, column):
         """
@@ -403,7 +426,7 @@ class ColumnsView(PagingView):
         else:
             return header.sectionSize(columnIndex)
 
-    def getPreferedSize(self):
+    def getPreferredSize(self):
         """
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data
@@ -411,8 +434,9 @@ class ColumnsView(PagingView):
         rowHeight = self._pageItemModel.headerData(0, Qt.Vertical,
                                                    Qt.SizeHintRole)
         rowHeight = 30 if rowHeight is None else rowHeight.height()
-        h = rowHeight * self._model.getRowsCount() + \
-            (self._pageBar.height() if self._pageBar.isVisible() else 0) + 90
+        a = (self._pageBar.height() if self._pageBar.isVisible() else 0) + 90
+        h = rowHeight * self._model.getRowsCount() + a
+
         return self.getHeaderSize(), h
 
     def setSelectionMode(self, selectionMode):

@@ -38,7 +38,7 @@ app = QApplication(sys.argv)
 names, model = ModelsFactory.createTableModel(tablePath)
 
 columnsView = ColumnsView(parent=None, model=model)
-width, height = columnsView.getPreferedSize()
+width, height = columnsView.getPreferredSize()
 # Create window with ImageView widget
 win = QMainWindow()
 win.setCentralWidget(columnsView)

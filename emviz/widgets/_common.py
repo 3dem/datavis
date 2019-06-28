@@ -12,7 +12,7 @@ class TriggerAction(QAction):
     not provided by Qt.
     """
     def __init__(self, parent, actionName, text="", faIconName=None, icon=None,
-                  checkable=False, slot=None, shortCut=None):
+                  checkable=False, slot=None, shortCut=None, userData=None):
         """
         Creates a TriggerAction with the given name, text and icon. If slot is
         not None then the signal QAction.triggered is connected to it.
@@ -23,6 +23,7 @@ class TriggerAction(QAction):
         :param checkable:    (bool)if this action is checkable
         :param slot:         (slot) the slot to connect QAction.triggered signal
         :param shortCut:     (QKeySequence) the short cut key
+        :param userData:     User data for specific purposes
         """
         QAction.__init__(self, parent)
         self.setObjectName(str(actionName))
@@ -40,6 +41,12 @@ class TriggerAction(QAction):
 
         if shortCut is not None:
             self.setShortcut(shortCut)
+
+        self._userData = userData
+
+    def getUserData(self):
+        """ Getter for user data """
+        return self._userData
 
 
 def createQPixmap(iconName, size):

@@ -34,11 +34,13 @@ def getPreferedBounds(width=None, height=None):
     h = min(height, h)
     return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
+
+tablePath = '/media/pedro/Data/Work/Project/Repo/test-data/relion_it025_classes.mrcs'
 app = QApplication(sys.argv)
-tableNames, model = ModelsFactory.createTableModel(tablePath)
+model = ModelsFactory.createStackModel(tablePath)
 
 dataView = DataView(parent=None, model=model)
-width, height = dataView.getPreferedSize()
+width, height = dataView.getPreferredSize()
 # Create window with ImageView widget
 win = QMainWindow()
 win.setCentralWidget(dataView)
