@@ -14,11 +14,10 @@ class EMImageItemDelegate(QStyledItemDelegate):
     ImageItemDelegate class provides display and editing facilities for
     em image data items from a model.
     """
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, parent=None):
         """
-        kwargs:
-          - imageManager: the ImageManager for internal read/manage
-                          image operations.
+        Constructs a EMImageItemDelegate.
+        :param parent:  (QObject) The parent object
         """
         QStyledItemDelegate.__init__(self, parent)
         self._imageView = pg.ImageView(view=pg.ViewBox())

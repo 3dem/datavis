@@ -51,6 +51,8 @@ class PagingInfo:
         self.itemsInLastPage = self.numberOfItems % pageSize
         if self.itemsInLastPage > 0:
             self.numberOfPages += 1  # add page with items left
+        else:
+            self.itemsInLastPage = pageSize
         # Preserving the current row
         self.setCurrentPage(int(row / pageSize) + 1)
 

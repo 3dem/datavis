@@ -35,9 +35,8 @@ def getPreferedBounds(width=None, height=None):
     return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
 
-tablePath = '/media/pedro/Data/Work/Project/Repo/test-data/relion_it025_classes.mrcs'
 app = QApplication(sys.argv)
-model = ModelsFactory.createStackModel(tablePath)
+names, model = ModelsFactory.createTableModel(tablePath)
 
 dataView = DataView(parent=None, model=model)
 width, height = dataView.getPreferredSize()

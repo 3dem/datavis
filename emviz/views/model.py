@@ -43,8 +43,8 @@ class TablePageItemModel(QAbstractItemModel):
     def __getPageValue(self, row, col, role=Qt.DisplayRole):
         """ Return the value for specified column and row in the current page
         """
-        row += (self._pagingInfo.currentPage - 1) * self._pagingInfo.pageSize
-
+        if self._pagingInfo.pageSize > 1:
+            row += (self._pagingInfo.currentPage - 1)*self._pagingInfo.pageSize
         if role == self.DataRole:
             return self._model.getData(row, col)
 

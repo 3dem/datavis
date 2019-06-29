@@ -421,7 +421,7 @@ class GalleryView(PagingView):
     def updateViewConfiguration(self):
         """ Update the columns configuration """
         d = self._pageItemModel.getDisplayConfig()
-        indexes = [i for i, c in d.iterColumns(**{RENDERABLE: True})]
+        indexes = [i for i, c in d.iterColumns(renderable=True)]
         if indexes:
             self._listView.setModelColumn(indexes[0])
             self._listView.setItemDelegateForColumn(indexes[0],

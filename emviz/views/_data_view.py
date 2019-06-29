@@ -461,7 +461,6 @@ class DataView(QWidget):
         viewWidget = d.get(VIEW)
         if viewWidget is not None:
             self._stackedLayoud.removeWidget(viewWidget)
-            self._viewsDict.pop(view)
             d[VIEW] = None
             viewWidget.setParent(None)
             self.__disconnectViewSignals(viewWidget)
@@ -617,9 +616,8 @@ class DataView(QWidget):
 
     def __clearViews(self):
         """ Clear all views """
-        for viewWidget in self._viewsDict.values():
-            if viewWidget is not None:
-                viewWidget.clear()
+        for viewWidget in self.getViewWidgets():
+            viewWidget.clear()
 
     def __initProperties(self, **kwargs):
         """ Configure all properties  """
@@ -628,11 +626,7 @@ class DataView(QWidget):
         self._minRowHeight = kwargs.get("minCellSize", 20)
         self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
         self._view = kwargs.get("view", COLUMNS)
-        # The following dict is a map between views(COLUMNS, GALLERY, ITEMS) and
-        # view widgets (GalleryView, ColumnsView, ItemsView)
-        self._viewsDict = {}
-        # List of configured views
-        self._selectionMode = kwargs.get("selection_mode",
+        self._selectionMode = kwargs.get("selectionMode",
                                          PagingView.MULTI_SELECTION)
 
     def __setupActions(self):
@@ -666,10 +660,10 @@ class DataView(QWidget):
 
     def __initTableColumnProp(self):
         """ Initialize the columns properties widget """
-        blocked = self._tableColumnProp.blockSignals(True)
+        self._tableColumnProp.blockSignals(True)
         self._tableColumnProp.clear()
         self._tableColumnProp.setHorizontalHeaderLabels(["", "", 'Name'])
-        viewWidget = self.getViewWidget(self._view)
+        viewWidget = self.getViewWidget()
         dConfig = viewWidget.getDisplayConfig()
 
         if dConfig is not None:
@@ -683,7 +677,7 @@ class DataView(QWidget):
                 self._tableColumnProp.setItem(row, 0, itemV)
                 self._tableColumnProp.setItem(row, 1, itemR)
                 self._tableColumnProp.setItem(row, 2, item)
-                toolTip = self._viewData[self._view][TOOLTIP]
+                t = self._viewData[self._view][TOOLTIP]
                 if not colConfig[RENDERABLE_RO]:
                     flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
                 else:
@@ -693,7 +687,7 @@ class DataView(QWidget):
                     itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
                 itemR.setData(
                     Qt.ToolTipRole,
-                    toolTip[RENDER_CHECKED if render else RENDER_UNCHECKED])
+                    t.get(RENDER_CHECKED if render else RENDER_UNCHECKED, ''))
                 itemR.setFlags(flags)
                 visible = colConfig[VISIBLE]
                 if not colConfig[VISIBLE_RO]:
@@ -705,67 +699,61 @@ class DataView(QWidget):
                     itemV.setCheckState(Qt.Checked if visible else Qt.Unchecked)
                 itemV.setData(
                     Qt.ToolTipRole,
-                    toolTip[VISIBLE_CHECKED if visible else VISIBLE_UNCHECKED])
+                    t.get(VISIBLE_CHECKED if visible else VISIBLE_UNCHECKED,''))
                 row += 1
             self._tableColumnProp.resizeColumnsToContents()
         self._tableColumnProp.resizeColumnsToContents()
         self._tableColumnProp.horizontalHeader().setStretchLastSection(True)
-        self._tableColumnProp.blockSignals(blocked)
+        self._tableColumnProp.blockSignals(False)
 
     @pyqtSlot(QTableWidgetItem)
     def __onColumnPropertyChanged(self, item):
         """ Invoked whenever the data of item has changed. """
-        viewWidget = self.getViewWidget(self._view)
-        model = viewWidget.getModel()
-        if model is not None:
-            colConfig = model.getColumnConfig(item.row())
+        viewWidget = self.getViewWidget()
+        displayConfig = viewWidget.getDisplayConfig()
+        if displayConfig is not None:
+            colConfig = displayConfig.getColumnConfig(item.row())
             t = self._viewData[self._view][TOOLTIP]
             if item.column() == 0:  # visible
-                display = item.checkState() == Qt.Checked
-                colConfig['visible'] = display
-                value = t[VISIBLE_CHECKED if display else VISIBLE_UNCHECKED]
+                d = item.checkState() == Qt.Checked
+                colConfig[VISIBLE] = d
+                value = t.get(VISIBLE_CHECKED if d else VISIBLE_UNCHECKED, '')
                 item.setData(Qt.ToolTipRole, value)
-                if self._view == GALLERY:
-                    viewWidget.setLabelIndexes(
-                        model.getColumnConfig().getIndexes('visible', True))
+                if d and self._view in [GALLERY, COLUMNS]:
                     viewWidget.setIconSize((self._spinBoxRowHeight.value(),
                                            self._spinBoxRowHeight.value()))
-                    viewWidget.resetGallery()
-                elif self._view == COLUMNS:
-                    viewWidget.setupVisibleColumns()
-                    viewWidget.resetTable()
-                else:
-                    viewWidget.loadCurrentItems()
             else:  # renderable
-                render = item.checkState() == Qt.Checked
-                if not render:
-                    colConfig['renderable'] = render
-                    state = \
-                        Qt.Checked if self._view == GALLERY or \
-                                      self._view == ITEMS else Qt.Unchecked
+                r = item.checkState() == Qt.Checked
+                if not r:
+                    colConfig[RENDERABLE] = r
+                    gi = self._view in [GALLERY, ITEMS]
+                    state = Qt.Checked if gi else Qt.Unchecked
                     item.setCheckState(state)
                 else:
                     col = item.column()
                     row = item.row()
                     if self._view == GALLERY or self._view == ITEMS:
                         # renderable is exclusive for GALLERY and ITEMS
-                        blocked = self._tableColumnProp.blockSignals(True)
+                        self._tableColumnProp.blockSignals(True)
                         for i in range(self._tableColumnProp.rowCount()):
                             if not i == row:
-                                colConfig1 = model.getColumnConfig(i)
-                                if not colConfig1['renderableReadOnly']:
-                                    colConfig1['renderable'] = False
+                                cc = displayConfig.getColumnConfig(i)
+                                if not cc[RENDERABLE_RO]:
+                                    cc[RENDERABLE] = False
                                     it = self._tableColumnProp.item(i, col)
                                     it.setCheckState(Qt.Unchecked)
                                     it.setData(Qt.ToolTipRole,
-                                               t[RENDER_UNCHECKED])
+                                               t.get(RENDER_UNCHECKED, ''))
 
-                        self._tableColumnProp.blockSignals(blocked)
-                    colConfig['renderable'] = render
-                    ren = RENDER_CHECKED if render else RENDER_UNCHECKED
-                    item.setData(Qt.ToolTipRole, t[ren])
-                viewWidget.updateViewConfiguration()
-                self.__setupToolBarForView(self._view)
+                        self._tableColumnProp.blockSignals(False)
+                    colConfig[RENDERABLE] = r
+                    ren = RENDER_CHECKED if r else RENDER_UNCHECKED
+                    item.setData(Qt.ToolTipRole, t.get(ren, ''))
+                    if self._view == GALLERY or self._view == COLUMNS:
+                        viewWidget.setIconSize((self._spinBoxRowHeight.value(),
+                                                self._spinBoxRowHeight.value()))
+            viewWidget.updateViewConfiguration()
+            self.__setupToolBarForView(self._view)
 
     @pyqtSlot()
     def __onCurrentViewSelectionChanged(self):
@@ -947,12 +935,11 @@ class DataView(QWidget):
         size = self._spinBoxRowHeight.value()
 
         row = self._currentRow
-        for v in self._views:
-            viewWidget = self._viewData[v][VIEW]
+        for viewWidget in self.getViewWidgets():
             if viewWidget.getViewType() in [COLUMNS, GALLERY]:
                 viewWidget.setIconSize((size, size))
 
-        viewWidget = self._viewData[self._view][VIEW]
+        viewWidget = self.getViewWidget()
         if viewWidget is not None:
             viewWidget.selectRow(row)
         self.__makeSelectionInView(self._view)
@@ -1054,8 +1041,8 @@ class DataView(QWidget):
 
     def showPageBar(self, visible):
         """ Show or hide the page bar """
-        for w in self._viewsDict.values():
-            w.showPageBar(visible)
+        for widget in self.getViewWidgets():
+            widget.showPageBar(visible)
 
     def showStatusBar(self, visible):
         """ Show or hide the status bar """
@@ -1076,6 +1063,10 @@ class DataView(QWidget):
             viewType = self._view
 
         return self._viewData[viewType][VIEW]
+
+    def getViewWidgets(self):
+        """ Returns a list with the current view widgets """
+        return [v[VIEW] for v in self._viewData.values() if v[VIEW] is not None]
 
     def setView(self, view):
         """ Sets view as current view """
@@ -1114,7 +1105,7 @@ class DataView(QWidget):
 
         policy = Qt.NoContextMenu if not visible else Qt.ActionsContextMenu
 
-        for viewWidget in self._viewsDict.values():
+        for viewWidget in self.getViewWidgets():
             viewWidget.setSelectionMode(selectionMode)
             viewWidget.setContextMenuPolicy(policy)
 
@@ -1127,7 +1118,7 @@ class DataView(QWidget):
         PagingView:
                         SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
         """
-        for viewWidget in self._viewsDict.values():
+        for viewWidget in self.getViewWidgets():
             viewWidget.setSelectionMode(selectionBehavior)
 
     def getAvailableViews(self):

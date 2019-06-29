@@ -52,7 +52,7 @@ class EmTableModel(models.TableModel):
         """ Return the data (array like) for the item in this row, column.
          Used by rendering of images in a given cell of the table.
         """
-        raise Exception("Not implemented")
+        return None
 
 
 class EmStackModel(models.SlicesModel):

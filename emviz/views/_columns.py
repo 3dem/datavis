@@ -138,7 +138,7 @@ class ColumnsView(PagingView):
         Sets the corresponding Delegate for all columns
         """
         # we have defined one delegate for the moment: ImageItemDelegate
-        if self._model:
+        if self._model is not None:
             for i, colConfig in self._displayConfig.iterColumns():
                 delegate = self._defaultDelegate
                 if colConfig[RENDERABLE]:
@@ -290,8 +290,9 @@ class ColumnsView(PagingView):
         """ Reimplementing from PagingView.
         Updates the columns configuration.
         """
-        self.setupVisibleColumns()
-        self.__setupDelegatesForColumns()
+        if self._pageItemModel is not None:
+            self.setupVisibleColumns()
+            self.__setupDelegatesForColumns()
 
     def setModel(self, model, displayConfig=None):
         """

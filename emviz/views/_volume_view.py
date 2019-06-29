@@ -8,7 +8,7 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 from emviz.widgets import PageBar, TriggerAction, createQPixmap, PagingInfo
 from emviz.models import (AXIS_X, AXIS_Y, AXIS_Z, EmptySlicesModel,
-                          EmptyTableModel, EmptyVolumeModel)
+                          EmptyTableModel, EmptyVolumeModel, SlicesTableModel)
 from ._multislice_view import MultiSliceView
 from ._gallery import GalleryView
 from ._constants import PIXEL_UNITS
@@ -179,7 +179,7 @@ class VolumeView(qtw.QWidget):
         """ Triggered function for gallery view action """
         if checked:
             axis = self._multiSlicesView.getAxis()
-            model = self._slicesModels[axis]
+            model = self._slicesTableModels[axis]
             row = self._multiSlicesView.getValue() - 1
             self._stackedLayoud.setCurrentWidget(self._galleryView)
             if not model == self._galleryView.getModel():
@@ -197,7 +197,7 @@ class VolumeView(qtw.QWidget):
         axis = self._comboBoxCurrentAxis.currentData(Qt.UserRole)
         self._multiSlicesView.setAxis(axis)
         if self._galleryView.isVisible():
-            self._galleryView.setModel(self._slicesModels[axis])
+            self._galleryView.setModel(self._slicesTableModels[axis])
             self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)
 
     @pyqtSlot(int)
@@ -214,14 +214,15 @@ class VolumeView(qtw.QWidget):
             raise Exception("Invalid value for model: None")
 
         self._model = model
-        self._slicesModels = {
-            AXIS_X: model.getSlicesModel(AXIS_X),
-            AXIS_Y: model.getSlicesModel(AXIS_Y),
-            AXIS_Z: model.getSlicesModel(AXIS_Z)
+        xModel, yModel, zModel = (model.getSlicesModel(AXIS_X),
+                                  model.getSlicesModel(AXIS_Y),
+                                  model.getSlicesModel(AXIS_Z))
+        self._slicesTableModels = {
+            AXIS_X: SlicesTableModel(xModel, 'Axis-X'),
+            AXIS_Y: SlicesTableModel(yModel, 'Axis-Y'),
+            AXIS_Z: SlicesTableModel(zModel, 'Axis-Z')
         }
-        self._multiSlicesView.setModel((self._slicesModels[AXIS_X],
-                                        self._slicesModels[AXIS_Y],
-                                        self._slicesModels[AXIS_Z]))
+        self._multiSlicesView.setModel((xModel, yModel, zModel))
         self.__setupComboBoxAxis()
 
     def clear(self):
