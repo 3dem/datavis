@@ -4,8 +4,8 @@ import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIntValidator, QColor
 import qtawesome as qta
 
-from ._delegates import (ColorItemDelegate, ComboBoxStyleItemDelegate,
-                         ColumnPropertyItemDelegate)
+from emviz.views._delegates import (ColorItemDelegate, ComboBoxStyleItemDelegate,
+                                    ColumnPropertyItemDelegate)
 
 
 class PlotConfigWidget(qtw.QWidget):

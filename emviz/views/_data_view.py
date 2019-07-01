@@ -14,9 +14,9 @@ import qtawesome as qta
 
 
 from emviz.models import (RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO)
-from emviz.widgets import (ActionsToolBar, ColumnPropertyItemDelegate,
-                           PlotConfigWidget, TriggerAction)
+from emviz.widgets import (ActionsToolBar,  PlotConfigWidget, TriggerAction)
 
+from ._delegates import ColumnPropertyItemDelegate
 from ._columns import ColumnsView
 from ._gallery import GalleryView
 from ._items import ItemsView
@@ -621,12 +621,16 @@ class DataView(QWidget):
 
     def __initProperties(self, **kwargs):
         """ Configure all properties  """
-        self._defaultRowHeight = kwargs.get("size", 150)
-        self._maxRowHeight = kwargs.get("maxCellSize", 300)
-        self._minRowHeight = kwargs.get("minCellSize", 20)
-        self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
+        self._defaultRowHeight = kwargs.get('size', 150)
+        self._maxRowHeight = kwargs.get('maxCellSize', 300)
+        self._minRowHeight = kwargs.get('minCellSize', 20)
+        self._zoomUnits = kwargs.get('zoomUnits', PIXEL_UNITS)
         self._view = kwargs.get("view", COLUMNS)
-        self._selectionMode = kwargs.get("selectionMode",
+        if self._view not in self._views:
+            d = self._viewData.get(self._view)
+            s = d[NAME] if d else str(self._view)
+            raise Exception('The default view:%s is not in supported views' % s)
+        self._selectionMode = kwargs.get('selectionMode',
                                          PagingView.MULTI_SELECTION)
 
     def __setupActions(self):

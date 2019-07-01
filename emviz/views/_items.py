@@ -117,8 +117,8 @@ class ItemsView(PagingView):
         TODO[hv]: Now only one image is displayed, but in the future all
         renderable columns could be displayed
         """
-        indexes = [i for i, c in self._config.iterColumns(renderable=True)]
-        if indexes:
+        indexes = self._config.getColumnsCount(renderable=True)
+        if indexes > 0:
             data = self._model.getData(self._row, self._column)
             if data is not None:
                 self._imageView.setModel(ImageModel(data))
@@ -175,11 +175,6 @@ class ItemsView(PagingView):
 
         for i, colConfig in self._config.iterColumns(visible=True):
             item = QStandardItem()
-            # FIXME: Check when not columns are visible and the index
-            # mismatch with the column id in the tableModel
-            print("col: %d (%s), value: %s" % (i, colConfig.getName(),
-                                               self._model.getValue(self._row,
-                                                                    i)))
             item.setData(
                 self._pageItemModel.data(self._pageItemModel.createIndex(
                     self._row, i)), Qt.DisplayRole)

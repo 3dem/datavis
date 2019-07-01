@@ -6,6 +6,8 @@ from PyQt5.QtWidgets import (QStyledItemDelegate, QStyle, QGraphicsPixmapItem,
                              QComboBox, QItemDelegate, QColorDialog)
 from PyQt5.QtGui import (QPixmap, QPalette, QPen)
 
+from ._constants import LABEL_ROLE, DATA_ROLE
+
 import pyqtgraph as pg
 
 
@@ -24,13 +26,11 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._imageView.getView().invertY(False)
         self._pixmapItem = None
         self._noImageItem = pg.TextItem("NO IMAGE")
-        self._labelText = []
         self._imageView.getView().addItem(self._noImageItem)
         self._noImageItem.setVisible(False)
         self._sBorder = 3  # selected state border (px)
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
-        self.__labelIndexes = []
         self._thumbSize = 64
 
     def paint(self, painter, option, index):
@@ -58,14 +58,12 @@ class EMImageItemDelegate(QStyledItemDelegate):
             palette = QPalette.Highlight
 
         painter.fillRect(option.rect, option.palette.color(colorGroup, palette))
+        labels = index.data(LABEL_ROLE)
+        labelsCount = len(labels)
+        if labels:
+            h -= self._textHeight * labelsCount
 
-        if self.__labelIndexes:
-            h -= self._textHeight * len(self.__labelIndexes)
-            self._setupText(index)
-        else:
-            self._labelText = []
-
-        self._setupView(index, w, h)
+        self._setupView(index, w, h, labelsCount)
         rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
                      h - 2 * self._sBorder)
         self._imageView.ui.graphicsView.scene().setSceneRect(rect)
@@ -80,33 +78,17 @@ class EMImageItemDelegate(QStyledItemDelegate):
                                      QPalette.Highlight))
             painter.setPen(self._focusPen)
             rect.setRect(x, y, w - 1, h - 1)
-            if self._labelText:
-                rect.setHeight(
-                    h + self._textHeight * len(self.__labelIndexes) - 1)
+            if labels:
+                rect.setHeight(h + self._textHeight * labelsCount - 1)
             painter.drawRect(rect)
             painter.restore()
 
-        for i, text in enumerate(self._labelText):
+        for i, text in enumerate(labels):
             rect.setRect(x + self._sBorder, y + h + i * self._textHeight,
                          w - 2 * self._sBorder, self._textHeight)
             painter.drawText(rect, Qt.AlignLeft, text)
 
-    def _setupText(self, index):
-        """ Configure the label text """
-        model = index.model()
-        self._labelText = []
-        if model is not None and self.__labelIndexes:
-            for lIndex in self.__labelIndexes:
-                value = model.data(
-                    model.createIndex(index.row(), lIndex))
-                if isinstance(value, QVariant):
-                    value = value.value()
-                cc = model.getDisplayConfig(lIndex)
-                self._labelText.append("%s=%s" %
-                                       (cc.getName(),
-                                        str(value)))
-
-    def _setupView(self, index, width, height):
+    def _setupView(self, index, width, height, labelsCount):
         """
         Configure the widget used as view to show the image
         """
@@ -123,6 +105,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         size = index.data(Qt.SizeHintRole)
         if size is not None:
             (w, h) = (size.width(), size.height())
+            h -= labelsCount
 
             v = self._imageView.getView()
             (cw, ch) = (v.width(), v.height())
@@ -151,20 +134,9 @@ class EMImageItemDelegate(QStyledItemDelegate):
         :param index: QModelIndex
         :param height: height to scale the image
         """
-        imgData = index.data(Qt.UserRole + 2)
+        imgData = index.data(DATA_ROLE)
 
         return imgData
-
-    def setLabelIndexes(self, indexes):
-        """
-        Initialize the indexes of the columns that will be displayed as text
-        below the images
-        labels : (list)
-        """
-        self.__labelIndexes = indexes
-
-    def getLabelIndexes(self):
-        return self.__labelIndexes
 
     def getTextHeight(self):
         """ The height of text """

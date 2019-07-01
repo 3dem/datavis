@@ -21,5 +21,3 @@ RENDERABLE_RO = 'renderableReadOnly'
 EDITABLE = 'editable'
 EDITABLE_RO = 'editableReadOnly'
 DESCRIPTION = 'description'
-
-

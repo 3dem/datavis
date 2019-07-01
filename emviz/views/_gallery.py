@@ -8,11 +8,12 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
-from emviz.widgets import EMImageItemDelegate, PagingInfo
-from emviz.models import RENDERABLE, EmptyTableModel
+from emviz.models import EmptyTableModel, VISIBLE
+from emviz.widgets import PagingInfo
 from ._paging_view import PagingView
-from ._constants import GALLERY
-from .model import TablePageItemModel
+from ._constants import GALLERY, LABEL_ROLE
+from ._delegates import EMImageItemDelegate
+from .model import GalleryItemModel
 
 
 class GalleryView(PagingView):
@@ -195,12 +196,6 @@ class GalleryView(PagingView):
             self.__updateSelectionInView(p.currentPage - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
-    @pyqtSlot(set)
-    def changeSelection(self, selection):
-        """ Invoked when the selection is changed """
-        self._selection = selection
-        self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
-
     @pyqtSlot(QItemSelection, QItemSelection)
     def __onInternalSelectionChanged(self, selected, deselected):
         """ Invoked when the internal selection is changed """
@@ -220,6 +215,12 @@ class GalleryView(PagingView):
 
         self.sigSelectionChanged.emit()
 
+    @pyqtSlot(set)
+    def changeSelection(self, selection):
+        """ Invoked when the selection is changed """
+        self._selection = selection
+        self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
+
     def setModel(self, model, displayConfig=None):
         """ Sets the model """
         if model is None:
@@ -232,9 +233,14 @@ class GalleryView(PagingView):
         rows, cols = self.__calcPageSize()
         self._pagingInfo.setPageSize(rows * cols)
         self._pagingInfo.setCurrentPage(1)
-        self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
-                                                 tableConfig=displayConfig,
-                                                 parent=self)
+
+        if displayConfig is None:
+            displayConfig = model.createDefaultConfig()
+            for i, cc in displayConfig.iterColumns():
+                cc[VISIBLE] = False
+        self._pageItemModel = GalleryItemModel(model, self._pagingInfo,
+                                               tableConfig=displayConfig,
+                                               parent=self)
         self.__connectSignals()
 
         self._listView.setModel(self._pageItemModel)
@@ -243,11 +249,6 @@ class GalleryView(PagingView):
         sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
         self._pageBar.setPagingInfo(self._pagingInfo)
         self.setIconSize(self._listView.iconSize())
-        #  FIXME[phv] Review. Initialize the indexes of the columns that will be
-        #             displayed as text below the images.
-        #config = displayConfig or model
-        #self.setLabelIndexes(
-        #    [i for i, c in config.iterColumns(**{VISIBLE: True})])
         self.updateViewConfiguration()
 
     def getModel(self):
@@ -296,23 +297,20 @@ class GalleryView(PagingView):
             size = size.width(), size.height()
         dispConfig = self._pageItemModel.getDisplayConfig()
         if dispConfig is not None:
-            vIndexes = self._delegate.getLabelIndexes()
-            # FIXME[phv] Review. Initialize the indexes of the columns that will
-            # be displayed as text below the images.
-            #vIndexes = [(i, c) for i, c in dispConfig.iterColumns(
-            #    **{VISIBLE: True})]
-            lSize = len(vIndexes)
+            m = self._pageItemModel
+            lSize = dispConfig.getColumnsCount(visible=True)
             s = QSize(size[0], size[1])
+            margin = 10
             if lSize > 0:
                 maxWidth = 0
                 r = self._model.getRowsCount()
                 fontMetrics = self._listView.fontMetrics()
+
                 for i in random_sample(range(r), min(10, r)):
-                    for j, c in vIndexes:
-                        text = ' %s = %s ' % (
-                            c.getLabel(),
-                            str(self._model.getValue(i, j)))
-                        w = fontMetrics.boundingRect(text).width()
+                    index = m.createIndex(i, 0)
+                    labels = m.data(index, LABEL_ROLE)
+                    for text in labels:
+                        w = fontMetrics.boundingRect(text).width() + margin
                         maxWidth = max(maxWidth, w)
                 s.setWidth(max(s.width(), maxWidth))
                 s.setHeight(s.height() + lSize * 16)
