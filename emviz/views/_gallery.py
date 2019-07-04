@@ -8,12 +8,12 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
-from emviz.models import EmptyTableModel, VISIBLE
+from emviz.models import EmptyTableModel, RENDERABLE
 from emviz.widgets import PagingInfo
 from ._paging_view import PagingView
 from ._constants import GALLERY, LABEL_ROLE
 from ._delegates import EMImageItemDelegate
-from .model import GalleryItemModel
+from .model import TablePageItemModel
 
 
 class GalleryView(PagingView):
@@ -234,13 +234,21 @@ class GalleryView(PagingView):
         self._pagingInfo.setPageSize(rows * cols)
         self._pagingInfo.setCurrentPage(1)
 
+        renderIndex = None
         if displayConfig is None:
             displayConfig = model.createDefaultConfig()
-            for i, cc in displayConfig.iterColumns():
-                cc[VISIBLE] = False
-        self._pageItemModel = GalleryItemModel(model, self._pagingInfo,
-                                               tableConfig=displayConfig,
-                                               parent=self)
+
+        labels = None
+        for i, cc in displayConfig.iterColumns():
+            if labels is None:  # same labels for all columns
+                labels = cc.getLabels()
+            else:
+                cc.setLabels(labels)
+            if renderIndex is None and cc[RENDERABLE]:
+                renderIndex = i
+        self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
+                                                 tableConfig=displayConfig,
+                                                 parent=self)
         self.__connectSignals()
 
         self._listView.setModel(self._pageItemModel)
@@ -248,6 +256,7 @@ class GalleryView(PagingView):
         sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
         sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
         self._pageBar.setPagingInfo(self._pagingInfo)
+        self.setModelColumn(0 if renderIndex is None else renderIndex)
         self.setIconSize(self._listView.iconSize())
         self.updateViewConfiguration()
 
@@ -285,6 +294,10 @@ class GalleryView(PagingView):
         self._listView.setModelColumn(column)
         self._listView.setItemDelegateForColumn(column, self._delegate)
 
+    def getModelColumn(self):
+        """ Returns the column in the model that is visible """
+        return self._listView.modelColumn()
+
     def setIconSize(self, size):
         """
         Sets the icon size.
@@ -295,10 +308,13 @@ class GalleryView(PagingView):
         else:
             s = size
             size = size.width(), size.height()
+
+        self._pageItemModel.setIconSize(QSize(s))
         dispConfig = self._pageItemModel.getDisplayConfig()
         if dispConfig is not None:
             m = self._pageItemModel
-            lSize = dispConfig.getColumnsCount(visible=True)
+            cc = dispConfig.getColumnConfig(0)
+            lSize = len(cc.getLabels()) if cc is not None else 0
             s = QSize(size[0], size[1])
             margin = 10
             if lSize > 0:
@@ -407,20 +423,3 @@ class GalleryView(PagingView):
                 QAbstractItemView.SelectColumns)
         elif selectionBehavior == self.SELECT_ROWS:
             self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
-
-    def setLabelIndexes(self, labels):
-        """
-        Initialize the indexes of the columns that will be displayed as text
-        below the images.
-        :param labels: (list) The column indexes
-        """
-        self._delegate.setLabelIndexes(labels)
-
-    def updateViewConfiguration(self):
-        """ Update the columns configuration """
-        d = self._pageItemModel.getDisplayConfig()
-        indexes = [i for i, c in d.iterColumns(renderable=True)]
-        if indexes:
-            self._listView.setModelColumn(indexes[0])
-            self._listView.setItemDelegateForColumn(indexes[0],
-                                                    self._delegate)

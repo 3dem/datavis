@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
                              QSizePolicy, QPushButton, QMenu, QTableWidget,
-                             QTableWidgetItem)
+                             QTableWidgetItem, QCheckBox)
 from PyQt5.QtGui import (QIcon, QStandardItemModel, QKeySequence)
 import qtawesome as qta
 
@@ -220,7 +220,7 @@ class DataView(QWidget):
         self._tableColumnProp.setSizePolicy(QSizePolicy.Expanding,
                                             QSizePolicy.MinimumExpanding)
         self._tableColumnProp.itemChanged.connect(
-            self.__onColumnPropertyChanged)
+            self.__onItemChanged)
         self._tableColumnProp.verticalHeader().setVisible(False)
         #  setting checked and unchecked icons
         checkedIcon = qta.icon('fa5s.eye')
@@ -673,8 +673,8 @@ class DataView(QWidget):
         if dConfig is not None:
             row = 0
             self._tableColumnProp.setRowCount(dConfig.getColumnsCount())
-
-            for _, colConfig in dConfig.iterColumns():
+            viewWidget = self.getViewWidget()
+            for i, colConfig in dConfig.iterColumns():
                 item = QTableWidgetItem(colConfig.getName())
                 itemV = QTableWidgetItem("")  # for 'visible' property
                 itemR = QTableWidgetItem("")  # for 'renderable' property
@@ -682,82 +682,98 @@ class DataView(QWidget):
                 self._tableColumnProp.setItem(row, 1, itemR)
                 self._tableColumnProp.setItem(row, 2, item)
                 t = self._viewData[self._view][TOOLTIP]
-                if not colConfig[RENDERABLE_RO]:
-                    flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
-                else:
-                    flags = Qt.NoItemFlags
+                flags = Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
                 render = colConfig[RENDERABLE]
-                if flags & Qt.ItemIsUserCheckable == Qt.ItemIsUserCheckable:
-                    itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
+                itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
                 itemR.setData(
                     Qt.ToolTipRole,
                     t.get(RENDER_CHECKED if render else RENDER_UNCHECKED, ''))
                 itemR.setFlags(flags)
-                visible = colConfig[VISIBLE]
-                if not colConfig[VISIBLE_RO]:
-                    flags = Qt.ItemIsEnabled | Qt.ItemIsUserCheckable
-                else:
-                    flags = Qt.NoItemFlags
+                g = self._view == GALLERY
+                v = i in colConfig.getLabels() if g else colConfig[VISIBLE]
                 itemV.setFlags(flags)
-                if flags & Qt.ItemIsUserCheckable == Qt.ItemIsUserCheckable:
-                    itemV.setCheckState(Qt.Checked if visible else Qt.Unchecked)
+                itemV.setCheckState(Qt.Checked if v else Qt.Unchecked)
                 itemV.setData(
                     Qt.ToolTipRole,
-                    t.get(VISIBLE_CHECKED if visible else VISIBLE_UNCHECKED,''))
+                    t.get(VISIBLE_CHECKED if v else VISIBLE_UNCHECKED, ''))
                 row += 1
             self._tableColumnProp.resizeColumnsToContents()
         self._tableColumnProp.resizeColumnsToContents()
         self._tableColumnProp.horizontalHeader().setStretchLastSection(True)
         self._tableColumnProp.blockSignals(False)
 
+    def __reverseCheckState(self, item):
+        """ Reverse the check state for the given QTableWidgetItem """
+        st = Qt.Checked if item.checkState() == Qt.Unchecked else Qt.Unchecked
+        item.setCheckState(st)
+
     @pyqtSlot(QTableWidgetItem)
-    def __onColumnPropertyChanged(self, item):
+    def __onItemChanged(self, item):
         """ Invoked whenever the data of item has changed. """
+        self._tableColumnProp.blockSignals(True)
         viewWidget = self.getViewWidget()
-        displayConfig = viewWidget.getDisplayConfig()
-        if displayConfig is not None:
-            colConfig = displayConfig.getColumnConfig(item.row())
+        dispConf = viewWidget.getDisplayConfig()
+        if dispConf is not None:
+            row, col = item.row(), item.column()
+            colConfig = dispConf.getColumnConfig(row)
             t = self._viewData[self._view][TOOLTIP]
-            if item.column() == 0:  # visible
+            if col == 0:  # visible
                 d = item.checkState() == Qt.Checked
-                colConfig[VISIBLE] = d
-                value = t.get(VISIBLE_CHECKED if d else VISIBLE_UNCHECKED, '')
-                item.setData(Qt.ToolTipRole, value)
-                if d and self._view in [GALLERY, COLUMNS]:
-                    viewWidget.setIconSize((self._spinBoxRowHeight.value(),
-                                           self._spinBoxRowHeight.value()))
+                if self._view == GALLERY:
+                    method = list.append if d else list.remove
+                    labels = colConfig.getLabels()
+                    method(labels, row)
+                    size = self._spinBoxRowHeight.value()
+                    viewWidget.setIconSize((size, size))
+                elif not colConfig[VISIBLE_RO]:
+                    colConfig[VISIBLE] = d
+                    v = t.get(VISIBLE_CHECKED if d else VISIBLE_UNCHECKED, '')
+                    item.setToolTip(v)
+                else:
+                    self.__reverseCheckState(item)
             else:  # renderable
                 r = item.checkState() == Qt.Checked
-                if not r:
-                    colConfig[RENDERABLE] = r
-                    gi = self._view in [GALLERY, ITEMS]
-                    state = Qt.Checked if gi else Qt.Unchecked
-                    item.setCheckState(state)
-                else:
-                    col = item.column()
-                    row = item.row()
-                    if self._view == GALLERY or self._view == ITEMS:
+                gi = self._view == GALLERY or self._view == ITEMS
+
+                if colConfig[RENDERABLE_RO]:
+                    self.__reverseCheckState(item)
+                    if gi and colConfig[RENDERABLE]:
                         # renderable is exclusive for GALLERY and ITEMS
-                        self._tableColumnProp.blockSignals(True)
-                        for i in range(self._tableColumnProp.rowCount()):
+                        for i, cc in dispConf.iterColumns(renderable=True):
                             if not i == row:
-                                cc = displayConfig.getColumnConfig(i)
                                 if not cc[RENDERABLE_RO]:
                                     cc[RENDERABLE] = False
                                     it = self._tableColumnProp.item(i, col)
                                     it.setCheckState(Qt.Unchecked)
-                                    it.setData(Qt.ToolTipRole,
-                                               t.get(RENDER_UNCHECKED, ''))
-
-                        self._tableColumnProp.blockSignals(False)
+                                    it.setToolTip(t.get(RENDER_UNCHECKED, ''))
+                        viewWidget.setModelColumn(row)
+                else:
                     colConfig[RENDERABLE] = r
-                    ren = RENDER_CHECKED if r else RENDER_UNCHECKED
-                    item.setData(Qt.ToolTipRole, t.get(ren, ''))
-                    if self._view == GALLERY or self._view == COLUMNS:
-                        viewWidget.setIconSize((self._spinBoxRowHeight.value(),
-                                                self._spinBoxRowHeight.value()))
+                    if gi and not r:
+                        colConfig[RENDERABLE] = True
+                        self.__reverseCheckState(item)
+                    elif gi:
+                        # renderable is exclusive for GALLERY and ITEMS
+                        for i, cc in dispConf.iterColumns(renderable=True):
+                            if not i == row:
+                                if not cc[RENDERABLE_RO]:
+                                    cc[RENDERABLE] = False
+                                    it = self._tableColumnProp.item(i, col)
+                                    it.setCheckState(Qt.Unchecked)
+                                    it.setToolTip(t.get(RENDER_UNCHECKED, ''))
+                        viewWidget.setModelColumn(row)
+
+                r = item.checkState() == Qt.Checked
+                if r and not self._view == ITEMS:
+                    size = self._spinBoxRowHeight.value()
+                    viewWidget.setIconSize((size, size))
+
+                ren = RENDER_CHECKED if r else RENDER_UNCHECKED
+                item.setToolTip(t.get(ren, ''))
+
             viewWidget.updateViewConfiguration()
             self.__setupToolBarForView(self._view)
+        self._tableColumnProp.blockSignals(False)
 
     @pyqtSlot()
     def __onCurrentViewSelectionChanged(self):

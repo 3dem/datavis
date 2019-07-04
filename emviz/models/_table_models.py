@@ -172,11 +172,13 @@ class ColumnConfig(ColumnInfo):
             - editableReadOnly (Bool)
             - label (Bool)
             - labelReadOnly (Bool)
+            - labels (list)
         """
         ColumnInfo.__init__(self, name, dataType)
         self._label = kwargs.get('label', name)
         self._description = kwargs.get(DESCRIPTION, '')
         self._propertyNames = []
+        self._labels = kwargs.get(LABELS) or []
         self.__setProperty__(VISIBLE, True, False, **kwargs)
         self.__setProperty__(RENDERABLE, False, False, **kwargs)
         self.__setProperty__(EDITABLE, False, True, **kwargs)
@@ -222,6 +224,14 @@ class ColumnConfig(ColumnInfo):
             copy[p] = self[p]
         return copy
 
+    def setLabels(self, labels):
+        """ Sets the column labels """
+        self._labels = labels
+
+    def getLabels(self):
+        """ Returns the column labels """
+        return self._labels
+
     def __getitem__(self, propertyName):
         """ Return the value of a given property.
         If the property does not exits, an Exception is raised.
@@ -237,7 +247,6 @@ class ColumnConfig(ColumnInfo):
         """
         if propertyName not in self._propertyNames:
             raise Exception("Invalid property name: %s" % propertyName)
-
         return setattr(self, '__%s' % propertyName, value)
 
     def __str__(self):

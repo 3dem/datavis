@@ -315,9 +315,9 @@ class ColumnsView(PagingView):
         self._pagingInfo.numberOfItems = model.getRowsCount()
         self._pagingInfo.pageSize = self.__calcPageSize()
         self._pagingInfo.currentPage = 1
-        self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
-                                                 tableConfig=displayConfig,
-                                                 parent=self)
+        self._pageItemModel = TablePageItemModel(
+            model, self._pagingInfo, tableConfig=self._displayConfig,
+            parent=self)
         self.__connectSignals()
         self._tableView.setModel(self._pageItemModel)
         sModel = self._tableView.selectionModel()
@@ -374,8 +374,10 @@ class ColumnsView(PagingView):
         """
         if isinstance(size, QSize):
             w, h = size.width(), size.height()
+            self._pageItemModel.setIconSize(size)
         else:
             w, h = size
+            self._pageItemModel.setIconSize(QSize(w, h))
 
         self.setRowHeight(h)
         config = self.getDisplayConfig()

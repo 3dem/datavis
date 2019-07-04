@@ -15,4 +15,4 @@ from ._constants import *
 
 from ._paging_view import PagingView
 
-from .model import TablePageItemModel, GalleryItemModel
+from .model import TablePageItemModel

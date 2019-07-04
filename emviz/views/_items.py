@@ -258,4 +258,9 @@ class ItemsView(PagingView):
         w, h = self._imageView.getPreferredSize()
         return 2*w, 2*h
 
-
+    def setModelColumn(self, column):
+        """
+        Holds the column in the model that is visible.
+        :param column: (int) Column index. 0 is the first index.
+        """
+        self._column = column

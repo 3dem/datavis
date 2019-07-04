@@ -95,7 +95,13 @@ class TablePageItemModel(QAbstractItemModel):
             return self._getPageValue(row, col, role)
 
         if role == LABEL_ROLE:
-            return []
+            d = self._displayConfig
+            cc = d.getColumnConfig(col)
+            labels = cc.getLabels()
+            ret = ['%s=%s' % (d.getColumnConfig(i).getLabel(),
+                              self._getPageValue(row, i))
+                   for i in labels]
+            return ret
 
         if role == Qt.DisplayRole and t != TYPE_BOOL:
             return QVariant(self._getPageValue(row, col))
@@ -276,45 +282,3 @@ class TablePageItemModel(QAbstractItemModel):
     #         self.setTableData(tr, tc, value)
     #         tc = tc + 1
     #     self.endResetModel()
-
-
-class GalleryItemModel(TablePageItemModel):
-    """
-    The GalleryItemModel class provides  data coming from a TableModel and using
-    a TableModel, but only showing a page of the whole data. It is suitable for
-    use with GalleryView
-    """
-    def __init__(self, tableModel, pagingInfo, tableConfig, **kwargs):
-        """
-            Constructs an DataModel to be used from TableView
-            :param tableModel: (TableModel) Input TableModel from where the data
-                               will be read and present in pages.
-            :param tableConfig: input TableConfig that will control how the data
-                                fetched from the TableModel will be displayed
-            :param pagingInfo: (PagingInfo) Page configuration
-            :param **kwargs: Optional arguments:
-                - parent: a parent QObject of the model (NOTE: see Qt framework)
-        """
-        TablePageItemModel.__init__(self, tableModel, pagingInfo, tableConfig,
-                                    **kwargs)
-
-    def columnCount(self, index=QModelIndex()):
-        """ Reimplemented from TablePageItemModel.
-            Return the number of columns that are visible in the model.
-        """
-        return self._displayConfig.getColumnsCount()
-
-    def data(self, qModelIndex, role=Qt.DisplayRole):
-        """ Reimplemented from TablePageItemModel """
-        if role == LABEL_ROLE:
-            if not qModelIndex.isValid():
-                return []
-
-            row = qModelIndex.row()
-            d = self._displayConfig
-            it = d.iterColumns(visible=True)
-            labels = ['%s=%s' % (cc.getLabel(), self._getPageValue(row, col))
-                      for (col, cc) in it]
-            return labels
-
-        return TablePageItemModel.data(self, qModelIndex, role)

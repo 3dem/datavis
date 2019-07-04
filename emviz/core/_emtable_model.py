@@ -52,6 +52,15 @@ class EmTableModel(models.TableModel):
         """ Return the data (array like) for the item in this row, column.
          Used by rendering of images in a given cell of the table.
         """
+        value = str(self._table[row][self._colsMap[col]])
+        l = value.split('@')
+        if len(l) == 2:
+            index, path = int(l[0]), l[1]
+            imgio = em.ImageIO()
+            image = em.Image()
+            imgio.open(path, em.File.READ_ONLY)
+            imgio.read(index, image)
+            return np.array(image, copy=False)
         return None
 
 
