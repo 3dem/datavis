@@ -1,49 +1,26 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
-
-from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from emviz.core import ModelsFactory
 from emviz.views import ColumnsView
-
-if len(sys.argv) > 1:
-    tablePath = sys.argv[1]
-else:
-    testDataPath = os.environ.get("EM_TEST_DATA", None)
-
-    if testDataPath is None:
-        raise Exception("Path not available to display ImageView. \n"
-                        "Either provide an input path or set the "
-                        "variable environment EM_TEST_DATA")
-    #  FIXME[phv] Please, we need a real table path
-    tablePath = os.path.join(testDataPath, "relion_tutorial", "import",
-                             "classify2d", "extra", "relion_it015_classes.star")
+from test_commons import TestView
 
 
-def getPreferedBounds(width=None, height=None):
-    size = QApplication.desktop().size()
-    p = 0.8
-    (w, h) = (int(p * size.width()), int(p * size.height()))
-    width = width or w
-    height = height or h
-    w = min(width, w)
-    h = min(height, h)
-    return (size.width() - w) / 2, (size.height() - h) / 2, w, h
+class TestColumnsView(TestView):
+    __title = "ColumnsView example"
+
+    def getDataPaths(self):
+        return [
+            self.getPath("relion_tutorial", "import", "refine3d", "extra",
+                         "relion_it025_data.star")
+        ]
+
+    def createView(self):
+        names, model = ModelsFactory.createTableModel(self._path)
+        return ColumnsView(parent=None, model=model)
 
 
-app = QApplication(sys.argv)
-names, model = ModelsFactory.createTableModel(tablePath)
-
-columnsView = ColumnsView(parent=None, model=model)
-width, height = columnsView.getPreferredSize()
-# Create window with ImageView widget
-win = QMainWindow()
-win.setCentralWidget(columnsView)
-win.show()
-win.setWindowTitle('ColumsView Example')
-x, y, width, height = getPreferedBounds(width, height)
-win.setGeometry(x, y, width, height)
-sys.exit(app.exec_())
+if __name__ == '__main__':
+    TestColumnsView(sys.argv).run()

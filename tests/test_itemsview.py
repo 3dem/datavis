@@ -1,38 +1,27 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
-
-from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from emviz.core import ModelsFactory
 from emviz.views import ItemsView
+from test_commons import TestView
 
-if len(sys.argv) > 1:
-    imagePath = sys.argv[1]
-else:
-    testDataPath = os.environ.get("EM_TEST_DATA", None)
 
-    if testDataPath is None:
-        raise Exception("Path not available to display ImageView. \n"
-                        "Either provide an input path or set the "
-                        "variable environment EM_TEST_DATA")
+class TestItemsView(TestView):
+    __title = "ItemsView Example"
 
-    imagePath = os.path.join(testDataPath,
-                             "relion_tutorial", "import",
-                             "classify2d", "extra",
-                             "relion_it015_classes.mrcs")
+    def getDataPaths(self):
+        return [
+            self.getPath("relion_tutorial", "import", "refine3d", "extra",
+                         "relion_it025_data.star")
+        ]
 
-app = QApplication(sys.argv)
-names, model = ModelsFactory.createTableModel(imagePath)
+    def createView(self):
+        names, model = ModelsFactory.createTableModel(self._path)
+        return ItemsView(parent=None, model=model,
+                         selectionMode=ItemsView.MULTI_SELECTION)
 
-itemsView = ItemsView(parent=None, model=model,
-                      selectionMode=ItemsView.MULTI_SELECTION)
-# Create window with ItemsView widget
-win = QMainWindow()
-win.setCentralWidget(itemsView)
-win.show()
-win.setWindowTitle('ItemsView Example')
 
-sys.exit(app.exec_())
+if __name__ == '__main__':
+    TestItemsView(sys.argv).run()
