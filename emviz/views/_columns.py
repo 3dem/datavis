@@ -38,6 +38,7 @@ class ColumnsView(PagingView):
             selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
                             MULTI_SELECTION or NO_SELECTION
         """
+        self._model = kwargs['model']
         PagingView.__init__(self, parent=parent,
                             pagingInfo=PagingInfo(1, 1),
                             **kwargs)
@@ -46,7 +47,7 @@ class ColumnsView(PagingView):
         self._pageItemModel = None
         self.setSelectionMode(kwargs.get("selectionMode",
                                          PagingView.SINGLE_SELECTION))
-        self.setModel(model=kwargs['model'],
+        self.setModel(model=self._model,
                       displayConfig=kwargs.get('displayConfig'))
 
     def _createContentWidget(self):
