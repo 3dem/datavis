@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QSpinBox,
                              QLabel, QStatusBar, QComboBox, QStackedLayout,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
                              QSizePolicy, QPushButton, QMenu, QTableWidget,
-                             QTableWidgetItem, QCheckBox)
+                             QTableWidgetItem)
 from PyQt5.QtGui import (QIcon, QStandardItemModel, QKeySequence)
 import qtawesome as qta
 
@@ -51,6 +51,7 @@ class DataView(QWidget):
                              MULTI_SELECTION or NO_SELECTION
              views:          (list) Specify the views that will be available.
                              Default value: [COLUMNS, GALLERY, ITEMS]
+             view:           (int) The default view to be set
              size:           (int) The row height for ColumnsView and icon size
                              for GalleryView. Default value: 25
              maxCellSize:    (int) The maximum value for row height in
@@ -356,9 +357,10 @@ class DataView(QWidget):
         Creates a dict with the preferences for the current table(model).
         """
         pref = dict()
-        pref[VIEW] = self._view  # Preferred view
 
-        if self._model is not None and self._model.getRowsCount() == 1 \
+        if self._comboBoxCurrentTable.currentIndex() == -1:
+            pref[VIEW] = self._view  # Preferred view
+        elif self._model is not None and self._model.getRowsCount() == 1 \
                 and ITEMS in self._views:
             pref[VIEW] = ITEMS
         elif COLUMNS in self._views:
@@ -625,7 +627,7 @@ class DataView(QWidget):
         self._maxRowHeight = kwargs.get('maxCellSize', 300)
         self._minRowHeight = kwargs.get('minCellSize', 20)
         self._zoomUnits = kwargs.get('zoomUnits', PIXEL_UNITS)
-        self._view = kwargs.get("view", COLUMNS)
+        self._view = kwargs.get('view', COLUMNS)
         if self._view not in self._views:
             d = self._viewData.get(self._view)
             s = d[NAME] if d else str(self._view)
@@ -726,11 +728,16 @@ class DataView(QWidget):
                     size = self._spinBoxRowHeight.value()
                     viewWidget.setIconSize((size, size))
                 elif not colConfig[VISIBLE_RO]:
-                    colConfig[VISIBLE] = d
-                    v = t.get(VISIBLE_CHECKED if d else VISIBLE_UNCHECKED, '')
-                    item.setToolTip(v)
+                    if dispConf.getColumnsCount(visible=True) == 1 and not d:
+                        self.__reverseCheckState(item)
+                    else:
+                        colConfig[VISIBLE] = d
                 else:
                     self.__reverseCheckState(item)
+
+                d = item.checkState() == Qt.Checked
+                v = VISIBLE_CHECKED if d else VISIBLE_UNCHECKED
+                item.setToolTip(t.get(v, ''))
             else:  # renderable
                 r = item.checkState() == Qt.Checked
                 gi = self._view == GALLERY or self._view == ITEMS

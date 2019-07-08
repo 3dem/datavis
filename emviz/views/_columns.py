@@ -313,7 +313,7 @@ class ColumnsView(PagingView):
         self._model = model
         self._displayConfig = displayConfig or model.createDefaultConfig()
         self._pagingInfo.numberOfItems = model.getRowsCount()
-        self._pagingInfo.pageSize = self.__calcPageSize()
+        self._pagingInfo.setPageSize(self.__calcPageSize())
         self._pagingInfo.currentPage = 1
         self._pageItemModel = TablePageItemModel(
             model, self._pagingInfo, tableConfig=self._displayConfig,

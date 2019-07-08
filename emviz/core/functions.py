@@ -14,6 +14,24 @@ def getDim(path):
     return dim
 
 
+def getInfo(path):
+    """
+    Return some specified info from the given image path.
+    dim : Image dimensions
+    ext : File extension
+    data_type: Image data type
+    """
+    imageIO = em.ImageIO()
+    imageIO.open(path, em.File.Mode.READ_ONLY)
+    dim = imageIO.getDim()
+    dataType = imageIO.getType()
+    imageIO.close()
+
+    return {'dim': dim,
+            'ext': EmPath.getExt(path),
+            'data_type': dataType}
+
+
 class EmPath:
     """
     Helper class to group functions related to path handling in EM.

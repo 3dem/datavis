@@ -34,7 +34,7 @@ def getPreferedBounds(width=None, height=None):
     h = min(height, h)
     return (size.width() - w) / 2, (size.height() - h) / 2, w, h
 
-
+tablePath = '/media/pedro/Data/Work/Project/Repo/test-data/tabla_con_referencia_a_imagenes/kk.xmd'
 app = QApplication(sys.argv)
 names, model = ModelsFactory.createTableModel(tablePath)
 

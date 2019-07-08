@@ -9,12 +9,14 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QFrame, QSizePolicy,
 from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
                           QItemSelectionModel, QEvent, pyqtSignal, pyqtSlot)
 
-from emviz.views import (DataView, createTableModel, createStackModel,
-                         VolumeView, ImageView, SlicesView, MOVIE_SIZE)
+from emviz.views import (DataView,  VolumeView, ImageView, SlicesView, ITEMS,
+                         COLUMNS, GALLERY)
+from emviz.models import EmptyTableModel, EmptySlicesModel, EmptyVolumeModel
+from emviz.core import ModelsFactory
 
 import qtawesome as qta
 
-from emviz.core import EmPath, ImageManager
+from emviz.core import EmPath, getInfo, MOVIE_SIZE
 
 
 class BrowserWindow(QMainWindow):
@@ -32,13 +34,12 @@ class BrowserWindow(QMainWindow):
         """
         QMainWindow.__init__(self, parent=parent)
         self._imagePath = path
-        self._dataView = DataView(self, **kwargs)
+        self._dataView = DataView(self, model=EmptyTableModel(), **kwargs)
         self._imageView = ImageView(self, **kwargs)
-        self._slicesView = SlicesView(self, **kwargs)
+        self._slicesView = SlicesView(self, EmptySlicesModel(), **kwargs)
 
-        kwargs['tool_bar'] = 'off'
-        kwargs['axis'] = 'off'
-        self._volumeView = VolumeView(parent=self, **kwargs)
+        self._volumeView = VolumeView(parent=self, model=EmptyVolumeModel(),
+                                      **kwargs)
         self._emptyWidget = QWidget(parent=self)
         self.__setupUi()
 
@@ -327,29 +328,29 @@ class BrowserWindow(QMainWindow):
             info = {"Type": "UNKNOWN"}
             self._imagePath = imagePath
             if EmPath.isTable(imagePath):
-                model = createTableModel(imagePath)
+                _, model = ModelsFactory.createTableModel(imagePath)
                 self._dataView.setModel(model)
 
-                if model is not None and not model.totalRowCount() == 1:
-                    self._dataView.setView(DataView.COLUMNS)
+                if not model.getRowsCount() == 1:
+                    self._dataView.setView(COLUMNS)
+                else:
+                    self._dataView.setView(ITEMS)
 
                 self.__showDataView()
                 # Show the Table dimensions
                 info["Type"] = "TABLE"
                 info["Dimensions (Rows x Columns)"] = \
-                    "%d x %d" % (model.totalRowCount(), model.columnCount())
-
+                    "%d x %d" % (model.getRowsCount(), model.getColumnsCount())
             elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
                     or EmPath.isVolume(imagePath) \
                     or EmPath.isStandardImage(imagePath):
-                inf = ImageManager.getInfo(imagePath)
+                inf = getInfo(imagePath)
                 d = inf['dim']
                 info["Dimensions"] = str(d)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
-                        image = ImageManager.readImage(imagePath)
-                        data = ImageManager.getNumPyArray(image)
-                        self._imageView.setImage(data)
+                        model = ModelsFactory.createImageModel(imagePath)
+                        self._imageView.setModel(model)
                         self._imageView.setImageInfo(
                             path=imagePath, format=inf['ext'],
                             data_type=str(inf['data_type']))
@@ -361,31 +362,27 @@ class BrowserWindow(QMainWindow):
                         # View planes.
                         self._frame.setEnabled(True)
                         info["Type"] = "VOLUME: " + str(inf['data_type'])
-                        self._volumeView.loadPath(imagePath)
+                        model = ModelsFactory.createVolumeModel(imagePath)
+                        self._volumeView.setModel(model)
                         self.__showVolumeSlice()
                 else:
                     # Image stack
                     if d.z > 1:  # Volume stack
-                        self._volumeView.loadPath(self._imagePath)
-                        info["Type"] = "VOLUME STACK: " + str(inf['data_type'])
-                        self.__showVolumeSlice()
+                        raise Exception("Volume stack is not supported")
+                        #info["Type"] = "VOLUME STACK: " + str(inf['data_type'])
+                        #self.__showVolumeSlice()
+                    elif d.x <= MOVIE_SIZE:
+                        info["Type"] = "IMAGES STACK: " + \
+                                       str(inf['data_type'])
+                        _, model = ModelsFactory.createTableModel(imagePath)
+                        self._dataView.setModel(model)
+                        self._dataView.setView(GALLERY)
+                        self.__showDataView()
                     else:
-                        if d.x <= MOVIE_SIZE:
-                            info["Type"] = "IMAGES STACK: " + \
-                                           str(inf['data_type'])
-                            model = createStackModel(imagePath)
-                            self._dataView.setModel(model)
-                            self._dataView.setView(DataView.GALLERY)
-                            self._dataView.setDataInfo(
-                                path=imagePath,
-                                format=inf['ext'],
-                                data_type=str(inf['data_type']))
-                            self.__showDataView()
-                        else:
-                            info["Type"] = "MOVIE: " + str(inf['data_type'])
-                            self._slicesView.setPath(imagePath)
-                            self.__showSlicesView()
-
+                        info["Type"] = "MOVIE: " + str(inf['data_type'])
+                        model = ModelsFactory.createStackModel(imagePath)
+                        self._slicesView.setModel(model)
+                        self.__showSlicesView()
                     # TODO Show the image type
             else:
                 self.__showEmptyWidget()
