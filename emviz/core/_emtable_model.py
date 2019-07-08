@@ -3,6 +3,13 @@ import em
 import emviz.models as models
 import numpy as np
 
+# Quick and dirty way to deal with both Python 2 and 3 basestring
+try:
+    basestring
+except NameError:
+    basestring = str
+
+
 TYPE_MAP = {
     em.typeBool: models.TYPE_BOOL,
     em.typeInt8: models.TYPE_INT,
@@ -39,7 +46,7 @@ class EmTableModel(models.TableModel):
             tableName = ''
             self._tableNames = [tableName]
         else:  # In this variant we will create a em.TableIO to read data
-            if isinstance(tableSource, str):
+            if isinstance(tableSource, basestring):
                 path, tableName = tableSource, None
             elif isinstance(tableSource, tuple):
                 path, tableName = tableSource
