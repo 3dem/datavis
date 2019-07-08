@@ -158,12 +158,12 @@ class EmptySlicesModel(SlicesModel):
     The EmptySlicesModel represents an empty slices model.
     """
     def __init__(self):
-        data = np.arange(1).reshape((1, 1, 1))
+        data = np.arange(8).reshape((2, 2, 2))
         SlicesModel.__init__(self, data)
 
 
 class EmptyVolumeModel(VolumeModel):
     """ The EmptyVolumeModel represents an empty volume model."""
     def __init__(self):
-        data = np.arange(1).reshape((1, 1, 1))
+        data = np.arange(8).reshape((2, 2, 2))
         VolumeModel.__init__(self, data)

@@ -32,11 +32,11 @@ class ModelsFactory:
         if EmPath.isTable(path):
             names, table = EmTable.load(path)
             model = EmTableModel(emTable=table)
+        elif EmPath.isStack(path):
+            model = models.SlicesTableModel(EmStackModel(path), 'Index')
         elif EmPath.isVolume(path):
             slicesModel = EmVolumeModel(path).getSlicesModel(models.AXIS_Z)
             model = models.SlicesTableModel(slicesModel, 'Slice')
-        elif EmPath.isStack(path):
-            model = models.SlicesTableModel(EmStackModel(path), 'Index')
         else:
             raise Exception("Unknown file type: %s" % path)
 

@@ -24,3 +24,4 @@ class TestDataView(TestView):
 
 if __name__ == '__main__':
     TestDataView(sys.argv).run()
+

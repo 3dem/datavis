@@ -2,6 +2,7 @@
 import PyQt5.QtCore as qtc
 from PyQt5.QtCore import Qt
 import PyQt5.QtWidgets as qtw
+import PyQt5.QtGui as qtg
 
 
 # TODO: Review methods, global variables, documentation, etc
@@ -151,14 +152,14 @@ class DynamicWidgetsFactory:
                 'display': {
                     'default': qtw.QLineEdit
                 },
-                'validator': qtw.QDoubleValidator
+                'validator': qtg.QDoubleValidator
             },
             'int': {
                 'type': int,
                 'display': {
                     'default': qtw.QLineEdit
                 },
-                'validator': qtw.QIntValidator
+                'validator': qtg.QIntValidator
             },
             'string': {
                 'type': str,
@@ -282,7 +283,7 @@ class DynamicWidgetsFactory:
             validatorClass = paramDef.get('validator')
             if validatorClass is not None:
                 val = validatorClass()
-                if validatorClass == qtw.QDoubleValidator:
+                if validatorClass == qtg.QDoubleValidator:
                     loc = qtc.QLocale.c()
                     loc.setNumberOptions(qtc.QLocale.RejectGroupSeparator)
                     val.setLocale(loc)

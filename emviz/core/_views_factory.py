@@ -14,33 +14,24 @@ class ViewsFactory:
         """ Create an ImageView and load the image from the given path """
         imgView = emviz.views.ImageView(None, **kwargs)
         imgModel = ModelsFactory.createImageModel(path)
-        imgView.setImage(imgModel.getData())
+        imgView.setModel(imgModel)
         return imgView
 
     @staticmethod
     def createSlicesView(path, **kwargs):
         """ Create an SlicesView and load the slices from the given path """
-        kwargs['path'] = path
-        return emviz.views.SlicesView(None, **kwargs)
+        model = ModelsFactory.createStackModel(path)
+        return emviz.views.SlicesView(None, sliceModel=model,  **kwargs)
 
 
     @staticmethod
     def createVolumeView(path, **kwargs):
         """ Create an VolumeView and load the volume from the given path """
-        kwargs['path'] = path
-        return emviz.views.VolumeView(None, **kwargs)
+        model = ModelsFactory.createVolumeModel(path)
+        return emviz.views.VolumeView(None, model=model, **kwargs)
 
     @staticmethod
-    def createDataView(table, tableViewConfig, titles, defaultView, **kwargs):
+    def createDataView(path, **kwargs):
         """ Create an DataView and load the volume from the given path """
-        kwargs['view'] = defaultView
-        dataView = emviz.views.DataView(None, **kwargs)
-        path = kwargs.get('dataSource')
-        dataView.setModel(TableDataModel(table, titles=titles,
-                                         tableViewConfig=tableViewConfig,
-                                         dataSource=path))
-        dataView.setView(defaultView)
-        if not (path is None or EmPath.isTable(path)):
-            dataView.setDataInfo(ImageManager.getInfo(path))
-
-        return dataView
+        _, model = ModelsFactory.createTableModel(path)
+        return emviz.views.DataView(None, model=model, **kwargs)
