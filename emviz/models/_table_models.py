@@ -22,11 +22,44 @@ class ColumnInfo:
 
 
 class TableModel:
-    """ Abstract base class to define the table model required by some views.
+    """
+    Abstract base class to define the table model required by some views.
     It provides a very general interface about tabular data and how it will
-    be displayed.
+    be displayed. The TableModel class will be able to handle data sources
+    with more than one table. The method getTableNames will return the available
+    tables. Then usually the TableModel will have only one table active (or
+    loaded), from where the information will be retrieved. The method loadTable
+    will allow to select which is currently loaded table.
     """
     # ------ Abstract methods that should be implemented in subclasses ---------
+    def getTableNames(self):
+        """
+        :return: Return all the names of available tables from the data source.
+        """
+        # Let's assume a self._tableNames property will be defined in subclasses
+        # or this method will be overwritten
+        return self._tableNames
+
+    def loadTable(self, tableName):
+        """ Load a given table.
+        An exception will be raised if there is not table with the
+        provided name.
+        This method should not be overwritten in subclasses (re-implement _loadTable)
+        """
+        if tableName not in self.getTableNames():
+            raise Exception("Missing table '%s' in this data model. " % tableName)
+        return self._loadTable(tableName)
+
+    def _loadTable(self, tableName):
+        """
+        Internal method that should be overwritten in subclasses to load the current
+        active table.
+        :param tableName: The table name that will be load. It is already validate
+            that this tableName exists
+        :return: None
+        """
+        raise Exception("Not implemented")
+
     def iterColumns(self):
         """ Generate a ColumnInfo iterator over the columns of the model. """
         raise Exception("Not implemented")
@@ -63,6 +96,9 @@ class SlicesTableModel(TableModel):
     def __init__(self, slicesModel, columnName):
         self._slicesModel = slicesModel
         self._columnName = columnName
+
+    def getTableNames(self):
+        return ['1']  # Just name it '1' the only available table
 
     def iterColumns(self):
         yield ColumnInfo(self._columnName)

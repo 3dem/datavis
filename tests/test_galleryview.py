@@ -20,8 +20,7 @@ class TestGalleryView(TestView):
         ]
 
     def createView(self):
-        names, model = ModelsFactory.createTableModel(self._path)
-        return GalleryView(parent=None, model=model)
+        return GalleryView(model=ModelsFactory.createTableModel(self._path))
 
 
 if __name__ == '__main__':

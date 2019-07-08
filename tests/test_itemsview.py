@@ -18,8 +18,7 @@ class TestItemsView(TestView):
         ]
 
     def createView(self):
-        names, model = ModelsFactory.createTableModel(self._path)
-        return ItemsView(parent=None, model=model,
+        return ItemsView(model=ModelsFactory.createTableModel(self._path),
                          selectionMode=ItemsView.MULTI_SELECTION)
 
 

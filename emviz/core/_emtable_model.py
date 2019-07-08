@@ -19,18 +19,53 @@ class EmTableModel(models.TableModel):
     """
     Implementation of TableBase with an underlying em.Table object.
     """
-    def __init__(self, emTable):
+    def __init__(self, tableSource):
         """
         Initialization of an EmTableModel
-        :param emTable: Input em.Table
-        :param cols: Columns configuration objects, the name of each column
-            should exist in the table.
+        :param tableSource: Input from where table will be retrieved,
+            it can be one of the following options:
+            * em.Table: just a single table that will be used, not
+                other tables will be loaded in this case
+            * string: This should be the path from where to read
+                the table(s). The first table will be loaded by default.
+            * tuple (string, string): Here you can specify the path and
+                the name of the table that you want to be loaded by
+                default.
         """
-        self._table = emTable
+        if isinstance(tableSource, em.Table):
+            self._table = tableSource
+            self._tableIO = None
+            # Define only a single table name ''
+            tableName = ''
+            self._tableNames = [tableName]
+        else:  # In this variant we will create a em.TableIO to read data
+            if isinstance(tableSource, str):
+                path, tableName = tableSource, None
+            elif isinstance(tableSource, tuple):
+                path, tableName = tableSource
+            else:
+                raise Exception("Invalid tableSource input '%s' (type %s)"
+                                % (tableSource, type(tableSource)))
+            self._tableIO = em.TableIO()
+            self._tableIO.open(path, em.File.Mode.READ_ONLY)
+            self._table = em.Table()
+            self._tableNames = self._tableIO.getTableNames()
+            # If not tableName provided, load first table
+            tableName = tableName or self._tableNames[0]
+
+        self.loadTable(tableName)
+
+    def __updateColsMap(self):
         # TODO: Check if this is needed now, or should go to QtModel
         # Map between the order and the columns Id
         self._colsMap = {i: c.getId()
-                         for i, c in enumerate(emTable.iterColumns())}
+                         for i, c in enumerate(self._table.iterColumns())}
+
+    def _loadTable(self, tableName):
+        # Only really load table if we have created the em.TableIO
+        if self._tableIO is not None:
+            self._tableIO.read(tableName, self._table)
+            self.__updateColsMap()
 
     def iterColumns(self):
         for c in self._table.iterColumns():

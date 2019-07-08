@@ -27,11 +27,8 @@ class ModelsFactory:
         :param path: (str) The table path
         :return:     Tuple ([table names], TableModel)
         """
-        names = []
-
         if EmPath.isTable(path):
-            names, table = EmTable.load(path)
-            model = EmTableModel(emTable=table)
+            model = EmTableModel(path)
         elif EmPath.isStack(path):
             model = models.SlicesTableModel(EmStackModel(path), 'Index')
         elif EmPath.isVolume(path):
@@ -40,7 +37,7 @@ class ModelsFactory:
         else:
             raise Exception("Unknown file type: %s" % path)
 
-        return names, model
+        return model
 
     @classmethod
     def createStackModel(cls, path):

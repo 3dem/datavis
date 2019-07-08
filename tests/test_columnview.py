@@ -18,8 +18,7 @@ class TestColumnsView(TestView):
         ]
 
     def createView(self):
-        names, model = ModelsFactory.createTableModel(self._path)
-        return ColumnsView(parent=None, model=model)
+        return ColumnsView(model=ModelsFactory.createTableModel(self._path))
 
 
 if __name__ == '__main__':

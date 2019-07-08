@@ -92,6 +92,7 @@ class EmPath:
         return cls.__isFile(path, cls.EXT_STD_IMAGE)
 
 
+# FIXME: This class might not longer be needed
 class EmTable:
     """ Helper class around em.Table class. """
     @classmethod

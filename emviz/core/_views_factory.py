@@ -33,5 +33,5 @@ class ViewsFactory:
     @staticmethod
     def createDataView(path, **kwargs):
         """ Create an DataView and load the volume from the given path """
-        _, model = ModelsFactory.createTableModel(path)
+        model = ModelsFactory.createTableModel(path)
         return emviz.views.DataView(None, model=model, **kwargs)

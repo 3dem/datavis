@@ -328,7 +328,7 @@ class BrowserWindow(QMainWindow):
             info = {"Type": "UNKNOWN"}
             self._imagePath = imagePath
             if EmPath.isTable(imagePath):
-                _, model = ModelsFactory.createTableModel(imagePath)
+                model = ModelsFactory.createTableModel(imagePath)
                 self._dataView.setModel(model)
 
                 if not model.getRowsCount() == 1:
@@ -339,11 +339,13 @@ class BrowserWindow(QMainWindow):
                 self.__showDataView()
                 # Show the Table dimensions
                 info["Type"] = "TABLE"
-                info["Dimensions (Rows x Columns)"] = \
-                    "%d x %d" % (model.getRowsCount(), model.getColumnsCount())
-            elif EmPath.isImage(imagePath) or EmPath.isStack(imagePath) \
-                    or EmPath.isVolume(imagePath) \
-                    or EmPath.isStandardImage(imagePath):
+                dimStr = "%d x %d" % (model.getRowsCount(),
+                                      model.getColumnsCount())
+                info["Dimensions (Rows x Columns)"] = dimStr
+            elif (EmPath.isImage(imagePath)
+                  or EmPath.isStack(imagePath)
+                  or EmPath.isVolume(imagePath)
+                  or EmPath.isStandardImage(imagePath)):
                 inf = getInfo(imagePath)
                 d = inf['dim']
                 info["Dimensions"] = str(d)
@@ -372,14 +374,13 @@ class BrowserWindow(QMainWindow):
                         #info["Type"] = "VOLUME STACK: " + str(inf['data_type'])
                         #self.__showVolumeSlice()
                     elif d.x <= MOVIE_SIZE:
-                        info["Type"] = "IMAGES STACK: " + \
-                                       str(inf['data_type'])
-                        _, model = ModelsFactory.createTableModel(imagePath)
+                        info["Type"] = "IMAGES STACK: %s" % inf['data_type']
+                        model = ModelsFactory.createTableModel(imagePath)
                         self._dataView.setModel(model)
                         self._dataView.setView(GALLERY)
                         self.__showDataView()
                     else:
-                        info["Type"] = "MOVIE: " + str(inf['data_type'])
+                        info["Type"] = "MOVIE: %s" % inf['data_type']
                         model = ModelsFactory.createStackModel(imagePath)
                         self._slicesView.setModel(model)
                         self.__showSlicesView()

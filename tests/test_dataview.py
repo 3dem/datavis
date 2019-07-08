@@ -18,8 +18,7 @@ class TestDataView(TestView):
         ]
 
     def createView(self):
-        names, model = ModelsFactory.createTableModel(self._path)
-        return DataView(parent=None, model=model)
+        return DataView(model=ModelsFactory.createTableModel(self._path))
 
 
 if __name__ == '__main__':
