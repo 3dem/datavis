@@ -2,18 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import os
-import traceback
-import sys
-
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
-
-from emviz.core.functions import EmPath
-
-import em
-
 import numpy as np
 import scipy.ndimage as ndimage
+
+import em
+from emviz.utils import py23
+from ._empath import EmPath
+from ._emtype import EmType
 
 X_AXIS = 0
 Y_AXIS = 1
@@ -25,83 +20,21 @@ class ImageManager:
     The image manager for centralize read/manage image operations.
     Contains a internal image cache for loaded image access and thumbnails.
     """
-    DATA_TYPE_MAP = {
-        em.typeInt8: np.uint8,
-        em.typeUInt8: np.uint8,
-        em.typeInt16: np.uint16,
-        em.typeUInt16: np.uint16,
-        em.typeInt32: np.uint32,
-        em.typeUInt32: np.uint32,
-        em.typeInt64: np.uint64,
-        em.typeUInt64: np.uint64
-    }  # FIXME [hv] the others?
-
-    def __init__(self, cacheSize=50):
+    def __init__(self, maxCacheSize=100, maxOpenFiles=10):
         self._imgData = dict()
-        self._cacheSize = cacheSize
+        # Internally convert from Mb to bytes
+        self._maxCacheSize = maxCacheSize * 1024 * 1024
+        self._maxOpenFiles = maxOpenFiles
 
-    def __createThumb(self, imgRef, **kwargs):
-        """
-        Return the thumbnail created for the specified image reference.
-        Rescale the original image according to the param imageSize=(w, h).
-        If imageSize=None then return the original image data
-        """
-        imgSize = kwargs.get('imgSize')
-        if EmPath.isStandardImage(imgRef.path):
-            pixmap = QPixmap(imgRef.path)
-            if imgSize is None:
-                return pixmap
-            height = int(pixmap.height() * imgSize[1] / 100)
-            return pixmap.scaledToHeight(height, Qt.SmoothTransformation)
+        # FIXME: We can have many open ImageIO (until maxOpenFiles)
+        # to prevent opening many times the same file
+        self._imgIO = em.ImageIO()
+        # FIXME: We can have many images in cache (until the ocuppied memory
+        # reach the max size)
+        self._img = em.Image()
 
-        else:
-            try:
-                isStack = imgRef.imageType & ImageRef.STACK == ImageRef.STACK
-                isVolume = imgRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME
-
-                if isVolume:
-                    index = 1 if not isStack else imgRef.volumeIndex
-                else:
-                    index = imgRef.index
-
-                img = self.readImage(imgRef.path, index)
-            except Exception as ex:
-                print(ex)
-                return None
-            array = self.getNumPyArray(img)
-
-            if isVolume:
-                if imgRef.axis == X_AXIS:
-                    array = array[:, :, imgRef.index]
-                elif imgRef.axis == Y_AXIS:
-                    array = array[:, imgRef.index, :]
-                elif imgRef.axis == Z_AXIS:
-                    array = array[imgRef.index, :, :]
-
-            if imgSize is None:
-                return array
-
-            # preserve aspect ratio
-            x, y = array.shape[0], array.shape[1]
-            if x > imgSize[0]:
-                y = int(max(y * imgSize[0] / x, 1))
-                x = int(imgSize[0])
-            if y > imgSize[1]:
-                x = int(max(x * imgSize[1] / y, 1))
-                y = int(imgSize[1])
-
-            if x >= array.shape[0] and y >= array.shape[1]:
-                return array
-
-            return ndimage.zoom(array, x / float(array.shape[0]), order=1)
-
-        return None
-
-    def getImage(self, imgId):
-        """ Return the image data for the given image id """
-        return self._imgData.get(imgId)
-
-    def createImageId(self, imageRef, imgSize=None):
+    #TODO: Fixme
+    def __createId(self, imageRef):
         """ Create a unique image id for the given image reference. """
         if imageRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
             imgId = imageRef.path
@@ -118,31 +51,8 @@ class ImageManager:
             imgId = '%d@%d@%s' % (imageRef.index, imageRef.axis, imageRef.path)
         return str(imgSize) + imgId if imgSize is not None else imgId
 
-    def addImage(self, imgRef, imgSize=None):
-        """
-        Adds an image data to the internal image cache.
-        If imgSize is specified, then store the width x height thumbnail
-        path: image path
-        imgSize: (width, height) or None
-        TODO: Use an ID in the future, now we use the image path
-        """
-        imgId = self.createImageId(imgRef, imgSize)
-        ret = self._imgData.get(imgId)
-        if ret is None:
-            try:
-                ret = self.__createThumb(imgRef, imgSize=imgSize)
-                if len(self._imgData) == self._cacheSize:
-                    self._imgData.popitem()
-                self._imgData[imgId] = ret
-            except Exception as ex:
-                print(ex)
-                raise ex
-            except RuntimeError as ex:
-                print(ex)
-                raise ex
-        return ret
-
-    def findImagePrefix(self, imagePath, rootPath):
+    @classmethod
+    def findImagePrefix(cls, imagePath, rootPath):
         """
         Find the prefix path from which the imagePath value is accessible.
         A common use case is when we have a text file pointing to image paths.
@@ -176,25 +86,51 @@ class ImageManager:
 
         return None
 
-    @classmethod
-    def readImage(cls, path, index=1):
-        """ Read an image from the given path and return the em.Image object """
-        if not os.path.exists(path):
-            raise Exception("Path does not exists: %s" % path)
+    def _getRef(self, imgSource):
+        """ Return a ImageRef, either because imgSource is one,
+        or parsing it from path. """
+        if isinstance(imgSource, ImageRef):
+            return imgSource
 
-        image = em.Image()
-        image.read(em.ImageLocation(path, index))
-        return image
+        if isinstance(imgSource, py23.str):
+            return ImageRef.parsePath(imgSource)
 
-    @classmethod
-    def getDim(cls, path):
+        raise Exception('Can not get ImageRef from type %s' % type(imgSource))
+
+    def _openRO(self, imgSource):
+        """ Open image source as read-only.
+        Return the imageRef and the imageIO.
+        """
+        imgRef = self._getRef(imgSource)
+        self._imgIO.open(imgRef.path, em.File.READ_ONLY)
+        return imgRef, self._imgIO
+
+    def getImage(self, imgSource, copy=False):
+        """ Retrieve the image (from cache or from file) from the
+        given imageSource.
+        :param imgSource: Either ImageRef or path
+        :param copy: If True, a copy of the image will be returned.
+            If False, a reference to the internal buffer image will
+            be returned. The internal image can be modified in further
+            call to other methods from the ImageManager.
+        """
+        imgRef, imgIO = self._openRO(imgSource)
+        # Create a new image if a copy is requested
+        # TODO: Review this when the cache is implemented
+        imgOut = em.Image() if copy else self._img
+        imgIO.read(imgRef.index, imgOut)
+        return imgOut
+
+    def getData(self, imgSource, copy=False):
+        """ Similar to getImage, but return a numpy array instead. """
+        img = self.getImage(imgSource, copy=False)
+        return np.array(img, copy=copy, dtype=EmType.toNumpy(img.getType()))
+
+    def getDim(self, imgSource):
         """ Shortcut method to return the dimensions of the given
-        image path. (x, y, z, n) """
-        imageIO = em.ImageIO()
-        imageIO.open(path, em.File.Mode.READ_ONLY)
-        dim = imageIO.getDim()
-        imageIO.close()
-
+        image source (x, y, z, n) """
+        imgRef, imgIO = self._openRO(imgSource)
+        dim = imgIO.getDim()
         return dim.x, dim.y, dim.z, dim.n
 
     @classmethod
@@ -205,25 +141,11 @@ class ImageManager:
         ext : File extension
         data_type: Image data type
         """
-        imageIO = em.ImageIO()
-        imageIO.open(path, em.File.Mode.READ_ONLY)
-        dim = imageIO.getDim()
-        dataType = imageIO.getType()
-        imageIO.close()
-
-        return {'dim': dim,
+        imgRef, imgIO = self._openRO(imgSource)
+        return {'dim': imgIO.getDim(),
                 'ext': EmPath.getExt(path),
-                'data_type': dataType}
-
-    @classmethod
-    def getNumPyArray(cls, image, copy=False):
-        """
-        Returns the numpy array of image data according to the image type  """
-        if image is None:
-            return None
-
-        return np.array(image, copy=copy,
-                        dtype=cls.DATA_TYPE_MAP.get(image.getType()))
+                'data_type': imgIO.getType()
+                }
 
 
 class VolImageManager(ImageManager):
@@ -277,7 +199,7 @@ class ImageRef:
     STACK = 2
     VOLUME = 4
 
-    def __init__(self, path=None, index=0, volumeIndex=0, axis=-1):
+    def __init__(self, path=None, index=0, slice=0):
         """
         Constructor:
         path (str): the image path
@@ -291,9 +213,29 @@ class ImageRef:
         """
         self.path = path
         self.index = index
-        self.volumeIndex = volumeIndex
-        self.axis = axis
+        self.slice = slice
         self.imageType = ImageRef.SINGLE
+
+    @classmethod
+    def parsePath(cls, path):
+        """ Parse the path to return a ImageRef instance.
+        """
+        parts = path.split('@')
+        n = len(parts)
+        imgRef = ImageRef()
+
+        if n == 1:
+            imgRef.path = path
+        elif n == 2:
+            imgRef.path, imgRef.index = parts[1], int(parts[0])
+        elif n == 3:
+            imgRef.path, imgRef.index = parts[2], int(parts[1])
+            imgRef.slice = int(parts[0])
+        else:
+            raise Exception("Invalid number of @ in the image path: %s" % path)
+
+        return imgRef
+
 
 
 # def parseImagePath(imgPath, imgRef=None, root=None):

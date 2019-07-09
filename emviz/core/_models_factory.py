@@ -3,8 +3,9 @@ import numpy as np
 
 import em
 import emviz.models as models
-from .functions import EmTable, EmPath
-from ._emtable_model import (EmTableModel, EmStackModel, EmVolumeModel, TYPE_MAP)
+from ._empath import EmPath
+from ._emtype import EmType
+from ._emtable_model import EmTableModel, EmStackModel, EmVolumeModel
 
 
 class ModelsFactory:
@@ -94,7 +95,8 @@ class ModelsFactory:
             if name in tableColNames and name in rest:
                 col = table.getColumn(name)
                 # Take the values from the 'properties' dict or infer from col
-                cType = TYPE_MAP.get(col.getType(), models.TYPE_STRING)
+                cType = EmType.toModel(col.getType(),
+                                       default=models.TYPE_STRING)
                 if models.DESCRIPTION not in properties:
                     properties[models.DESCRIPTION] = col.getDescription()
                 properties[models.EDITABLE] = False
@@ -108,7 +110,8 @@ class ModelsFactory:
         for colName in rest:
             col = table.getColumn(colName)
             # Take the values from the 'properties' dict or infer from col
-            cType = TYPE_MAP.get(col.getType(), models.TYPE_STRING)
+            cType = EmType.toModel(col.getType(),
+                                   default=models.TYPE_STRING)
             properties = dict()
             properties[models.DESCRIPTION] = col.getDescription()
             properties[models.EDITABLE] = False

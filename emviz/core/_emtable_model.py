@@ -1,32 +1,19 @@
 
-import em
-import emviz.models as models
 import numpy as np
 
-# Quick and dirty way to deal with both Python 2 and 3 basestring
-try:
-    basestring
-except NameError:
-    basestring = str
+import em
+import emviz.models as models
+from emviz.utils import py23
 
-
-TYPE_MAP = {
-    em.typeBool: models.TYPE_BOOL,
-    em.typeInt8: models.TYPE_INT,
-    em.typeInt16: models.TYPE_INT,
-    em.typeInt32: models.TYPE_INT,
-    em.typeInt64: models.TYPE_INT,
-    em.typeFloat: models.TYPE_FLOAT,
-    em.typeDouble: models.TYPE_FLOAT,
-    em.typeString: models.TYPE_STRING
-}
+from ._image_manager import ImageManager
+from ._emtype import EmType
 
 
 class EmTableModel(models.TableModel):
     """
     Implementation of TableBase with an underlying em.Table object.
     """
-    def __init__(self, tableSource):
+    def __init__(self, tableSource, **kwargs):
         """
         Initialization of an EmTableModel
         :param tableSource: Input from where table will be retrieved,
@@ -38,6 +25,9 @@ class EmTableModel(models.TableModel):
             * tuple (string, string): Here you can specify the path and
                 the name of the table that you want to be loaded by
                 default.
+        :param **kwargs: Extra arguments
+            * imageManager=value Provide an ImageManager that can be used
+                to read images referenced from this table.
         """
         if isinstance(tableSource, em.Table):
             self._table = tableSource
@@ -47,7 +37,7 @@ class EmTableModel(models.TableModel):
             self._path = None
             self._tableNames = [tableName]
         else:  # In this variant we will create a em.TableIO to read data
-            if isinstance(tableSource, basestring):
+            if isinstance(tableSource, py23.str):
                 self._path, tableName = tableSource, None
             elif isinstance(tableSource, tuple):
                 self._path, tableName = tableSource
@@ -61,7 +51,13 @@ class EmTableModel(models.TableModel):
             # If not tableName provided, load first table
             tableName = tableName or self._tableNames[0]
 
+        # Create an ImageManager if none is provided
+        self._imageManager = kwargs.get('imageManager', ImageManager())
         self.loadTable(tableName)
+
+    def __del__(self):
+        if self._tableIO is not None:
+            self._tableIO.close()
 
     def __updateColsMap(self):
         # TODO: Check if this is needed now, or should go to QtModel
@@ -77,7 +73,7 @@ class EmTableModel(models.TableModel):
 
     def iterColumns(self):
         for c in self._table.iterColumns():
-            yield models.ColumnInfo(c.getName(), TYPE_MAP[c.getType()])
+            yield models.ColumnInfo(c.getName(), EmType.toModel(c.getType()))
 
     def getColumnsCount(self):
         """ Return the number of columns. """
