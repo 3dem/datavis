@@ -108,28 +108,63 @@ class DataView(QWidget):
         self.setModel(kwargs['model'])
 
     def __setupGUI(self, **kwargs):
-        """ This is the standard method for the GUI creation """
-        self._mainLayout = QVBoxLayout(self)
-        self._mainContainer = QWidget(self)
-        self._mainContainerLayout = QVBoxLayout(self._mainContainer)
-        self._mainContainerLayout.setSpacing(0)
-        self._mainContainerLayout.setContentsMargins(0, 0, 0, 0)
+        """ Create the main GUI of the DataView.
+         The GUI is composed by two main panels divided by a Splitter:
+         1) (left) Collapsible ToolBar with several actions
+         2) (right) Views container:
+            - Toolbar on the top, with current table actions
+            - Main view widget area
+            - StatusBar (not shown now)
+        """
+        mainLayout = QVBoxLayout(self)
+        splitter = QSplitter(self)
 
-        self._toolBar = QToolBar(self)
-        self._mainContainerLayout.addWidget(self._toolBar)
-        self._stackedLayoud = QStackedLayout(self._mainContainerLayout)
-        self._stackedLayoud.setSpacing(0)
+        # Create and add the left ToolBar
+        self._leftToolBar = self.__createLeftToolbar()
+        splitter.addWidget(self._leftToolBar)
+        splitter.setCollapsible(0, False)
 
-        # toolbar
-        self._toolBarLeft = ActionsToolBar(self, orientation=Qt.Vertical)
-        self._toolBarLeft.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        self._splitter = QSplitter(self)
-        self._splitter.addWidget(self._toolBarLeft)
-        self._splitter.setCollapsible(0, False)
-        self._splitter.addWidget(self._mainContainer)
+        # Create the Views container
+        viewsContainer = QWidget(self)
+        viewsContainerLayout = QVBoxLayout(viewsContainer)
+        viewsContainerLayout.setSpacing(0)
+        viewsContainerLayout.setContentsMargins(0, 0, 0, 0)
+
+        # Add ToolBar on the Top
+        self._toolBar = self.__createToolbar()
+        viewsContainerLayout.addWidget(self._toolBar)
+        # Create views and add to StackedLayout
+        self._stackedLayout = QStackedLayout(viewsContainerLayout)
+        self._stackedLayout.setSpacing(0)
+        self.__createViews(**kwargs)
+        # Create status bar
+        self._statusBar = QStatusBar(self)
+        self._statusBar.setVisible(False)  # hide for now
+        viewsContainerLayout.addWidget(self._statusBar)
+        splitter.addWidget(viewsContainer)
+
+        # Add splitter to main layout and set some properties
+        mainLayout.addWidget(splitter)
+        self.setMinimumWidth(700)
+        self.setGeometry(0, 0, 750, 800)
+
+    def __createLeftToolbar(self):
+        toolbar = ActionsToolBar(self, orientation=Qt.Vertical)
+        toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.__addSelectionActions(toolbar)
+        self.__addColumnsPanel(toolbar)
+        self.__addPlotPanel(toolbar)
+        # Show/hide left Toolbar action
+        self.addAction(TriggerAction(self, 'SHToolBar',
+                                     slot=self.__onShowHideToolBar,
+                                     shortCut=QKeySequence(Qt.Key_T)))
+        return toolbar
+
+    def __addSelectionActions(self, toolbar):
+        """ Add selection related actions to the left toolbar. """
         # selection panel
         self._selectionMenu = QMenu(self)
-        self._selectionPanel = self._toolBarLeft.createPanel('selectionPanel')
+        self._selectionPanel = toolbar.createPanel('selectionPanel')
         self._selectionPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._selectionPanel)
@@ -191,10 +226,12 @@ class DataView(QWidget):
         self._actSelections = TriggerAction(parent=None, actionName="ASelect",
                                             text='Selection',
                                             faIconName='fa.check-circle')
-        self._toolBarLeft.addAction(self._actSelections, self._selectionPanel,
-                                    exclusive=False)
+        toolbar.addAction(self._actSelections, self._selectionPanel,
+                          exclusive=False)
 
-        self._columnsPanel = self._toolBarLeft.createPanel('columnsPanel')
+    def __addColumnsPanel(self, toolbar):
+        """ Add columns actions panel to the left toolbar. """
+        self._columnsPanel = toolbar.createPanel('columnsPanel')
         self._columnsPanel.setSizePolicy(QSizePolicy.Ignored,
                                          QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._columnsPanel)
@@ -202,39 +239,41 @@ class DataView(QWidget):
                        text="<strong>Column properties:</strong>")
         label.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
         vLayout.addWidget(label)
-        self._tableColumnProp = QTableWidget(self._columnsPanel)
-        self._tableColumnProp.setObjectName("tableColumnProp")
-        self._tableColumnProp.setColumnCount(3)
-        self._tableColumnProp.setHorizontalHeaderLabels(['', '', 'Name'])
-        self._tableColumnProp.setSelectionMode(QTableWidget.NoSelection)
-        self._tableColumnProp.setSelectionBehavior(QTableWidget.SelectRows)
-        self._tableColumnProp.setFocusPolicy(Qt.NoFocus)
-        self._tableColumnProp.setSizePolicy(QSizePolicy.Expanding,
-                                            QSizePolicy.MinimumExpanding)
-        self._tableColumnProp.itemChanged.connect(
-            self.__onItemChanged)
-        self._tableColumnProp.verticalHeader().setVisible(False)
+        cpTable = QTableWidget(self._columnsPanel)
+        cpTable.setObjectName("tableColumnProp")
+        cpTable.setColumnCount(3)
+        cpTable.setHorizontalHeaderLabels(['', '', 'Name'])
+        cpTable.setSelectionMode(QTableWidget.NoSelection)
+        cpTable.setSelectionBehavior(QTableWidget.SelectRows)
+        cpTable.setFocusPolicy(Qt.NoFocus)
+        cpTable.setSizePolicy(QSizePolicy.Expanding,
+                              QSizePolicy.MinimumExpanding)
+        cpTable.itemChanged.connect(self.__onItemChanged)
+        cpTable.verticalHeader().setVisible(False)
         #  setting checked and unchecked icons
         checkedIcon = qta.icon('fa5s.eye')
         unCheckedIcon = qta.icon('fa5s.eye', color='#d4d4d4')
-        self._tableColumnProp.setItemDelegateForColumn(
+        cpTable.setItemDelegateForColumn(
             0, ColumnPropertyItemDelegate(self,
                                           checkedIcon.pixmap(16).toImage(),
                                           unCheckedIcon.pixmap(16).toImage()))
         checkedIcon = qta.icon('fa5s.image')
         unCheckedIcon = qta.icon('fa5s.image', color='#d4d4d4')
-        self._tableColumnProp.setItemDelegateForColumn(
+        cpTable.setItemDelegateForColumn(
             1, ColumnPropertyItemDelegate(self,
                                           checkedIcon.pixmap(16).toImage(),
                                           unCheckedIcon.pixmap(16).toImage()))
-        vLayout.addWidget(self._tableColumnProp)
+        vLayout.addWidget(cpTable)
+        self._tableColumnProp = cpTable
         self._columnsPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actColumns = TriggerAction(parent=None, actionName='AColumns',
                                          text='Columns', faIconName='fa5s.th')
-        self._toolBarLeft.addAction(self._actColumns, self._columnsPanel,
-                                    exclusive=False)
-        # Plot panel
-        self._plotPanel = self._toolBarLeft.createPanel('plotPanel')
+        toolbar.addAction(self._actColumns, self._columnsPanel,
+                          exclusive=False)
+
+    def __addPlotPanel(self, toolbar):
+        """ Add Plot panel to the left toolbar. """
+        self._plotPanel = toolbar.createPanel('plotPanel')
         self._plotPanel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         vLayout = QVBoxLayout(self._plotPanel)
         self._plotConfigWidget = PlotConfigWidget(parent=self._plotPanel)
@@ -242,105 +281,95 @@ class DataView(QWidget):
         vLayout.addWidget(self._plotConfigWidget)
         self._plotConfigWidget.sigError.connect(self.__showMsgBox)
 
-        self._buttonPlot = QPushButton(self._plotPanel)
-        self._buttonPlot.setText('Plot')
-        self._buttonPlot.setSizePolicy(QSizePolicy.Fixed,
-                                       QSizePolicy.Fixed)
-        self._buttonPlot.clicked.connect(self.__onButtonPlotClicked)
-        vLayout.addWidget(self._buttonPlot, 0, Qt.AlignLeft)
+        plotButton = QPushButton(self._plotPanel)
+        plotButton.setText('Plot')
+        plotButton.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        plotButton.clicked.connect(self.__onButtonPlotClicked)
+        vLayout.addWidget(plotButton, 0, Qt.AlignLeft)
 
         self._plotPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actPlot = TriggerAction(parent=None, actionName='APlot',
                                       text='Plot',
                                       faIconName='fa5s.file-signature')
-        self._toolBarLeft.addAction(self._actPlot, self._plotPanel,
-                                    exclusive=False)
-        # combobox current table
-        self._labelCurrentTable = QLabel(parent=self._toolBar, text="Table ")
-        self._toolBar.addWidget(self._labelCurrentTable)
-        self._comboBoxCurrentTable = QComboBox(self._toolBar)
+        toolbar.addAction(self._actPlot, self._plotPanel, exclusive=False)
+
+    def __createToolbar(self):
+        toolbar = QToolBar(self)
+
+        # Combobox for selecting current table
+        self._labelCurrentTable = QLabel(parent=toolbar, text="Table ")
+        toolbar.addWidget(self._labelCurrentTable)
+        self._comboBoxCurrentTable = QComboBox(toolbar)
         self._comboBoxCurrentTable.currentIndexChanged.connect(
             self._onCurrentTableChanged)
-        self._toolBar.addWidget(self._comboBoxCurrentTable)
-        self._toolBar.addSeparator()
+        toolbar.addWidget(self._comboBoxCurrentTable)
+        toolbar.addSeparator()
+        toolbar.addSeparator()
 
-        # actions
-        self._actionGroupViews = QActionGroup(self._toolBar)
+        # Actions to switch from views
+        self._actionGroupViews = QActionGroup(toolbar)
         self._actionGroupViews.setExclusive(True)
         for view, viewInfo in self._viewsDict.items():
             #  create action with the view name
-            a = TriggerAction(parent=self._toolBar, actionName=viewInfo[NAME],
+            a = TriggerAction(parent=toolbar, actionName=viewInfo[NAME],
                               text=viewInfo[NAME], faIconName=viewInfo[ICON],
                               checkable=True, slot=self._onChangeViewTriggered,
                               userData=view)
             viewInfo[ACTION] = a
             self._actionGroupViews.addAction(a)
-            self._toolBar.addAction(a)
+            toolbar.addAction(a)
             a.setChecked(view == self._viewKey)
             a.setVisible(True)
 
-        self._toolBar.addSeparator()
         # table rows and columns
-        self._labelElements = QLabel(self._toolBar)
-        self._labelElements.setText(" Elements ")
-        self._toolBar.addWidget(self._labelElements)
-        self._toolBar.addSeparator()
-        self._labelRows = QLabel(self._toolBar)
+        self._itemsLabel = QLabel(toolbar)
+        self._itemsLabel.setText(" Items ")
+        toolbar.addWidget(self._itemsLabel)
+        toolbar.addSeparator()
+        self._labelRows = QLabel(toolbar)
         self._labelRows.setText(" Rows ")
-        self._actLabelRows = self._toolBar.addWidget(self._labelRows)
-        self._lineEditRows = QLineEdit(self._toolBar)
+        self._actLabelRows = toolbar.addWidget(self._labelRows)
+        self._lineEditRows = QLineEdit(toolbar)
         self._lineEditRows.setMaximumSize(70, 22)
         self._lineEditRows.setEnabled(False)
-        self._actLineEditRows = self._toolBar.addWidget(self._lineEditRows)
-        self._labelCols = QLabel(self._toolBar)
+        self._actLineEditRows = toolbar.addWidget(self._lineEditRows)
+        self._labelCols = QLabel(toolbar)
         self._labelCols.setText(" Cols ")
-        self._actLabelCols = self._toolBar.addWidget(self._labelCols)
-        self._lineEditCols = QLineEdit(self._toolBar)
+        self._actLabelCols = toolbar.addWidget(self._labelCols)
+        self._lineEditCols = QLineEdit(toolbar)
         self._lineEditCols.setMaximumSize(70, 22)
         self._lineEditCols.setEnabled(False)
-        self._actLineEditCols = self._toolBar.addWidget(self._lineEditCols)
-        self._toolBar.addSeparator()
+        self._actLineEditCols = toolbar.addWidget(self._lineEditCols)
+        toolbar.addSeparator()
+
         # cell navigator
-        self._labelCurrentRow = QLabel(self._toolBar)
+        self._labelCurrentRow = QLabel(toolbar)
         self._labelCurrentRow.setPixmap(qta.icon(
             'fa.level-down').pixmap(28, QIcon.Normal, QIcon.On))
-        self._spinBoxCurrentRow = QSpinBox(self._toolBar)
+        self._spinBoxCurrentRow = QSpinBox(toolbar)
         self._spinBoxCurrentRow.setMaximumWidth(50)
         self._spinBoxCurrentRow.valueChanged[int].connect(self._selectRow)
-        self._actLabelCurrentRow = self._toolBar.addWidget(
+        self._actLabelCurrentRow = toolbar.addWidget(
             self._labelCurrentRow)
-        self._actSpinBoxCurrentRow = self._toolBar.addWidget(
-            self._spinBoxCurrentRow)
-        self._toolBar.addSeparator()
+        self._actSpinBoxCurrentRow = toolbar.addWidget(self._spinBoxCurrentRow)
+        toolbar.addSeparator()
+
         # cell resizing
-        self._labelLupe = QLabel(self._toolBar)
-        self._labelLupe.setPixmap(qta.icon('fa.search').pixmap(28,
-                                                               QIcon.Normal,
-                                                               QIcon.On))
-        self._actLabelLupe = self._toolBar.addWidget(self._labelLupe)
-        self._spinBoxRowHeight = QSpinBox(self._toolBar)
-        self._spinBoxRowHeight.setSuffix(' px' if self._zoomUnits == PIXEL_UNITS
-                                         else ' %')
+        labelLupe = QLabel(toolbar)
+        labelLupe.setPixmap(
+            qta.icon('fa.search').pixmap(28, QIcon.Normal, QIcon.On))
+        self._actLabelLupe = toolbar.addWidget(labelLupe)
+        self._spinBoxRowHeight = QSpinBox(toolbar)
+        suffix = ' px' if self._zoomUnits == PIXEL_UNITS else ' %'
+        self._spinBoxRowHeight.setSuffix(suffix)
         self._spinBoxRowHeight.setRange(self._minRowHeight,
                                         self._maxRowHeight)
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
         self._spinBoxRowHeight.editingFinished.connect(self._onChangeCellSize)
         self._spinBoxRowHeight.setValue(self._defaultRowHeight)
-        self._actSpinBoxHeight = self._toolBar.addWidget(self._spinBoxRowHeight)
-        #  dataview actions
-        self.__actShowHideToolBar = TriggerAction(self, 'SHToolBar',
-                                                  slot=self.__onShowHideToolBar,
-                                                  shortCut=QKeySequence(
-                                                      Qt.Key_T))
-        self.addAction(self.__actShowHideToolBar)
+        self._actSpinBoxHeight = toolbar.addWidget(self._spinBoxRowHeight)
 
-        self._statusBar = QStatusBar(self)
-        self._mainContainerLayout.addWidget(self._statusBar)
-        self.__createViews(**kwargs)
-        self._statusBar.setVisible(False)  # hide for now
-        self.setMinimumWidth(700)
-        self.setGeometry(0, 0, 750, 800)
-        self._mainLayout.addWidget(self._splitter)
+        return toolbar
 
     def __createPreferencesForCurrentTable(self):
         """
@@ -441,7 +470,7 @@ class DataView(QWidget):
                         viewWidget.addAction(self._actSelectAll)
                         viewWidget.addAction(self._actSelectFromHere)
                         viewWidget.addAction(self._actSelectToHere)
-                        self._stackedLayoud.addWidget(viewWidget)
+                        self._stackedLayout.addWidget(viewWidget)
                         self.__connectViewSignals(viewWidget)
             else:
                 self.__removeView(view)
@@ -451,7 +480,7 @@ class DataView(QWidget):
         viewInfo = self._viewsDict[view]
         viewWidget = viewInfo[VIEW]
         if viewWidget is not None:
-            self._stackedLayoud.removeWidget(viewWidget)
+            self._stackedLayout.removeWidget(viewWidget)
             viewInfo[VIEW] = None
             viewWidget.setParent(None)
             self.__disconnectViewSignals(viewWidget)
@@ -508,17 +537,16 @@ class DataView(QWidget):
             size = self.__getSelectionSize()
             if size:
                 textTuple = ("Selected items: ",
-                             "%s/%s" % (size, self._model.getColumnsCount()))
+                             "%s/%s" % (size, self._model.getRowsCount()))
             else:
                 textTuple = ("No selection", "")
             text = "<br><p><strong>%s</strong></p><p>%s</p>" % textTuple
             self._labelSelectionInfo.setText(text.ljust(20))
-            self._labelElements.setText(" Elements: %d " %
-                                        self._model.getRowsCount())
+            self._itemsLabel.setText(" Items: %d " % self._model.getRowsCount())
         else:
             self._labelSelectionInfo.setText(
                 "<p><strong>Selection</strong></p>")
-            self._labelElements.setText("")
+            self._itemsLabel.setText("")
 
     def __hasRenderableColumn(self, viewType=None):
         """ Returns True if the widget for the given type has renderable columns
@@ -579,7 +607,7 @@ class DataView(QWidget):
 
         if viewWidget is not None:
             row = self._currentRow
-            self._stackedLayoud.setCurrentWidget(viewWidget)
+            self._stackedLayout.setCurrentWidget(viewWidget)
             self.__makeSelectionInView(self._viewKey)
             viewWidget.selectRow(row)
 
@@ -636,27 +664,28 @@ class DataView(QWidget):
             params = [c.getName() for i, c in self._displayConfig.iterColumns()]
 
         self._plotConfigWidget.setParams(params=params)
-        self._toolBarLeft.setPanelMinSize(
+        self._leftToolBar.setPanelMinSize(
             self._plotConfigWidget.sizeHint().width())
 
     def __initTableColumnProp(self):
         """ Initialize the columns properties widget """
-        self._tableColumnProp.blockSignals(True)
-        self._tableColumnProp.clear()
-        self._tableColumnProp.setHorizontalHeaderLabels(["", "", 'Name'])
+        cpTable = self._tableColumnProp  # shortcut
+        cpTable.blockSignals(True)
+        cpTable.clear()
+        cpTable.setHorizontalHeaderLabels(["", "", 'Name'])
         viewWidget = self.getView()
         dConfig = viewWidget.getDisplayConfig()
 
         if dConfig is not None:
             row = 0
-            self._tableColumnProp.setRowCount(dConfig.getColumnsCount())
+            cpTable.setRowCount(dConfig.getColumnsCount())
             for i, colConfig in dConfig.iterColumns():
                 item = QTableWidgetItem(colConfig.getName())
                 itemV = QTableWidgetItem("")  # for 'visible' property
                 itemR = QTableWidgetItem("")  # for 'renderable' property
-                self._tableColumnProp.setItem(row, 0, itemV)
-                self._tableColumnProp.setItem(row, 1, itemR)
-                self._tableColumnProp.setItem(row, 2, item)
+                cpTable.setItem(row, 0, itemV)
+                cpTable.setItem(row, 1, itemR)
+                cpTable.setItem(row, 2, item)
                 flags = Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
                 render = colConfig[RENDERABLE]
                 itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
@@ -668,10 +697,10 @@ class DataView(QWidget):
                 itemV.setCheckState(Qt.Checked if v else Qt.Unchecked)
                 itemV.setData(Qt.ToolTipRole, 'Show/hide this column')
                 row += 1
-            self._tableColumnProp.resizeColumnsToContents()
-        self._tableColumnProp.resizeColumnsToContents()
-        self._tableColumnProp.horizontalHeader().setStretchLastSection(True)
-        self._tableColumnProp.blockSignals(False)
+            cpTable.resizeColumnsToContents()
+        cpTable.resizeColumnsToContents()
+        cpTable.horizontalHeader().setStretchLastSection(True)
+        cpTable.blockSignals(False)
 
     def __reverseCheckState(self, item):
         """ Reverse the check state for the given QTableWidgetItem """
@@ -762,7 +791,7 @@ class DataView(QWidget):
 
         if self._model is not None:
             self._selection.update(range(self._currentRow,
-                                         self._model.totalRowCount()))
+                                         self._model.getRowsCount()))
             self.__makeSelectionInView(self._viewKey)
 
     @pyqtSlot()
@@ -837,7 +866,7 @@ class DataView(QWidget):
 
     @pyqtSlot()
     def __onShowHideToolBar(self):
-        self._toolBarLeft.setVisible(not self._toolBarLeft.isVisible())
+        self._leftToolBar.setVisible(not self._leftToolBar.isVisible())
 
     @pyqtSlot(bool)
     def __onClearSelectionTriggered(self, a):
@@ -850,7 +879,7 @@ class DataView(QWidget):
         """ Invoked when the select_all action is triggered """
 
         if self._model is not None:
-            allRows = set(range(self._model.totalRowCount()))
+            allRows = set(range(self._model.getRowsCount()))
             self._selection.symmetric_difference_update(allRows)
             self.__makeSelectionInView(self._viewKey)
 
@@ -858,7 +887,7 @@ class DataView(QWidget):
     def __onSelectAllTriggered(self, a):
         """ Invoked when the select_all action is triggered """
         if self._model is not None:
-            self._selection.update(range(0, self._model.totalRowCount()))
+            self._selection.update(range(0, self._model.getRowsCount()))
             self.__makeSelectionInView(self._viewKey)
 
     @pyqtSlot()
@@ -1090,7 +1119,7 @@ class DataView(QWidget):
         visible = not (selectionMode == PagingView.NO_SELECTION
                        or selectionMode == PagingView.SINGLE_SELECTION)
         self._actSelections.setVisible(visible)
-        self._toolBarLeft.setVisible(visible)
+        self._leftToolBar.setVisible(visible)
 
         policy = Qt.NoContextMenu if not visible else Qt.ActionsContextMenu
 
@@ -1146,7 +1175,7 @@ class DataView(QWidget):
         """
         v = self.getView()
         w, h = v.getPreferredSize()
-        return w + self._toolBarLeft.width() + 180, h + self._toolBar.height()
+        return w + self._leftToolBar.width() + 180, h + self._toolBar.height()
 
     def setLabelIndexes(self, labels):
         """
