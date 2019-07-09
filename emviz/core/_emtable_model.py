@@ -44,17 +44,18 @@ class EmTableModel(models.TableModel):
             self._tableIO = None
             # Define only a single table name ''
             tableName = ''
+            self._path = None
             self._tableNames = [tableName]
         else:  # In this variant we will create a em.TableIO to read data
             if isinstance(tableSource, basestring):
-                path, tableName = tableSource, None
+                self._path, tableName = tableSource, None
             elif isinstance(tableSource, tuple):
-                path, tableName = tableSource
+                self._path, tableName = tableSource
             else:
                 raise Exception("Invalid tableSource input '%s' (type %s)"
                                 % (tableSource, type(tableSource)))
             self._tableIO = em.TableIO()
-            self._tableIO.open(path, em.File.Mode.READ_ONLY)
+            self._tableIO.open(self._path, em.File.Mode.READ_ONLY)
             self._table = em.Table()
             self._tableNames = self._tableIO.getTableNames()
             # If not tableName provided, load first table
