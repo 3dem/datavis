@@ -52,7 +52,7 @@ class ImageManager:
         return str(imgSize) + imgId if imgSize is not None else imgId
 
     @classmethod
-    def findImagePrefix(cls, imagePath, rootPath):
+    def findImagePrefix(cls, imageSource, rootPath):
         """
         Find the prefix path from which the imagePath value is accessible.
         A common use case is when we have a text file pointing to image paths.
@@ -71,7 +71,9 @@ class ImageManager:
             that empty prefix means that imagePath already exists and
             there is no need to prepend any value.
         """
-        if os.path.exists(imagePath):
+        imgRef = cls.getRef(imageSource)
+
+        if os.path.exists(imgRef.path):
             return ''  # There is no need for any prefix
 
         if os.path.isdir(rootPath):
@@ -79,14 +81,15 @@ class ImageManager:
         else:
             searchPath = os.path.dirname(rootPath)
 
-        while searchPath:
-            if os.path.exists(os.path.join(searchPath, imagePath)):
+        while searchPath and searchPath != '/':
+            if os.path.exists(os.path.join(searchPath, imgRef.path)):
                 return searchPath
             searchPath = os.path.dirname(searchPath)
 
         return None
 
-    def _getRef(self, imgSource):
+    @classmethod
+    def getRef(cls, imgSource):
         """ Return a ImageRef, either because imgSource is one,
         or parsing it from path. """
         if isinstance(imgSource, ImageRef):
@@ -101,7 +104,7 @@ class ImageManager:
         """ Open image source as read-only.
         Return the imageRef and the imageIO.
         """
-        imgRef = self._getRef(imgSource)
+        imgRef = self.getRef(imgSource)
         self._imgIO.open(imgRef.path, em.File.READ_ONLY)
         return imgRef, self._imgIO
 

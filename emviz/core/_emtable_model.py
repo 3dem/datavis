@@ -1,4 +1,5 @@
 
+import os
 import numpy as np
 
 import em
@@ -53,6 +54,9 @@ class EmTableModel(models.TableModel):
 
         # Create an ImageManager if none is provided
         self._imageManager = kwargs.get('imageManager', ImageManager())
+        # Use a dictionary for checking the prefix path of the
+        # images columns data
+        self._imagePrefixes = kwargs.get('imagePrefixes', {})
         self.loadTable(tableName)
 
     def __del__(self):
@@ -92,15 +96,20 @@ class EmTableModel(models.TableModel):
          Used by rendering of images in a given cell of the table.
         """
         value = str(self._table[row][self._colsMap[col]])
-        l = value.split('@')
-        if len(l) == 2:
-            index, path = int(l[0]), l[1]
-            imgio = em.ImageIO()
-            image = em.Image()
-            imgio.open(path, em.File.READ_ONLY)
-            imgio.read(index, image)
-            return np.array(image, copy=False)
-        return None
+        imgRef = self._imageManager.getRef(value)
+
+        if col in self._imagePrefixes:
+            imgPrefix = self._imagePrefixes[col]
+        else:
+            imgPrefix = self._imagePrefixes.get(
+                col, self._imageManager.findImagePrefix(value, self._path))
+            print("Finding image prefix: ", imgPrefix)
+            self._imagePrefixes[col] = imgPrefix
+
+        if imgPrefix is not None:
+            imgRef.path = os.path.join(imgPrefix, imgRef.path)
+
+        return self._imageManager.getData(imgRef)
 
 
 class EmStackModel(models.SlicesModel):

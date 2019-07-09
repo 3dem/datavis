@@ -69,7 +69,7 @@ class DataView(QWidget):
                              Default value: [COLUMNS, GALLERY, ITEMS]
              view:           (int) The default view to be set
              size:           (int) The row height for ColumnsView and icon size
-                             for GalleryView. Default value: 25
+                             for GalleryView. Default value: 64
              maxCellSize:    (int) The maximum value for row height in
                              ColumnsView and icon size in GalleryView. Default
                              value: 300
@@ -562,7 +562,7 @@ class DataView(QWidget):
         self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
 
         if not self.__hasRenderableColumn():
-            self._spinBoxRowHeight.setValue(25)
+            self._spinBoxRowHeight.setValue(64)
         else:
             self._spinBoxRowHeight.setValue(self._defaultRowHeight)
 
