@@ -3,7 +3,61 @@
 
 import os
 import sys
+import unittest
+
 import PyQt5.QtWidgets as qtw
+
+
+class TestData:
+    """ Simple base class to define basic parameters and functions
+    related to testing view examples.
+    """
+    __title = ''
+
+    def _loadPaths(self):
+        argv = self._argv
+        self._path = None
+
+        i = 0
+
+        if len(argv) > 1:
+            a = argv[1]
+            if len(a) == 1 and a.isdigit():  # consider it as index
+                i = int(a)
+            else:
+                self._path = argv[1]
+
+        if not self._path:
+            self._path = self.getDataPaths()[i]
+
+    def getPath(self, *paths):
+        if not hasattr(self, '_path'):
+            self._loadPaths()
+
+        testDataPath = os.environ.get("EM_TEST_DATA", None)
+        joinedPath = os.path.join(*paths)
+
+        if testDataPath is None:
+            raise Exception("Define EM_TEST_DATA to run this tests."
+                            "Needed for path: $EM_TEST_DATA/%s" % joinedPath)
+
+        return os.path.join(testDataPath, joinedPath)
+
+    def getTitle(self):
+        return self.__title
+
+    def getArgs(self):
+        return self._argv
+
+    def getDataPaths(self):
+        return []
+
+
+class TestBase(unittest.TestCase, TestData):
+    """ Simple base class to define basic parameters and functions
+    related to testing view examples.
+    """
+    __title = ''
 
 
 # TODO: Check if this simple window with central widget and resize
@@ -40,55 +94,15 @@ class ViewMainWindow(qtw.QMainWindow):
         self.setGeometry(x, y, w, h)
 
 
-class TestView:
-    """ Simple base class to define basic parameters and functions
-    related to testing view examples.
-    """
-    __title = ''
-
-    def __init__(self, argv):
-        """
-        Create a TestView instance.
-        :param argv: List of arguments (e.g sys.argv)
-        """
-        self._argv = argv
-        self._path = None
-
-        i = 0
-
-        if len(argv) > 1:
-            a = argv[1]
-            if len(a) == 1 and a.isdigit():  # consider it as index
-                i = int(a)
-            else:
-                self._path = argv[1]
-
-        if not self._path:
-            self._path = self.getDataPaths()[i]
-
-    def getPath(self, *paths):
-        testDataPath = os.environ.get("EM_TEST_DATA", None)
-        joinedPath = os.path.join(*paths)
-
-        if testDataPath is None:
-            raise Exception("Define EM_TEST_DATA to run this tests."
-                            "Needed for path: $EM_TEST_DATA/%s" % joinedPath)
-
-        return os.path.join(testDataPath, joinedPath)
-
-    def getTitle(self):
-        return self.__title
-
-    def getArgs(self):
-        return self._argv
-
-    def getDataPaths(self):
-        return []
+class TestView(TestData):
+    """ Class that will test existing Views. """
 
     def createView(self):
         return None
 
-    def run(self, app=None):
+    def runApp(self, argv=None, app=None):
+        self._argv = argv or sys.argv
+        self._loadPaths()
         app = app or qtw.QApplication(self.getArgs())
         win = ViewMainWindow(self.createView(), title=self.getTitle())
         win.show()

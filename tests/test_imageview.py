@@ -32,4 +32,4 @@ class TestImageView(TestView):
 
 
 if __name__ == '__main__':
-    TestImageView(sys.argv).run()
+    TestImageView().runApp()

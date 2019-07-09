@@ -59,4 +59,4 @@ class TestMultiColumnsView(TestView):
 
 
 if __name__ == '__main__':
-    TestMultiColumnsView(sys.argv).run()
+    TestMultiColumnsView().runApp()

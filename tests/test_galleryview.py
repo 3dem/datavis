@@ -24,4 +24,4 @@ class TestGalleryView(TestView):
 
 
 if __name__ == '__main__':
-    TestGalleryView(sys.argv).run()
+    TestGalleryView().runApp()

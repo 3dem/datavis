@@ -23,4 +23,4 @@ class TestItemsView(TestView):
 
 
 if __name__ == '__main__':
-    TestItemsView(sys.argv).run()
+    TestItemsView().runApp()
