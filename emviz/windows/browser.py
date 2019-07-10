@@ -12,11 +12,11 @@ from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
 from emviz.views import (DataView,  VolumeView, ImageView, SlicesView, ITEMS,
                          COLUMNS, GALLERY)
 from emviz.models import EmptyTableModel, EmptySlicesModel, EmptyVolumeModel
-from emviz.core import ModelsFactory
+from emviz.core import ModelsFactory, ImageManager
 
 import qtawesome as qta
 
-from emviz.core import EmPath, getInfo, MOVIE_SIZE
+from emviz.core import EmPath, MOVIE_SIZE
 
 
 class BrowserWindow(QMainWindow):
@@ -330,7 +330,6 @@ class BrowserWindow(QMainWindow):
             if EmPath.isTable(imagePath):
                 model = ModelsFactory.createTableModel(imagePath)
                 self._dataView.setModel(model)
-
                 if not model.getRowsCount() == 1:
                     self._dataView.setView(COLUMNS)
                 else:
@@ -342,28 +341,25 @@ class BrowserWindow(QMainWindow):
                 dimStr = "%d x %d" % (model.getRowsCount(),
                                       model.getColumnsCount())
                 info["Dimensions (Rows x Columns)"] = dimStr
-            elif (EmPath.isImage(imagePath)
-                  or EmPath.isStack(imagePath)
-                  or EmPath.isVolume(imagePath)
-                  or EmPath.isStandardImage(imagePath)):
-                inf = getInfo(imagePath)
-                d = inf['dim']
+            elif EmPath.isData(imagePath) or EmPath.isStandardImage(imagePath):
+                info = ImageManager().getInfo(imagePath)
+                d = info['dim']
                 info["Dimensions"] = str(d)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
                         model = ModelsFactory.createImageModel(imagePath)
                         self._imageView.setModel(model)
                         self._imageView.setImageInfo(
-                            path=imagePath, format=inf['ext'],
-                            data_type=str(inf['data_type']))
-                        info["Type"] = "SINGLE-IMAGE: " + str(inf['data_type'])
+                            path=imagePath, format=info['ext'],
+                            data_type=str(info['data_type']))
+                        info["Type"] = "SINGLE-IMAGE: " + str(info['data_type'])
                         self.__showImageView()
                     else:  # Volume
                         # The image has a volume. The data is a numpy 3D array.
                         # In this case, display the Top, Front and the Right
                         # View planes.
                         self._frame.setEnabled(True)
-                        info["Type"] = "VOLUME: " + str(inf['data_type'])
+                        info["Type"] = "VOLUME: " + str(info['data_type'])
                         model = ModelsFactory.createVolumeModel(imagePath)
                         self._volumeView.setModel(model)
                         self.__showVolumeSlice()
@@ -374,13 +370,13 @@ class BrowserWindow(QMainWindow):
                         #info["Type"] = "VOLUME STACK: " + str(inf['data_type'])
                         #self.__showVolumeSlice()
                     elif d.x <= MOVIE_SIZE:
-                        info["Type"] = "IMAGES STACK: %s" % inf['data_type']
+                        info["Type"] = "IMAGES STACK: %s" % info['data_type']
                         model = ModelsFactory.createTableModel(imagePath)
                         self._dataView.setModel(model)
                         self._dataView.setView(GALLERY)
                         self.__showDataView()
                     else:
-                        info["Type"] = "MOVIE: %s" % inf['data_type']
+                        info["Type"] = "MOVIE: %s" % info['data_type']
                         model = ModelsFactory.createStackModel(imagePath)
                         self._slicesView.setModel(model)
                         self.__showSlicesView()

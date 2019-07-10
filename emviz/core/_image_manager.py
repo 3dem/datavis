@@ -22,34 +22,28 @@ class ImageManager:
     """
     def __init__(self, maxCacheSize=100, maxOpenFiles=10):
         self._imgData = dict()
-        # Internally convert from Mb to bytes
+        # Internally convert from Mb to bytes (default 100 Mb)
         self._maxCacheSize = maxCacheSize * 1024 * 1024
         self._maxOpenFiles = maxOpenFiles
 
         # FIXME: We can have many open ImageIO (until maxOpenFiles)
         # to prevent opening many times the same file
         self._imgIO = em.ImageIO()
-        # FIXME: We can have many images in cache (until the ocuppied memory
-        # reach the max size)
         self._img = em.Image()
+        self._lastOpenedFile = None
 
-    #TODO: Fixme
-    def __createId(self, imageRef):
+        # FIXME: Control the max size of the Cache (no limited now)
+        self._imageCache = {}
+
+        # Just for debugging purposes
+        self._readCount = 0
+        self._cacheSize = 0
+
+    # TODO: Review if it is better to use strings for indexes rather than tuple
+    @classmethod
+    def _getId(cls, imageRef):
         """ Create a unique image id for the given image reference. """
-        if imageRef.imageType & ImageRef.SINGLE == ImageRef.SINGLE:
-            imgId = imageRef.path
-        elif imageRef.imageType & ImageRef.STACK == ImageRef.STACK:
-            if imageRef.imageType & ImageRef.VOLUME == ImageRef.VOLUME:
-                # index@axis@volIndex@img_path for image in volume stack
-                imgId = '%d@%d@%d@%s' % (imageRef.index, imageRef.axis,
-                                         imageRef.volumeIndex, imageRef.path)
-            else:
-                # index@img_path for image in stack
-                imgId = '%d@%s' % (imageRef.index, imageRef.path)
-        else:
-            # index@axis@img_path for image in volume
-            imgId = '%d@%d@%s' % (imageRef.index, imageRef.axis, imageRef.path)
-        return str(imgSize) + imgId if imgSize is not None else imgId
+        return '%d@%s' % (imageRef.index, imageRef.path)
 
     @classmethod
     def findImagePrefix(cls, imageSource, rootPath):
@@ -105,7 +99,12 @@ class ImageManager:
         Return the imageRef and the imageIO.
         """
         imgRef = self.getRef(imgSource)
-        self._imgIO.open(imgRef.path, em.File.READ_ONLY)
+        # Let's keep open the file if possible, so we don't need
+        # to re-open if in the next use it is the same file
+        if self._lastOpenedFile != imgRef.path:
+            self._imgIO.close()
+            self._imgIO.open(imgRef.path, em.File.READ_ONLY)
+            self._lastOpenedFile = imgRef.path
         return imgRef, self._imgIO
 
     def getImage(self, imgSource, copy=False):
@@ -117,11 +116,22 @@ class ImageManager:
             be returned. The internal image can be modified in further
             call to other methods from the ImageManager.
         """
-        imgRef, imgIO = self._openRO(imgSource)
-        # Create a new image if a copy is requested
-        # TODO: Review this when the cache is implemented
-        imgOut = em.Image() if copy else self._img
-        imgIO.read(imgRef.index, imgOut)
+        imgRef = self.getRef(imgSource)
+        imgId = self._getId(imgRef)
+        imgOut = self._imageCache.get(imgId, None)
+        if imgOut is None:
+            imgRef, imgIO = self._openRO(imgSource)
+            # Create a new image if a copy is requested
+            # TODO: Review this when the cache is implemented
+            imgOut = em.Image()
+            self._readCount += 1
+            imgIO.read(imgRef.index, imgOut)
+            self._imageCache[imgId] = imgOut
+            self._cacheSize += imgOut.getDataSize()
+            print("ImageManager.getData:\n   read image: %d\n   cache size: %d"
+                  % (self._readCount, self._cacheSize))
+            if copy:
+                imgOut = em.Image(imgOut)
         return imgOut
 
     def getData(self, imgSource, copy=False):
@@ -136,8 +146,7 @@ class ImageManager:
         dim = imgIO.getDim()
         return dim.x, dim.y, dim.z, dim.n
 
-    @classmethod
-    def getInfo(cls, path):
+    def getInfo(self, imgSource):
         """
         Return some specified info from the given image path.
         dim : Image dimensions
@@ -145,10 +154,12 @@ class ImageManager:
         data_type: Image data type
         """
         imgRef, imgIO = self._openRO(imgSource)
-        return {'dim': imgIO.getDim(),
-                'ext': EmPath.getExt(path),
-                'data_type': imgIO.getType()
-                }
+        info = {
+            'dim': imgIO.getDim(),
+            'ext': EmPath.getExt(imgRef.path),
+            'data_type': imgIO.getType()
+        }
+        return info
 
 
 class VolImageManager(ImageManager):

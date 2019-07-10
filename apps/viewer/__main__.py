@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
                              QPushButton, QAbstractItemView)
 
 from emviz.core import (EmPath, VolImageManager, ModelsFactory,
-                        ViewsFactory, MOVIE_SIZE, getDim)
+                        ViewsFactory, MOVIE_SIZE, ImageManager)
 from emviz.views import (DataView, PIXEL_UNITS, GALLERY, COLUMNS, ITEMS, SLICES,
                          ImageView, SlicesView, SHAPE_CIRCLE, SHAPE_RECT,
                          SHAPE_SEGMENT,
@@ -438,7 +438,7 @@ if __name__ == '__main__':
     kwargs['maxCellSize'] = 300
     kwargs['minCellSize'] = 25
     kwargs['zoom_units'] = PIXEL_UNITS
-    kwargs['views'] = [GALLERY, COLUMNS, ITEMS]
+    kwargs['views'] = {GALLERY: {}, COLUMNS: {}, ITEMS: {}}
 
     kwargs['view'] = args.view
     kwargs['selectionMode'] = PagingView.MULTI_SELECTION
@@ -561,10 +561,9 @@ if __name__ == '__main__':
                 else:
                     raise Exception("Invalid display mode for table: '%s'"
                                     % args.view)
-            elif EmPath.isImage(files) or EmPath.isVolume(files) \
-                    or EmPath.isStack(files):
+            elif EmPath.isData(files):
                 # *.mrc may be image, stack or volume. Ask for dim.n
-                d = getDim(files)
+                d = ImageManager().getDim(files)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
                         view = ViewsFactory.createImageView(files, **kwargs)

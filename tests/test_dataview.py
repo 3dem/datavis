@@ -18,6 +18,7 @@ class TestDataView(TestView):
         ]
 
     def createView(self):
+        print("File: %s" % self._path)
         return DataView(model=ModelsFactory.createTableModel(self._path))
 
 
