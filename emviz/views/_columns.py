@@ -79,7 +79,7 @@ class ColumnsView(PagingView):
         """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.connect(
-                self._pageItemModel.pageConfigChanged)
+                self._pageItemModel.modelConfigChanged)
             self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
             self._pageItemModel.headerDataChanged.connect(
                 self.__onHeaderDataChanged)
@@ -89,7 +89,7 @@ class ColumnsView(PagingView):
         """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.disconnect(
-                self._pageItemModel.pageConfigChanged)
+                self._pageItemModel.modelConfigChanged)
             self._pageBar.sigPageChanged.disconnect(self.__onCurrentPageChanged)
             self._pageItemModel.headerDataChanged.disconnect(
                 self.__onHeaderDataChanged)
@@ -140,33 +140,36 @@ class ColumnsView(PagingView):
         Sets the corresponding Delegate for all columns
         """
         # we have defined one delegate for the moment: ImageItemDelegate
-        if self._model is not None:
-            for i, colConfig in self._displayConfig.iterColumns():
-                delegate = self._defaultDelegate
-                if colConfig[RENDERABLE]:
-                    delegate = self._delegate
-                self._tableView.setItemDelegateForColumn(i, delegate)
+        for i, colConfig in self._displayConfig.iterColumns():
+            delegate = self._defaultDelegate
+            if colConfig[RENDERABLE]:
+                delegate = self._delegate
+            self._tableView.setItemDelegateForColumn(i, delegate)
+
+    def __updatePagingInfo(self):
+        self._pagingInfo.numberOfItems = self._model.getRowsCount()
+        self._pagingInfo.setPageSize(self.__calcPageSize())
+        self._pagingInfo.currentPage = 1
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in the view """
-        if self._model is not None:
-            selModel = self._tableView.selectionModel()
-            if selModel is not None:
-                pageSize = self._pagingInfo.pageSize
-                m = self._pageItemModel
-                sel = QItemSelection()
-                for row in range(page * pageSize, (page + 1) * pageSize):
-                    if row in self._selection:
-                        sel.append(
-                            QItemSelectionRange(m.index(row % pageSize, 0),
-                                                m.index(row % pageSize,
-                                                        m.columnCount() - 1)))
-                allSel = QItemSelection(m.index(0, 0),
-                                        m.index(pageSize - 1,
-                                                m.columnCount() - 1))
-                selModel.select(allSel, QItemSelectionModel.Deselect)
-                if not sel.isEmpty():
-                    selModel.select(sel, QItemSelectionModel.Select)
+        selModel = self._tableView.selectionModel()
+        if selModel is not None:
+            pageSize = self._pagingInfo.pageSize
+            m = self._pageItemModel
+            sel = QItemSelection()
+            for row in range(page * pageSize, (page + 1) * pageSize):
+                if row in self._selection:
+                    sel.append(
+                        QItemSelectionRange(m.index(row % pageSize, 0),
+                                            m.index(row % pageSize,
+                                                    m.columnCount() - 1)))
+            allSel = QItemSelection(m.index(0, 0),
+                                    m.index(pageSize - 1,
+                                            m.columnCount() - 1))
+            selModel.select(allSel, QItemSelectionModel.Deselect)
+            if not sel.isEmpty():
+                selModel.select(sel, QItemSelectionModel.Select)
 
     @pyqtSlot(int)
     def __onHeaderClicked(self, logicalIndex):
@@ -193,14 +196,13 @@ class ColumnsView(PagingView):
         Invoked when change current page. Emits sigCurrentRowChanged signal.
         1 is the index of the first page.
         """
-        if self._model is not None:
-            self._currentRow = (page - 1) * self._pagingInfo.pageSize
-            if self.isSingleSelection():
-                self._selection.clear()
-                self._selection.add(self._currentRow)
+        self._currentRow = (page - 1) * self._pagingInfo.pageSize
+        if self.isSingleSelection():
+            self._selection.clear()
+            self._selection.add(self._currentRow)
 
-            self.__updateSelectionInView(page - 1)
-            self.sigCurrentRowChanged.emit(self._currentRow)
+        self.__updateSelectionInView(page - 1)
+        self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -272,21 +274,6 @@ class ColumnsView(PagingView):
         """  """
         self._tableView.horizontalHeader().setStretchLastSection(True)
         self._tableView.resizeColumnsToContents()
-        #print("calc: ", self._tableView.horizontalScrollBar().maximum())
-        #if self._model is not None:
-        #    if self._tableView.horizontalScrollBar().maximum() > 0:
-        #        option = QStyleOptionViewItem()
-        #       for col in range(0, self._model.columnCount()):
-        #            delegate = self._tableView.itemDelegateForColumn(0)
-        #            w = 0
-        #            for row in range(0, self._model.rowCount()):
-        #                s = delegate.sizeHint(option,
-        #                                      self._model.createIndex(row, col))
-        #                rw = s.width() + 3
-        #                w = max(rw, w)
-        #            self._tableView.setColumnWidth(
-        #                col,
-        #                min(w, self._tableView.columnWidth(col), 80))
 
     def updateViewConfiguration(self):
         """ Reimplementing from PagingView.
@@ -310,20 +297,25 @@ class ColumnsView(PagingView):
 
         self._selection.clear()
         self._currentRow = 0
-        self.__disconnectSignals()
         self._model = model
         self._displayConfig = displayConfig or model.createDefaultConfig()
-        self._pagingInfo.numberOfItems = model.getRowsCount()
-        self._pagingInfo.setPageSize(self.__calcPageSize())
-        self._pagingInfo.currentPage = 1
-        self._pageItemModel = TablePageItemModel(
-            model, self._pagingInfo, tableConfig=self._displayConfig,
-            parent=self)
-        self.__connectSignals()
-        self._tableView.setModel(self._pageItemModel)
-        sModel = self._tableView.selectionModel()
-        sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
-        sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
+
+        if self._pageItemModel is None:
+            self._pageItemModel = TablePageItemModel(
+                model, self._pagingInfo, tableConfig=self._displayConfig,
+                parent=self)
+            self.__connectSignals()
+
+            self._tableView.setModel(self._pageItemModel)
+            sModel = self._tableView.selectionModel()
+            sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
+            sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
+
+        self.modelChanged()
+
+    def modelChanged(self):
+        """"""
+        self.__updatePagingInfo()
         self._pageBar.setPagingInfo(self._pagingInfo)
 
         #  remove sort indicator from all columns

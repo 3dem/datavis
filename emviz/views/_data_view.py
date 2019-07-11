@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QSpinBox,
                              QLineEdit, QActionGroup, QMessageBox, QSplitter,
                              QSizePolicy, QPushButton, QMenu, QTableWidget,
                              QTableWidgetItem)
-from PyQt5.QtGui import (QIcon, QStandardItemModel, QKeySequence)
+from PyQt5.QtGui import (QIcon, QStandardItemModel, QKeySequence, QStandardItem)
 import qtawesome as qta
 
 
@@ -526,8 +526,7 @@ class DataView(QWidget):
 
         self.__loadPreferencesForCurrentTable()
         self.__setupCurrentViewMode()
-        if (self._model is not None
-            and self._selectionMode == PagingView.SINGLE_SELECTION):
+        if self._selectionMode == PagingView.SINGLE_SELECTION:
             self._selection.add(0)
             self.__makeSelectionInView(self._viewKey)
 
@@ -576,12 +575,10 @@ class DataView(QWidget):
             model = QStandardItemModel(self._comboBoxCurrentTable)
 
         model.clear()
-        # FIXME[phv] Review the table names
-        #if self._model:
-        #    for t in self._model.getTitles():
-        #        item = QStandardItem(t)
-        #        item.setData(0, Qt.UserRole)  # use UserRole for store
-        #        model.appendRow([item])
+        if self._model:
+            for tName in self._model.getTableNames():
+                item = QStandardItem(tName)
+                model.appendRow([item])
 
         self._comboBoxCurrentTable.blockSignals(False)
 
@@ -918,8 +915,13 @@ class DataView(QWidget):
     @pyqtSlot(int)
     def _onCurrentTableChanged(self, index):
         """ Invoked when user change the current table """
-        # FIXME[phv] Review what to do when user change the current table
-        pass
+        name = self._comboBoxCurrentTable.currentText()
+        self._model.loadTable(name)
+        for viewType in self._viewsDict.keys():
+            if viewType == COLUMNS:
+                w = self.getView(viewType)
+                w.modelChanged()
+
 
     @pyqtSlot(str)
     def __showMsgBox(self, text, icon=None, details=None):

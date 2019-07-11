@@ -481,12 +481,10 @@ if __name__ == '__main__':
             else:
                 toolBar = viewWidget.getToolBar()
                 toolWith = toolBar.getPanelMinSize() + toolBar.width()
-
-            x, y, w, h = getPreferedBounds(max(viewWidget.width(), imageDim.x),
-                                           max(viewWidget.height(),
-                                               imageDim.y))
-            size = QSize(imageDim.x, imageDim.y).scaled(w, h,
-                                                        Qt.KeepAspectRatio)
+            dx, dy = imageDim[0], imageDim[1]
+            x, y, w, h = getPreferedBounds(max(viewWidget.width(), dx),
+                                           max(viewWidget.height(), dy))
+            size = QSize(dx, dy).scaled(w, h, Qt.KeepAspectRatio)
             dw, dh = w - size.width(), h - size.height()
             x, y, w, h = x + dw/2 - toolWith, y + dh/2, \
                          size.width() + 2 * toolWith, size.height()
@@ -563,9 +561,9 @@ if __name__ == '__main__':
                                     % args.view)
             elif EmPath.isData(files):
                 # *.mrc may be image, stack or volume. Ask for dim.n
-                d = ImageManager().getDim(files)
-                if d.n == 1:  # Single image or volume
-                    if d.z == 1:  # Single image
+                x, y, z, n = ImageManager().getDim(files)
+                if n == 1:  # Single image or volume
+                    if z == 1:  # Single image
                         view = ViewsFactory.createImageView(files, **kwargs)
                     else:  # Volume
                         mode = args.view or SLICES
@@ -580,7 +578,7 @@ if __name__ == '__main__':
                             raise Exception("Invalid display mode for volume")
                 else:  # Stack
                     kwargs['selectionMode'] = PagingView.SINGLE_SELECTION
-                    if d.z > 1:  # volume stack
+                    if z > 1:  # volume stack
                         mode = args.view or SLICES
                         if mode == SLICES:
                             kwargs['toolBar'] = False
@@ -591,7 +589,7 @@ if __name__ == '__main__':
                             kwargs['view'] = GALLERY
                             view = ViewsFactory.createDataView(files, **kwargs)
                     else:
-                        mode = args.view or (SLICES if d.x > MOVIE_SIZE
+                        mode = args.view or (SLICES if x > MOVIE_SIZE
                                              else GALLERY)
                         if mode == SLICES:
                             view = ViewsFactory.createSlicesView(files,

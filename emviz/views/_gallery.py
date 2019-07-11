@@ -79,7 +79,7 @@ class GalleryView(PagingView):
         """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.connect(
-                self._pageItemModel.pageConfigChanged)
+                self._pageItemModel.modelConfigChanged)
             self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __disconnectSignals(self):
@@ -87,7 +87,7 @@ class GalleryView(PagingView):
         """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.disconnect(
-                self._pageItemModel.pageConfigChanged)
+                self._pageItemModel.modelConfigChanged)
             self._pageBar.sigPageChanged.disconnect(self.__onCurrentPageChanged)
 
     def __listViewResizeEvent(self, evt):

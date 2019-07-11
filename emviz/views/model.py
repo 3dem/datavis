@@ -28,14 +28,10 @@ class TablePageItemModel(QAbstractItemModel):
             - parent: a parent QObject of the model (NOTE: see Qt framework)
         """
         QAbstractItemModel.__init__(self, kwargs.get('parent', None))
-        self._model = tableModel
-        self._displayConfig = tableConfig or tableModel.createDefaultConfig()
+        self.setModelConfig(tableModel, tableConfig, pagingInfo)
         self._defaultFont = QFont()
         self._indexWidth = 50
         self._iconSize = None
-
-        # Internal variable related to the pages
-        self._pagingInfo = pagingInfo
 
     def _getPageValue(self, row, col, role=Qt.DisplayRole):
         """ Return the value for specified column and row in the current page
@@ -63,15 +59,23 @@ class TablePageItemModel(QAbstractItemModel):
         return data
 
     @pyqtSlot()
-    def pageConfigChanged(self):
+    def modelConfigChanged(self):
         """
         This function should be called, or the slot connect whenever the
-        page configuration changes, either the current page, number of elements
-        or the page size (number of elements per page).
+        model configuration changes, either the PagingInfo, TableModel
+        or TableConfig.
         """
         self.beginResetModel()
         self.headerDataChanged.emit(Qt.Vertical, 0, 0)
         self.endResetModel()
+
+    def setModelConfig(self, tableModel, tableConfig, pagingInfo):
+        """"""
+        self._model = tableModel
+        # Information related to the view configuration
+        self._displayConfig = tableConfig or tableModel.createDefaultConfig()
+        # Internal variable related to the pages
+        self._pagingInfo = pagingInfo
 
     def data(self, qModelIndex, role=Qt.DisplayRole):
         """
