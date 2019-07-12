@@ -9,15 +9,27 @@ class ImageModel:
     """
 
     def __init__(self, data=None, location=None):
-        self._data = data
+        self._data = self._dim = self._minmax = None
         self._location = location
+        self.setData(data)
 
     def getDim(self):
-        """ Return (xdim, ydim) tuple with the 2D dimensions. """
+        """ Return the dimensions of the model.
+            (x, y)    for 2D.
+            (x, y, n) for 2D slices.
+            (x, y, z) for 3D volumes.
+        """
+        return self._dim
 
-        if self._data is not None:
-            return self._data.shape[1], self._data.shape[0]
-        return None
+    def getMinMax(self):
+        """ Return the minumun and maximum value of the image data. """
+        if self._data is None:
+            return None
+
+        if self._minmax is None:
+            self._minmax = np.min(self._data), np.max(self._data)
+
+        return self._minmax
 
     def getData(self):
         """ Return a 2D array-like object (e.g numpy array) containing
@@ -25,9 +37,20 @@ class ImageModel:
         """
         return self._data
 
+    def _setDim(self):
+        """ Store internal dimensions after the self._data was set. """
+        self._dim = None if self._data is None else (self._data.shape[1],
+                                                     self._data.shape[0])
+
     def setData(self, data):
         """ Setter for image data """
         self._data = data
+        # Reset min-max cached value
+        self._minmax = None
+        self._dim = None
+
+        if self._data is not None:
+            self._setDim()
 
     def getLocation(self):
         """ Return the (index, path) of the image file. It can be None
@@ -36,69 +59,53 @@ class ImageModel:
         return self._location
 
 
-class SlicesModel:
+class SlicesModel(ImageModel):
     """ Model dealing with N 2D slices, usually a 3D volume or a stack
     of 2D images.
     """
-
-    def __init__(self, data=None):
-        self._data = data
-        self._dim = None
-
-        if data is not None:
+    def _setDim(self):
+        if self._data is not None:
             if len(self._data.shape) != 3:
                 raise Exception("Data array should be three-dimensional. (%s)"
                                 % str(self._data.shape))
             n, y, x = self._data.shape
             self._dim = x, y, n
 
-    def getDim(self):
-        """ Return (xdim, ydim, n) """
-        return self._dim
-
-    def getData(self, i):
-        """ Return a 2D array of the slice data. i should be in (0, n-1). """
-        if self._data is None:
-            return None
+    def getData(self, i=-1):
+        """ Return a 2D array of the slice data. i should be in -1 or (0, n-1).
+        -1 is a special case for returning the whole data array.
+        """
+        if i == -1 or self._data is None:
+            return self._data
 
         if not 0 <= i < self._dim[2]:
             raise Exception("Index should be between 0 and %d" % self._dim[2]-1)
 
-        return self._data[i]
+        print("SlicesModel.getImageData i=%s" % i)
+        print("SlicesModel.getImageData min(i), max(i) = (%s, %s)" % (np.min(self._data[i]), np.max(self._data[i])))
+        print("SlicesModel.getImageData min, max = (%s, %s)" % (np.min(self._data), np.max(self._data)))
 
-    def getLocation(self):
-        # FIXME: Check if we need this one here
-        return None
+        return self._data[i]
 
     def getImageModel(self, i):
         """
         Creates an ImageModel for the given slice index. i should be in (1, n).
         """
+        print("SlicesModel.getImageModel i=%s" % i)
         return ImageModel(data=self.getData(i))
 
 
-class VolumeModel:
+class VolumeModel(ImageModel):
     """
     Model for volume data manipulation.
     """
-    def __init__(self, data=None):
-        self._data = data
-        self._dim = None
-
-        if data is not None:
+    def _setDim(self):
+        if self._data is not None:
             if len(self._data.shape) != 3:
                 raise Exception("Data array should be three-dimensional. (%s)"
                                 % str(self._data.shape))
             z, y, x = self._data.shape
             self._dim = x, y, z
-
-    def getDim(self):
-        """ Return (xdim, ydim, zdim) """
-        return self._dim
-
-    def getLocation(self):
-        # FIXME: Check if we need this one here
-        return None
 
     def getSlicesModel(self, axis):
         """
@@ -121,6 +128,8 @@ class VolumeModel:
 
         return SlicesModel(data)
 
+    # FIXME: I think we should go from more general to specific
+    # so here I think it should be axis, i
     def getSliceData(self, i, axis):
         """ Return a 2D array of the slice data. i should be in (0, axis_n -1).
         axis should be AXIS_X, AXIS_Y or AXIS_Z
@@ -141,6 +150,8 @@ class VolumeModel:
         else:
             raise Exception("Axis should be one of: AXIS_X, AXIS_Y, AXIS_Z")
 
+    # FIXME: I think we should go from more general to specific
+    # so here I think it should be axis, i
     def getSliceImageModel(self, i, axis):
         """
         Creates an ImageModel for the given slice index and axis.
