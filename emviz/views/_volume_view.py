@@ -217,7 +217,8 @@ class VolumeView(qtw.QWidget):
             AXIS_Z: SlicesTableModel(zModel, 'Axis-Z')
         }
         self._multiSlicesView.setModel((xModel, yModel, zModel),
-                                       normalize=True)
+                                       normalize=True,
+                                       slice=model.getDim()[0]/2)
         self.__setupComboBoxAxis()
 
     def clear(self):

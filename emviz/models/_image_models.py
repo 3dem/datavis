@@ -81,17 +81,12 @@ class SlicesModel(ImageModel):
         if not 0 <= i < self._dim[2]:
             raise Exception("Index should be between 0 and %d" % self._dim[2]-1)
 
-        print("SlicesModel.getImageData i=%s" % i)
-        print("SlicesModel.getImageData min(i), max(i) = (%s, %s)" % (np.min(self._data[i]), np.max(self._data[i])))
-        print("SlicesModel.getImageData min, max = (%s, %s)" % (np.min(self._data), np.max(self._data)))
-
         return self._data[i]
 
     def getImageModel(self, i):
         """
         Creates an ImageModel for the given slice index. i should be in (1, n).
         """
-        print("SlicesModel.getImageModel i=%s" % i)
         return ImageModel(data=self.getData(i))
 
 

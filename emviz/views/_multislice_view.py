@@ -143,17 +143,19 @@ class MultiSliceView(QWidget):
 
         raise Exception("Invalid axis: %d" % axis)
 
-    def setModel(self, models, normalize=False):
+    def setModel(self, models, **kwargs):
         """
         Set the data models
         :param models: (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z) for views
                               or None for clear the view.
-        :param normalize (bool) If True, each of the slicesView
-            will be normalized, levels of the image will be set all range
+        :param kwargs: Extra arguments
+                * normalize (bool) If True, each of the slicesView
+                      will be normalized, levels of the image will be set all range
+                * slice (int) Default slice
         """
         if models:
             for axis, model in zip([AXIS_X, AXIS_Y, AXIS_Z], models):
-                self._slicesDict[axis].setModel(model, normalize=normalize)
+                self._slicesDict[axis].setModel(model, **kwargs)
         else:
             self.clear()
 
