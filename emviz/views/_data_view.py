@@ -65,7 +65,7 @@ class DataView(QWidget):
              model:          (TableModel) The data model
              selectionMode:  (int) SINGLE_SELECTION(default),EXTENDED_SELECTION,
                              MULTI_SELECTION or NO_SELECTION
-             views:          (list) Specify the views that will be available.
+             views:          (dict) Specify the views that will be available.
                              Default value: [COLUMNS, GALLERY, ITEMS]
              view:           (int) The default view to be set
              size:           (int) The row height for ColumnsView and icon size
@@ -81,10 +81,13 @@ class DataView(QWidget):
 
         viewsDict = kwargs.get('views', {COLUMNS: {}, GALLERY: {}, ITEMS: {}})
         self._viewsDict = OrderedDict()
+        config = dict()
         for k, v in viewsDict.items():
             d = dict(self.VIEWS_DEFAULT[k])
             d.update(v)
             self._viewsDict[k] = d
+            config[k] = d.get(TABLE_CONFIG)
+
         self._model = None
         self._displayConfig = None
         self._currentRow = 0  # selected table row
@@ -102,10 +105,9 @@ class DataView(QWidget):
         self._selectionMode = kwargs.get('selectionMode',
                                          PagingView.MULTI_SELECTION)
         self.__setupGUI(**kwargs)
-        self.__setupCurrentViewMode()
         self.__setupActions()
         self.setSelectionMode(self._selectionMode)
-        self.setModel(kwargs['model'])
+        self.setModel(kwargs['model'], config)
 
     def __setupGUI(self, **kwargs):
         """ Create the main GUI of the DataView.
@@ -371,54 +373,59 @@ class DataView(QWidget):
 
         return toolbar
 
-    def __createPreferencesForCurrentTable(self):
+    def __createDefaultPreferences(self):
         """
-        Creates a dict with the preferences for the current table(model).
+        Creates the default preferences for the current TableModel
+        :return: A dict with the default preferences
         """
         pref = dict()
 
-        if self._comboBoxCurrentTable.currentIndex() == -1:
-            pref[VIEW] = self._viewKey  # Preferred view
-        elif (self._model is not None and self._model.getRowsCount() == 1
-              and self.hasView(ITEMS)):
+        if self._model.getRowsCount() == 1 and self.hasView(ITEMS):
             pref[VIEW] = ITEMS
         elif self.hasView(COLUMNS):
             pref[VIEW] = COLUMNS
         else:
             pref[VIEW] = self._viewsDict[0] if self._viewsDict else None
 
-        d = dict()
-        for v in self._viewsDict.keys():
-            d[v] = self.getView(v).getDisplayConfig()
-        pref['colConfig'] = d
+        pref[TABLE_CONFIG] = {v: None for v in self._viewsDict.keys()}
+
         return pref
 
-    def __savePreferencesForCurrentTable(self):
+    def __savePreferencesForCurrentTable(self, tableName=None):
         """ Save preferences for the current table """
-        tName = self._comboBoxCurrentTable.currentText()
-        pref = self._tablePref.get(tName)
+        if tableName is None:
+            tableName = self._comboBoxCurrentTable.currentText()
+
+        pref = self._tablePref.get(tableName)
 
         if pref is None:
-            pref = self.__createPreferencesForCurrentTable()
-            self._tablePref[tName] = pref
-        else:
-            pref[VIEW] = self._viewKey
+            pref = self.__createDefaultPreferences()
+            self._tablePref[tableName] = pref
+        pref[VIEW] = self._viewKey
 
-        d = dict()
+        d = pref[TABLE_CONFIG]
         for v in self._viewsDict.keys():
             d[v] = self.getView(v).getDisplayConfig()
-        pref['colConfig'] = d
 
     def __loadPreferencesForCurrentTable(self):
         """ Load preferences for the current table """
-        tName = self._comboBoxCurrentTable.currentText()
-        pref = self._tablePref.get(tName)
+        tableName = self._comboBoxCurrentTable.currentText()
+        pref = self._tablePref.get(tableName)
 
         if pref is None:
-            pref = self.__createPreferencesForCurrentTable()
-            self._tablePref[tName] = pref
+            pref = self.__createDefaultPreferences()
+            self._tablePref[tableName] = pref
 
         self._viewKey = pref[VIEW]
+
+    def __getTableConfig(self, tableName):
+        """
+        Return the TableConfig for the given table name. DataView maintains the
+        preferences for all tables in the current model,
+        including the TableConfig.
+        :param tableName: (str) The table name
+        """
+        return self._tablePref[tableName].get(TABLE_CONFIG)
 
     def __connectViewSignals(self, viewWidget):
         """
@@ -476,7 +483,7 @@ class DataView(QWidget):
                 self.__removeView(view)
 
     def __removeView(self, view):
-        """ If the given view exist in the GUI the will be removed. """
+        """ If the given view exist in the GUI then will be removed. """
         viewInfo = self._viewsDict[view]
         viewWidget = viewInfo[VIEW]
         if viewWidget is not None:
@@ -493,7 +500,7 @@ class DataView(QWidget):
            * show table dims
 
         Invoke this function when you needs to initialize all widgets.
-        Example: when setting new model in the table view
+        Example: when setting new model in the DataView
         """
         self._showViewDims()
         self.__showSelectionInfo()
@@ -502,33 +509,6 @@ class DataView(QWidget):
         self.__setupSpinBoxCurrentRow()
         self._spinBoxCurrentRow.setValue(1)
         self.__setupActions()
-
-        viewWidget = self.getView(self._viewKey)
-        for viewType in self._viewsDict.keys():
-            if self._model is not None:
-                tName = self._comboBoxCurrentTable.currentText()
-                pref = self._tablePref.get(tName)
-                w = self.getView(viewType)
-                if pref is not None:
-                    c = pref['colConfig'].get(viewType, None)
-                    if c:
-                        pass  # m.setColumnConfig(c)
-                        #FIXME[phv] Restore display config
-                else:
-                    if not viewWidget == w and viewType == GALLERY:
-                        # FIXME[phv] configure display config for GalleryView
-                        #c = m.getColumnConfig()
-                        #if c is not None:
-                        #    for colConf in c:
-                        #        colConf['visible'] = False
-                        pass
-            w.setModel(self._model)
-
-        self.__loadPreferencesForCurrentTable()
-        self.__setupCurrentViewMode()
-        if self._selectionMode == PagingView.SINGLE_SELECTION:
-            self._selection.add(0)
-            self.__makeSelectionInView(self._viewKey)
 
     def __showSelectionInfo(self):
         """ Show the selection info in the selection panel """
@@ -576,9 +556,16 @@ class DataView(QWidget):
 
         model.clear()
         if self._model:
-            for tName in self._model.getTableNames():
-                item = QStandardItem(tName)
+            index = -1
+            tableName = self._model.getTableName()
+            for i, name in enumerate(self._model.getTableNames()):
+                item = QStandardItem(name)
                 model.appendRow([item])
+                if name == tableName:
+                    index = i
+
+            if index > -1:
+                self._comboBoxCurrentTable.setCurrentIndex(index)
 
         self._comboBoxCurrentTable.blockSignals(False)
 
@@ -617,11 +604,23 @@ class DataView(QWidget):
         self.__savePreferencesForCurrentTable()
         self.__initTableColumnProp()
 
-    def __setupModel(self):
+    def __setupModel(self, config=None):
         """
         Configure the current table model in all view modes
         """
         self.__setupAllWidgets()
+
+        tableName = self._model.getTableName()
+        self.__loadPreferencesForCurrentTable()
+        d = self.__getTableConfig(tableName) if config is None else config
+        for viewType in self._viewsDict.keys():
+            w = self.getView(viewType)
+            w.setModel(self._model, d.get(viewType))
+
+        self.__setupCurrentViewMode()
+        if self._selectionMode == PagingView.SINGLE_SELECTION:
+            self._selection.add(0)
+            self.__makeSelectionInView(self._viewKey)
 
     def __setupSpinBoxCurrentRow(self):
         """
@@ -915,13 +914,14 @@ class DataView(QWidget):
     @pyqtSlot(int)
     def _onCurrentTableChanged(self, index):
         """ Invoked when user change the current table """
+        lastName = self._model.getTableName()
         name = self._comboBoxCurrentTable.currentText()
+        self.__savePreferencesForCurrentTable(lastName)
         self._model.loadTable(name)
-        for viewType in self._viewsDict.keys():
-            if viewType == COLUMNS:
-                w = self.getView(viewType)
-                w.modelChanged()
-
+        self._currentRow = 0
+        self._selection.clear()
+        self.__setupModel()
+        # FIXME[phv] self.__initPlotConfWidgets()??
 
     @pyqtSlot(str)
     def __showMsgBox(self, text, icon=None, details=None):
@@ -1022,15 +1022,14 @@ class DataView(QWidget):
         """
         return self._viewKey
 
-    def setModel(self, model):
+    def setModel(self, model, config=None):
         """ Set the table model for display. """
         self.__clearViews()
         self._model = model
         self._selection.clear()
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
-        self.__setupModel()
-        self.__initTableColumnProp()
+        self.__setupModel(config)
         self.__initPlotConfWidgets()
 
     def getModel(self):

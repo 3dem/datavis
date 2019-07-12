@@ -260,6 +260,20 @@ class ColumnsView(PagingView):
         self._selection = selection
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
+    @pyqtSlot()
+    def modelChanged(self):
+        """Slot for model data changed notification """
+        self.__updatePagingInfo()
+        self._pageBar.setPagingInfo(self._pagingInfo)
+
+        #  remove sort indicator from all columns
+        self._tableView.horizontalHeader().setSortIndicator(-1,
+                                                            Qt.AscendingOrder)
+        self.updateViewConfiguration()
+        s = self._tableView.verticalHeader().defaultSectionSize()
+        self._pageItemModel.setIconSize(QSize(s, s))
+        self.setupColumnsWidth()
+
     def setupVisibleColumns(self):
         """
         Hide the columns with visible property=True
@@ -271,7 +285,7 @@ class ColumnsView(PagingView):
                 self._tableView.showColumn(i)
 
     def setupColumnsWidth(self):
-        """  """
+        """ Setups the width for all columns """
         self._tableView.horizontalHeader().setStretchLastSection(True)
         self._tableView.resizeColumnsToContents()
 
@@ -310,21 +324,11 @@ class ColumnsView(PagingView):
             sModel = self._tableView.selectionModel()
             sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
             sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
-
+        else:
+            self._pageItemModel.setModelConfig(tableModel=model,
+                                               tableConfig=self._displayConfig,
+                                               pagingInfo=self._pagingInfo)
         self.modelChanged()
-
-    def modelChanged(self):
-        """"""
-        self.__updatePagingInfo()
-        self._pageBar.setPagingInfo(self._pagingInfo)
-
-        #  remove sort indicator from all columns
-        self._tableView.horizontalHeader().setSortIndicator(-1,
-                                                            Qt.AscendingOrder)
-        self.updateViewConfiguration()
-        s = self._tableView.verticalHeader().defaultSectionSize()
-        self._pageItemModel.setIconSize(QSize(s, s))
-        self.setupColumnsWidth()
 
     def clear(self):
         """ Clear the view """

@@ -16,6 +16,7 @@ ICON = 3
 ACTION = 4
 VIEW = 5
 TOOLTIP = 6
+TABLE_CONFIG = 7
 
 # tool tip keys
 VISIBLE_CHECKED = 7

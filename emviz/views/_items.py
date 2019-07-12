@@ -76,6 +76,11 @@ class ItemsView(PagingView):
             else:
                 self.__selectionItem.setCheckState(Qt.Unchecked)
 
+    def __updatePagingInfo(self):
+        self._pagingInfo.numberOfItems = self._model.getRowsCount()
+        self._pagingInfo.setPageSize(1)
+        self._pagingInfo.currentPage = 1
+
     def __connectSignals(self):
         """ Connects all signals related to the TablePageItemModel
         """
@@ -193,6 +198,13 @@ class ItemsView(PagingView):
         self._selection = selection
         self.__updateSelectionInView()
 
+    @pyqtSlot()
+    def modelChanged(self):
+        """Slot for model data changed notification """
+        self.__updatePagingInfo()
+        self._imageView.setVisible(self._pageItemModel.hasRenderableColumn())
+        self._pageBar.setPagingInfo(self._pagingInfo)
+
     def selectRow(self, row):
         """ Selects the given row """
         self._pageBar.setCurrentPage(row + 1)
@@ -211,18 +223,19 @@ class ItemsView(PagingView):
         self._row = 0
         self._column = 0
         self.__selectionItem = None
-        self.__disconnectSignals()
-        self._pagingInfo.numberOfItems = model.getRowsCount()
-        self._pagingInfo.setPageSize(1)
-        self._pagingInfo.currentPage = 1
         self._model = model
         self._config = displayConfig or model.createDefaultConfig()
-        self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
-                                                 parent=self,
-                                                 tableConfig=self._config)
-        self.__connectSignals()
-        self._imageView.setVisible(self._pageItemModel.hasRenderableColumn())
-        self._pageBar.setPagingInfo(self._pagingInfo)
+
+        if self._pageItemModel is None:
+            self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
+                                                     parent=self,
+                                                     tableConfig=self._config)
+            self.__connectSignals()
+        else:
+            self._pageItemModel.setModelConfig(tableModel=model,
+                                               tableConfig=self._config,
+                                               pagingInfo=self._pagingInfo)
+        self.modelChanged()
 
     def currentRow(self):
         """ Returns the current selected row """

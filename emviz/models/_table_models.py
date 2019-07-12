@@ -40,22 +40,31 @@ class TableModel:
         # or this method will be overwritten
         return self._tableNames
 
+    def getTableName(self):
+        """
+        :return: Return the current table name
+        """
+        return self._tableName
+
     def loadTable(self, tableName):
         """ Load a given table.
         An exception will be raised if there is not table with the
         provided name.
-        This method should not be overwritten in subclasses (re-implement _loadTable)
+        This method should not be overwritten in subclasses
+         (re-implement _loadTable)
         """
         if tableName not in self.getTableNames():
-            raise Exception("Missing table '%s' in this data model. " % tableName)
+            raise Exception("Missing table '%s' in this data model. "
+                            % tableName)
+        self._tableName = tableName
         return self._loadTable(tableName)
 
     def _loadTable(self, tableName):
         """
-        Internal method that should be overwritten in subclasses to load the current
-        active table.
-        :param tableName: The table name that will be load. It is already validate
-            that this tableName exists
+        Internal method that should be overwritten in subclasses to load
+        the current active table.
+        :param tableName: The table name that will be load. It is already
+            validate that this tableName exists
         :return: None
         """
         raise Exception("Not implemented")
@@ -100,6 +109,9 @@ class SlicesTableModel(TableModel):
     def getTableNames(self):
         return ['1']  # Just name it '1' the only available table
 
+    def getTableName(self):
+        return '1'
+
     def iterColumns(self):
         yield ColumnInfo(self._columnName)
 
@@ -142,6 +154,12 @@ class EmptyTableModel(TableModel):
 
     def getData(self, row, col):
         return None
+
+    def getTableName(self):
+        return ''
+
+    def getTableNames(self):
+        return []
 
 
 class TableConfig:

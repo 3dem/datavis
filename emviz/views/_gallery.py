@@ -162,6 +162,13 @@ class GalleryView(PagingView):
                 if not sel.isEmpty():
                     selModel.select(sel, QItemSelectionModel.Select)
 
+    def __updatePagingInfo(self):
+        """"""
+        self._pagingInfo.numberOfItems = self._model.getRowsCount()
+        rows, cols = self.__calcPageSize()
+        self._pagingInfo.setPageSize(rows * cols)
+        self._pagingInfo.setCurrentPage(1)
+
     @pyqtSlot(object, object)
     def __onSizeChanged(self, oldSize, newSize):
         """ Invoked when the gallery widget is resized """
@@ -221,20 +228,25 @@ class GalleryView(PagingView):
         self._selection = selection
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
+    @pyqtSlot()
+    def modelChanged(self):
+        """Slot for model data changed notification """
+        self.__updatePagingInfo()
+        self._pageBar.setPagingInfo(self._pagingInfo)
+        tableConfig = self._pageItemModel.getDisplayConfig()
+        indexes = [i for i, c in tableConfig.iterColumns(renderable=True)]
+        self.setModelColumn(indexes[0] if indexes else 0)
+        self.setIconSize(self._listView.iconSize())
+        self.updateViewConfiguration()
+
     def setModel(self, model, displayConfig=None):
         """ Sets the model """
         if model is None:
             raise Exception('Invalid model: None')
         self._selection.clear()
         self._currentRow = 0
-        self.__disconnectSignals()
         self._model = model
-        self._pagingInfo.numberOfItems = model.getRowsCount()
-        rows, cols = self.__calcPageSize()
-        self._pagingInfo.setPageSize(rows * cols)
-        self._pagingInfo.setCurrentPage(1)
 
-        renderIndex = None
         if displayConfig is None:
             displayConfig = model.createDefaultConfig()
 
@@ -244,21 +256,23 @@ class GalleryView(PagingView):
                 labels = cc.getLabels()
             else:
                 cc.setLabels(labels)
-            if renderIndex is None and cc[RENDERABLE]:
-                renderIndex = i
-        self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
-                                                 tableConfig=displayConfig,
-                                                 parent=self)
-        self.__connectSignals()
 
-        self._listView.setModel(self._pageItemModel)
-        sModel = self._listView.selectionModel()
-        sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
-        sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
-        self._pageBar.setPagingInfo(self._pagingInfo)
-        self.setModelColumn(0 if renderIndex is None else renderIndex)
-        self.setIconSize(self._listView.iconSize())
-        self.updateViewConfiguration()
+        if self._pageItemModel is None:
+            self._pageItemModel = TablePageItemModel(model, self._pagingInfo,
+                                                     tableConfig=displayConfig,
+                                                     parent=self)
+            self.__connectSignals()
+
+            self._listView.setModel(self._pageItemModel)
+            sModel = self._listView.selectionModel()
+            sModel.currentRowChanged.connect(self.__onCurrentRowChanged)
+            sModel.selectionChanged.connect(self.__onInternalSelectionChanged)
+        else:
+            self._pageItemModel.setModelConfig(tableModel=model,
+                                               tableConfig=displayConfig,
+                                               pagingInfo=self._pagingInfo)
+
+        self.modelChanged()
 
     def getModel(self):
         """ Returns the current model """
