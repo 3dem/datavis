@@ -95,9 +95,9 @@ class DataView(QWidget):
         self._selectionMode = PagingView.NO_SELECTION
         self._tablePref = dict()
 
-        self._defaultRowHeight = kwargs.get('size', 150)
+        self._defaultRowHeight = kwargs.get('size', 64)
         self._maxRowHeight = kwargs.get('maxCellSize', 300)
-        self._minRowHeight = kwargs.get('minCellSize', 20)
+        self._minRowHeight = kwargs.get('minCellSize', 25)
         self._zoomUnits = kwargs.get('zoomUnits', PIXEL_UNITS)
         self._viewKey = kwargs.get('defaultView', COLUMNS)
         if not self.hasView(self._viewKey):
@@ -504,8 +504,6 @@ class DataView(QWidget):
         """
         self._showViewDims()
         self.__showSelectionInfo()
-        self.__setupSpinBoxRowHeigth()
-        self._onChangeCellSize()
         self.__setupSpinBoxCurrentRow()
         self._spinBoxCurrentRow.setValue(1)
         self.__setupActions()
@@ -541,7 +539,7 @@ class DataView(QWidget):
         self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
 
         if not self.__hasRenderableColumn():
-            self._spinBoxRowHeight.setValue(64)
+            self._spinBoxRowHeight.setValue(self._minRowHeight)
         else:
             self._spinBoxRowHeight.setValue(self._defaultRowHeight)
 
@@ -618,6 +616,8 @@ class DataView(QWidget):
             w.setModel(self._model, d.get(viewType))
 
         self.__setupCurrentViewMode()
+        self.__setupSpinBoxRowHeigth()
+        self._onChangeCellSize()
         if self._selectionMode == PagingView.SINGLE_SELECTION:
             self._selection.add(0)
             self.__makeSelectionInView(self._viewKey)

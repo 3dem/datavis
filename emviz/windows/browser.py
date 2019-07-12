@@ -325,7 +325,7 @@ class BrowserWindow(QMainWindow):
         :param imagePath: the image path
         """
         try:
-            info = {"Type": "UNKNOWN"}
+            info = {'Type': 'UNKNOWN'}
             self._imagePath = imagePath
             if EmPath.isTable(imagePath):
                 model = ModelsFactory.createTableModel(imagePath)
@@ -337,14 +337,13 @@ class BrowserWindow(QMainWindow):
 
                 self.__showDataView()
                 # Show the Table dimensions
-                info["Type"] = "TABLE"
+                info['Type'] = 'TABLE'
                 dimStr = "%d x %d" % (model.getRowsCount(),
                                       model.getColumnsCount())
-                info["Dimensions (Rows x Columns)"] = dimStr
+                info['Dimensions (Rows x Columns)'] = dimStr
             elif EmPath.isData(imagePath) or EmPath.isStandardImage(imagePath):
                 info = ImageManager().getInfo(imagePath)
                 d = info['dim']
-                info["Dimensions"] = str(d)
                 if d.n == 1:  # Single image or volume
                     if d.z == 1:  # Single image
                         model = ModelsFactory.createImageModel(imagePath)
@@ -352,14 +351,14 @@ class BrowserWindow(QMainWindow):
                         self._imageView.setImageInfo(
                             path=imagePath, format=info['ext'],
                             data_type=str(info['data_type']))
-                        info["Type"] = "SINGLE-IMAGE: " + str(info['data_type'])
+                        info['Type'] = 'SINGLE-IMAGE'
                         self.__showImageView()
                     else:  # Volume
                         # The image has a volume. The data is a numpy 3D array.
                         # In this case, display the Top, Front and the Right
                         # View planes.
                         self._frame.setEnabled(True)
-                        info["Type"] = "VOLUME: " + str(info['data_type'])
+                        info['type'] = "VOLUME"
                         model = ModelsFactory.createVolumeModel(imagePath)
                         self._volumeView.setModel(model)
                         self.__showVolumeSlice()
@@ -367,16 +366,14 @@ class BrowserWindow(QMainWindow):
                     # Image stack
                     if d.z > 1:  # Volume stack
                         raise Exception("Volume stack is not supported")
-                        #info["Type"] = "VOLUME STACK: " + str(inf['data_type'])
-                        #self.__showVolumeSlice()
                     elif d.x <= MOVIE_SIZE:
-                        info["Type"] = "IMAGES STACK: %s" % info['data_type']
+                        info['type'] = 'IMAGES STACK'
                         model = ModelsFactory.createTableModel(imagePath)
                         self._dataView.setModel(model)
                         self._dataView.setView(GALLERY)
                         self.__showDataView()
                     else:
-                        info["Type"] = "MOVIE: %s" % info['data_type']
+                        info['type'] = 'MOVIE'
                         model = ModelsFactory.createStackModel(imagePath)
                         self._slicesView.setModel(model)
                         self.__showSlicesView()
@@ -423,7 +420,8 @@ class BrowserWindow(QMainWindow):
         self.__clearInfoWidget()
         if isinstance(info, dict):
             for key in info.keys():
-                self._infoWidget.addItem("%s: %s" % (str(key), str(info[key])))
+                self._infoWidget.addItem("%s: %s" % (str(key).capitalize(),
+                                                     str(info[key])))
 
     def __clearInfoWidget(self):
         """ Clear the info widget """
