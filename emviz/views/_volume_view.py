@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, pyqtSlot, QSize
 import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
-from emviz.widgets import PageBar, TriggerAction, createQPixmap, PagingInfo
+from emviz.widgets import PageBar, TriggerAction, ZoomSpinBox, PagingInfo
 from emviz.models import (AXIS_X, AXIS_Y, AXIS_Z, EmptySlicesModel,
                           EmptyTableModel, EmptyVolumeModel, SlicesTableModel)
 from ._multislice_view import MultiSliceView
@@ -44,7 +44,7 @@ class VolumeView(qtw.QWidget):
                         kwargs.get('galleryKwargs', dict()))
         self.setModel(kwargs['model'])
         self.setView(kwargs.get('view', 2))
-        self._onChangeCellSize()
+        self._onChangeCellSize(self._defaultCellSize)
 
     def __setupGUI(self, slicesKwargs, galleryKwargs):
         self._mainLayout = qtw.QVBoxLayout(self)
@@ -76,26 +76,21 @@ class VolumeView(qtw.QWidget):
         self._toolBar.addAction(self._aGallery)
         self._toolBar.addSeparator()
         # cell size
-        self._labelLupe = qtw.QLabel(self._toolBar)
-        self._labelLupe.setPixmap(createQPixmap('fa.search', 28))
-        self._toolBar.addWidget(self._labelLupe)
-        self._spinBoxCellSize = qtw.QSpinBox(self._toolBar)
-        self._spinBoxCellSize.setSuffix(' px' if self._zoomUnits == PIXEL_UNITS
-                                        else ' %')
-        self._spinBoxCellSize.setRange(self._minCellSize,
-                                       self._maxCellSize)
-        self._spinBoxCellSize.setValue(self._defaultCellSize)
-        self._spinBoxCellSize.editingFinished.connect(self._onChangeCellSize)
-        self._spinBoxCellSize.setValue(self._defaultCellSize)
-        self._toolBar.addWidget(self._spinBoxCellSize)
+        zoomSpin = ZoomSpinBox(self._toolBar,
+                               minValue=self._minCellSize,
+                               maxValue=self._maxCellSize,
+                               currentValue=self._defaultCellSize)
+        zoomSpin.sigValueChanged.connect(self._onChangeCellSize)
+
+        self._toolBar.addWidget(zoomSpin)
         self._toolBar.addSeparator()
         # for axis selection in GalleryView
         self._labelCurrentVolume = qtw.QLabel(parent=self._toolBar,
                                               text=" Axis ")
         self._toolBar.addWidget(self._labelCurrentVolume)
         self._comboBoxCurrentAxis = qtw.QComboBox(self._toolBar)
-        self._comboBoxCurrentAxis.currentIndexChanged.\
-            connect(self._onAxisChanged)
+        self._comboBoxCurrentAxis.currentIndexChanged.connect(
+            self._onAxisChanged)
         self._toolBar.addWidget(self._comboBoxCurrentAxis)
         self._toolBar.addSeparator()
         # for multiple volumes
@@ -153,12 +148,11 @@ class VolumeView(qtw.QWidget):
             [AXIS_X, AXIS_Y, AXIS_Z].index(axis))
         self._comboBoxCurrentAxis.blockSignals(False)
 
-    @pyqtSlot()
-    def _onChangeCellSize(self):
+    @pyqtSlot(int)
+    def _onChangeCellSize(self, size):
         """
         This slot is invoked when the cell size need to be rearranged
         """
-        size = self._spinBoxCellSize.value()
         self._galleryView.setIconSize(QSize(size, size))
 
     @pyqtSlot(bool)
@@ -222,7 +216,8 @@ class VolumeView(qtw.QWidget):
             AXIS_Y: SlicesTableModel(yModel, 'Axis-Y'),
             AXIS_Z: SlicesTableModel(zModel, 'Axis-Z')
         }
-        self._multiSlicesView.setModel((xModel, yModel, zModel))
+        self._multiSlicesView.setModel((xModel, yModel, zModel),
+                                       normalize=True)
         self.__setupComboBoxAxis()
 
     def clear(self):

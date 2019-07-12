@@ -127,17 +127,18 @@ class SlicesView(QWidget):
         """
         return self._spinSlider.getText()
 
-    def setModel(self, model):
+    def setModel(self, model, normalize=False):
         """
         Set the data model
         :param model: The model or None for clear the view
         """
         self._sliceModel = model
         self._imageModel = None
-        minValue, maxValue = (1, 1) if self._sliceModel is None else 1, \
-            self._sliceModel.getDim()[2]
 
-        self._spinSlider.setRange(minValue, maxValue)
+        minSlice, maxSlice = 1, 1 if model is None else model.getDim()[2]
+        self._spinSlider.setRange(minSlice, maxSlice)
+        if model is not None and normalize:
+            self._imageView.setLevels(model.getMinMax())
         self._currentValue = 1
         if self._spinSlider.getValue() == self._currentValue:
             self._onSliceChanged(self._currentValue)
