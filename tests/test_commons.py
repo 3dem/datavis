@@ -15,6 +15,9 @@ class TestData:
     __title = ''
 
     def _loadPaths(self):
+        if not hasattr(self, '_argv'):
+            return
+
         argv = self._argv
         self._path = None
 

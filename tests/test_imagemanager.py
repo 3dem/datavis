@@ -9,11 +9,6 @@ from test_commons import TestBase
 
 
 class TestImageManager(TestBase):
-    @classmethod
-    def setUpClass(cls):
-        print("setUpClass")
-        cls._argv = sys.argv
-
     def getDataPaths(self):
         return [
             self.getPath("relion_tutorial", "import", "refine3d", "extra",
