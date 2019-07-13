@@ -79,7 +79,9 @@ class VolumeView(qtw.QWidget):
         zoomSpin = ZoomSpinBox(self._toolBar,
                                minValue=self._minCellSize,
                                maxValue=self._maxCellSize,
-                               currentValue=self._defaultCellSize)
+                               currentValue=self._defaultCellSize,
+                               sufix=' px'
+                               if self._zoomUnits == PIXEL_UNITS else ' %')
         zoomSpin.sigValueChanged.connect(self._onChangeCellSize)
 
         self._toolBar.addWidget(zoomSpin)

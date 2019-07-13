@@ -15,7 +15,8 @@ import qtawesome as qta
 
 
 from emviz.models import (RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO)
-from emviz.widgets import (ActionsToolBar,  PlotConfigWidget, TriggerAction)
+from emviz.widgets import (ActionsToolBar,  PlotConfigWidget, TriggerAction,
+                           ZoomSpinBox)
 
 from ._delegates import ColumnPropertyItemDelegate
 from ._columns import ColumnsView
@@ -357,18 +358,11 @@ class DataView(QWidget):
         toolbar.addSeparator()
 
         # cell resizing
-        labelLupe = QLabel(toolbar)
-        labelLupe.setPixmap(
-            qta.icon('fa.search').pixmap(28, QIcon.Normal, QIcon.On))
-        self._actLabelLupe = toolbar.addWidget(labelLupe)
-        self._spinBoxRowHeight = QSpinBox(toolbar)
-        suffix = ' px' if self._zoomUnits == PIXEL_UNITS else ' %'
-        self._spinBoxRowHeight.setSuffix(suffix)
-        self._spinBoxRowHeight.setRange(self._minRowHeight,
-                                        self._maxRowHeight)
-        self._spinBoxRowHeight.setValue(self._defaultRowHeight)
-        self._spinBoxRowHeight.editingFinished.connect(self._onChangeCellSize)
-        self._spinBoxRowHeight.setValue(self._defaultRowHeight)
+        self._spinBoxRowHeight = ZoomSpinBox(
+            toolbar, minValue=self._minRowHeight, maxValue=self._maxRowHeight,
+            currentValue=self._defaultRowHeight,
+            sufix=' px' if self._zoomUnits == PIXEL_UNITS else ' %')
+        self._spinBoxRowHeight.sigValueChanged.connect(self._onChangeCellSize)
         self._actSpinBoxHeight = toolbar.addWidget(self._spinBoxRowHeight)
 
         return toolbar
@@ -572,10 +566,8 @@ class DataView(QWidget):
         # row height
         rColumn = self.__hasRenderableColumn()
 
-        self._actLabelLupe.setVisible((view == GALLERY or
-                                      view == COLUMNS) and
-                                      rColumn)
-        self._actSpinBoxHeight.setVisible(self._actLabelLupe.isVisible())
+        self._actSpinBoxHeight.setVisible(
+            (view == GALLERY or view == COLUMNS) and rColumn)
         # dims
         self._actLabelCols.setVisible(not view == ITEMS)
         self._actLineEditCols.setVisible(self._actLabelCols.isVisible())
@@ -718,7 +710,7 @@ class DataView(QWidget):
                     method = list.append if d else list.remove
                     labels = colConfig.getLabels()
                     method(labels, row)
-                    size = self._spinBoxRowHeight.value()
+                    size = self._spinBoxRowHeight.getValue()
                     viewWidget.setIconSize((size, size))
                 elif not colConfig[VISIBLE_RO]:
                     if dispConf.getColumnsCount(visible=True) == 1 and not d:
@@ -761,7 +753,7 @@ class DataView(QWidget):
 
                 r = item.checkState() == Qt.Checked
                 if r and not self._viewKey == ITEMS:
-                    size = self._spinBoxRowHeight.value()
+                    size = self._spinBoxRowHeight.getValue()
                     viewWidget.setIconSize((size, size))
 
             viewWidget.updateViewConfiguration()
@@ -951,7 +943,7 @@ class DataView(QWidget):
         This slot is invoked when the cell size need to be rearranged
         TODO: Review implementation. Change row height for the moment
         """
-        size = self._spinBoxRowHeight.value()
+        size = self._spinBoxRowHeight.getValue()
 
         row = self._currentRow
         for viewWidget in self.getAllViews():

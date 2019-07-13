@@ -13,21 +13,22 @@ class ZoomSpinBox(qtw.QWidget):
 
     def __init__(self, parent=None, **kwargs):
         """
-        Create a new SliderSpin
+        Create a new ZoomSpinBox
         :param parent:
         :param kwargs:
             minValue:     (int) The minimum value to be shown
             maxValue:     (int) The maxium value to be shown
             currentValue: (int) The currentValue
-            zoomUnits     (value) REVIEW
+            sufix:        (str) The suffix is appended to the end of the
+                                displayed value
+            prefix:       (str) The prefix is prepended to the start of the
+                                displayed value
         """
         qtw.QWidget.__init__(self, parent=parent)
 
-        text = kwargs.get('text', '')
         minValue = kwargs['minValue']  # this is mandatory
         maxValue = kwargs['maxValue']  # this is mandatory
         currentValue = kwargs.get('currentValue', minValue)
-        self._zoomUnits = kwargs.get('zoomUnits', 1)
 
         # First the label
         label = qtw.QLabel(self)
@@ -35,8 +36,8 @@ class ZoomSpinBox(qtw.QWidget):
 
         # Create the SpinBox
         spinBox = qtw.QSpinBox(self)
-        # TODO: Check how to handle the suffix
-        spinBox.setSuffix(' px' if self._zoomUnits == 1 else ' %')
+        spinBox.setSuffix(kwargs.get('sufix', ''))
+        spinBox.setPrefix(kwargs.get('prefix', ''))
         spinBox.setRange(minValue, maxValue)
         spinBox.setValue(currentValue)
         spinBox.editingFinished.connect(self._onValueChanged)
