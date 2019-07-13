@@ -50,6 +50,10 @@ class ImageView(QWidget):
                    Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                    AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
         axis:      (Bool) Show/hide de view's axes
+        levels:    (min, max) Pass the min and max range that will be used for
+                   image display. By default is None, so the data from the
+                   pixel values will be used. Passing a different range is
+                   useful for normalization of the slices in volumes.
         """
         QWidget.__init__(self, parent=parent)
 
@@ -73,6 +77,7 @@ class ImageView(QWidget):
         self._autoFill = kwargs.get("autoFill", False)
         self._pgButtons = kwargs.get("hideButtons", False)
         self._axisPos = kwargs.get("axisPos", self.AXIS_BOTTOM_LEFT)
+        self._levels = kwargs.get("levels", None)
 
         self.__setupGUI()
         self.__setupImageView()
@@ -403,8 +408,13 @@ class ImageView(QWidget):
         self.clear()
         if imageModel:
             self._imageView.setImage(imageModel.getData(),
-                                     autoRange=self._fitToSize)
+                                     autoRange=self._fitToSize,
+                                     levels=self._levels)
             self.fitToSize()
+
+    def setLevels(self, levels):
+        """ Set levels for the display. """
+        self._levels = levels
 
     @pyqtSlot()
     def imageModelChanged(self):
@@ -415,7 +425,8 @@ class ImageView(QWidget):
         """
         data = None if self._model is None else self._model.getData()
         t = self._imageView.imageItem.transform()
-        self._imageView.setImage(data, autoRange=self._fitToSize, transform=t)
+        self._imageView.setImage(data, autoRange=self._fitToSize, transform=t,
+                                 levels=self._levels)
 
     @pyqtSlot(int)
     def rotate(self, angle):
