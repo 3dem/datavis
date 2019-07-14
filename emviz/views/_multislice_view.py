@@ -150,7 +150,7 @@ class MultiSliceView(QWidget):
                               or None for clear the view.
         :param kwargs: Extra arguments
                 * normalize (bool) If True, each of the slicesView
-                      will be normalized, levels of the image will be set all range
+                  will be normalized, levels of the image will be set all range
                 * slice (int) Default slice
         """
         if models:

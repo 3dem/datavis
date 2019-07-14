@@ -96,7 +96,11 @@ class TablePageItemModel(QAbstractItemModel):
         t = cc.getType()
 
         if role == DATA_ROLE:
-            return self._getPageValue(row, col, role)
+            try:
+                data = self._getPageValue(row, col, role)
+            except RuntimeError:
+                data = None
+            return data
 
         if role == LABEL_ROLE:
             d = self._displayConfig

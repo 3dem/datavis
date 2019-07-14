@@ -342,7 +342,7 @@ if __name__ == '__main__':
                            valuesDict=viewsDict,
                            help=' The default view. Default will depend on the '
                                 'input')
-    argParser.add_argument('--size', type=int, default=100,
+    argParser.add_argument('--size', type=int, default=64,
                            required=False,
                            help=' The default size of the displayed image, '
                                 'either in pixels or in percentage')

@@ -376,13 +376,21 @@ class ColumnsView(PagingView):
             w, h = size
             self._pageItemModel.setIconSize(QSize(w, h))
 
-        self.setRowHeight(h)
         config = self.getDisplayConfig()
         if config is not None:
+            render = False
             for i, colConfig in config.iterColumns(renderable=True,
                                                    visible=True):
                 if self.getColumnWidth(i) < w:
                     self.setColumnWidth(i, w)
+                if not render:
+                    render = True
+            if render:
+                self.setRowHeight(h)
+            else:
+                self.setRowHeight(25)
+            self.__updatePageBar()
+            self.__updateSelectionInView(self._pageBar.getCurrentPage() - 1)
 
     def getColumnWidth(self, column):
         """

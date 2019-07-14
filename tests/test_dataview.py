@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-
 from emviz.core import ModelsFactory
 from emviz.views import DataView
 from test_commons import TestView

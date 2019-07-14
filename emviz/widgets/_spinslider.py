@@ -1,7 +1,7 @@
 
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QSlider, QHBoxLayout, QLabel, QSpinBox,
-                             QSizePolicy)
+                             QSizePolicy, QGridLayout)
 
 
 class SpinSlider(QWidget):
@@ -34,10 +34,10 @@ class SpinSlider(QWidget):
 
         # Slider
         slider = QSlider(self)
-        sp = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
-        sp.setHorizontalStretch(0)
-        sp.setVerticalStretch(0)
-        sp.setHeightForWidth(slider.sizePolicy().hasHeightForWidth())
+        sp = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        #sp.setHorizontalStretch(0)
+        #sp.setVerticalStretch(0)
+        #sp.setHeightForWidth(slider.sizePolicy().hasHeightForWidth())
         slider.setSizePolicy(sp)
         slider.setOrientation(Qt.Horizontal)
         slider.setRange(minValue, maxValue)
@@ -48,14 +48,15 @@ class SpinSlider(QWidget):
         spinBox.setRange(minValue, maxValue)
         spinBox.setValue(currentValue)
 
-        # Group them all in a horizontal box layout
-        layout = QHBoxLayout(self)
+        # Group them all in a grid layout
+        layout = QGridLayout(self,)
         layout.setSpacing(5)
         layout.setContentsMargins(5, 5, 5, 5)
-        layout.addWidget(label)
-        layout.addWidget(slider)
-        layout.addWidget(spinBox)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label, 0, 0, 1, 1, Qt.AlignRight)
+        boxLayout = QHBoxLayout()
+        boxLayout.addWidget(slider)
+        layout.addLayout(boxLayout, 0, 1, 1, 3, Qt.AlignCenter)
+        layout.addWidget(spinBox, 0, 4, 1, 1, Qt.AlignLeft)
 
         # Connect signals when value change to synchronize
         slider.valueChanged.connect(self._onSliderChange)

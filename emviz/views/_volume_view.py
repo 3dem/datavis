@@ -11,7 +11,7 @@ from emviz.models import (AXIS_X, AXIS_Y, AXIS_Z, EmptySlicesModel,
                           EmptyTableModel, EmptyVolumeModel, SlicesTableModel)
 from ._multislice_view import MultiSliceView
 from ._gallery import GalleryView
-from ._constants import PIXEL_UNITS
+from ._constants import PIXEL_UNITS, GALLERY, SLICES
 
 
 class VolumeView(qtw.QWidget):
@@ -76,13 +76,11 @@ class VolumeView(qtw.QWidget):
         self._toolBar.addAction(self._aGallery)
         self._toolBar.addSeparator()
         # cell size
-        zoomSpin = ZoomSpinBox(self._toolBar,
+        zoomSpin = ZoomSpinBox(self._toolBar, valueType=int,
                                minValue=self._minCellSize,
                                maxValue=self._maxCellSize,
-                               currentValue=self._defaultCellSize,
-                               sufix=' px'
-                               if self._zoomUnits == PIXEL_UNITS else ' %')
-        zoomSpin.sigValueChanged.connect(self._onChangeCellSize)
+                               currentValue=self._defaultCellSize)
+        zoomSpin.sigValueChanged[int].connect(self._onChangeCellSize)
 
         self._toolBar.addWidget(zoomSpin)
         self._toolBar.addSeparator()
@@ -218,9 +216,8 @@ class VolumeView(qtw.QWidget):
             AXIS_Y: SlicesTableModel(yModel, 'Axis-Y'),
             AXIS_Z: SlicesTableModel(zModel, 'Axis-Z')
         }
-        self._multiSlicesView.setModel((xModel, yModel, zModel),
-                                       normalize=True,
-                                       slice=model.getDim()[0]/2)
+        self._multiSlicesView.setModel((xModel, yModel, zModel), normalize=True,
+                                       slice=int(model.getDim()[0]/2))
         self.__setupComboBoxAxis()
 
     def clear(self):
@@ -228,15 +225,10 @@ class VolumeView(qtw.QWidget):
         self.setModel(EmptyVolumeModel())
 
     def setView(self, view):
-        """
-        Sets the current view. See DataView for view values.
-        2: GALLERY
-        8: SLICES
-        FIXME[phv] Centralize the GALLERY and SLICES constants
-        """
-        if view == 2:
+        """ Sets the current view: GALLERY or SLICES """
+        if view == GALLERY:
             self._aGallery.setChecked(True)
             self._onGalleryViewTriggered(True)
-        elif view == 8:
+        elif view == SLICES:
             self._aSlices.setChecked(True)
             self._onMultiSlicesViewTriggered(True)

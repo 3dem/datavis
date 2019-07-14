@@ -347,6 +347,7 @@ class GalleryView(PagingView):
         self._listView.setIconSize(s)
         self._pageItemModel.setIconSize(s)
         self.__updatePageBar()
+        self.__updateSelectionInView(self._pageBar.getCurrentPage() - 1)
         self.sigPageSizeChanged.emit()
 
     def selectRow(self, row):

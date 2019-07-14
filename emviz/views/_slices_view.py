@@ -95,9 +95,9 @@ class SlicesView(QWidget):
         :return: True
         """
         t = event.type()
-        if t == QEvent.Wheel or t == QEvent.MouseMove or \
-                QEvent.MouseButtonRelease:
-            if obj == self._imageView:  # Calculate the View scale
+        if obj == self._imageView:  # Calculate the View scale
+            c = t in [QEvent.Wheel, QEvent.MouseMove, QEvent.MouseButtonRelease]
+            if c:
                 self._viewRect = self._imageView.getViewRect()
 
         return True

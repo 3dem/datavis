@@ -4,12 +4,11 @@
 import pyqtgraph as pg
 import qtawesome as qta
 from PyQt5.QtCore import Qt, pyqtSlot, QEvent, QLineF
-from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter,
-                             QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
-                             QTextEdit, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
+                             QToolBar, QVBoxLayout, QPushButton, QSizePolicy)
 
 from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
-                           TriggerAction)
+                           TriggerAction, ZoomSpinBox)
 
 
 class ImageView(QWidget):
@@ -103,10 +102,13 @@ class ImageView(QWidget):
         self._labelScale = QLabel('Scale: ', displayPanel)
         hLayout = QHBoxLayout()
         hLayout.addWidget(self._labelScale)
-        self._spinBoxScale = QDoubleSpinBox(displayPanel)
-        self._spinBoxScale.setSuffix(" %")
-        self._spinBoxScale.setRange(0, 10000)
-        self._spinBoxScale.editingFinished.connect(
+        self._spinBoxScale = ZoomSpinBox(displayPanel,
+                                         valueType=float,
+                                         minValue=0,
+                                         maxValue=10000,
+                                         zoomUnits=ZoomSpinBox.PERCENT,
+                                         iconSize=25)
+        self._spinBoxScale.sigValueChanged[float].connect(
             self.__onSpinBoxScaleValueChanged)
         hLayout.addWidget(self._spinBoxScale)
         hLayout.addStretch()
@@ -354,18 +356,18 @@ class ImageView(QWidget):
         """ Rotate the image 90 degrees to the right """
         self.rotate(self._rotationStep)
 
-    @pyqtSlot()
-    def __onSpinBoxScaleValueChanged(self):
+    @pyqtSlot(float)
+    def __onSpinBoxScaleValueChanged(self, value):
         """
         This slot is invoked when the spinbox value for image scale is changed
         """
         viewBox = self.getViewBox()
-        val = self._spinBoxScale.value() * 0.01
-        if val == 0:
+        value *= 0.01
+        if value == 0:
             self._spinBoxScale.setValue(self._scale * 100)
         else:
             viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
-            viewBox.scaleBy(x=1/val, y=1/val)  # to current scale
+            viewBox.scaleBy(x=1/value, y=1/value)  # to current scale
 
     @pyqtSlot(object)
     def __onImageScaleChanged(self, view):

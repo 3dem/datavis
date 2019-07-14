@@ -16,7 +16,7 @@ import qtawesome as qta
 
 from emviz.models import (RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO)
 from emviz.widgets import (ActionsToolBar,  PlotConfigWidget, TriggerAction,
-                           ZoomSpinBox)
+                           ZoomSpinBox, IconSpinBox)
 
 from ._delegates import ColumnPropertyItemDelegate
 from ._columns import ColumnsView
@@ -346,23 +346,23 @@ class DataView(QWidget):
         toolbar.addSeparator()
 
         # cell navigator
-        self._labelCurrentRow = QLabel(toolbar)
-        self._labelCurrentRow.setPixmap(qta.icon(
-            'fa.level-down').pixmap(28, QIcon.Normal, QIcon.On))
-        self._spinBoxCurrentRow = QSpinBox(toolbar)
+        self._spinBoxCurrentRow = IconSpinBox(toolbar, valueType=int,
+                                              minValue=1, maxValue=2,
+                                              iconName='fa.level-down')
         self._spinBoxCurrentRow.setMaximumWidth(50)
-        self._spinBoxCurrentRow.valueChanged[int].connect(self._selectRow)
-        self._actLabelCurrentRow = toolbar.addWidget(
-            self._labelCurrentRow)
+        self._spinBoxCurrentRow.sigValueChanged[int].connect(self._selectRow)
         self._actSpinBoxCurrentRow = toolbar.addWidget(self._spinBoxCurrentRow)
         toolbar.addSeparator()
 
         # cell resizing
+        z = self._zoomUnits
+        z = ZoomSpinBox.PIXELS if z == PIXEL_UNITS else ZoomSpinBox.PERCENT
         self._spinBoxRowHeight = ZoomSpinBox(
-            toolbar, minValue=self._minRowHeight, maxValue=self._maxRowHeight,
-            currentValue=self._defaultRowHeight,
-            sufix=' px' if self._zoomUnits == PIXEL_UNITS else ' %')
-        self._spinBoxRowHeight.sigValueChanged.connect(self._onChangeCellSize)
+            toolbar, valueType=int, minValue=self._minRowHeight,
+            maxValue=self._maxRowHeight, currentValue=self._defaultRowHeight,
+            zoomUnits=z)
+        self._spinBoxRowHeight.sigValueChanged[int].connect(
+            self._onChangeCellSize)
         self._actSpinBoxHeight = toolbar.addWidget(self._spinBoxRowHeight)
 
         return toolbar
@@ -530,12 +530,7 @@ class DataView(QWidget):
 
     def __setupSpinBoxRowHeigth(self):
         """ Configure the row height spinbox """
-        self._spinBoxRowHeight.setRange(self._minRowHeight, self._maxRowHeight)
-
-        if not self.__hasRenderableColumn():
-            self._spinBoxRowHeight.setValue(self._minRowHeight)
-        else:
-            self._spinBoxRowHeight.setValue(self._defaultRowHeight)
+        self._spinBoxRowHeight.setValue(self._defaultRowHeight)
 
     def __setupComboBoxCurrentTable(self):
         """
@@ -578,21 +573,43 @@ class DataView(QWidget):
         Configure current view mode: COLUMNS or GALLERY or ITEMS
         """
         viewWidget = self.getView()
-
+        setup = True
         if viewWidget is not None:
+            if self._viewKey == GALLERY:
+                gConfig = viewWidget.getDisplayConfig()
+                if not gConfig.hasColumnConfig(renderable=True):
+                    setup = False
+                    for viewInfo in self._viewsDict.values():
+                        widget = viewInfo[VIEW]
+                        viewType = widget.getViewType()
+                        if not viewType == GALLERY:
+                            config = widget.getDisplayConfig()
+                            if config is not None:
+                                for i, r in config.iterColumns(renderable=True):
+                                    c = gConfig.getColumnConfig(i)
+                                    if not c[RENDERABLE_RO]:
+                                        c[RENDERABLE] = True
+                                        setup = True
+                                        viewWidget.setModelColumn(i)
+                                        break
+                        if setup:
+                            break
+        else:
+            setup = False
+
+        if setup:
             row = self._currentRow
             self._stackedLayout.setCurrentWidget(viewWidget)
             self.__makeSelectionInView(self._viewKey)
             viewWidget.selectRow(row)
+            a = self._viewsDict[self._viewKey][ACTION]
+            if a:
+                a.setChecked(True)
 
-        a = self._viewsDict[self._viewKey][ACTION]
-        if a:
-            a.setChecked(True)
-
-        self._showViewDims()
-        self.__setupToolBarForView(self._viewKey)
-        self.__savePreferencesForCurrentTable()
-        self.__initTableColumnProp()
+            self._showViewDims()
+            self.__setupToolBarForView(self._viewKey)
+            self.__savePreferencesForCurrentTable()
+            self.__initTableColumnProp()
 
     def __setupModel(self, config=None):
         """
@@ -609,7 +626,7 @@ class DataView(QWidget):
 
         self.__setupCurrentViewMode()
         self.__setupSpinBoxRowHeigth()
-        self._onChangeCellSize()
+        self._onChangeCellSize(self._spinBoxRowHeight.getValue())
         if self._selectionMode == PagingView.SINGLE_SELECTION:
             self._selection.add(0)
             self.__makeSelectionInView(self._viewKey)
@@ -719,12 +736,10 @@ class DataView(QWidget):
                         colConfig[VISIBLE] = d
                 else:
                     self.__reverseCheckState(item)
-
-                d = item.checkState() == Qt.Checked
             else:  # renderable
                 r = item.checkState() == Qt.Checked
                 gi = self._viewKey == GALLERY or self._viewKey == ITEMS
-
+                hasRender = dispConf.hasColumnConfig(renderable=True)
                 if colConfig[RENDERABLE_RO]:
                     self.__reverseCheckState(item)
                     if gi and colConfig[RENDERABLE]:
@@ -751,10 +766,18 @@ class DataView(QWidget):
                                     it.setCheckState(Qt.Unchecked)
                         viewWidget.setModelColumn(row)
 
-                r = item.checkState() == Qt.Checked
-                if r and not self._viewKey == ITEMS:
+                r = dispConf.hasColumnConfig(renderable=True)
+                c = self._viewKey == COLUMNS
+                if c and r and not hasRender:
+                    row = self._currentRow
                     size = self._spinBoxRowHeight.getValue()
                     viewWidget.setIconSize((size, size))
+                    self._selectRow(row)
+                elif c and not r and hasRender:
+                    row = self._currentRow
+                    viewWidget.setIconSize((self._minRowHeight,
+                                            self._minRowHeight))
+                    self._selectRow(row)
 
             viewWidget.updateViewConfiguration()
             self.__setupToolBarForView(self._viewKey)
@@ -937,14 +960,12 @@ class DataView(QWidget):
 
         msgBox.exec_()
 
-    @pyqtSlot()
-    def _onChangeCellSize(self):
+    @pyqtSlot(int)
+    def _onChangeCellSize(self, size):
         """
         This slot is invoked when the cell size need to be rearranged
         TODO: Review implementation. Change row height for the moment
         """
-        size = self._spinBoxRowHeight.getValue()
-
         row = self._currentRow
         for viewWidget in self.getAllViews():
             if viewWidget.getViewType() in [COLUMNS, GALLERY]:
@@ -991,7 +1012,7 @@ class DataView(QWidget):
                 self.__makeSelectionInView(self._viewKey)
                 viewWidget.selectRow(self._currentRow)
 
-            if not row == self._spinBoxCurrentRow.value():
+            if not row == self._spinBoxCurrentRow.getValue():
                 self._spinBoxCurrentRow.setValue(row)
             self.sigCurrentRowChanged.emit(self._currentRow)
             self.__showSelectionInfo()
@@ -1090,7 +1111,7 @@ class DataView(QWidget):
         Sets the given row as the current row for all views.
         0 will be considered as the first row.
         """
-        r = self._spinBoxCurrentRow.value()
+        r = self._spinBoxCurrentRow.getValue()
         if r == row + 1:
             self.sigCurrentRowChanged.emit(self._currentRow)
         else:
