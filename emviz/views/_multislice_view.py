@@ -1,14 +1,13 @@
 
 
-from PyQt5.QtWidgets import (QWidget, QGridLayout)
+from PyQt5.QtWidgets import QWidget, QGridLayout
 from PyQt5.QtCore import QSize, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
 from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
 
 from ._slices_view import SlicesView
-from ._constants import (AXIS_BOTTOM_LEFT, AXIS_BOTTOM_RIGHT, AXIS_TOP_LEFT,
-                         AXIS_TOP_RIGHT)
+from ._constants import AXIS_BOTTOM_LEFT, AXIS_BOTTOM_RIGHT, AXIS_TOP_LEFT
 
 
 class MultiSliceView(QWidget):
@@ -56,50 +55,41 @@ class MultiSliceView(QWidget):
                                'axis': True,
                                'axisColor': '#000000'
                                }
+        xArgs = {
+            'labelText': 'X',
+            'labelStyle': {'color': '#0000FF',
+                           'font-weight': 'bold'}
+        }
+        yArgs = {
+            'labelText': 'Y',
+            'labelStyle': {'color': '#FF0000',
+                           'font-weight': 'bold'}
+        }
+        zArgs = {
+            'labelText': 'Z',
+            'labelStyle': {'color': '#009900',
+                           'font-weight': 'bold'}
+        }
         axisImgViewKargs = {
-            AXIS_X:
-                {'labelX': {'labelText': 'Z',
-                            'labelStyle': {'color': '#FF0000',
-                                           'font-weight': 'bold'}},
-                 'labelY': {'labelText': 'Y',
-                            'labelStyle': {'color': '#009900',
-                                           'font-weight': 'bold'}
-                            },
-                 'axisPos': AXIS_BOTTOM_RIGHT
-                 },
-            AXIS_Y:
-                {'labelX': {'labelText': 'X',
-                            'labelStyle': {'color': '#0000FF',
-                                           'font-weight': 'bold'}},
-                 'labelY': {'labelText': 'Z',
-                            'labelStyle': {'color': '#FF0000',
-                                           'font-weight': 'bold'}
-                            },
-                 'axisPos': AXIS_TOP_LEFT
-                 },
-            AXIS_Z:
-                {'labelX': {'labelText': 'X',
-                            'labelStyle': {'color': '#0000FF',
-                                           'font-weight': 'bold'}},
-                 'labelY': {'labelText': 'Y',
-                            'labelStyle': {'color': '#009900',
-                                           'font-weight': 'bold'}
-                            },
-                 'axisPos': AXIS_BOTTOM_LEFT
-                 }
+            AXIS_X: {'labelX': zArgs, 'labelY': yArgs,
+                     'axisPos': AXIS_BOTTOM_RIGHT},
+            AXIS_Y: {'labelX': xArgs, 'labelY': zArgs,
+                     'axisPos': AXIS_TOP_LEFT},
+            AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
+                     'axisPos': AXIS_BOTTOM_LEFT}
         }
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
             _, _, n = model.getDim()
-            imgViewKargs = dict(defaultImgViewKargs,
-                                **args.get('imageViewKwargs', dict()))
-            d = axisImgViewKargs.get(axis)
-            d.update(imgViewKargs)
-            sv = SlicesView(self, model, text=args.get('text', text),
+            imgViewKargs = dict(defaultImgViewKargs)
+            imgViewKargs.update(axisImgViewKargs[axis])
+            imgViewKargs.update(args.get('imageViewKwargs', dict()))
+            sv = SlicesView(self, model,
+                            text=args.get('text', text),
                             currentValue=args.get('currentValue',
                                                   int((n + 1)/2)),
-                            imageViewKwargs=d)
+                            imageViewKwargs=imgViewKargs)
             sv.sigSliceChanged.connect(slot)
             layout.addWidget(sv, *pos)
             self._slicesDict[axis] = sv

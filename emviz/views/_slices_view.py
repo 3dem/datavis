@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent, Qt
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSizePolicy, QHBoxLayout)
+import PyQt5.QtWidgets as qtw
 
 from emviz.models import EmptySlicesModel
 from emviz.widgets import SpinSlider
 from ._image_view import ImageView
 
 
-class SlicesView(QWidget):
+class SlicesView(qtw.QWidget):
     """
     This view can be used when displaying 3D data:
     (a) a single volume (x, y, z, 1)
@@ -20,7 +20,7 @@ class SlicesView(QWidget):
     """
     sigSliceChanged = pyqtSignal(int)  # Signal for current slice changed
 
-    def __init__(self, parent, sliceModel, **kwargs):
+    def __init__(self, parent, model, **kwargs):
         """ Constructor. SlicesView use an ImageView for display the slices,
         see ImageView class for initialization params.
 
@@ -30,8 +30,8 @@ class SlicesView(QWidget):
         text:           (str) Text to be display in the slider.
         currentValue:   (int) The index (starting at 1) of the initial slice.
         """
-        QWidget.__init__(self, parent=parent)
-        self._sliceModel = sliceModel
+        qtw.QWidget.__init__(self, parent=parent)
+        self._model = model
         self._viewRect = None
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
@@ -43,24 +43,25 @@ class SlicesView(QWidget):
         """ This is the standard method for the GUI creation """
         # Create ImageView widget
         self._imageView = ImageView(self, **self._imageViewKwargs)
-        self._imageView.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding,
-                                                  QSizePolicy.MinimumExpanding))
+        self._imageView.setSizePolicy(
+            qtw.QSizePolicy(qtw.QSizePolicy.MinimumExpanding,
+                            qtw.QSizePolicy.MinimumExpanding))
         self._imageView.installEventFilter(self)
 
         # Create SpinSlider widget
-        _, _, n = self._sliceModel.getDim()
+        _, _, n = self._model.getDim()
         self._spinSlider = SpinSlider(self, text=self._text,
                                       minValue=1, maxValue=n,
                                       currentValue=self._currentValue)
         self._onSliceChanged(self._currentValue)
 
         # Arrange widgets in a vertical layout
-        layout = QVBoxLayout(self)
+        layout = qtw.QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._imageView)
         self._spinSlider.setMaximumWidth(400)
-        l = QHBoxLayout()
+        l = qtw.QHBoxLayout()
         l.addWidget(self._spinSlider, Qt.AlignCenter)
         layout.addLayout(l)
 
@@ -71,10 +72,10 @@ class SlicesView(QWidget):
         """ Load the slice """
         value -= 1
         if self._imageModel is None:
-            self._imageModel = self._sliceModel.getImageModel(value)
+            self._imageModel = self._model.getImageModel(value)
             self._imageView.setModel(self._imageModel)
         else:
-            imgData = self._sliceModel.getData(value)
+            imgData = self._model.getData(value)
             if imgData is not None:
                 self._imageModel.setData(imgData)
                 self._imageView.imageModelChanged()
@@ -138,7 +139,7 @@ class SlicesView(QWidget):
             * normalize (bool) If true, set the ImageView levels
             * slice (int) If not None, set this as the initial slice
         """
-        self._sliceModel = model
+        self._model = model
         self._imageModel = None
 
         minSlice, maxSlice = 1, 1 if model is None else model.getDim()[2]

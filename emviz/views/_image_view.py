@@ -73,10 +73,14 @@ class ImageView(QWidget):
         self._showMenuBtn = kwargs.get('menu', False)
         self._showHistogram = kwargs.get('histogram', False)
         self._showPopup = kwargs.get('popup', False)
-        self._showXaxis = kwargs.get('axis', True)
-        self._labelXaxis = kwargs.get('labelX', {})
-        self._labelYaxis = kwargs.get('labelY', {})
-        self._showYaxis = kwargs.get('axis', True)
+        self._xAxisArgs = {
+            'label': kwargs.get('labelX', {}),
+            'visible': kwargs.get('axis', True)
+        }
+        self._yAxisArgs = {
+            'label': kwargs.get('labelY', {}),
+            'visible': kwargs.get('axis', True)
+        }
         self._fitToSize = kwargs.get('fit', True)
         self._autoFill = kwargs.get('autoFill', False)
         self._pgButtons = kwargs.get('hideButtons', False)
@@ -159,7 +163,7 @@ class ImageView(QWidget):
 
         # -- Axis On/Off --
         actAxisOnOff = OnOffAction(toolbar)
-        actAxisOnOff.set(self._showXaxis)
+        actAxisOnOff.set(self._xAxisArgs['visible'])
         actAxisOnOff.stateChanged.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(actAxisOnOff)
         vLayout.addWidget(toolbar)
@@ -249,37 +253,26 @@ class ImageView(QWidget):
         See setAxisOrientation method.
         """
         plotItem = self._imageView.getView()
-        viewBox = plotItem
+
         if isinstance(plotItem, pg.PlotItem):
-            visible = {
-                'bottom': False, 'left': False, 'top': False, 'right': False}
-            viewBox = viewBox.getViewBox()
+            # Shortcut notation
+            axisMap = {}
+            axisList = ['bottom', 'left', 'top', 'right']
+            B, L, T, R = axisList
+
+            viewBox = plotItem.getViewBox()
             if self._axisPos == AXIS_BOTTOM_LEFT:
-                if viewBox.yInverted():
-                    plotItem.invertY(False)
-                    viewBox.sigYRangeChanged.emit(
-                        viewBox, tuple(viewBox.state['viewRange'][1]))
-                if viewBox.xInverted():
-                    plotItem.invertX(False)
-                visible.update(bottom=True, left=True)
+                axisMap = {L: self._yAxisArgs,
+                           B: self._xAxisArgs}
             elif self._axisPos == AXIS_TOP_LEFT:
-                if not viewBox.yInverted():
-                    plotItem.invertY(True)
-                    viewBox.sigYRangeChanged.emit(
-                        viewBox, tuple(viewBox.state['viewRange'][1]))
-                if viewBox.xInverted():
-                    plotItem.invertX(False)
-                visible.update(top=True, left=True)
+                axisMap = {L: self._yAxisArgs,
+                           T: self._xAxisArgs}
             elif self._axisPos == AXIS_TOP_RIGHT:
-                if not viewBox.xInverted():
-                    plotItem.invertX(True)
-                visible.update(top=True, right=True)
+                axisMap = {R: self._yAxisArgs,
+                           T: self._xAxisArgs}
             else:  # AXIS_BOTTOM_RIGHT:
-                if viewBox.yInverted():
-                    plotItem.invertY(False)
-                    viewBox.sigYRangeChanged.emit(
-                        viewBox, tuple(viewBox.state['viewRange'][0]))
-                visible.update(bottom=True, right=True)
+                axisMap = {R: self._yAxisArgs,
+                           B: self._xAxisArgs}
 
             if self._pgButtons:
                 plotItem.hideButtons()
@@ -287,23 +280,27 @@ class ImageView(QWidget):
                 plotItem.showButtons()
 
             plotItem.setAutoFillBackground(self._autoFill)
-            for k, v in visible.items():
-                value = self._showXaxis and v
-                plotItem.showAxis(k, value)
-                if value:
-                    axis = plotItem.getAxis(k)
+
+            # TODO: Check if the  viewBox.sigYRangeChanged.emit is needed
+            viewBox.invertY(T in axisMap)
+
+            # TODO: Check if the  viewBox.sigXRangeChanged.emit is needed
+            viewBox.invertX(R in axisMap)  # should invert X if needed
+
+            for a in axisList:
+                d = axisMap.get(a, None)
+                v = d is not None and d['visible']
+                plotItem.showAxis(a, v)
+                if v:  # Proceed if visible
+                    axis = plotItem.getAxis(a)
                     if self._axisColor:
                         axis.setPen({'color': self._axisColor})
-                    if k == 'left' or k == 'right':
-                        d = self._labelXaxis
-                    elif k == 'bottom' or k == 'top':
-                        d = self._labelYaxis
-                    else:
-                        d = {}
-                    s = d.get('labelStyle') or {}
-                    axis.setLabel(text=d.get('labelText', ''),
-                                  units=None, unitPrefix=None,
-                                  **s)
+                    labelDict = d['label']
+                    s = labelDict.get('labelStyle', {})
+                    if a in [L, R]:
+                        axis.label.rotate(90)  # a bit annoying as shown
+                    axis.setLabel(text=labelDict.get('labelText', ''),
+                                  units=None, unitPrefix=None, **s)
                     axis.setAutoFillBackground(self._autoFill)
                     axis.setZValue(0)
                     axis.linkedViewChanged(viewBox)
@@ -360,7 +357,7 @@ class ImageView(QWidget):
     @pyqtSlot(int)
     def __actAxisOnOffTriggered(self, state):
         """ This slot is invoked when the action histogram is triggered """
-        self._showYaxis = self._showXaxis = bool(state)
+        self._yAxisArgs['visible'] = self._xAxisArgs['visible'] = bool(state)
         self.__setupAxis()
 
     @pyqtSlot()
@@ -588,9 +585,9 @@ class ImageView(QWidget):
         # TODO review
         plot = self._imageView.getView()
         if isinstance(plot, pg.PlotItem):
-            if self._showXaxis:
+            if self._xAxisArgs['visible']:
                 height += plot.getAxis("bottom").height()
-            if self._showYaxis:
+            if self._yAxisArgs['visible']:
                 width += plot.getAxis("left").height()
 
         self._imageView.setGeometry(x, y, width, height)
@@ -604,9 +601,9 @@ class ImageView(QWidget):
         width = plot.width() - hw
         height = plot.height()
         if isinstance(plot, pg.PlotItem):
-            if self._showXaxis:
+            if self._xAxisArgs['visible']:
                 height -= plot.getAxis("bottom").height()
-            if self._showYaxis:
+            if self._yAxisArgs['visible']:
                 width -= plot.getAxis("left").height()
 
         return width, height
