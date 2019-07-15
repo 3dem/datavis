@@ -1,48 +1,35 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow
 
-from emqt5.views import ImageView
-from emqt5.utils import ImageManager
-
-import numpy as np
+from emviz.core import ModelsFactory
+from emviz.views import ImageView
+from test_commons import TestView
 
 
-app = QApplication(sys.argv)
+class TestImageView(TestView):
+    __title = "ImageView example"
 
-# Test script that loads an image in a ImageView
-# The image path can be passed or it will be loaded from the test data
+    def getDataPaths(self):
+        return [
+            self.getPath("relion_tutorial", "micrographs", "068.mrc")
+        ]
 
-if len(sys.argv) > 1:
-    imgPath = sys.argv[1]
-else:
-    testDataPath = os.environ.get("EM_TEST_DATA", None)
+    def createView(self):
+        imageView = ImageView(parent=None, border_color='#FFAA33')
+        imgModel = ModelsFactory.createImageModel(self._path)
+        imageView.setModel(imgModel)
+        dim_x, dim_y = imgModel.getDim()
+        index, path = imgModel.getLocation()
+        desc = ("<html><head/><body><p>"
+                "<span style=\" color:#0055ff;\">Dimensions: </span>"
+                "<span style=\" color:#000000;\">(%d,%d)</span></p>"
+                "<p><strong>Path: </strong>%s</p></body>" 
+                "</html>" % (dim_x, dim_y, path))
+        imageView.setImageInfo(text=desc)
+        return imageView
 
-    if testDataPath is None:
-        raise Exception("Path not available to display ImageView. \n"
-                        "Either provide an input path or set the "
-                        "variable environment EM_TEST_DATA")
 
-    imgPath = os.path.join(testDataPath, "relion_tutorial", "import",
-                           "classify2d", "extra", "relion_it025_classes.mrcs")
-
-imageView = ImageView(None, border_color='#FFAA33')
-img = ImageManager.readImage(imgPath, 1)
-data = np.array(img, copy=False)
-imageView.setImage(data)
-desc = "<html><head/><body><p><span style=\" color:#0055ff;\">Dimension: " \
-       "</span><span style=\" color:#000000;\">(x,y,z)</span></p></body>" \
-       "</html>"
-imageView.setImageInfo(text=desc)
-
-# Create window with ImageView widget
-win = QMainWindow()
-win.resize(800, 800)
-win.setCentralWidget(imageView)
-win.show()
-win.setWindowTitle('Image Operation Example')
-
-sys.exit(app.exec_())
+if __name__ == '__main__':
+    TestImageView().runApp()

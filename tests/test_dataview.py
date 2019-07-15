@@ -1,15 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-
 from emviz.core import ModelsFactory
-from emviz.views import ColumnsView
+from emviz.views import DataView
 from test_commons import TestView
 
 
-class TestColumnsView(TestView):
-    __title = "ColumnsView example"
+class TestDataView(TestView):
+    __title = "DataView example"
 
     def getDataPaths(self):
         return [
@@ -18,8 +16,10 @@ class TestColumnsView(TestView):
         ]
 
     def createView(self):
-        return ColumnsView(model=ModelsFactory.createTableModel(self._path))
+        print("File: %s" % self._path)
+        return DataView(model=ModelsFactory.createTableModel(self._path))
 
 
 if __name__ == '__main__':
-    TestColumnsView(sys.argv).run()
+    TestDataView().runApp()
+

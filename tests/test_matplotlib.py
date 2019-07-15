@@ -5,9 +5,9 @@ import os
 import sys
 import random
 
-from emqt5.views.base import PlotConfigWidget
-from emqt5.views import TableViewConfig
-from emqt5.utils import EmTable
+from emviz.widgets import PlotConfigWidget
+from emviz.views import TableModel
+from emviz.core import EmTable
 
 from matplotlib.figure import Figure
 from matplotlib.backends.qt_compat import QtCore, QtWidgets, is_pyqt5
@@ -151,7 +151,7 @@ qapp = QtWidgets.QApplication(sys.argv)
 
 t = EmTable.load(path)
 data = [random.random() for i in range(25)]
-tableViewConfig = TableViewConfig.fromTable(t[1])
+tableViewConfig = TableModel.fromTable(t[1])
 #  We could pass the table instead of random data, but this is a test app.
 #  Modify according to what you need
 win = ApplicationWindow(data, params=[col.getName() for col in tableViewConfig])

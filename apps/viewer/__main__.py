@@ -3,32 +3,26 @@
 
 import os
 import sys
-from glob import glob
-import argparse
 import traceback
-import qtawesome as qta
+import argparse
 
 from PyQt5.QtCore import QDir, QSize, Qt, pyqtSlot
 from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
-                             QSplitter, QSizePolicy, QVBoxLayout, QAction,
+                             QSplitter, QSizePolicy, QVBoxLayout,
                              QPushButton, QAbstractItemView)
 
-from emqt5.utils import EmPath, EmTable, ImageManager, VolImageManager
-from emqt5.views import (DataView, PIXEL_UNITS, TableViewConfig,
-                         ImageView, SlicesView, createDataView,
-                         createVolumeView, createImageView, createSlicesView,
-                         MOVIE_SIZE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_SEGMENT,
+from emviz.core import (EmPath, VolImageManager, ModelsFactory,
+                        ViewsFactory, MOVIE_SIZE, ImageManager)
+from emviz.views import (DataView, PIXEL_UNITS, GALLERY, COLUMNS, ITEMS, SLICES,
+                         ImageView, SlicesView, SHAPE_CIRCLE, SHAPE_RECT,
+                         SHAPE_SEGMENT,
                          SHAPE_CENTER, DEFAULT_MODE, FILAMENT_MODE, PickerView,
-                         createPickerModel)
-from emqt5.views.base import AbstractView, DynamicWidgetsFactory
-from emqt5.widgets import ActionsToolBar
-from emqt5.views.columns import ColumnsView
-from emqt5.views.volume_view import VolumeView
-from emqt5.windows import BrowserWindow
-from emqt5.views.model import TableDataModel
+                         PagingView, ColumnsView, VolumeView)
+from emviz.widgets import ActionsToolBar, DynamicWidgetsFactory, TriggerAction
+from emviz.models import EmptyTableModel
+from emviz.windows import BrowserWindow
 
-
-import em
+from utils import *
 
 tool_params1 = [
     [
@@ -151,30 +145,25 @@ if __name__ == '__main__':
             self._splitter.setCollapsible(0, False)
             self._splitter.addWidget(self._mainSplitter)
 
-            self._filesPanel = self._toolBar.createPanel()
-            self._filesPanel.setObjectName('filesPanel')
-            self._filesPanel.setStyleSheet(
-                'QWidget#filesPanel{border-left: 1px solid lightgray;}')
+            self._filesPanel = self._toolBar.createPanel('filesPanel')
             self._filesPanel.setSizePolicy(QSizePolicy.Ignored,
                                            QSizePolicy.Ignored)
 
             vLayout = QVBoxLayout(self._filesPanel)
             vLayout.setContentsMargins(0, 0, 0, 0)
-            self._columnsViewFiles = ColumnsView(self._filesPanel)
+            self._columnsViewFiles = ColumnsView(self._filesPanel,
+                                                 model=EmptyTableModel())
             vLayout.addWidget(self._columnsViewFiles)
-            self._actFiles = QAction(None)
-            self._actFiles.setIcon(qta.icon('fa5s.file'))
-            self._actFiles.setText('Files')
+            self._actFiles = TriggerAction(parent=None, actionName="AFiles",
+                                           text='Files',
+                                           faIconName='fa5s.file')
             #  setting a reasonable width for display panel
             self._filesPanel.setGeometry(0, 0, vLayout.sizeHint().width(),
                                          self._filesPanel.height())
             self._toolBar.addAction(self._actFiles, self._filesPanel,
                                     exclusive=False, checked=True)
 
-            self._paramsPanel = self._toolBar.createPanel()
-            self._paramsPanel.setObjectName('paramsPanel')
-            self._paramsPanel.setStyleSheet(
-                'QWidget#paramsPanel{border-left: 1px solid lightgray;}')
+            self._paramsPanel = self._toolBar.createPanel('paramsPanel')
             self._paramsPanel.setSizePolicy(QSizePolicy.Ignored,
                                             QSizePolicy.Ignored)
             dFactory = DynamicWidgetsFactory()
@@ -190,9 +179,9 @@ if __name__ == '__main__':
             self._paramsPanel.setFixedHeight(vLayout.totalSizeHint().height())
             self._paramsPanel.setMinimumWidth(vLayout.totalSizeHint().width())
 
-            self._actParams = QAction(None)
-            self._actParams.setIcon(qta.icon('fa5s.id-card'))
-            self._actParams.setText('Params')
+            self._actParams = TriggerAction(parent=None, actionName="APArams",
+                                            text='Params',
+                                            faIconName='fa5s.id-card')
             self._toolBar.addAction(self._actParams, self._paramsPanel,
                                     exclusive=False, checked=True)
 
@@ -208,7 +197,7 @@ if __name__ == '__main__':
                 self._leftView = ImageView(self, **kwargs)
                 self._rightView = ImageView(self, **kwargs)
             else:
-                kwargs['tool_bar'] = 'off'
+                kwargs['toolBar'] = False
                 kwargs['imageManager'] = VolImageManager(self._imageData)
                 self._leftView = VolumeView(self, **kwargs)
                 kwargs['imageManager'] = \
@@ -220,32 +209,34 @@ if __name__ == '__main__':
 
         def __createColumsViewModel(self, files=None):
             """ Setup the em table """
-            Column = em.Table.Column
-            emTable = em.Table([Column(1, "File Name", em.typeString),
-                                Column(2, "Path", em.typeString)])
-            tableViewConfig = TableViewConfig()
-            tableViewConfig.addColumnConfig(name='File Name',
-                                            dataType=TableViewConfig.TYPE_STRING,
-                                            label='File Name',
-                                            editable=False,
-                                            visible=True)
-            tableViewConfig.addColumnConfig(name='Path',
-                                            dataType=TableViewConfig.TYPE_STRING,
-                                            label='Path',
-                                            editable=False,
-                                            visible=False)
-            if isinstance(files, list):
-                for file in files:
-                    r = emTable.createRow()
-                    tableColumn = emTable.getColumnByIndex(0)
-                    r[tableColumn.getName()] = os.path.basename(file)
-                    tableColumn = emTable.getColumnByIndex(1)
-                    r[tableColumn.getName()] = file
-                    emTable.addRow(r)
+            pass
+            # FIXME[phv] commented until revisions
+            #Column = em.Table.Column
+            #emTable = em.Table([Column(1, "File Name", em.typeString),
+            #                    Column(2, "Path", em.typeString)])
+            #tableViewConfig = TableModel()
+            #tableViewConfig.addColumnConfig(name='File Name',
+            #                                dataType=TableModel.TYPE_STRING,
+            #                                label='File Name',
+            #                                editable=False,
+            #                                visible=True)
+            #tableViewConfig.addColumnConfig(name='Path',
+            #                                dataType=TableModel.TYPE_STRING,
+            #                                label='Path',
+            #                                editable=False,
+            #                                visible=False)
+            #if isinstance(files, list):
+            #    for file in files:
+            #        r = emTable.createRow()
+            #        tableColumn = emTable.getColumnByIndex(0)
+            #        r[tableColumn.getName()] = os.path.basename(file)
+            #        tableColumn = emTable.getColumnByIndex(1)
+            #        r[tableColumn.getName()] = file
+            #        emTable.addRow(r)
 
-            self._tvModel = TableDataModel(emTable,
-                                           tableViewConfig=tableViewConfig)
-            self._columnsViewFiles.setModel(self._tvModel)
+            #self._tvModel = TablePageItemModel(emTable,
+            #                                   tableViewConfig=tableViewConfig)
+            #self._columnsViewFiles.setModel(self._tvModel)
 
         @pyqtSlot()
         def __collectParams(self):
@@ -256,14 +247,16 @@ if __name__ == '__main__':
         @pyqtSlot(int)
         def __onCurrentRowChanged(self, row):
             """ Invoked when current row change in micrographs list """
-            path = self._tvModel.getTableData(row, 1)
-            try:
-                if self._leftView is None:
-                    dim = ImageManager.getDim(path)
-                    self.__createViews(dim, **kwargs)
-                self._showPath(path)
-            except RuntimeError as ex:
-                self._showError(ex.message)
+            pass
+            # FIXME[phv] commented until revisions
+            #path = self._tvModel.getTableData(row, 1)
+            #try:
+            #   if self._leftView is None:
+            #        dim = ImageManager.getDim(path)
+            #        self.__createViews(dim, **kwargs)
+            #    self._showPath(path)
+            #except RuntimeError as ex:
+            #    self._showError(ex.message)
 
         def _showPath(self, path):
             """
@@ -299,91 +292,6 @@ if __name__ == '__main__':
                     print(ex)
                     raise ex
 
-    class ValidateMics(argparse.Action):
-        """
-        Class that allows the validation of the values corresponding to
-        the "picker" parameter
-        """
-        def __init__(self, option_strings, dest, **kwargs):
-            argparse.Action.__init__(self, option_strings, dest, **kwargs)
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            """
-            Validate the maximum number of values corresponding to the
-            picker parameter. Try to matching a path pattern for micrographs
-            and another for coordinates.
-
-            Return a list of tuples [mic_path, pick_path].
-            """
-            length = len(values)
-            result = dict()
-            if length > 2:
-                raise ValueError("Invalid number of arguments for %s. Only 2 "
-                                 "arguments are supported." % option_string)
-
-            if length > 0:
-                mics = self.__ls(values[0])
-                for i in mics:
-                    basename = os.path.splitext(os.path.basename(i))[0]
-                    result[basename] = (i, None)
-
-            if length > 1:
-                coords = self.__ls(values[1])
-                for i in coords:
-                    basename = os.path.splitext(os.path.basename(i))[0]
-                    t = result.get(basename)
-                    if t:
-                        result[basename] = (t[0], i)
-
-            setattr(namespace, self.dest, result)
-
-        def __ls(self, pattern):
-            return glob(pattern)
-
-    class ValidateStrList(argparse.Action):
-        """
-        Class that allows the validation of the values corresponding to
-        the "picker" parameter
-        """
-        def __init__(self, option_strings, dest, **kwargs):
-            argparse.Action.__init__(self, option_strings, dest, **kwargs)
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            """
-            Build a list with parameters separated by spaces.
-            """
-            setattr(namespace, self.dest, values.split())
-
-    class ValidateCmpList(argparse.Action):
-        """
-        Class that allows the validation of the values corresponding to
-        the "cmp" parameter
-        """
-        def __init__(self, option_strings, dest, **kwargs):
-            argparse.Action.__init__(self, option_strings, dest, **kwargs)
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            """
-            Validate the maximum number of values corresponding to the
-            cmp parameter. Try to matching a path pattern for micrographs
-            and another for coordinates.
-
-            Return a list of paths.
-            """
-            result = list()
-            if not values:
-                raise ValueError("Invalid number of arguments for %s."
-                                 % option_string)
-
-            for pattern in values:
-                mics = self.__ls(pattern)
-                result.extend(mics)
-
-            setattr(namespace, self.dest, result)
-
-        def __ls(self, pattern):
-            return glob(pattern)
-
     argParser = argparse.ArgumentParser(usage='Tool for Viewer Apps',
                                         description='Display the selected '
                                                     'viewer app',
@@ -396,28 +304,45 @@ if __name__ == '__main__':
                            ' specific directory')
 
     # EM-BROWSER PARAMETERS
-    on_off = ['on', 'off']
-    argParser.add_argument('--zoom', type=str, default='on', required=False,
-                           choices=on_off,
+    on_off_dict = {'on': True, 'off': False}
+    on_off = capitalizeStrList(on_off_dict.keys())
+    argParser.add_argument('--zoom', type=str, default=True, required=False,
+                           choices=on_off, action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Enable/disable the option to zoom in/out in '
                                 'the image(s)')
-    argParser.add_argument('--axis', type=str, default='on', required=False,
-                           choices=on_off,
+    argParser.add_argument('--axis', type=str, default=True, required=False,
+                           choices=on_off, action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Show/hide the image axis (ImageView)')
-    argParser.add_argument('--tool-bar', type=str, default='on', required=False,
-                           choices=on_off,
+    argParser.add_argument('--tool-bar', type=str, default=True, required=False,
+                           choices=on_off, action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Show or hide the toolbar for ImageView')
-    argParser.add_argument('--histogram', type=str, default='off',
+    argParser.add_argument('--histogram', type=str, default=False,
                            required=False, choices=on_off,
+                           action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Show or hide the histogram for ImageView')
-    argParser.add_argument('--fit', type=str, default='on',
+    argParser.add_argument('--fit', type=str, default=True,
                            required=False, choices=on_off,
+                           action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Enables fit to size for ImageView')
+    viewsDict = {
+        'gallery': GALLERY,
+        'columns': COLUMNS,
+        'items': ITEMS,
+        'slices': SLICES
+    }
+    views_params = capitalizeStrList(viewsDict.keys())
+
     argParser.add_argument('--view', type=str, default='', required=False,
-                           choices=['gallery', 'columns', 'items', 'slices'],
+                           choices=views_params, action=ValidateValues,
+                           valuesDict=viewsDict,
                            help=' The default view. Default will depend on the '
                                 'input')
-    argParser.add_argument('--size', type=int, default=100,
+    argParser.add_argument('--size', type=int, default=64,
                            required=False,
                            help=' The default size of the displayed image, '
                                 'either in pixels or in percentage')
@@ -431,24 +356,44 @@ if __name__ == '__main__':
     argParser.add_argument('--boxsize', type=int, default=100,
                            required=False,
                            help=' an integer for pick size(Default=100).')
-    argParser.add_argument('--shape', default='RECT',
-                           required=False, choices=['RECT', 'CIRCLE', 'CENTER'
-                                                    'SEGMENT'],
+    shapeDict = {
+        'RECT': SHAPE_RECT,
+        'CIRCLE': SHAPE_CIRCLE,
+        'CENTER': SHAPE_CENTER,
+        'SEGMENT': SHAPE_SEGMENT
+    }
+    shape_params = capitalizeStrList(shapeDict.keys())
+    argParser.add_argument('--shape', default=SHAPE_RECT,
+                           required=False, choices=shape_params,
+                           valuesDict=shapeDict,
+                           action=ValidateValues,
                            help=' the shape type '
                                 '[CIRCLE, RECT, CENTER or SEGMENT]')
+    pickerDict = {
+        'default': DEFAULT_MODE,
+        'filament': FILAMENT_MODE
+    }
+    picker_params = capitalizeStrList(shapeDict.keys())
     argParser.add_argument('--picker-mode', default='default', required=False,
-                           choices=['default', 'filament'],
+                           choices=picker_params, valuesDict=pickerDict,
+                           action=ValidateValues,
                            help=' the picker type [default or filament]')
-    argParser.add_argument('--remove-rois', type=str, default='on',
+    argParser.add_argument('--remove-rois', type=str, default=True,
                            required=False, choices=on_off,
+                           action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Enable/disable the option. '
                                 'The user will be able to eliminate rois')
-    argParser.add_argument('--roi-aspect-locked', type=str, default='on',
+    argParser.add_argument('--roi-aspect-locked', type=str, default=True,
                            required=False, choices=on_off,
+                           action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Enable/disable the option. '
                                 'The rois will retain the aspect ratio')
-    argParser.add_argument('--roi-centered', type=str, default='on',
+    argParser.add_argument('--roi-centered', type=str, default=True,
                            required=False, choices=on_off,
+                           action=ValidateValues,
+                           valuesDict=on_off_dict,
                            help=' Enable/disable the option. '
                                 'The rois will work accordance with its center')
     # COLUMNS PARAMS
@@ -482,40 +427,26 @@ if __name__ == '__main__':
     kwargs['files'] = files
     kwargs['zoom'] = args.zoom
     kwargs['histogram'] = args.histogram
-    kwargs['roi'] = on_off[1]
-    kwargs['menu'] = on_off[1]
-    kwargs['popup'] = on_off[1]
-    kwargs['tool_bar'] = args.tool_bar
-    kwargs['img_desc'] = on_off[1]
+    kwargs['roi'] = False
+    kwargs['menu'] = False
+    kwargs['popup'] = False
+    kwargs['toolBar'] = args.tool_bar
+    kwargs['img_desc'] = False
     kwargs['fit'] = args.fit
     kwargs['axis'] = args.axis
     kwargs['size'] = args.size
-    kwargs['max_cell_size'] = 300
-    kwargs['min_cell_size'] = 20
+    kwargs['maxCellSize'] = 300
+    kwargs['minCellSize'] = 25
     kwargs['zoom_units'] = PIXEL_UNITS
-    kwargs['views'] = [DataView.GALLERY, DataView.COLUMNS, DataView.ITEMS]
+    kwargs['views'] = {GALLERY: {}, COLUMNS: {}, ITEMS: {}}
 
-    views = {'gallery': DataView.GALLERY,
-             'columns': DataView.COLUMNS,
-             'items': DataView.ITEMS,
-             'slices': DataView.SLICES}
-    kwargs['view'] = views.get(args.view, DataView.COLUMNS)
-    kwargs['selection_mode'] = AbstractView.MULTI_SELECTION
+    kwargs['view'] = args.view
+    kwargs['selectionMode'] = PagingView.MULTI_SELECTION
 
     # Picker params
     kwargs['boxsize'] = args.boxsize
-    kwargs['picker_mode'] = DEFAULT_MODE \
-        if args.picker_mode == 'default' else FILAMENT_MODE
-    if kwargs['picker_mode'] == DEFAULT_MODE:
-        if args.shape == 'RECT':
-            kwargs['shape'] = SHAPE_RECT
-        elif args.shape == 'CIRCLE':
-            kwargs['shape'] = SHAPE_CIRCLE
-        else:
-            kwargs['shape'] = SHAPE_CENTER
-    else:
-        kwargs['shape'] = \
-            SHAPE_CENTER if args.shape == 'CENTER' else SHAPE_SEGMENT
+    kwargs['picker_mode'] = args.picker_mode
+    kwargs['shape'] = args.shape
     kwargs['remove_rois'] = args.remove_rois
     kwargs['roi_aspect_locked'] = args.roi_aspect_locked
     kwargs['roi_centered'] = args.roi_centered
@@ -539,7 +470,7 @@ if __name__ == '__main__':
             return
 
         if isinstance(viewWidget, DataView):
-            size = viewWidget.getPreferedSize()
+            size = viewWidget.getPreferredSize()
             x, y, w, h = getPreferedBounds(size[0], size[1])
         elif (isinstance(viewWidget, ImageView) or
                 isinstance(viewWidget, SlicesView) or
@@ -550,12 +481,10 @@ if __name__ == '__main__':
             else:
                 toolBar = viewWidget.getToolBar()
                 toolWith = toolBar.getPanelMinSize() + toolBar.width()
-
-            x, y, w, h = getPreferedBounds(max(viewWidget.width(), imageDim.x),
-                                           max(viewWidget.height(),
-                                               imageDim.y))
-            size = QSize(imageDim.x, imageDim.y).scaled(w, h,
-                                                        Qt.KeepAspectRatio)
+            dx, dy = imageDim[0], imageDim[1]
+            x, y, w, h = getPreferedBounds(max(viewWidget.width(), dx),
+                                           max(viewWidget.height(), dy))
+            size = QSize(dx, dy).scaled(w, h, Qt.KeepAspectRatio)
             dw, dh = w - size.width(), h - size.height()
             x, y, w, h = x + dw/2 - toolWith, y + dh/2, \
                          size.width() + 2 * toolWith, size.height()
@@ -587,15 +516,15 @@ if __name__ == '__main__':
 
     try:
         d = None
-        if args.picker == 'on' or isinstance(args.picker, dict):
+        if args.picker in ['on', 'On'] or isinstance(args.picker, dict):
             if files and files[0] == str(os.getcwd()):
                 files = None
-            kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
+            kwargs["selectionMode"] = PagingView.SINGLE_SELECTION
             view = PickerView(None, createPickerModel(files, args.boxsize),
                               sources=args.picker, **kwargs)
             view.setWindowTitle("EM-PICKER")
             d = view.getImageDim()
-        elif args.cmp == 'on' or isinstance(args.cmp, list):
+        elif args.cmp in ['on', 'On'] or args.cmp:
             view = CmpView(None,
                            args.cmp if isinstance(args.cmp, list) else files)
             view.setWindowTitle('EM-COMPARATOR')
@@ -611,87 +540,65 @@ if __name__ == '__main__':
                 raise Exception("Input file '%s' does not exists. " % files)
 
             if os.path.isdir(files):
-                kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
+                kwargs['selectionMode'] = PagingView.SINGLE_SELECTION
+                kwargs['view'] = args.view or COLUMNS
                 view = BrowserWindow(None, files, **kwargs)
             elif EmPath.isTable(files):  # Display the file as a Table:
-                if not args.view == 'slices':
-                    t = EmTable.load(files)  # name, table
+                if not args.view == SLICES:
                     if args.visible or args.render:
-                        tableViewConfig = \
-                            TableViewConfig.fromTable(t[1], args.visible)
-                        renderCount = 0
-                        for colConfig in tableViewConfig:
-                            colName = colConfig.getName()
-                            if args.visible:
-                                colConfig['visible'] = colName in args.visible
-                            if args.render:
-                                ren = colName in args.render
-                                colConfig['renderable'] = ren
-                                renderCount += 1 if ren else 0
-                        if not renderCount == len(args.render):
-                            raise Exception('Invalid renderable column')
+                        # FIXME[phv] create the TableConfig
+                        pass
                     else:
                         tableViewConfig = None
                     if args.sort:
-                        colName = t[1].getColumn(args.sort[0]).getName()
-                        order = " " + args.sort[1] if len(args.sort) > 1 else ""
-                        t[1].sort([colName + order])
-                    view = createDataView(t[1], tableViewConfig, t[0],
-                                          views.get(args.view,
-                                                    DataView.COLUMNS),
-                                          dataSource=files,
-                                          **kwargs)
+                        # FIXME[phv] sort by the given column
+                        pass
+                    kwargs['view'] = args.view or COLUMNS
+                    view = ViewsFactory.createDataView(files, **kwargs)
                     fitViewSize(view, d)
                 else:
                     raise Exception("Invalid display mode for table: '%s'"
                                     % args.view)
-            elif EmPath.isImage(files) or EmPath.isVolume(files) \
-                    or EmPath.isStack(files):
+            elif EmPath.isData(files):
                 # *.mrc may be image, stack or volume. Ask for dim.n
-                d = ImageManager.getDim(files)
-                if d.n == 1:  # Single image or volume
-                    if d.z == 1:  # Single image
-                        view = createImageView(files, **kwargs)
+                x, y, z, n = ImageManager().getDim(files)
+                if n == 1:  # Single image or volume
+                    if z == 1:  # Single image
+                        view = ViewsFactory.createImageView(files, **kwargs)
                     else:  # Volume
-                        mode = args.view or 'slices'
-                        if mode == 'slices' or mode == 'gallery':
-                            kwargs['view'] = views[mode]
-                            kwargs['tool_bar'] = 'off'
-                            kwargs['axis'] = 'off'
-                            kwargs["selection_mode"] = \
-                                AbstractView.SINGLE_SELECTION
-                            view = createVolumeView(files, **kwargs)
+                        mode = args.view or SLICES
+                        if mode == SLICES or mode == GALLERY:
+                            kwargs['toolBar'] = False
+                            kwargs['axis'] = False
+                            sm = PagingView.SINGLE_SELECTION
+                            kwargs['selectionMode'] = sm
+                            view = ViewsFactory.createVolumeView(files,
+                                                                 **kwargs)
                         else:
-                            raise Exception("Invalid display mode for volume: "
-                                            "'%s'" % mode)
+                            raise Exception("Invalid display mode for volume")
                 else:  # Stack
-                    kwargs["selection_mode"] = AbstractView.SINGLE_SELECTION
-                    if d.z > 1:  # volume stack
-                        mode = args.view or 'slices'
-                        if mode == 'slices':
-                            kwargs['tool_bar'] = 'off'
-                            kwargs['axis'] = 'off'
-                            view = createVolumeView(files, **kwargs)
+                    kwargs['selectionMode'] = PagingView.SINGLE_SELECTION
+                    if z > 1:  # volume stack
+                        mode = args.view or SLICES
+                        if mode == SLICES:
+                            kwargs['toolBar'] = False
+                            kwargs['axis'] = False
+                            view = ViewsFactory.createVolumeView(files,
+                                                                 **kwargs)
                         else:
-                            view = createDataView(
-                                EmTable.fromStack(files),
-                                TableViewConfig.createStackConfig(),
-                                ['Stack'], views.get(args.view,
-                                                     DataView.GALLERY),
-                                **kwargs)
+                            kwargs['view'] = GALLERY
+                            view = ViewsFactory.createDataView(files, **kwargs)
                     else:
-                        mode = args.view or ('slices' if d.x > MOVIE_SIZE
-                                             else 'gallery')
-                        if mode == 'slices':
-                            view = createSlicesView(files, **kwargs)
+                        mode = args.view or (SLICES if x > MOVIE_SIZE
+                                             else GALLERY)
+                        if mode == SLICES:
+                            view = ViewsFactory.createSlicesView(files,
+                                                                 **kwargs)
                         else:
-                            view = createDataView(
-                                EmTable.fromStack(files),
-                                TableViewConfig.createStackConfig(),
-                                ['Stack'], views.get(mode, DataView.GALLERY),
-                                **kwargs)
+                            kwargs['view'] = mode
+                            view = ViewsFactory.createDataView(files, **kwargs)
             elif EmPath.isStandardImage(files):
-                view = createImageView(files, **kwargs)
+                view = ViewsFactory.createImageView(files, **kwargs)
             else:
                 view = None
                 raise Exception("Can't perform a view for this file.")
