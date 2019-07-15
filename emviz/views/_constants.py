@@ -9,6 +9,12 @@ GALLERY = 2
 ITEMS = 4
 SLICES = 8
 
+# axis positions
+AXIS_TOP_LEFT = 0  # axis in top-left
+AXIS_TOP_RIGHT = 1  # axis in top-right
+AXIS_BOTTOM_RIGHT = 2  # axis in bottom-right
+AXIS_BOTTOM_LEFT = 3  # axis in bottom-left
+
 # view data
 NAME = 1
 CLASS = 2

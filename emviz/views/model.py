@@ -36,8 +36,9 @@ class TablePageItemModel(QAbstractItemModel):
     def _getPageValue(self, row, col, role=Qt.DisplayRole):
         """ Return the value for specified column and row in the current page
         """
-        if self._pagingInfo.pageSize > 1:
-            row += (self._pagingInfo.currentPage - 1)*self._pagingInfo.pageSize
+        pi = self._pagingInfo
+        if pi.pageSize > 1:
+            row += (pi.currentPage - 1) * pi.pageSize
         if role == DATA_ROLE:
             return self._model.getData(row, col)
 
@@ -106,9 +107,12 @@ class TablePageItemModel(QAbstractItemModel):
             d = self._displayConfig
             cc = d.getColumnConfig(col)
             labels = cc.getLabels()
-            ret = ['%s=%s' % (d.getColumnConfig(i).getLabel(),
-                              self._getPageValue(row, i))
-                   for i in labels]
+            try:
+                ret = ['%s=%s' % (d.getColumnConfig(i).getLabel(),
+                                  self._getPageValue(row, i))
+                       for i in labels]
+            except RuntimeError:
+                print('Error labels =', labels)
             return ret
 
         if role == Qt.DisplayRole and t != TYPE_BOOL:
@@ -211,6 +215,8 @@ class TablePageItemModel(QAbstractItemModel):
         if qModelIndex.isValid():
             col = qModelIndex.column()
             cc = self._displayConfig.getColumnConfig(col)
+            if cc is None:
+                return fl
             if cc[EDITABLE]:
                 fl |= Qt.ItemIsEditable
             if cc.getType() == TYPE_BOOL:

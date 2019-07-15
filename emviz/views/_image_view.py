@@ -9,17 +9,13 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
 
 from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
                            TriggerAction, ZoomSpinBox)
+from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT)
 
 
 class ImageView(QWidget):
     """ The ImageView widget provides functionality for display images and
     performing basic operations over the view, such as: rotations, zoom, flips,
     move, levels. """
-
-    AXIS_TOP_LEFT = 0  # axis in top-left
-    AXIS_TOP_RIGHT = 1  # axis in top-right
-    AXIS_BOTTOM_RIGHT = 2  # axis in bottom-right
-    AXIS_BOTTOM_LEFT = 3  # axis in bottom-left
 
     def __init__(self, parent, model=None, **kwargs):
         """
@@ -48,7 +44,14 @@ class ImageView(QWidget):
         axisPos:   (Bool) The axis position.
                    Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                    AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
+        axisColor  (str) The axis color. Example: '#00FFAF'
         axis:      (Bool) Show/hide de view's axes
+        labelX:    (dict) Dictionary with label properties, like CSS style, text
+                   Keys for dict:
+                      - labelStyle: (dict) CSS style. Example:
+                                          {'color': '#FFF', 'font-size': '14pt'}
+                      - labelText:  (str) The label text
+        labelY:    Same as labelY.
         levels:    (min, max) Pass the min and max range that will be used for
                    image display. By default is None, so the data from the
                    pixel values will be used. Passing a different range is
@@ -65,18 +68,21 @@ class ImageView(QWidget):
         self._rotationStep = 90
         self._scale = 1
 
-        self._showToolBar = kwargs.get("toolBar", True)
-        self._showRoiBtn = kwargs.get("roi", False)
-        self._showMenuBtn = kwargs.get("menu", False)
-        self._showHistogram = kwargs.get("histogram", False)
-        self._showPopup = kwargs.get("popup", False)
-        self._showXaxis = kwargs.get("axis", True)
-        self._showYaxis = kwargs.get("axis", True)
-        self._fitToSize = kwargs.get("fit", True)
-        self._autoFill = kwargs.get("autoFill", False)
-        self._pgButtons = kwargs.get("hideButtons", False)
-        self._axisPos = kwargs.get("axisPos", self.AXIS_BOTTOM_LEFT)
-        self._levels = kwargs.get("levels", None)
+        self._showToolBar = kwargs.get('toolBar', True)
+        self._showRoiBtn = kwargs.get('roi', False)
+        self._showMenuBtn = kwargs.get('menu', False)
+        self._showHistogram = kwargs.get('histogram', False)
+        self._showPopup = kwargs.get('popup', False)
+        self._showXaxis = kwargs.get('axis', True)
+        self._labelXaxis = kwargs.get('labelX', {})
+        self._labelYaxis = kwargs.get('labelY', {})
+        self._showYaxis = kwargs.get('axis', True)
+        self._fitToSize = kwargs.get('fit', True)
+        self._autoFill = kwargs.get('autoFill', False)
+        self._pgButtons = kwargs.get('hideButtons', False)
+        self._axisPos = kwargs.get('axisPos', AXIS_BOTTOM_LEFT)
+        self._axisColor = kwargs.get('axisColor')
+        self._levels = kwargs.get('levels', None)
 
         self.__setupGUI()
         self.__setupImageView()
@@ -130,7 +136,7 @@ class ImageView(QWidget):
         toolbar = QToolBar(displayPanel)
         toolbar.addWidget(QLabel('Axis ', toolbar))
         actAxis = MultiStateAction(
-            toolbar, states=[(self.AXIS_BOTTOM_LEFT,
+            toolbar, states=[(AXIS_BOTTOM_LEFT,
                               qta.icon('fa.long-arrow-up',
                                        'fa.long-arrow-right',
                                        options=[{'offset': (-0.3, 0),
@@ -138,7 +144,7 @@ class ImageView(QWidget):
                                                 {'offset': (0, 0.3),
                                                  'scale_factor': 0.8}
                                                 ]), ''),
-                             (self.AXIS_TOP_LEFT,
+                             (AXIS_TOP_LEFT,
                               qta.icon('fa.long-arrow-down',
                                        'fa.long-arrow-right',
                                        options=[{'offset': (-0.3, 0),
@@ -147,7 +153,7 @@ class ImageView(QWidget):
                                                  'scale_factor': 0.8}
                                                 ]), '')])
         actAxis.setText('Axis origin')
-        actAxis.set(self.AXIS_BOTTOM_LEFT)
+        actAxis.set(AXIS_BOTTOM_LEFT)
         actAxis.stateChanged.connect(self.__actAxisTriggered)
         toolbar.addAction(actAxis)
 
@@ -244,12 +250,11 @@ class ImageView(QWidget):
         """
         plotItem = self._imageView.getView()
         viewBox = plotItem
-
         if isinstance(plotItem, pg.PlotItem):
             visible = {
                 'bottom': False, 'left': False, 'top': False, 'right': False}
             viewBox = viewBox.getViewBox()
-            if self._axisPos == self.AXIS_BOTTOM_LEFT:
+            if self._axisPos == AXIS_BOTTOM_LEFT:
                 if viewBox.yInverted():
                     plotItem.invertY(False)
                     viewBox.sigYRangeChanged.emit(
@@ -257,7 +262,7 @@ class ImageView(QWidget):
                 if viewBox.xInverted():
                     plotItem.invertX(False)
                 visible.update(bottom=True, left=True)
-            elif self._axisPos == self.AXIS_TOP_LEFT:
+            elif self._axisPos == AXIS_TOP_LEFT:
                 if not viewBox.yInverted():
                     plotItem.invertY(True)
                     viewBox.sigYRangeChanged.emit(
@@ -265,11 +270,11 @@ class ImageView(QWidget):
                 if viewBox.xInverted():
                     plotItem.invertX(False)
                 visible.update(top=True, left=True)
-            elif self._axisPos == self.AXIS_TOP_RIGHT:
+            elif self._axisPos == AXIS_TOP_RIGHT:
                 if not viewBox.xInverted():
                     plotItem.invertX(True)
                 visible.update(top=True, right=True)
-            else:  # self.AXIS_BOTTOM_RIGHT:
+            else:  # AXIS_BOTTOM_RIGHT:
                 if viewBox.yInverted():
                     plotItem.invertY(False)
                     viewBox.sigYRangeChanged.emit(
@@ -287,6 +292,18 @@ class ImageView(QWidget):
                 plotItem.showAxis(k, value)
                 if value:
                     axis = plotItem.getAxis(k)
+                    if self._axisColor:
+                        axis.setPen({'color': self._axisColor})
+                    if k == 'left' or k == 'right':
+                        d = self._labelXaxis
+                    elif k == 'bottom' or k == 'top':
+                        d = self._labelYaxis
+                    else:
+                        d = {}
+                    s = d.get('labelStyle') or {}
+                    axis.setLabel(text=d.get('labelText', ''),
+                                  units=None, unitPrefix=None,
+                                  **s)
                     axis.setAutoFillBackground(self._autoFill)
                     axis.setZValue(0)
                     axis.linkedViewChanged(viewBox)

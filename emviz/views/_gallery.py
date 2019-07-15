@@ -333,7 +333,7 @@ class GalleryView(PagingView):
             margin = 10
             if lSize > 0:
                 maxWidth = 0
-                r = self._model.getRowsCount()
+                r = m.rowCount()
                 fontMetrics = self._listView.fontMetrics()
 
                 for i in random_sample(range(r), min(10, r)):

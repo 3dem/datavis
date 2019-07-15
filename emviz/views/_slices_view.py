@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSizePolicy)
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent, Qt
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QSizePolicy, QHBoxLayout)
 
 from emviz.models import EmptySlicesModel
 from emviz.widgets import SpinSlider
@@ -59,7 +59,10 @@ class SlicesView(QWidget):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._imageView)
-        layout.addWidget(self._spinSlider)
+        self._spinSlider.setMaximumWidth(400)
+        l = QHBoxLayout()
+        l.addWidget(self._spinSlider, Qt.AlignCenter)
+        layout.addLayout(l)
 
         self._spinSlider.sigValueChanged.connect(self._onSliceChanged)
 
