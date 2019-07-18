@@ -73,7 +73,7 @@ class EmTableModel(models.TableModel):
         # Only really load table if we have created the em.TableIO
         if self._tableIO is not None:
             self._tableIO.read(tableName, self._table)
-            self.__updateColsMap()
+        self.__updateColsMap()
 
     def iterColumns(self):
         for c in self._table.iterColumns():

@@ -1,4 +1,6 @@
 
+import os.path as Path
+
 
 class Coordinate:
     """
@@ -167,12 +169,15 @@ class PickerDataModel:
 
     def addMicrograph(self, mic):
         """ Add a new micrograph to the model.
-        Params:
-            mic: could be Micrograph instance or a path.
+        mic:   (Micrograph) A Micrograph instance. If the micrograph ID is -1
+               then a new ID will be assigned to the micrograph.
+        Raise Exception if mic is not instance of Micrograph
         """
-        if isinstance(mic, str) or isinstance(mic, unicode):
-            self._lastId += 1
-            mic = Micrograph(self._lastId, mic)
+        if not isinstance(mic, Micrograph):
+            raise Exception("Invalid micrograph instance.")
+
+        if mic.getId() == -1:
+            mic.setId(self.nextId())
 
         self._micrographs[self._lastId] = mic
 
@@ -190,10 +195,8 @@ class PickerDataModel:
         :return: dict value
         """
         ret = self._labels.get(labelName)
-
-        return ret if ret \
-            else self._privateLabels.get(labelName,
-                                         self._privateLabels.get('D'))
+        pl = self._privateLabels
+        return ret if ret else pl.get(labelName, pl.get('D'))
 
     def nextId(self):
         """
@@ -202,4 +205,34 @@ class PickerDataModel:
         self._lastId += 1
         return self._lastId
 
+    def getData(self, micId):
+        """
+        Return the micrograph image data
+        :param micId: (int) The micrograph id
+        :return: The micrograph image data
+        """
+        raise Exception('Not implemented')
 
+
+def parseTextCoordinates(path):
+    """ Parse (x, y) coordinates from a texfile assuming
+     that the first two columns on each line are x and y.
+    """
+    with open(path) as f:
+        for line in f:
+            li = line.strip()
+            if li:
+                parts = li.strip().split()
+                size = len(parts)
+                if size == 2:  # (x, y)
+                    yield int(parts[0]), int(parts[1]), ''
+                elif size == 3:  # (x, y, label)
+                    yield int(parts[0]), int(parts[1]), str(parts[2])
+                elif size == 4:  # (x1, y1, x2, y2)
+                    yield int(parts[0]), int(parts[1]), \
+                          int(parts[2]), int(parts[3]), ''
+                elif size == 5:  # (x1, y1, x2, y2, label):
+                    yield int(parts[0]), int(parts[1]), \
+                          int(parts[2]), int(parts[3]), str(parts[4])
+                else:
+                    yield ''

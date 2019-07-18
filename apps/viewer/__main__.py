@@ -11,8 +11,8 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QWidget, QHBoxLayout,
                              QSplitter, QSizePolicy, QVBoxLayout,
                              QPushButton, QAbstractItemView)
 
-from emviz.core import (EmPath, VolImageManager, ModelsFactory,
-                        ViewsFactory, MOVIE_SIZE, ImageManager)
+from emviz.core import (EmPath, VolImageManager, ViewsFactory, MOVIE_SIZE,
+                        ImageManager)
 from emviz.views import (DataView, PIXEL_UNITS, GALLERY, COLUMNS, ITEMS, SLICES,
                          ImageView, SlicesView, SHAPE_CIRCLE, SHAPE_RECT,
                          SHAPE_SEGMENT,
@@ -373,8 +373,9 @@ if __name__ == '__main__':
         'default': DEFAULT_MODE,
         'filament': FILAMENT_MODE
     }
-    picker_params = capitalizeStrList(shapeDict.keys())
-    argParser.add_argument('--picker-mode', default='default', required=False,
+    picker_params = capitalizeStrList(pickerDict.keys())
+    argParser.add_argument('--picker-mode', type=str, default=DEFAULT_MODE,
+                           required=False,
                            choices=picker_params, valuesDict=pickerDict,
                            action=ValidateValues,
                            help=' the picker type [default or filament]')
@@ -444,12 +445,12 @@ if __name__ == '__main__':
     kwargs['selectionMode'] = PagingView.MULTI_SELECTION
 
     # Picker params
-    kwargs['boxsize'] = args.boxsize
-    kwargs['picker_mode'] = args.picker_mode
+    kwargs['boxSize'] = args.boxsize
+    kwargs['pickerMode'] = args.picker_mode
     kwargs['shape'] = args.shape
-    kwargs['remove_rois'] = args.remove_rois
-    kwargs['roi_aspect_locked'] = args.roi_aspect_locked
-    kwargs['roi_centered'] = args.roi_centered
+    kwargs['removeRois'] = args.remove_rois
+    kwargs['roiAspectLocked'] = args.roi_aspect_locked
+    kwargs['roiCentered'] = args.roi_centered
 
     def getPreferedBounds(width=None, height=None):
         size = QApplication.desktop().size()
@@ -519,11 +520,11 @@ if __name__ == '__main__':
         if args.picker in ['on', 'On'] or isinstance(args.picker, dict):
             if files and files[0] == str(os.getcwd()):
                 files = None
-            kwargs["selectionMode"] = PagingView.SINGLE_SELECTION
-            view = PickerView(None, createPickerModel(files, args.boxsize),
-                              sources=args.picker, **kwargs)
+            kwargs['selectionMode'] = PagingView.SINGLE_SELECTION
+            view = ViewsFactory.createPickerView(files, sources=args.picker,
+                                                 **kwargs)
             view.setWindowTitle("EM-PICKER")
-            d = view.getImageDim()
+            d = view.getPreferredSize()
         elif args.cmp in ['on', 'On'] or args.cmp:
             view = CmpView(None,
                            args.cmp if isinstance(args.cmp, list) else files)

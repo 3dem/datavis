@@ -1,4 +1,5 @@
 
+import os.path as Path
 import numpy as np
 
 import em
@@ -6,6 +7,7 @@ import emviz.models as models
 from ._empath import EmPath
 from ._emtype import EmType
 from ._emtable_model import EmTableModel, EmStackModel, EmVolumeModel
+from ._empicker import EmPickerDataModel
 
 
 class ModelsFactory:
@@ -26,7 +28,7 @@ class ModelsFactory:
         """
         Creates an TableModel reading path as an em.Table
         :param path: (str) The table path
-        :return:     Tuple ([table names], TableModel)
+        :return:     TableModel
         """
         if EmPath.isTable(path):
             model = EmTableModel(path)
@@ -39,6 +41,47 @@ class ModelsFactory:
             raise Exception("Unknown file type: %s" % path)
 
         return model
+
+    @classmethod
+    def createPickerModel(cls, files, boxsize):
+        """ Create the PickerDataModel from the given list of files
+         files:    (list) The list of files
+         boxsize:  (int) The box size
+         """
+        model = EmPickerDataModel()
+
+        if isinstance(files, list):
+            for f in files:
+                if not Path.exists(f):
+                    raise Exception("Input file '%s' does not exists. " % f)
+                if not Path.isdir(f):
+                    model.addMicrograph(models.Micrograph(-1, f))
+                else:
+                    raise Exception('Directories are not supported for '
+                                    'picker model.')
+
+        model.setBoxSize(boxsize)
+        return model
+
+    @classmethod
+    def createEmptyTableModel(cls, columns=[]):
+        """
+        Creates an TableModel, initializing the table header from the given
+        ColumnInfo list
+        :param columns:  (list) List of ColumnInfo for table header
+                                initialization
+        :return: TableModel
+        """
+        Column = em.Table.Column
+        cols = []
+        for i, info in enumerate(columns):
+            if isinstance(info, models.ColumnInfo):
+                cols.append(Column(i + 1, info.getName(),
+                                   EmType.toModel(info.getType())))
+            else:
+                raise Exception("Invalid ColumnInfo.")
+
+        return EmTableModel(em.Table(cols))
 
     @classmethod
     def createStackModel(cls, path):

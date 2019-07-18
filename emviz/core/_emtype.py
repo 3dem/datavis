@@ -32,6 +32,13 @@ class EmType:
         em.typeUInt64: np.uint64
     }  # FIXME [hv] the others?
 
+    MODELS_TYPE_TO_EM_TYPE = {
+        models.TYPE_BOOL: em.typeBool,
+        models.TYPE_INT: em.typeInt32,
+        models.TYPE_FLOAT: em.typeFloat,
+        models.TYPE_STRING: em.typeString
+    }
+
     @classmethod
     def toModel(cls, emType, default=None):
         """ Return an equivalent models.TYPE corresponding to this em.Type. """
@@ -42,4 +49,7 @@ class EmType:
         """ Return an equivalent numpy type corresponding to this em.Type. """
         return cls.TYPE_TO_NUMPY.get(emType, default)
 
-
+    @classmethod
+    def toEmType(cls, mType, default=None):
+        """ Return an equivalent em.TYPE corresponding to this models.Type. """
+        return cls.MODELS_TYPE_TO_EM_TYPE.get(mType, default)

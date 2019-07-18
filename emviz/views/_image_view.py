@@ -132,7 +132,7 @@ class ImageView(QWidget):
         toolbar.addWidget(QLabel('Histogram ', toolbar))
         self._actHistOnOff = OnOffAction()
         self._actHistOnOff.set(self._showHistogram)
-        self._actHistOnOff.stateChanged.connect(self.__actHistOnOffChanged)
+        self._actHistOnOff.sigStateChanged.connect(self.__actHistOnOffChanged)
         toolbar.addAction(self._actHistOnOff)
         vLayout.addWidget(toolbar)
 
@@ -158,13 +158,13 @@ class ImageView(QWidget):
                                                 ]), '')])
         actAxis.setText('Axis origin')
         actAxis.set(AXIS_BOTTOM_LEFT)
-        actAxis.stateChanged.connect(self.__actAxisTriggered)
+        actAxis.sigStateChanged.connect(self.__actAxisTriggered)
         toolbar.addAction(actAxis)
 
         # -- Axis On/Off --
         actAxisOnOff = OnOffAction(toolbar)
         actAxisOnOff.set(self._xAxisArgs['visible'])
-        actAxisOnOff.stateChanged.connect(self.__actAxisOnOffTriggered)
+        actAxisOnOff.sigStateChanged.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(actAxisOnOff)
         vLayout.addWidget(toolbar)
 

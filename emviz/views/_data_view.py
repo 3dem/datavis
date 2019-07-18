@@ -5,12 +5,11 @@ import os
 from collections import OrderedDict
 
 from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal)
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QSpinBox,
-                             QLabel, QStatusBar, QComboBox, QStackedLayout,
-                             QLineEdit, QActionGroup, QMessageBox, QSplitter,
-                             QSizePolicy, QPushButton, QMenu, QTableWidget,
-                             QTableWidgetItem)
-from PyQt5.QtGui import (QIcon, QStandardItemModel, QKeySequence, QStandardItem)
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QLabel, QStatusBar,
+                             QComboBox, QStackedLayout, QLineEdit, QActionGroup,
+                             QMessageBox, QSplitter, QSizePolicy, QPushButton,
+                             QMenu, QTableWidget, QTableWidgetItem)
+from PyQt5.QtGui import (QStandardItemModel, QKeySequence, QStandardItem)
 import qtawesome as qta
 
 
@@ -1190,21 +1189,3 @@ class DataView(QWidget):
         v = self.getView()
         w, h = v.getPreferredSize()
         return w + self._leftToolBar.width() + 180, h + self._toolBar.height()
-
-    def setLabelIndexes(self, labels):
-        """
-        Initialize the indexes of the columns that will be displayed as text
-        below the images
-        labels (list)
-        """
-        # FIXME[phv] Review the label indexes
-        #widget = self.getViewWidget(GALLERY)
-        #if widget is not None:
-        #    widget.setLabelIndexes(labels)
-
-        #widget = self.getViewWidget(COLUMNS)
-        #if widget is not None:
-        #    widget.setLabelIndexes(labels)
-        pass
-
-
