@@ -401,3 +401,12 @@ class ActionsToolBar(QWidget):
         widget.setStyleSheet(style)
         widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         return widget
+
+    def hasPanelVisible(self):
+        """
+        Return True if has any panel visible
+        """
+        for dock in self._docks:
+            if dock.isVisible():
+                return True
+        return False

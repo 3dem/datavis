@@ -91,7 +91,7 @@ tool_params1 = [
       'help': 'Select the picking strategy that you want to use. ',
       # display should be optional, for most params, a textbox is the default
       # for enum, a combobox is the default, other options could be sliders
-      'display': 'combo'  # or 'combo' or 'vlist' or 'hlist'
+      'display': 'combo'  # or 'combo' or 'vlist' or 'hlist' or 'slider'
     },
     {
         'name': 'threshold3',
@@ -477,18 +477,12 @@ if __name__ == '__main__':
                 isinstance(viewWidget, SlicesView) or
                 isinstance(viewWidget, PickerView)) and \
                 imageDim is not None:
-            if isinstance(viewWidget, SlicesView):
-                toolWith = 0
-            else:
-                toolBar = viewWidget.getToolBar()
-                toolWith = toolBar.getPanelMinSize() + toolBar.width()
             dx, dy = imageDim[0], imageDim[1]
             x, y, w, h = getPreferedBounds(max(viewWidget.width(), dx),
                                            max(viewWidget.height(), dy))
             size = QSize(dx, dy).scaled(w, h, Qt.KeepAspectRatio)
             dw, dh = w - size.width(), h - size.height()
-            x, y, w, h = x + dw/2 - toolWith, y + dh/2, \
-                         size.width() + 2 * toolWith, size.height()
+            x, y, w, h = x + dw/2, y + dh/2, size.width(), size.height()
         else:
             x, y, w, h = getPreferedBounds(100000,
                                            100000)
@@ -521,6 +515,7 @@ if __name__ == '__main__':
             if files and files[0] == str(os.getcwd()):
                 files = None
             kwargs['selectionMode'] = PagingView.SINGLE_SELECTION
+            kwargs['pickerParams'] = tool_params1
             view = ViewsFactory.createPickerView(files, sources=args.picker,
                                                  **kwargs)
             view.setWindowTitle("EM-PICKER")

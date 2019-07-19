@@ -3,18 +3,16 @@ import os
 from math import cos, sin
 from numpy import pi
 
-from PyQt5.QtCore import (pyqtSlot, Qt, QFile, QIODevice, QJsonDocument,
-                          QJsonParseError, QLocale, QMetaObject,
-                          QCoreApplication)
-from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QDoubleValidator,
-                         QIntValidator, QKeySequence, QPainterPath)
+from PyQt5.QtCore import (pyqtSlot, Qt, QMetaObject)
+from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QKeySequence,
+                         QPainterPath)
 import PyQt5.QtWidgets as qtw
 
 import pyqtgraph as pg
 import qtawesome as qta
 
 
-from emviz.widgets import OptionList, TriggerAction, OnOffAction
+from emviz.widgets import (TriggerAction, OnOffAction, DynamicWidgetsFactory)
 from emviz.models import (Micrograph, Coordinate, TableModel, ColumnConfig,
                           TYPE_STRING, TYPE_INT, EmptyTableModel, TableConfig,
                           parseTextCoordinates, ImageModel)
@@ -34,141 +32,27 @@ ERASE = 1
 DEFAULT_MODE = 0
 FILAMENT_MODE = 1
 
-picker_params1 = [
-    [
-        {
-            'name': 'threshold',
-            'type': 'float',
-            'value': 0.55,
-            'label': 'Quality threshold',
-            'help': 'If this is ... bla bla bla',
-            'display': 'default'
-        },
-        {
-            'name': 'thresholdBool',
-            'type': 'bool',
-            'value': True,
-            'label': 'Quality checked',
-            'help': 'If this is a boolean param'
-        }
-    ],
-    [
-        {
-            'name': 'threshold543',
-            'type': 'float',
-            'value': 0.67,
-            'label': 'Quality',
-            'help': 'If this is ... bla bla bla',
-            'display': 'default'
-        },
-        {
-            'name': 'threshold',
-            'type': 'float',
-            'value': 14.55,
-            'label': 'Quality threshold2',
-            'help': 'If this is ... bla bla bla',
-            'display': 'default'
-        }
-    ],
-    {
-        'name': 'threshold2',
-        'type': 'string',
-        'value': 'Explanation text',
-        'label': 'Threshold ex',
-        'help': 'If this is ... bla bla bla 2',
-        'display': 'default'
-    },
-    {
-        'name': 'text',
-        'type': 'string',
-        'value': 'Text example',
-        'label': 'Text',
-        'help': 'If this is ... bla bla bla for text'
-    },
-    {
-        'name': 'threshold4',
-        'type': 'float',
-        'value': 1.5,
-        'label': 'Quality',
-        'help': 'If this is ... bla bla bla for quality'
-    },
-    {
-      'name': 'picking-method',
-      'type': 'enum',  # or 'int' or 'string' or 'enum',
-      'choices': ['LoG', 'Swarm', 'SVM'],
-      'value': 1,  # values in enum are int, in this case it is 'LoG'
-      'label': 'Picking method',
-      'help': 'Select the picking strategy that you want to use. ',
-      # display should be optional, for most params, a textbox is the default
-      # for enum, a combobox is the default, other options could be sliders
-      'display': 'combo'  # or 'combo' or 'vlist' or 'hlist'
-    },
-    {
-        'name': 'threshold3',
-        'type': 'bool',
-        'value': True,
-        'label': 'Checked',
-        'help': 'If this is a boolean param'
-    }
-]
-
 
 class PickerView(qtw.QWidget):
 
     def __init__(self, parent, model, **kwargs):
-        """ Constructor
-        @param parent reference to the parent widget
-        @model input PickerDataModel
-        kwargs:
-           UI config params.
-           sources (dict): dict with tuples (mic-path, coordinates-path) or
-                           (mic-path, list) where list contains the coordinates
+        """
+        Constructor
+
+
+        :param parent:  Reference to the parent widget
+        :param model:  (emviz.models.PickerDataModel) The input picker model
+        :param kwargs:
+            - UI config params.
+            - sources :     (dict) dict with tuples (mic-path, coordinates-path)
+                            (mic-path, list) where list contains the coordinates
+            - pickerParams: (dict) The picker parameters specification
         """
         qtw.QWidget.__init__(self, parent)
         self._model = model
         self.__currentLabelName = 'Manual'
         self._handleSize = 8
         self.__pickerMode = kwargs.get('pickerMode', FILAMENT_MODE)
-        self.__pickerParams = {
-            'float': {
-                'type': float,
-                'display': {
-                    'default': qtw.QLineEdit
-                },
-                'validator': QDoubleValidator
-            },
-            'int': {
-                'type': int,
-                'display': {
-                    'default': qtw.QLineEdit
-                },
-                'validator': QIntValidator
-            },
-            'string': {
-                'type': str,
-                'display': {
-                    'default': qtw.QLineEdit
-                }
-            },
-            'bool': {
-                'type': bool,
-                'display': {
-                    'default': qtw.QCheckBox
-                }
-            },
-            'enum': {
-                'display': {
-                    'default': OptionList,
-                    'vlist': OptionList,
-                    'hlist': OptionList,
-                    'slider': qtw.QSlider,
-                    'combo': OptionList
-                }
-            }
-        }
-
-        self.__paramsWidgets = dict()
-
         self.__setupGUI(**kwargs)
 
         self._currentMic = None
@@ -225,6 +109,37 @@ class PickerView(qtw.QWidget):
         if self._tvModel.getRowsCount() > 0:
             self._cvImages.selectRow(0)
 
+    def __setupGUI(self, **kwargs):
+        """ Create the main GUI of the PickerView.
+        The GUI is composed of an ImageView. New action panels will be added to
+        the ImageView toolbar
+        """
+        self.resize(1097, 741)
+        horizontalLayout = qtw.QHBoxLayout(self)
+        horizontalLayout.setContentsMargins(1, 1, 1, 1)
+        self._imageView = ImageView(self, **kwargs)
+        imgViewToolBar = self._imageView.getToolBar()
+
+        viewWidget = qtw.QWidget(self)
+        viewLayout = qtw.QVBoxLayout(viewWidget)
+        viewLayout.setContentsMargins(1, 1, 1, 1)
+        viewLayout.addWidget(self._imageView)
+        self._labelMouseCoord = qtw.QLabel(self)
+        self._labelMouseCoord.setMaximumHeight(22)
+        self._labelMouseCoord.setAlignment(Qt.AlignRight)
+        viewLayout.addWidget(self._labelMouseCoord)
+        horizontalLayout.addWidget(viewWidget)
+
+        self._actionGroupPick = qtw.QActionGroup(self)
+        self._actionGroupPick.setExclusive(True)
+
+        self.__addControlsAction(imgViewToolBar)
+        self.__addMicrographsAction(imgViewToolBar, **kwargs)
+        self.__addPickerToolAction(imgViewToolBar, kwargs.get('pickerParams'))
+
+        self.setWindowTitle("Picker")
+        QMetaObject.connectSlotsByName(self)
+
     def __setup(self, **kwargs):
         """ Configure the PickerView. """
         v = kwargs.get("removeRois", True)
@@ -260,7 +175,7 @@ class PickerView(qtw.QWidget):
                                **kwargs)
         cvImages.setObjectName("columnsViewImages")
         verticalLayout.addWidget(cvImages)
-        # keep reference to tvImages
+        # keep reference to cvImages
         self._cvImages = cvImages
         self.__createColumsViewModel()
         actMics = TriggerAction(parent=toolbar, actionName='AMics',
@@ -268,7 +183,7 @@ class PickerView(qtw.QWidget):
         toolbar.addAction(actMics, micPanel, index=0, exclusive=False,
                           checked=True)
 
-    def __addPickerToolAction(self, toolbar):
+    def __addPickerToolAction(self, toolbar, pickerParams=None):
         """
         Add the picker tool actions to the given toolBar
         :param toolbar: The ImageView toolbar
@@ -366,26 +281,32 @@ class PickerView(qtw.QWidget):
         self._imageView.addAction(self._actionPickCenter)
         self._imageView.addAction(self._actionPickShowHide)
         gLayout.addWidget(tb)
-        self._paramsLayout = qtw.QGridLayout()
-        hLayout = qtw.QHBoxLayout()
-        hLayout.addLayout(self._paramsLayout)
-        hLayout.addStretch()
-        gLayout.addLayout(hLayout)
 
-        self.__addVParamsWidgets(self._paramsLayout, picker_params1)
-        if not self._paramsLayout.isEmpty():
-            label = qtw.QLabel(self)
-            label.setText("<strong>Params:</strong>")
-            self._paramsLayout.addWidget(label, 0, 0, Qt.AlignLeft)
+        # Creating picker params widgets
 
-            button = qtw.QPushButton(self)
-            button.setText("Collect")
-            button.clicked.connect(self.__collectParams)
-            button.setStyleSheet("font-weight:bold;")
-            gLayout.addWidget(button)
+        if pickerParams is not None:
+            dFactory = DynamicWidgetsFactory()
+            dw = dFactory.createWidget(pickerParams)
+            if dw is not None:
+                vLayout = qtw.QVBoxLayout()
+                label = qtw.QLabel(self)
+                label.setText("<strong>Params:</strong>")
+                vLayout.addWidget(label, 0, Qt.AlignLeft)
+                vLayout.addWidget(dw)
+                button = qtw.QPushButton(self)
+                button.setText("Collect")
+                button.clicked.connect(self.__collectParams)
+                button.setStyleSheet("font-weight:bold;")
+                vLayout.addWidget(button)
+                gLayout.addLayout(vLayout)
+                dw.setMinimumSize(dw.sizeHint())
+        else:
+            dw = None
 
-        boxPanel.setFixedHeight(gLayout.totalSizeHint().height())
-
+        self.__paramsWidget = dw
+        sh = gLayout.totalSizeHint()
+        boxPanel.setFixedHeight(sh.height())
+        toolbar.setPanelMinSize(sh.width())
         self._actionGroupPick.addAction(self._actionPickCenter)
         toolbar.addAction(actPickerROIS, boxPanel, index=0, exclusive=False,
                           checked=True)
@@ -409,186 +330,20 @@ class PickerView(qtw.QWidget):
         toolbar.addAction(actControls, controlsPanel, index=0, exclusive=False,
                           checked=False)
 
-    def __setupGUI(self, **kwargs):
-        """ Create the main GUI of the PickerView.
-        The GUI is composed of an ImageView. New action panels will be added to
-        the ImageView toolbar
-        """
-        self.resize(1097, 741)
-        horizontalLayout = qtw.QHBoxLayout(self)
-        horizontalLayout.setContentsMargins(1, 1, 1, 1)
-        self._imageView = ImageView(self, **kwargs)
-        imgViewToolBar = self._imageView.getToolBar()
-
-        viewWidget = qtw.QWidget(self)
-        viewLayout = qtw.QVBoxLayout(viewWidget)
-        viewLayout.setContentsMargins(1, 1, 1, 1)
-        viewLayout.addWidget(self._imageView)
-        self._labelMouseCoord = qtw.QLabel(self)
-        self._labelMouseCoord.setMaximumHeight(22)
-        self._labelMouseCoord.setAlignment(Qt.AlignRight)
-        viewLayout.addWidget(self._labelMouseCoord)
-        horizontalLayout.addWidget(viewWidget)
-
-        self._actionGroupPick = qtw.QActionGroup(self)
-        self._actionGroupPick.setExclusive(True)
-
-        self.__addControlsAction(imgViewToolBar)
-        self.__addMicrographsAction(imgViewToolBar, **kwargs)
-        self.__addPickerToolAction(imgViewToolBar)
-
-        self.setWindowTitle("Picker")
-        self.retranslateUi()
-        QMetaObject.connectSlotsByName(self)
-
-    def __addHParamsWidgets(self, layout, params, row, col):
-        """
-        Add the params to the given layout in the row "row" from
-        the column "col"
-        """
-        for param in params:
-            if isinstance(param, list):
-                row, col = self.__addHParamsWidgets(layout, param, row, col)
-            elif isinstance(param, dict):
-                widget = self.__createParamWidget(param)
-                if widget is not None:
-                    label = param.get('label')
-                    if label is not None:
-                        lab = qtw.QLabel(self)
-                        lab.setText(label)
-                        lab.setToolTip(param.get('help', ""))
-                        layout.addWidget(lab, row, col, Qt.AlignRight)
-                        col += 1
-                    layout.addWidget(widget, row, col, 1, 1)
-                    col += 1
-        return row, col
-
-    def __addVParamsWidgets(self, layout, params):
-        """ Add the widgets created from params to the given QGridLayout """
-        row = layout.rowCount()
-        for param in params:
-            if isinstance(param, list):
-                col = 0
-                row, col = self.__addHParamsWidgets(layout,
-                                                    param, row, col)
-                row += 1
-            else:
-                col = 0
-                widget = self.__createParamWidget(param)
-                if widget is not None:
-                    label = param.get('label')
-                    if label is not None:
-                        lab = qtw.QLabel(self)
-                        lab.setText(label)
-                        lab.setToolTip(param.get('help', ""))
-                        layout.addWidget(lab, row, col, Qt.AlignRight)
-                        col += 1
-                    layout.addWidget(widget, row, col, 1, -1)
-                    row += 1
-
-    def __createParamWidget(self, param):
-        """
-        Creates the corresponding widget from the given param.
-        """
-        if not isinstance(param, dict):
-            return None
-
-        widgetName = param.get('name')
-        if widgetName is None:
-            return None  # rise exception??
-
-        valueType = param.get('type')
-        if valueType is None:
-            return None  # rise exception??
-
-        paramDef = self.__pickerParams.get(valueType)
-
-        if paramDef is None:
-            return None  # rise exception??
-
-        display = paramDef.get('display')
-        widgetClass = display.get(param.get('display', 'default'))
-
-        if widgetClass is None:
-            return None  # rise exception??
-
-        if valueType == 'enum':
-            widget = OptionList(parent=self, display=param.get('display',
-                                                               'default'),
-                                tooltip=param.get('help', ""), exclusive=True,
-                                buttonsClass=qtw.QRadioButton,
-                                options=param.get('choices'),
-                                defaultOption=param.get('value', 0))
-        else:
-            widget = widgetClass(self)
-            widget.setToolTip(param.get('help', ''))
-            self.__setParamValue(widget, param.get('value'))
-
-        widget.setObjectName(widgetName)
-
-        self.__paramsWidgets[widgetName] = param
-
-        if widgetClass == qtw.QLineEdit:
-            # widget.setClearButtonEnabled(True)
-            validatorClass = paramDef.get('validator')
-            if validatorClass is not None:
-                val = validatorClass()
-                if validatorClass == QDoubleValidator:
-                    loc = QLocale.c()
-                    loc.setNumberOptions(QLocale.RejectGroupSeparator)
-                    val.setLocale(loc)
-                widget.setValidator(val)
-            if valueType == 'float' or valueType == 'int':
-                widget.setFixedWidth(80)
-
-        return widget
-
-    def __setParamValue(self, widget, value):
-        """ Set the widget value"""
-        if isinstance(widget, qtw.QLineEdit):
-            widget.setText(str(value))
-        elif isinstance(widget, qtw.QCheckBox) and isinstance(value, bool):
-            widget.setChecked(value)
-
     def __removeHandles(self, roi):
         """ Remove all handles from the given roi """
         if roi is not None:
             for h in roi.getHandles():
                 roi.removeHandle(h)
 
-    @pyqtSlot()
-    def __collectParams(self):
-        """ Collect picker params """
-        self.__collectData(self._paramsLayout)
-        print(picker_params1)
-
-    def __collectData(self, item):
-        if isinstance(item, qtw.QVBoxLayout) or isinstance(item, qtw.QHBoxLayout):
-            for index in range(item.count()):
-                self.__collectData(item.itemAt(index))
-        elif isinstance(item, qtw.QWidgetItem):
-            widget = item.widget()
-            param = self.__paramsWidgets.get(widget.objectName())
-            if param is not None:
-                t = self.__pickerParams.get(param.get('type')).get('type')
-                if isinstance(widget, qtw.QLineEdit):
-                    if t is not None:
-                        text = widget.text()
-                        if text in ["", ".", "+", "-"]:
-                            text = 0
-                        param['value'] = t(text)
-                elif isinstance(widget, qtw.QCheckBox) and t == bool:
-                    # other case may be checkbox for enum: On,Off
-                    param['value'] = widget.isChecked()
-                elif isinstance(widget, OptionList):
-                    param['value'] = widget.getSelectedOptions()
-
     def __setupControlsTable(self):
         """ Setups the controls table (Help) """
         self._controlTable.setColumnCount(2)
         # Set table header
-        self._controlTable.setHorizontalHeaderItem(0, qtw.QTableWidgetItem("Tool"))
-        self._controlTable.setHorizontalHeaderItem(1, qtw.QTableWidgetItem("Help"))
+        self._controlTable.setHorizontalHeaderItem(0,
+                                                   qtw.QTableWidgetItem("Tool"))
+        self._controlTable.setHorizontalHeaderItem(1,
+                                                   qtw.QTableWidgetItem("Help"))
         # Add table items
         # Add row1
         flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled
@@ -655,6 +410,41 @@ class PickerView(qtw.QWidget):
             row = self._cvImages.getCurrentRow() % self._cvImages.getPageSize()
             self._tvModel.setValue(row, self._coordIndex, len(self._currentMic))
             self._cvImages.updatePage()
+
+    def __createColumsViewModel(self):
+        """ Setup the em table """
+        self._displayConfig = [
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)]
+        self._tvModel = _TableModel(self._displayConfig)
+        self._idIndex = 2
+        self._nameIndex = 0
+        self._coordIndex = 1
+
+    def __showHandlers(self, roi, show=True):
+        """ Show or hide the ROI handlers. """
+        if not isinstance(roi, pg.ScatterPlotItem):
+            funcName = 'show' if show else 'hide'
+            for h in roi.getHandles():
+                getattr(h, funcName)()  # show/hide
+
+    def __openImageFile(self, path, coord=None):
+        """
+        Open an em image for picking
+        :param path: file path
+        :param coord: coordinate list ([(x1,y1), (x2,y2)...])
+        """
+        if path:
+            try:
+                imgElem = Micrograph(-1,
+                                     path,
+                                     coord)
+                self._model.addMicrograph(imgElem)
+                self.__addMicToTable(imgElem)
+            except:
+                print(sys.exc_info())
+                self._showError(sys.exc_info()[2])
 
     def _showError(self, msg):
         """
@@ -744,9 +534,7 @@ class PickerView(qtw.QWidget):
         """
         _, ext = os.path.splitext(path)
 
-        if ext == '.json':
-            self.openPickingFile(path)
-        elif ext == '.box':
+        if ext == '.box':
             self._loadMicCoordinates(path, parserFunc=parseTextCoordinates,
                                      clear=not kwargs.get("appendCoord", False),
                                      showMic=kwargs.get("showMic", True))
@@ -769,24 +557,6 @@ class PickerView(qtw.QWidget):
             return pg.mkPen(color=label["color"], width=width)
 
         return pg.mkPen(color="#1EFF00", width=width)
-
-    def __createColumsViewModel(self):
-        """ Setup the em table """
-        self._displayConfig = [
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)]
-        self._tvModel = _TableModel(self._displayConfig)
-        self._idIndex = 2
-        self._nameIndex = 0
-        self._coordIndex = 1
-
-    def __showHandlers(self, roi, show=True):
-        """ Show or hide the ROI handlers. """
-        if not isinstance(roi, pg.ScatterPlotItem):
-            funcName = 'show' if show else 'hide'
-            for h in roi.getHandles():
-                getattr(h, funcName)()  # show/hide
 
     def _handleViewBoxClick(self, event):
         """ Invoked when the user clicks on the ViewBox
@@ -950,7 +720,6 @@ class PickerView(qtw.QWidget):
 
         # roi.sigRemoveRequested.connect(self._roiRemoveRequested)
         # roi.sigClicked.connect(self._roiMouseClicked)
-        v = self._actionPickShowHide.get()
         roi.setVisible(self._actionPickShowHide.get())
         self._imageView.getViewBox().addItem(roi)
         roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable,
@@ -1119,6 +888,11 @@ class PickerView(qtw.QWidget):
         self._shape = SHAPE_CENTER
         self._updateROIs()
 
+    @pyqtSlot()
+    def __collectParams(self):
+        if self.__paramsWidget is not None:
+            print(self.__paramsWidget.getParams())
+
     @pyqtSlot(int)
     def __onSectionClicked(self, logicalIndex):
         self._destroyROIs()
@@ -1281,78 +1055,20 @@ class PickerView(qtw.QWidget):
                     self._spinBoxBoxSize.setValue(width)
                     self._boxSizeEditingFinished()
 
-    def __openImageFile(self, path, coord=None):
-        """
-        Open an em image for picking
-        :param path: file path
-        :param coord: coordinate list ([(x1,y1), (x2,y2)...])
-        """
-        if path:
-            try:
-                imgElem = Micrograph(-1,
-                                     path,
-                                     coord)
-                self._model.addMicrograph(imgElem)
-                self.__addMicToTable(imgElem)
-            except:
-                print(sys.exc_info())
-                self._showError(sys.exc_info()[2])
-
-    def openPickingFile(self, path):
-        """
-        Open the picking specification file an add the ImageElem
-        to the ColumnsView widget
-        :param path: file path
-        """
-        file = None
-        if path:
-            try:
-                file = QFile(path)
-
-                if file.open(QIODevice.ReadOnly):
-                    error = QJsonParseError()
-                    json = QJsonDocument.fromJson(file.readAll(), error)
-
-                    if not error.error == QJsonParseError.NoError:
-                        self._showError("Parsing pick file: " +
-                                        error.errorString())
-                    else:
-                        # FIXME: The following import is here because it cause a cyclic dependency
-                        # FIXME: we should remove the use of ImageElemParser here
-                        from emviz.core import ImageElemParser
-                        parser = ImageElemParser()
-                        imgElem = parser.parseImage(json.object())
-                        if imgElem:
-                            imgElem.setId(self._model.getImgCount()+1)
-                            self._model.addMicrograph(imgElem)
-                            self.__addMicToTable(imgElem)
-                else:
-                    self._showError("Error opening file.")
-                    file = None
-
-            except:
-                print(sys.exc_info())
-            finally:
-                if file:
-                    file.close()
-
     def getPreferredSize(self):
         """
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data
         """
         # FIXME[phv] Review
-        w, h = 800, 600
-        toolBar = self._imageView.getToolBar()
-        return w + toolBar.width() + 180, h + toolBar.height()
-
+        #w, h = self._imageView.getPreferredSize()
+        #toolBar = self._imageView.getToolBar()
+        #w += toolBar.getPanelMinSize() if toolBar.hasPanelVisible() else 0
+        #return w + toolBar.width() + 80, min(h, toolBar.height())
+        return 1200, 600
 
     def getToolBar(self):
         return self._imageView.getToolBar()
-
-    def retranslateUi(self):
-        _translate = QCoreApplication.translate
-        self.setWindowTitle(_translate("MainWindow", "MainWindow"))
 
 
 class MicrographItem(QStandardItem):

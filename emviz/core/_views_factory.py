@@ -46,5 +46,4 @@ class ViewsFactory:
         """
         model = ModelsFactory.createPickerModel(micFiles,
                                                 kwargs.get('boxSize', 100))
-        #PickerView(None, m, sources=args.picker, **kwargs)
         return emviz.views.PickerView(None, model=model, **kwargs)
