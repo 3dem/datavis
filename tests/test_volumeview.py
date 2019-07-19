@@ -28,7 +28,7 @@ else:
 
 app = QApplication(sys.argv)
 
-imgio = em.ImageIO()
+imgio = em.ImageFile()
 imgio.open(imgPath, em.File.READ_ONLY)
 print("dim: ", imgio.getDim())
 dim = imgio.getDim()

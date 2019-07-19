@@ -26,9 +26,9 @@ class ImageManager:
         self._maxCacheSize = maxCacheSize * 1024 * 1024
         self._maxOpenFiles = maxOpenFiles
 
-        # FIXME: We can have many open ImageIO (until maxOpenFiles)
+        # FIXME: We can have many open ImageFile (until maxOpenFiles)
         # to prevent opening many times the same file
-        self._imgIO = em.ImageIO()
+        self._imgIO = em.ImageFile()
         self._img = em.Image()
         self._lastOpenedFile = None
 

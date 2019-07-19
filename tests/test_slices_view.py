@@ -33,7 +33,7 @@ class EmSlicesModel(SlicesModel):
     """
     def __init__(self, imgPath):
         SlicesModel.__init__(self)
-        imgio = em.ImageIO()
+        imgio = em.ImageFile()
         imgio.open(imgPath, em.File.READ_ONLY)
         print("dim: ", imgio.getDim())
         dim = imgio.getDim()

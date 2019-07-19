@@ -135,7 +135,7 @@ class EmStackModel(models.SlicesModel):
         models.SlicesModel.__init__(self, **kwargs)
         self._path = path
         if path is not None:
-            imgio = em.ImageIO()
+            imgio = em.ImageFile()
             imgio.open(path, em.File.READ_ONLY)
             dim = imgio.getDim()
             image = em.Image()
@@ -171,7 +171,7 @@ class EmVolumeModel(models.VolumeModel):
         """
         self._path = path
         if data is None:
-            imgio = em.ImageIO()
+            imgio = em.ImageFile()
             imgio.open(path, em.File.READ_ONLY)
             dim = imgio.getDim()
             image = em.Image()
