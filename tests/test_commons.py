@@ -85,7 +85,11 @@ class ViewMainWindow(qtw.QMainWindow):
         self._view = view
 
     def __setGeometryFromView(self, view, maxScreenPercent):
-        width, height = view.getPreferredSize()
+        if hasattr(view, 'getPreferredSize'):
+            width, height = view.getPreferredSize()
+        else:
+            width, height = None, None
+
         size = qtw.QApplication.desktop().size()
         p = maxScreenPercent
         w, h = int(p * size.width()), int(p * size.height())
