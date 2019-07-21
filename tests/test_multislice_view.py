@@ -14,6 +14,7 @@ class TestMultiSliceView(TestView):
 
     def getDataPaths(self):
         return [
+            self.getPath('resmap', 'betaGal.mrc'),
             self.getPath("xmipp_tutorial", "volumes",
                          "BPV_scale_filtered_windowed_110.vol")
         ]
