@@ -6,7 +6,7 @@ import em
 import emviz.models as models
 from emviz.utils import py23
 
-from ._image_manager import ImageManager
+from ._image_manager import ImageManager, ImageRef
 from ._emtype import EmType
 
 
@@ -131,55 +131,65 @@ class EmStackModel(models.SlicesModel):
                          EmStackModel will be created.
          - columnName  : (str) The column name for image column.
                          if columnName is None, then 'Image' will be used.
+         - imageManager=value Provide an ImageManager that can be used
+                to read images referenced from this table.
         """
         models.SlicesModel.__init__(self, **kwargs)
         self._path = path
-        if path is not None:
-            imgio = em.ImageFile()
-            imgio.open(path, em.File.READ_ONLY)
-            dim = imgio.getDim()
-            image = em.Image()
+        self._imageManager = kwargs.get('imageManager', ImageManager())
+        x, y, z, n = self._imageManager.getDim(path)
+        self._dim = x, y, n
 
-            if dim.z > 1:
-                raise Exception("No valid image type: Volume.")
-            self._data = []
-            self._dim = dim.x, dim.y, dim.n
-            # FIXME: Implement read on-demand, we can't have all stacks
-            # in memory always
-            for i in range(1, dim.n + 1):
-                imgio.read(i, image)
-                self._data.append(np.array(image, copy=True))
-            imgio.close()
+    def getData(self, i=-1):
+        """ Return a 2D array of the slice data. i should be in -1 or (0, n-1).
+        -1 is a special case for returning the whole data array.
+        """
+        if not 0 <= i < self._dim[2]:
+            raise Exception("Index should be between 0 and %d, value is %d"
+                            % (self._dim[2] - 1, i))
+
+        return self._imageManager.getData(ImageRef(self._path, i+1), copy=True)
 
     def getLocation(self):
         """ Returns the image location(the image path). """
         return self._path
-
-    # TODO: Maybe we will need to implement the getData in
-    # the case that we don't want to store the whole stack in memory
 
 
 class EmVolumeModel(models.VolumeModel):
     """
     The EmVolumeModel class provides the basic functionality for image volume
     """
-    def __init__(self, path, data=None):
+    def __init__(self, path, data=None, **kwargs):
         """
         Constructs an EmVolumeModel.
         :param path: (str) The volume path
         :param data: (numpy array) The volume data
+        :param kwargs:
+         - imageManager=value Provide an ImageManager that can be used
+                to read images referenced from this table.
         """
         self._path = path
+
         if data is None:
-            imgio = em.ImageFile()
-            imgio.open(path, em.File.READ_ONLY)
-            dim = imgio.getDim()
-            image = em.Image()
+            self._imageManager = kwargs.get('imageManager', ImageManager())
+            info = self._imageManager.getInfo(path)
+            dim = info['dim']
+            imgRef = ImageRef(path, 1)
 
             if dim.z <= 1:
-                raise Exception("No valid image type.")
-            imgio.read(1, image)
-            data = np.array(image, copy=True)
-            imgio.close()
+                if dim.n == dim.x and dim.n == dim.y:
+                    dim.z = dim.n
+                    data = np.zeros((dim.z, dim.y, dim.x),
+                                    dtype=EmType.toNumpy(info['data_type']))
+                    for i in range(0, dim.z):
+                        imgRef.index = i + 1
+                        sdata = self._imageManager.getData(imgRef, copy=False)
+                        np.copyto(data[i], sdata)
+                else:
+                    raise Exception("No valid image type.")
+            else:
+                data = self._imageManager.getData(imgRef, copy=True)
+
+            self._dim = dim.x, dim.y, dim.z
 
         models.VolumeModel.__init__(self, data)

@@ -128,8 +128,6 @@ class ImageManager:
             imgIO.read(imgRef.index, imgOut)
             self._imageCache[imgId] = imgOut
             self._cacheSize += imgOut.getDataSize()
-            print("ImageManager.getData:\n   read image: %d\n   cache size: %d"
-                  % (self._readCount, self._cacheSize))
             if copy:
                 imgOut = em.Image(imgOut)
         return imgOut
@@ -250,63 +248,3 @@ class ImageRef:
 
         return imgRef
 
-
-
-# def parseImagePath(imgPath, imgRef=None, root=None):
-#     """
-#     Return the image reference, parsing the str image path.
-#     Find the image path beginning from the given root.
-#     imgPath specification:
-#      - some/img_path for single image
-#      - index@some/img_path for image in stack
-#      - index@axis@some/img_path for image in volume
-#      - index@axis@volIndex@some/img_path for image in volume stack
-#         axis = 0: X
-#         axis = 1: Y
-#         axis = 2: Z
-#         axis = -1: Undefined
-#     """
-#     if isinstance(imgPath, str) or isinstance(imgPath, unicode):
-#         p = imgPath.split('@')
-#         size = len(p)
-#         if imgRef is None:
-#             imgRef = ImageRef()
-#         try:
-#             if size == 1:  # Single image: 'image-path'
-#                 imgRef.path = p[0]
-#                 imgRef.index = 0
-#                 imgRef.axis = -1
-#                 imgRef.volumeIndex = 0
-#                 imgRef.imageType = ImageRef.SINGLE
-#             elif size == 2:  # One image in stack: 'index@image-path'
-#                 imgRef.path = p[1]
-#                 imgRef.index = int(p[0])
-#                 imgRef.axis = -1
-#                 imgRef.volumeIndex = 0
-#                 imgRef.imageType = ImageRef.STACK
-#             elif size == 3:  # One image in volume: 'index@axis@image-path'
-#                 imgRef.path = p[2]
-#                 imgRef.index = int(p[0])
-#                 imgRef.axis = int(p[1])
-#                 imgRef.volumeIndex = 0
-#                 imgRef.imageType = ImageRef.VOLUME
-#             elif size == 4:  # One image in volume stack:
-#                 # 'index@axis@volIndex@image-path'
-#                 imgRef.path = p[3]
-#                 imgRef.index = int(p[0])
-#                 imgRef.axis = int(p[1])
-#                 imgRef.volumeIndex = int(p[2])
-#                 imgRef.imageType = ImageRef.STACK | ImageRef.VOLUME
-#             else:
-#                 raise Exception("Invalid specification")
-#         except Exception:
-#             print("-----------------------------------------------------------")
-#             print("Error occurred parsing: ", imgPath)
-#             print("-----------------------------------------------------------")
-#             traceback.print_exception(*sys.exc_info())
-#             return None
-#         path = ImageManager.findImage(imgRef.path, root)
-#         if path is not None:
-#             imgRef.path = path
-#         return imgRef
-#     return None
