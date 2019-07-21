@@ -8,13 +8,62 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QToolBar,
 import qtawesome as qta
 
 
-class MultiStateAction(QAction):
+class TriggerAction(QAction):
+    """
+    The TriggerAction class offers an initialization of configuration params
+    not provided by Qt.
+    """
+    def __init__(self, parent, actionName=None, text="", faIconName=None, icon=None,
+                 checkable=False, tooltip=None, slot=None, shortCut=None,
+                 userData=None, **kwargs):
+        """
+        Creates a TriggerAction with the given name, text and icon. If slot is
+        not None then the signal QAction.triggered is connected to it.
+        :param actionName:   (str)The action name
+        :param text:         (str)Action text
+        :param faIconName:   (str)qtawesome icon name
+        :param icon:         (QIcon) used if faIconName=None
+        :param checkable:    (bool)if this action is checkable
+        :param tooltip:      (str) The tooltip text
+        :param slot:         (slot) the slot to connect QAction.triggered signal
+        :param shortCut:     (QKeySequence) the short cut key
+        :param userData:     User data for specific purposes
+        """
+        QAction.__init__(self, parent)
+        if actionName:
+            self.setObjectName(str(actionName))
+        if faIconName:
+            icon = qta.icon(faIconName)
+
+        if icon is not None:
+            self.setIcon(icon)
+
+        self.setCheckable(checkable)
+        self.setText(str(text))
+
+        if tooltip:
+            self.setToolTip(tooltip)
+
+        if slot:
+            self.triggered.connect(slot)
+
+        if shortCut is not None:
+            self.setShortcut(shortCut)
+
+        self._userData = userData
+
+    def getUserData(self):
+        """ Getter for user data """
+        return self._userData
+
+
+class MultiStateAction(TriggerAction):
     """ Action handling multiple internal states.
      Each state is a tuple containing:
         (value, icon, tooltip)
     """
     # Emitted when the internal state changed
-    stateChanged = pyqtSignal(int)
+    sigStateChanged = pyqtSignal(int)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -26,11 +75,12 @@ class MultiStateAction(QAction):
                          for the MultiStateAction.
                current:  (int) The initial state index in states list.
         """
-        QAction.__init__(self, parent)
         # List of internal states
-        self._states = list(kwargs.get('states', []))
+        self._states = list(kwargs.pop('states') or [])
+        TriggerAction.__init__(self, parent, **kwargs)
         # Current selected index
         self._current = kwargs.get('current', 0 if self._states else -1)
+        self.set(self._current)
         self.triggered.connect(self.__onTriggered)
 
     def add(self, state, icon, tooltip=""):
@@ -79,16 +129,23 @@ class MultiStateAction(QAction):
     @pyqtSlot()
     def __onTriggered(self):
         self.next()
-        self.stateChanged.emit(int(self.get()))
+        self.sigStateChanged.emit(int(self.get()))
 
 
 class OnOffAction(MultiStateAction):
     """ Subclass of MultiStateAction that provide just to states: on/off. """
     def __init__(self, parent=None, **kwargs):
+        """
+        Constructs an OnOffAction.
+        :param parent: The QObject parent
+        :param kwargs:
+             - toolTipOn:   (str) The tooltip for On state
+             - toolTipOff:  (str) The tooltip for Off state
+        """
         # Set states to On/Off
         kwargs['states'] = [
-            (True, qta.icon('fa.toggle-on'), 'On'),
-            (False, qta.icon('fa.toggle-off'), 'Off')
+            (True, qta.icon('fa.toggle-on'), kwargs.get('toolTipOn', '')),
+            (False, qta.icon('fa.toggle-off'), kwargs.get('toolTipOff', ''))
         ]
         MultiStateAction.__init__(self, parent, **kwargs)
 
@@ -344,3 +401,12 @@ class ActionsToolBar(QWidget):
         widget.setStyleSheet(style)
         widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         return widget
+
+    def hasPanelVisible(self):
+        """
+        Return True if has any panel visible
+        """
+        for dock in self._docks:
+            if dock.isVisible():
+                return True
+        return False

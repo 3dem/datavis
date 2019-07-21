@@ -25,7 +25,8 @@ class ValidateValues(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         values = str(values).lower()
-        value = self._valuesDict.get(values)
+        value = self._valuesDict.get(values, self._valuesDict.get(
+            values.upper()))
         if value is None:
             raise ValueError("Invalid argument for %s" % option_string)
         setattr(namespace, self.dest, value)

@@ -35,3 +35,15 @@ class ViewsFactory:
         """ Create an DataView and load the volume from the given path """
         model = ModelsFactory.createTableModel(path)
         return emviz.views.DataView(None, model=model, **kwargs)
+
+    @staticmethod
+    def createPickerView(micFiles, **kwargs):
+        """
+        Create an PickerView
+        :param files: (list) Micrograph paths or None
+        :param kwargs:
+           - boxSize:  (int) The box size. Default value is 100
+        """
+        model = ModelsFactory.createPickerModel(micFiles,
+                                                kwargs.get('boxSize', 100))
+        return emviz.views.PickerView(None, model=model, **kwargs)

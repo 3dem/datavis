@@ -261,6 +261,12 @@ class ColumnsView(PagingView):
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
     @pyqtSlot()
+    def updatePage(self):
+        """ Updates the visualization of the current page """
+        self._pageItemModel.modelConfigChanged()
+        self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
+
+    @pyqtSlot()
     def modelChanged(self):
         """Slot for model data changed notification """
         self.__updatePagingInfo()
@@ -500,13 +506,9 @@ class ColumnsView(PagingView):
         """
         return self._tableView.horizontalHeader()
 
-    def setLabelIndexes(self, labels):
-        """
-        Initialize the indexes of the columns that will be displayed as text
-        below the images
-        labels (list)
-        """
-        self._delegate.setLabelIndexes(labels)
+    def getPageSize(self):
+        """ Return the number of elements for page """
+        return self._pagingInfo.pageSize
 
 
 class HeaderView(QHeaderView):

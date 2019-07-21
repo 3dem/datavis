@@ -79,7 +79,8 @@ class SlicesModel(ImageModel):
             return self._data
 
         if not 0 <= i < self._dim[2]:
-            raise Exception("Index should be between 0 and %d" % self._dim[2]-1)
+            raise Exception("Index should be between 0 and %d"
+                            % (self._dim[2]-1))
 
         return self._data[i]
 

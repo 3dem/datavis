@@ -1,6 +1,6 @@
 
 import PyQt5.QtCore as qtc
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSlot
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtGui as qtg
 
@@ -10,20 +10,29 @@ import PyQt5.QtGui as qtg
 
 class OptionList(qtw.QWidget):
     """
+    The OptionList provides a means of presenting a list of options to the user.
+    The display param specify how the options will be displayed.
     """
     def __init__(self, parent=None, display='default', tooltip="",
                  exclusive=True, buttonsClass=qtw.QRadioButton, options=None,
                  defaultOption=0):
         """
-        Constructor
-        parent:          The QObject parent for this widget
-        display (str):   The display type for options
-                         ('vlist': vertical, 'hlist': horizontal,
-                         'combo': show options in combobox,
-                         'slider': show options in slider)
+        Construct an OptionList
         exclusive(bool): If true, the radio buttons will be exclusive
-        buttonsClass:    The buttons class (QRadioButton or QCheckBox)
-        tooltip(str):    A tooltip for this widget
+        buttonsClass:
+        :param parent:       The QObject parent for this widget
+        :param display:      (str) The display type for options
+                             ('vlist': vertical, 'hlist': horizontal,
+                             'combo': show options in combobox,
+                             'slider': show options in slider)
+        :param tooltip:      (str) A tooltip for this widget
+        :param exclusive:    (bool) Set the options as 'exclusives' if display
+                             is 'vlist' or 'hlist'
+        :param buttonsClass: (QRadioButton or QCheckBox) The button class for
+                             the options if display is 'vlist' or 'hlist'
+        :param options:      The options. A tupple if display is 'slider' or
+                             str list for other display type
+        :param defaultOption: (int) The default option id (index for list)
         """
         qtw.QWidget.__init__(self, parent=parent)
         self.__buttonGroup = qtw.QButtonGroup(self)
@@ -50,10 +59,8 @@ class OptionList(qtw.QWidget):
             self.__groupBoxLayout.setContentsMargins(3, 3, 3, 3)
 
         if not isinstance(self.__singleWidget, qtw.QSlider):
-            index = 0
-            for option in options:
+            for index, option in enumerate(options):
                 self.addOption(option, index)
-                index += 1
 
         if self.__singleWidget is not None:
             self.__singleWidget.setToolTip(tooltip)
@@ -61,8 +68,13 @@ class OptionList(qtw.QWidget):
             self.setSelectedOption(defaultOption)
 
     def addOption(self, name, optionId, checked=False):
-        """ Add an option """
-
+        """
+        Add an option
+        :param name:      (str) The option name
+        :param optionId:  (int) The option id
+        :param checked:   (bool) Checked value if the option list is represented
+                          by a RadioButton list
+        """
         if self.__buttonClass is not None \
                 and isinstance(self.__singleWidget, qtw.QWidget):
             button = self.__buttonClass(self)
@@ -112,8 +124,9 @@ class DynamicWidget(qtw.QWidget):
         self.__typeParams = typeParams
 
     def __collectData(self, item):
-        if isinstance(item, qtw.QVBoxLayout) or isinstance(item, qtw.QHBoxLayout) or \
-                isinstance(item, qtw.QGridLayout):
+        if isinstance(item, qtw.QVBoxLayout) \
+                or isinstance(item, qtw.QHBoxLayout) \
+                or isinstance(item, qtw.QGridLayout):
             for index in range(item.count()):
                 self.__collectData(item.itemAt(index))
         elif isinstance(item, qtw.QWidgetItem):
@@ -136,14 +149,18 @@ class DynamicWidget(qtw.QWidget):
     def setParamWidget(self, name, param):
         self.__paramsWidgets[name] = param
 
+    @pyqtSlot()
     def getParams(self):
-        """ """
+        """ Return a dict with the current params specifications for all
+        widget params. The param name will be used as key for each param. """
         self.__collectData(self.layout())
         return self.__paramsWidgets
 
 
 class DynamicWidgetsFactory:
-    """ A dynamic widgets factory """
+    """ Factory class to centralize the creation of widgets, using a dynamic
+    widget specification.
+     """
 
     def __init__(self):
         self.__typeParams = {
@@ -183,12 +200,6 @@ class DynamicWidgetsFactory:
                 }
             }
         }
-
-    def createWidget(self, specification):
-        """ Creates the widget for de given specification """
-        widget = DynamicWidget(typeParams=self.__typeParams)
-        self.__addVParamsWidgets(widget, specification)
-        return widget
 
     def __addVParamsWidgets(self, mainWidget, params):
         """ Add the widgets created from params to the given QGridLayout """
@@ -299,3 +310,11 @@ class DynamicWidgetsFactory:
             widget.setText(str(value))
         elif isinstance(widget, qtw.QCheckBox) and isinstance(value, bool):
             widget.setChecked(value)
+
+    def createWidget(self, specification):
+        """ Creates the widget for de given specification """
+        if isinstance(specification, list) and len(specification) > 0:
+            widget = DynamicWidget(typeParams=self.__typeParams)
+            self.__addVParamsWidgets(widget, specification)
+            return widget
+        return None

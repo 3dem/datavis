@@ -1,5 +1,6 @@
-from ._common import TriggerAction, createQPixmap
-from ._toolbar import ActionsToolBar, MultiStateAction, OnOffAction
+from ._common import createQPixmap
+from ._toolbar import (ActionsToolBar, MultiStateAction, OnOffAction,
+                       TriggerAction)
 from ._spinslider import SpinSlider
 from ._spinbox import ZoomSpinBox, IconSpinBox
 from ._paging import PageBar, PagingInfo
