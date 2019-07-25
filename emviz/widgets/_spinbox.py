@@ -84,7 +84,8 @@ class IconSpinBox(qtw.QWidget):
 
     def setValue(self, value):
         """ Set a new value. """
-        self._spinBox.setValue(value)
+        if not self._spinBox.value() == value:
+            self._spinBox.setValue(value)
 
     def setRange(self, minimum, maximum):
         """
@@ -98,6 +99,9 @@ class IconSpinBox(qtw.QWidget):
         """ Return a tuple (minimum, maximum) values
         """
         return self._spinBox.minimum(), self._spinBox.maximum()
+
+    def setFocusPolicy(self, policy):
+        self._spinBox.setFocusPolicy(policy)
 
 
 class ZoomSpinBox(IconSpinBox):

@@ -134,6 +134,9 @@ class SlicesTableModel(TableModel):
                 for c in self.iterColumns()]
         return TableConfig(*cols)
 
+    def getMinMax(self):
+        return self._slicesModel.getMinMax()
+
 
 class EmptyTableModel(TableModel):
     """
@@ -160,6 +163,9 @@ class EmptyTableModel(TableModel):
 
     def getTableNames(self):
         return []
+
+    def getMinMax(self):
+        return 0, 0
 
 
 class TableConfig:

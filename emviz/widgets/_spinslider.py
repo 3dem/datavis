@@ -104,8 +104,12 @@ class SpinSlider(QWidget):
         :param minimum: (int) The minimum possible value
         :param maximum: (int) The maximum possible value
         """
+        self._slider.blockSignals(True)
+        self._spinBox.blockSignals(True)
         self._slider.setRange(minimum, maximum)
         self._spinBox.setRange(minimum, maximum)
+        self._slider.blockSignals(False)
+        self._spinBox.blockSignals(False)
 
     def getRange(self):
         """ Return a tuple (minimum, maximum) values
@@ -124,3 +128,6 @@ class SpinSlider(QWidget):
         Returns the label text for the internal slider
         """
         return self._label.text()
+
+    def setFocusPolicy(self, policy):
+        self._spinBox.setFocusPolicy(policy)

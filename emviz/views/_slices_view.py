@@ -32,12 +32,12 @@ class SlicesView(qtw.QWidget):
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = model
-        self._viewRect = None
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
         self._imageViewKwargs = kwargs.get('imageViewKwargs', {})
         self._imageModel = None
         self.__setupGUI()
+        self.setModel(model, **kwargs)
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
@@ -53,8 +53,6 @@ class SlicesView(qtw.QWidget):
         self._spinSlider = SpinSlider(self, text=self._text,
                                       minValue=1, maxValue=n,
                                       currentValue=self._currentValue)
-        self._onSliceChanged(self._currentValue)
-
         # Arrange widgets in a vertical layout
         layout = qtw.QVBoxLayout(self)
         layout.setSpacing(0)
@@ -79,32 +77,10 @@ class SlicesView(qtw.QWidget):
             if imgData is not None:
                 self._imageModel.setData(imgData)
                 self._imageView.imageModelChanged()
-                if self._viewRect is not None:
-                    self._imageView.getView().setRange(rect=self._viewRect,
-                                                       padding=0.0)
             else:
                 self._imageView.clear()
 
         self.sigSliceChanged.emit(value)
-
-    def eventFilter(self, obj, event):
-        """
-        Filters events if this object has been installed as an event filter for
-        the obj object.
-        In our reimplementation of this function, we always filter the event.
-        In this case, the function return true. We install self as even filter
-        for ImageView.
-        :param obj: object
-        :param event: event
-        :return: True
-        """
-        t = event.type()
-        if obj == self._imageView:  # Calculate the View scale
-            c = t in [QEvent.Wheel, QEvent.MouseMove, QEvent.MouseButtonRelease]
-            if c:
-                self._viewRect = self._imageView.getViewRect()
-
-        return True
 
     def getValue(self):
         """ Returns the value of the current slice. """
@@ -131,6 +107,13 @@ class SlicesView(qtw.QWidget):
         """
         return self._spinSlider.getText()
 
+    def setScale(self, scale):
+        """
+        Set the image scale
+        :param scale: (float) The scale
+        """
+        self._imageView.setScale(scale)
+
     def setModel(self, model, **kwargs):
         """
         Set the data model
@@ -154,7 +137,21 @@ class SlicesView(qtw.QWidget):
         else:
             self._spinSlider.setValue(self._currentValue)
 
+    def getImageView(self):
+        """
+        Return the ImageView widget, used to visualize the slices
+        """
+        return self._imageView
+
     def clear(self):
         """ Clear the view """
         self.setModel(EmptySlicesModel())
+
+    def getPreferredSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        w, h = self._imageView.getPreferredSize()
+        return w, h + self._spinSlider.height()
 

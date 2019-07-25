@@ -22,6 +22,9 @@ class MultiSliceView(QWidget):
     # Signal for current axis changed(axis)
     sigAxisChanged = pyqtSignal(int)
 
+    # Signal for scale changed (scale, axis)
+    sigScaleChanged = pyqtSignal(float, int)
+
     def __init__(self, parent, slicesKwargs):
         """
         parent:       (QWidget) Parent QWidget
@@ -78,6 +81,7 @@ class MultiSliceView(QWidget):
             AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
                      'axisPos': AXIS_BOTTOM_LEFT}
         }
+
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
@@ -91,11 +95,20 @@ class MultiSliceView(QWidget):
                                                   int((n + 1)/2)),
                             imageViewKwargs=imgViewKargs)
             sv.sigSliceChanged.connect(slot)
+            imgView = sv.getImageView()
+            # FIXME[phv] Determine how to pass the AXIS
+            imgView.sigScaleChanged.connect(self.__onScaleChanged)
             layout.addWidget(sv, *pos)
             self._slicesDict[axis] = sv
 
         self._renderArea = RenderArea(self)
         layout.addWidget(self._renderArea, 0, 1)
+
+    @pyqtSlot(float)
+    def __onScaleChanged(self, scale):
+        """ Called when the image scale is changed """
+        if not self.signalsBlocked():
+            self.sigScaleChanged.emit(scale, AXIS_X)
 
     def _onSliceChanged(self, axis, value):
         """ Called when the slice index is changed in one of the axis. """
@@ -112,7 +125,6 @@ class MultiSliceView(QWidget):
         if e:
             self.sigAxisChanged.emit(self._axis)
         self.sigSliceChanged.emit(axis, value)
-
 
     @pyqtSlot(int)
     def _onSliceYChanged(self, value):
@@ -183,13 +195,37 @@ class MultiSliceView(QWidget):
         if models:
             for axis, model in zip([AXIS_X, AXIS_Y, AXIS_Z], models):
                 self._slicesDict[axis].setModel(model, **kwargs)
+
+            vX = self._slicesDict[AXIS_X].getImageView()
+            vY = self._slicesDict[AXIS_Y].getImageView()
+            vZ = self._slicesDict[AXIS_Z].getImageView()
+            # link only X axis(view aspect is locked)
+            # FIXME[phv] review the linked axis according to the views
+            vX.setXLink(vY)
+            vY.setXLink(vZ)
         else:
             self.clear()
+
+    def setScale(self, scale):
+        """
+         Set the image scale for all axis
+        :param scale: (float) The image scale
+        """
+        for sv in self._slicesDict.values():
+            sv.setScale(scale)
 
     def clear(self):
         """ Clear the view """
         for sliceWidget in self._slicesDict.values():
             sliceWidget.clear()
+
+    def getPreferredSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        w, h = self._imageView.getPreferredSize()
+        return 2 * (w, h + self._spinSlider.height())
 
 
 class RenderArea(QWidget):
@@ -307,3 +343,11 @@ class RenderArea(QWidget):
     def sizeHint(self):
         return QSize(80, 80)
 
+    def getPreferredSize(self):
+        """
+        Returns a tuple (width, height), which represents
+        the preferred dimensions to contain all the data
+        """
+        d = self._slicesDict
+        sliceView = d.get(AXIS_X) or d.get(AXIS_Y) or d.get(AXIS_Z)
+        return sliceView.getPreferredSize() if sliceView else 100, 100

@@ -3,7 +3,7 @@
 
 import pyqtgraph as pg
 import qtawesome as qta
-from PyQt5.QtCore import Qt, pyqtSlot, QEvent, QLineF
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QLineF
 from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy)
 
@@ -16,6 +16,9 @@ class ImageView(QWidget):
     """ The ImageView widget provides functionality for display images and
     performing basic operations over the view, such as: rotations, zoom, flips,
     move, levels. """
+
+    """ Signal emmited when the image scale is changed """
+    sigScaleChanged = pyqtSignal(float)
 
     def __init__(self, parent, model=None, **kwargs):
         """
@@ -60,7 +63,6 @@ class ImageView(QWidget):
         QWidget.__init__(self, parent=parent)
 
         self._model = None
-
         self._oddFlips = False
         self._oddRotations = False
         self._isVerticalFlip = False
@@ -87,7 +89,7 @@ class ImageView(QWidget):
         self._axisPos = kwargs.get('axisPos', AXIS_BOTTOM_LEFT)
         self._axisColor = kwargs.get('axisColor')
         self._levels = kwargs.get('levels', None)
-
+        self.__updatingImage = False
         self.__setupGUI()
         self.__setupImageView()
         self.setModel(model)
@@ -100,6 +102,7 @@ class ImageView(QWidget):
 
         self._imageView = pg.ImageView(parent=self,
                                        view=pg.PlotItem())
+        self.__viewRect = self.getViewRect()
         self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
         self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
@@ -124,8 +127,9 @@ class ImageView(QWidget):
         hLayout.addStretch()
         vLayout.addLayout(hLayout)
         view = self.getView().getViewBox()
-        view.sigStateChanged.connect(
-            self.__onImageScaleChanged)
+        view.sigTransformChanged.connect(self.__onImageScaleChanged)
+        #view.sigStateChanged.connect(
+        #    self.__onImageScaleChanged)
 
         # --Histogram On/Off--
         toolbar = QToolBar(displayPanel)
@@ -335,6 +339,20 @@ class ImageView(QWidget):
         self._actVerFlip.setChecked(False)
         self._actHorFlip.setChecked(False)
 
+    def __calcImageScale(self):
+        """ Calculate the image scale """
+        rect = self._imageView.imageItem.boundingRect()
+        scale = 0
+        if rect.width() > 0:
+            p1 = pg.Point(0, 0)
+            p2 = pg.Point(0, 1)
+            view = self._imageView.getView()
+            p1v = view.mapFromView(p1)
+            p2v = view.mapFromView(p2)
+            linev = QLineF(p1v.x(), p1v.y(), p2v.x(), p2v.y())
+            scale = abs(linev.dy())
+        return scale
+
     @pyqtSlot()
     def __resetView(self):
         """
@@ -375,26 +393,18 @@ class ImageView(QWidget):
         """
         This slot is invoked when the spinbox value for image scale is changed
         """
-        viewBox = self.getViewBox()
-        value *= 0.01
-        if value == 0:
-            self._spinBoxScale.setValue(self._scale * 100)
-        else:
-            viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
-            viewBox.scaleBy(x=1/value, y=1/value)  # to current scale
+        self.setScale(value * 0.01)
 
     @pyqtSlot(object)
     def __onImageScaleChanged(self, view):
         """ Invoked when the image scale has changed """
-        rect = self._imageView.imageItem.boundingRect()
-        if isinstance(view, pg.ViewBox) and rect.width() > 0:
-            p1 = pg.Point(0, 0)
-            p2 = pg.Point(0, 1)
-            p1v = view.mapFromView(p1)
-            p2v = view.mapFromView(p2)
-            linev = QLineF(p1v.x(), p1v.y(), p2v.x(), p2v.y())
-            self._scale = abs(linev.dy())
-            self._spinBoxScale.setValue(self._scale * 100)
+        if not self.__updatingImage:
+            scale = self.__calcImageScale()
+            if not scale == self._scale:
+                self._scale = scale
+                self._spinBoxScale.setValue(self._scale * 100)
+                self.__viewRect = self.getViewRect()
+                self.sigScaleChanged.emit(self._scale)
 
     def setAxisOrientation(self, orientation):
         """
@@ -423,10 +433,13 @@ class ImageView(QWidget):
         self._model = imageModel
         self.clear()
         if imageModel:
+            self.__updatingImage = True
             self._imageView.setImage(imageModel.getData(),
                                      autoRange=self._fitToSize,
                                      levels=self._levels)
-            self.fitToSize()
+            self.__updatingImage = False
+            self.__viewRect = self.getViewRect()
+            self._scale = self.__calcImageScale()
 
     def setLevels(self, levels):
         """ Set levels for the display. """
@@ -440,9 +453,12 @@ class ImageView(QWidget):
         can be updated.
         """
         data = None if self._model is None else self._model.getData()
-        t = self._imageView.imageItem.transform()
-        self._imageView.setImage(data, autoRange=self._fitToSize, transform=t,
-                                 levels=self._levels)
+        t = self._imageView.imageItem.transform()  # conserve image QTransform
+        # For image change, not emit sigScaleChanged
+        self.__updatingImage = True
+        self._imageView.setImage(data, transform=t, levels=self._levels)
+        self._imageView.getView().setRange(rect=self.__viewRect, padding=0.0)
+        self.__updatingImage = False
 
     @pyqtSlot(int)
     def rotate(self, angle):
@@ -509,10 +525,12 @@ class ImageView(QWidget):
     @pyqtSlot()
     def clear(self):
         """ Clear the view, setting a null image """
+        self.__updatingImage = True
         self.__resetOperationParams()
         self._imageView.clear()
-        self.fitToSize()
+        self._scale = 0
         self._textEditPath.setText("")
+        self.__updatingImage = True
 
     @pyqtSlot()
     def fitToSize(self):
@@ -631,9 +649,48 @@ class ImageView(QWidget):
         :param event: event
         :return: True if this object has been installed, False i.o.c
         """
-
-        if event.type() == QEvent.KeyPress:
+        t = event.type()
+        if t == QEvent.KeyPress:
             self.__imageViewKeyPressEvent(event)
+            return True
+        if t in [QEvent.Wheel, QEvent.MouseMove, QEvent.MouseButtonRelease]:
+            self.__viewRect = self.getViewRect()
             return True
 
         return QWidget.eventFilter(self, obj, event)
+
+    def setScale(self, scale):
+        """
+         Set de image scale
+        :param scale: (float) The image scale
+        """
+        viewBox = self.getViewBox()
+        if scale == 0:
+            self._spinBoxScale.setValue(self._scale * 100)
+        elif not scale == self._scale:
+            self.__updatingImage = True
+            viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
+            viewBox.scaleBy(x=1 / scale, y=1 / scale)  # to current scale
+            self.__updatingImage = False
+            self._scale = scale
+            self.__viewRect = self.getViewRect()
+
+    def setXLink(self, imageView):
+        """
+        Link the X axis to another ImageView.
+        :param imageView: (ImageView) The ImageView widget to be linked
+        """
+        if isinstance(imageView, ImageView):
+            local = self.getView()
+            view = imageView.getView()
+            local.setXLink(view)
+
+    def setYLink(self, imageView):
+        """
+        Link the Y axis to another ImageView.
+        :param imageView: (ImageView) The ImageView widget to be linked
+        """
+        if isinstance(imageView, ImageView):
+            local = self.getView()
+            view = imageView.getView()
+            local.setYLink(view)

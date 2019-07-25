@@ -32,6 +32,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
         self._thumbSize = 64
+        self._levels = None
 
     def paint(self, painter, option, index):
         """
@@ -118,7 +119,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
                 if self._pixmapItem:
                     self._pixmapItem.setVisible(False)
 
-                self._imageView.setImage(imgData)
+                self._imageView.setImage(imgData, levels=self._levels)
             else:
                 if not self._pixmapItem:
                     self._pixmapItem = QGraphicsPixmapItem(imgData)
@@ -137,6 +138,13 @@ class EMImageItemDelegate(QStyledItemDelegate):
         imgData = index.data(DATA_ROLE)
 
         return imgData
+
+    def setLevels(self, levels):
+        """
+        Set levels for the image configuration.
+        :param levels: (tupple) Minimum an maximum pixel values
+        """
+        self._levels = levels
 
     def getTextHeight(self):
         """ The height of text """
