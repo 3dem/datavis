@@ -14,5 +14,4 @@ from ._delegates import (ColorItemDelegate, ColumnPropertyItemDelegate,
 from ._constants import *
 
 from ._paging_view import PagingView
-
-from .model import TablePageItemModel
+from ._list_view import ImageListView
