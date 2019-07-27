@@ -6,7 +6,8 @@ import em
 import emviz.models as models
 from ._empath import EmPath
 from ._emtype import EmType
-from ._emtable_model import EmTableModel, EmStackModel, EmVolumeModel
+from ._emtable_model import (EmTableModel, EmStackModel, EmVolumeModel,
+                             EmListModel)
 from ._empicker import EmPickerDataModel
 
 
@@ -94,10 +95,15 @@ class ModelsFactory:
     @classmethod
     def createVolumeModel(cls, path):
         """
-        Creates an VolumeModel reading image datas from the given path
+        Creates an VolumeModel reading image data from the given path
         :param path: (str) The volume path
         """
         return EmVolumeModel(path)
+
+    @classmethod
+    def createListModel(cls, files):
+        """ Creates an ListModel from the given file path list """
+        return EmListModel(files)
 
     # FIXME: This method is duplicated with the one in TableModel
     # here seems a good place to have it

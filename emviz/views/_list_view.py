@@ -4,10 +4,9 @@ from PyQt5.QtWidgets import QWidget, QSplitter, QHBoxLayout
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from emviz.widgets import ViewPanel
-from emviz.models import EmptyTableModel, ImageModel
+from emviz.models import EmptyTableModel, ImageModel, EmptyVolumeModel
 
-from ._columns import ColumnsView
-from ._image_view import ImageView
+from emviz.views import ColumnsView, ImageView, VolumeView
 
 
 class ImageListView(QWidget):
@@ -106,8 +105,8 @@ class ImageListView(QWidget):
     def onItemChanged(self, index):
         """ Slot for sigCurrentRowChanged signal """
         self.currentItem = index
-        self.sigCurrentItemChanged.emit(index)
         self.updateImagePanel()
+        self.sigCurrentItemChanged.emit(index)
 
     def updateImagePanel(self):
         """
@@ -129,3 +128,32 @@ class ImageListView(QWidget):
         self._model = model
         cv = self._leftPanel.getWidget('columnsView')
         cv.setModel(model)
+
+
+class VolumeMaskListView(ImageListView):
+    """ View that will show a list of volume images """
+    def __init__(self, parent, model, **kwargs):
+        """
+        Construct a VolumeMaskListView
+        :param parent: The parent widget
+        :param model:  (TableModel) The volume list model
+        :param kwargs: The kwargs arguments for the VolumeView widget
+        """
+        ImageListView.__init__(self, parent, model, **kwargs)
+
+    def _createTopRightPanel(self, **kwargs):
+        """Build the top right panel: ViewPanel with VolumeView widget
+        The VolumeView should be accessed using the 'volumeView' key.
+        :param kwargs: The kwargs arguments for the VolumeView
+        :return:       (ViewPanel)
+        """
+        panel = ViewPanel(self)
+        view = VolumeView(self, model=EmptyVolumeModel(), **kwargs)
+        panel.addWidget(view, 'volumeView')
+        return panel
+
+    def updateImagePanel(self):
+        model = self._model.getModel(self.currentItem)
+        panel = self._rightPanel.getWidget('topRightPanel')
+        view = panel.getWidget('volumeView')
+        view.setModel(model)

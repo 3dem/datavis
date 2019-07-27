@@ -4,10 +4,12 @@ import numpy as np
 
 import em
 import emviz.models as models
+from emviz.models import TYPE_STRING
 from emviz.utils import py23
 
 from ._image_manager import ImageManager, ImageRef
 from ._emtype import EmType
+from ._empath import EmPath
 
 
 class EmTableModel(models.TableModel):
@@ -193,3 +195,65 @@ class EmVolumeModel(models.VolumeModel):
             self._dim = dim.x, dim.y, dim.z
 
         models.VolumeModel.__init__(self, data)
+
+
+class EmListModel(models.ListModel):
+    """ The EmListModel class provides the basic functionality for create models
+    or read data from the list of file paths
+    """
+    def __init__(self, files, **kwargs):
+        """
+        Create an EmListModel
+        :param files: (list) A list of file path
+        :param kwargs:
+            - imageManager : (ImageManager) The ImageManager instance that can
+                             be used to read images referenced from this list
+            - imagePrefixes: (list) The list of image prefixes
+        """
+        self._files = list(files)
+        self._imageManager = kwargs.get('imageManager') or ImageManager()
+        self._imagePrefixes = kwargs.get('imagePrefixes') or list()
+        self._columnName = kwargs.get('columnName', 'Path')
+
+        self._tableName = ''
+        self._tableNames = [self._tableName]
+
+    def iterColumns(self):
+        yield models.ColumnInfo(self._columnName, EmType.toModel(TYPE_STRING))
+
+    def getRowsCount(self):
+        """ Return the number of rows. """
+        return len(self._files)
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        return self._files[row]
+
+    def getData(self, row, col=0):
+        """ Return the data (array like) for the item in this row, column.
+         Used by rendering of images in a given cell of the table.
+        """
+        value = str(self._files[row])
+        imgRef = self._imageManager.getRef(value)
+
+        # FIXME[phv] need refine the image prefixes
+        if self._imagePrefixes:
+            imgPrefix = self._imagePrefixes[0]
+        else:
+            imgPrefix = self._imageManager.findImagePrefix(value, '')
+            print("Finding image prefix: ", imgPrefix)
+            self._imagePrefixes.append(imgPrefix)
+
+        if imgPrefix is not None:
+            imgRef.path = os.path.join(imgPrefix, imgRef.path)
+
+        return self._imageManager.getData(imgRef)
+
+    def getModel(self, row):
+        """ Return the model for the given row """
+        from ._models_factory import ModelsFactory
+        path = self.getValue(row, 0)
+        if EmPath.isImage(path):
+            return models.ImageModel(self.getData(row))
+        elif EmPath.isVolume(path):
+            return ModelsFactory.createVolumeModel(path)
