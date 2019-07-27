@@ -1,12 +1,14 @@
 
 
-from PyQt5.QtWidgets import QWidget, QSplitter, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QSplitter, QHBoxLayout, QPushButton
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
-from emviz.widgets import ViewPanel
+from emviz.widgets import ViewPanel, DynamicWidgetsFactory
 from emviz.models import EmptyTableModel, ImageModel, EmptyVolumeModel
 
 from emviz.views import ColumnsView, ImageView, VolumeView
+
+import numpy as np
 
 
 class ImageListView(QWidget):
@@ -157,3 +159,91 @@ class VolumeMaskListView(ImageListView):
         panel = self._rightPanel.getWidget('topRightPanel')
         view = panel.getWidget('volumeView')
         view.setModel(model)
+
+
+class DualImageListView(ImageListView):
+    """ View that will show a list of images. The ImagePanel contains two
+    ImageView:  (Left) original image that is load from the input list.
+    (Right) the same image after some modification is applied """
+    def __init__(self, parent, model, **kwargs):
+        """
+        Construct an DualImageListView.
+        :param parent: The parent widget
+        :param model:  (ListModel) The list of images
+        :param kwargs: kwargs arguments for the two ImageView
+          - options:   (dict) Dynamic widget options
+          - method:    Function to invoke when the apply button is clicked
+        """
+        ImageListView.__init__(self, parent, model, **kwargs)
+
+    @pyqtSlot()
+    def __onApplyButtonClicked(self):
+        """ Slot for apply button clicked """
+        if self._method is not None:
+            if self._dynamicParams is None:
+                self._method()
+            else:
+                if self._dynamicWidget is not None:
+                    self._dynamicParams = self._dynamicWidget.getParams()
+                self._method(self._dynamicParams)
+
+    def _createTopRightPanel(self, **kwargs):
+        """Build the top right panel: ViewPanel with two ImageView widgets
+        The left ImageView should be accessed using the 'leftImageView' key.
+        The right ImageView should be accessed using the 'rightImageView' key.
+        :param kwargs: The kwargs arguments for the two ImageView
+        :return:       (ViewPanel)
+        """
+        panel = ViewPanel(self)
+        leftImageView = ImageView(self, model=None, **kwargs)
+        panel.addWidget(leftImageView, 'leftImageView')
+        rightImageView = ImageView(self, model=None, **kwargs)
+        leftImageView.setXLink(rightImageView)
+        leftImageView.setYLink(rightImageView)
+        panel.addWidget(rightImageView, 'rightImageView')
+        return panel
+
+    def _createBottomRightPanel(self, **kwargs):
+        """ Creates a dynamic widget from the given 'options' param.
+        The dynamic widget should be accessed using the 'optionsWidget' key.
+        :param kwargs:
+          - options:   (dict) Dynamic widget options
+          - method:  Function to invoke when the apply button is clicked
+        """
+        self._dynamicParams = kwargs.get('options')
+        self._method = kwargs.get('method')
+
+        panel = ViewPanel(self, layoutType=ViewPanel.VERTICAL)
+        if self._dynamicParams is not None:
+            factory = DynamicWidgetsFactory()
+            self._dynamicWidget = factory.createWidget(self._dynamicParams)
+            panel.addWidget(self._dynamicWidget, 'optionsWidget',
+                            alignment=Qt.AlignLeft)
+        else:
+            self._dynamicWidget = None
+
+        self._applyButton = QPushButton(panel)
+        self._applyButton.setText('Apply')
+        self._applyButton.setFixedWidth(90)
+        self._applyButton.clicked.connect(self.__onApplyButtonClicked)
+        panel.addWidget(self._applyButton, 'applyButton',
+                        alignment=Qt.AlignBottom)
+        return panel
+
+    def updateImagePanel(self):
+        panel = self._rightPanel.getWidget('topRightPanel')
+        leftImageView = panel.getWidget('leftImageView')
+        rightImageView = panel.getWidget('rightImageView')
+
+        data = self._model.getData(self.currentItem, 0)
+        if data is None:
+            rightModel = None
+            leftModel = None
+        else:
+            leftModel = ImageModel(data)
+            data2 = np.ndarray.copy(data)
+            rightModel = ImageModel(data2)
+
+        leftImageView.setModel(leftModel)
+        rightImageView.setModel(rightModel)
+
