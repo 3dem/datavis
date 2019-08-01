@@ -1,14 +1,18 @@
 
 
-from PyQt5.QtWidgets import QWidget, QSplitter, QHBoxLayout, QPushButton
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QPushButton,
+                             QAbstractGraphicsShapeItem)
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
+from PyQt5.QtGui import QRegion, QColor
 
-from emviz.widgets import ViewPanel, DynamicWidgetsFactory
+from emviz.widgets import ViewPanel, DynamicWidgetsFactory, SpinSlider
 from emviz.models import EmptyTableModel, ImageModel, EmptyVolumeModel
-
 from emviz.views import ColumnsView, ImageView, VolumeView
 
+from ._constants import CIRCLE_ROI
+
 import numpy as np
+import pyqtgraph as pg
 
 
 class ImageListView(QWidget):
@@ -26,8 +30,8 @@ class ImageListView(QWidget):
         :param parent:  (QWidget) Specifies the parent widget to which this
                         ImageListView will belong. If None, then the
                         ImageListView is created with no parent.
-        :param kwargs:
-             - model: (TableModel) The data model
+        :param model: (TableModel) The data model
+        :param kwargs: The kwargs arguments for the internal ImageView
         """
         QWidget.__init__(self, parent=parent)
         self.__setupGUI(**kwargs)
@@ -37,9 +41,9 @@ class ImageListView(QWidget):
 
     def __setupGUI(self, **kwargs):
         """ This is the standard method for the GUI creation """
-        self._mainLayout = QHBoxLayout(self)
-        self._mainLayout.setSpacing(0)
-        self._mainLayout.setContentsMargins(1, 1, 1, 1)
+        mainLayout = QHBoxLayout(self)
+        mainLayout.setSpacing(0)
+        mainLayout.setContentsMargins(1, 1, 1, 1)
         self._splitter = QSplitter(orientation=Qt.Horizontal, parent=self)
         self._leftPanel = self._createLeftPanel(**kwargs)
         self._splitter.addWidget(self._leftPanel)
@@ -47,7 +51,7 @@ class ImageListView(QWidget):
         self._splitter.addWidget(self._rightPanel)
         self._splitter.setStretchFactor(0, 1)
         self._splitter.setStretchFactor(1, 3)
-        self._mainLayout.addWidget(self._splitter)
+        mainLayout.addWidget(self._splitter)
 
     def _createLeftPanel(self, **kwargs):
         """
@@ -132,11 +136,11 @@ class ImageListView(QWidget):
         cv.setModel(model)
 
 
-class VolumeMaskListView(ImageListView):
+class VolumeListView(ImageListView):
     """ View that will show a list of volume images """
     def __init__(self, parent, model, **kwargs):
         """
-        Construct a VolumeMaskListView
+        Construct a VolumeListView
         :param parent: The parent widget
         :param model:  (TableModel) The volume list model
         :param kwargs: The kwargs arguments for the VolumeView widget
@@ -195,9 +199,14 @@ class DualImageListView(ImageListView):
         :return:       (ViewPanel)
         """
         panel = ViewPanel(self)
-        leftImageView = ImageView(self, model=None, **kwargs)
+        defaultImgViewKargs = {'histogram': False,
+                               'toolBar': False,
+                               }
+        k = dict(defaultImgViewKargs)
+        k.update(kwargs)
+        leftImageView = ImageView(self, model=None, **k)
         panel.addWidget(leftImageView, 'leftImageView')
-        rightImageView = ImageView(self, model=None, **kwargs)
+        rightImageView = ImageView(self, model=None, **k)
         leftImageView.setXLink(rightImageView)
         leftImageView.setYLink(rightImageView)
         panel.addWidget(rightImageView, 'rightImageView')
@@ -247,3 +256,141 @@ class DualImageListView(ImageListView):
         leftImageView.setModel(leftModel)
         rightImageView.setModel(rightModel)
 
+
+class ImageMaskListView(ImageListView):
+    """ View that will show a list of images. The ImagePanel contains a circular
+    or rectangular mask “mask”."""
+
+    def __init__(self, parent, model, **kwargs):
+        """
+        Construct an ImageMaskListView.
+        :param parent: (QWidget) Specifies the parent widget to which this
+                        ImageMaskListView will belong. If None, then the
+                        ImageMaskListView is created with no parent.
+        :param model: (TableModel) The data model
+        :param kwargs:
+           - maskColor:    (str) The mask color (#ARGB). Example: #2200FF55
+           - maskRoi:      (int) The roi type: RECT_ROI or CIRCLE_ROI(default)
+           - size:         (int) The roi size
+           - The kwargs arguments for the internal ImageView
+        """
+        ImageListView.__init__(self, parent, model, **kwargs)
+        self._createMask(kwargs.get('maskColor', '#2200FF55'),
+                         kwargs.get('maskRoi', CIRCLE_ROI),
+                         kwargs.get('size', 100))
+
+        spinSlider = self.getSpinSlider()
+        spinSlider.sigValueChanged.connect(self.__onSpinSliderValueChanged)
+
+    @pyqtSlot(int)
+    def __onSpinSliderValueChanged(self, value):
+        """ Slot for SpinSlider value changed """
+        width = self._roi.boundingRect().width()
+        if not int(width) == value:
+            d = (width - value)/2
+            self._roi.setPos(self._roi.pos() + (d, d), update=False,
+                             finish=False)
+            self._roi.setSize((value, value))
+
+    @pyqtSlot(object)
+    def __onRoiRegionChanged(self, roi):
+        """ Slot for roi region changed """
+        spinSlider = self.getSpinSlider()
+        value = spinSlider.getValue()
+        width = int(roi.boundingRect().width())
+        if not width == value:
+            spinSlider.setValue(width)
+
+    def _createMask(self, maskColor, roiType, size):
+        """
+         Create the mask
+        :param maskColor: (str) The mask color in #ARGB format.
+                                Example: #22FF4400
+                          or QColor
+        :param roiType: (int) The roi type: RECTANGLE or CIRCLE
+        :param size:    (int) The roi size
+        """
+        panel = self._rightPanel.getWidget('topRightPanel')
+        imageView = panel.getWidget('imageView')
+        vb = imageView.getViewBox()
+        imgItem = imageView.getImageItem()
+        mask = _MaskItem(imgItem, imgItem, roiType, size)
+        mask.setBrush(QColor(maskColor))
+        self._roi = mask.getRoi()
+        vb.addItem(self._roi)
+        vb.addItem(mask)
+        self._mask = mask
+        self._roi.sigRegionChanged.connect(self.__onRoiRegionChanged)
+
+    def _createBottomRightPanel(self, **kwargs):
+        """ Creates the bottom right panel, containing the SpinSlider """
+        panel = ViewPanel(self, layoutType=ViewPanel.HORIZONTAL)
+        spinSlider = SpinSlider(panel, text='Radius ', minValue=1,
+                                maxValue=10000, currentValue=100)
+        panel.addWidget(spinSlider, 'spinSlider')
+
+        return panel
+
+    def setMaskColor(self, color):
+        """
+         Set the mask color
+        :param color: (str) The color in #ARGB format. Example: #22AAFF00
+                      or (QColor)
+        """
+        self._mask.setBrush(QColor(color))
+
+    def getSpinSlider(self):
+        """ Return the SpinSlider widget """
+        panel = self._rightPanel.getWidget('bottomRightPanel')
+        return panel.getWidget('spinSlider')
+
+
+class _MaskItem(QAbstractGraphicsShapeItem):
+
+    def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100):
+        if imageItem is None:
+            raise Exception("Invalid ImageItem: None value")
+
+        QAbstractGraphicsShapeItem.__init__(self, parent=parent)
+        self._imageItem = imageItem
+        self._roiRegion = None
+        if roiType == CIRCLE_ROI:
+            self._roi = pg.CircleROI((0, 0), (size, size))
+            self._regionType = QRegion.Ellipse
+        else:
+            self._roi = pg.RectROI(0, 0, (size, size))
+            self._roi.aspectLocked = True
+            self._regionType = QRegion.Rectangle
+
+        self.__updateRoiRegion()
+
+        self._roi.sigRegionChanged.connect(self.__updateRoiRegion)
+
+    @pyqtSlot()
+    def __updateRoiRegion(self):
+        """ Updates the Qt object(QRegion) used in paint method """
+        pos = self._roi.pos()
+        rect = self._roi.boundingRect()
+        self._roiRegion = QRegion(pos.x(), pos.y(), rect.width(), rect.height(),
+                                  self._regionType)
+
+    def paint(self, painter, option, widget):
+        painter.save()
+        painter.setBrush(self.brush())
+
+        imageRect = self._imageItem.boundingRect()
+        imageRegion = QRegion(0, 0, imageRect.width(), imageRect.height())
+        painter.setClipRegion(imageRegion.xored(self._roiRegion))
+        painter.drawRect(imageRect)
+
+        painter.restore()
+
+    def boundingRect(self):
+        """ Return the bounding rect. Reimplemented from
+        QAbstractGraphicsShapeItem"""
+        return self._imageItem.boundingRect() if self._imageItem else \
+            QRectF(0, 0, 0, 0)
+
+    def getRoi(self):
+        """ Return the roi used for this mask item """
+        return self._roi

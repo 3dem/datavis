@@ -14,4 +14,5 @@ from ._delegates import (ColorItemDelegate, ColumnPropertyItemDelegate,
 from ._constants import *
 
 from ._paging_view import PagingView
-from ._list_view import ImageListView, VolumeMaskListView, DualImageListView
+from ._list_view import (ImageListView, VolumeListView, DualImageListView,
+                         ImageMaskListView)

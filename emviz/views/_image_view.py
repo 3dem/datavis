@@ -17,7 +17,7 @@ class ImageView(QWidget):
     performing basic operations over the view, such as: rotations, zoom, flips,
     move, levels. """
 
-    """ Signal emmited when the image scale is changed """
+    """ Signal emitted when the image scale is changed """
     sigScaleChanged = pyqtSignal(float)
 
     def __init__(self, parent, model=None, **kwargs):
@@ -100,8 +100,7 @@ class ImageView(QWidget):
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
 
-        self._imageView = pg.ImageView(parent=self,
-                                       view=pg.PlotItem())
+        self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
         self.__viewRect = self.getViewRect()
         self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
@@ -694,3 +693,7 @@ class ImageView(QWidget):
             local = self.getView()
             view = imageView.getView()
             local.setYLink(view)
+
+    def getImageItem(self):
+        """ Return the ImageItem used for paint the Image """
+        return self._imageView.imageItem
