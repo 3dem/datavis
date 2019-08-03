@@ -259,7 +259,7 @@ class DualImageListView(ImageListView):
 
 class ImageMaskListView(ImageListView):
     """ View that will show a list of images. The ImagePanel contains a circular
-    or rectangular mask “mask”."""
+    or rectangular mask. """
 
     def __init__(self, parent, model, **kwargs):
         """

@@ -127,8 +127,6 @@ class ImageView(QWidget):
         vLayout.addLayout(hLayout)
         view = self.getView().getViewBox()
         view.sigTransformChanged.connect(self.__onImageScaleChanged)
-        #view.sigStateChanged.connect(
-        #    self.__onImageScaleChanged)
 
         # --Histogram On/Off--
         toolbar = QToolBar(displayPanel)

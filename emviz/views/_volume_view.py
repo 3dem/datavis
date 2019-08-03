@@ -44,7 +44,7 @@ class VolumeView(qtw.QWidget):
         self.__setupGUI(kwargs.get('slicesKwargs', dict()),
                         kwargs.get('galleryKwargs', dict()))
         self.setModel(kwargs['model'])
-        self.setView(kwargs.get('view', 2))
+        self.setView(kwargs.get('view', GALLERY))
         self._onChangeCellSize(self._defaultCellSize)
 
     def __setupGUI(self, slicesKwargs, galleryKwargs):
@@ -55,6 +55,7 @@ class VolumeView(qtw.QWidget):
         self._mainLayout.addWidget(self._toolBar)
         self._stackedLayoud = qtw.QStackedLayout(self._mainLayout)
         self._stackedLayoud.setSpacing(0)
+        self._mainLayout.addLayout(self._stackedLayoud)
         # actions
         self._actionGroupViews = qtw.QActionGroup(self._toolBar)
         self._actionGroupViews.setExclusive(True)
@@ -200,10 +201,6 @@ class VolumeView(qtw.QWidget):
             self._view = SLICES
         self._aGallery.setChecked(not checked)
         self.__setupToolBar()
-        self._multiSlicesView.blockSignals(True)
-        scale = self._zoomSpinImg.getValue() * 0.01
-        self._multiSlicesView.setScale(scale)
-        self._multiSlicesView.blockSignals(False)
 
     @pyqtSlot(int)
     def _onGalleryRowChanged(self, row):
