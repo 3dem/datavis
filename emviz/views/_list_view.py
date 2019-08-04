@@ -362,12 +362,12 @@ class _MaskItem(QAbstractGraphicsShapeItem):
             self._roi.aspectLocked = True
             self._regionType = QRegion.Rectangle
 
-        self.__updateRoiRegion()
+        self.__updateRoiRegion(self._roi)
 
         self._roi.sigRegionChanged.connect(self.__updateRoiRegion)
 
-    @pyqtSlot()
-    def __updateRoiRegion(self):
+    @pyqtSlot(object)
+    def __updateRoiRegion(self, o):
         """ Updates the Qt object(QRegion) used in paint method """
         pos = self._roi.pos()
         rect = self._roi.boundingRect()
