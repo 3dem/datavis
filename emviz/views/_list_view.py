@@ -293,7 +293,9 @@ class ImageMaskListView(ImageListView):
     def __onSpinSliderValueChanged(self, value):
         """ Slot for SpinSlider value changed """
         imageView = self.__getImageView()
-        imageView.setRoiMaskSize(2 * value)
+        size = imageView.getMaskSize()
+        if size is not None and not size == 2*value:
+            imageView.setRoiMaskSize(2 * value)
 
     def __onRoiSizeChanged(self, size):
         """ Slot for roi region changed """

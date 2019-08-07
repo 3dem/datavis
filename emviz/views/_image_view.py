@@ -376,6 +376,14 @@ class ImageView(QWidget):
             self.sigMaskSizeChanged.emit(int(width))
         else:
             self.setRoiMaskSize(imgWidth)
+        self._textItem.setVisible(True)
+
+    def __onRoiRegionChangedStarted(self, o):
+        self.__updateMaskTextPos()
+        self._textItem.setVisible(True)
+
+    def __onRoiRegionChangedFinished(self, o):
+        self._textItem.setVisible(False)
 
     def __updateMaskTextPos(self):
         """
@@ -387,6 +395,22 @@ class ImageView(QWidget):
         rect2 = self._textItem.mapRectToView(rect2)
         self._textItem.setPos(pos.x() + size[0] / 2 - rect2.width(),
                               pos.y() + size[0] / 2)
+
+    def __removeMask(self):
+        """ Remove the mask item """
+        if self._maskItem is not None:
+            vb = self.getViewBox()
+            vb.removeItem(self._maskItem)
+            if self._roi is not None:
+                self._roi.sigRegionChanged.disconnect(self.__onRoiRegionChanged)
+                self._roi.sigRegionChangeStarted.disconnect(
+                    self.__onRoiRegionChangedStarted)
+                self._roi.sigRegionChangeFinished.disconnect(
+                    self.__onRoiRegionChangedFinished)
+                vb.removeItem(self._roi)
+                vb.removeItem(self._textItem)
+            self._maskItem = None
+            self._textItem = None
 
     @pyqtSlot()
     def __resetView(self):
@@ -443,15 +467,17 @@ class ImageView(QWidget):
 
     def _createMask(self, maskColor, mask, size):
         """
-         Create the mask
+        Create the mask, replacing the previous one.
         :param maskColor: (str) The mask color in #ARGB format.
                                 Example: #22FF4400
                           or QColor
         :param mask: (int) The roi type: RECTANGLE or CIRCLE
         :param size: (int) The roi radius
         """
+        self.__removeMask()  # remove previous mask
         vb = self.getViewBox()
         imgItem = self._imageView.getImageItem()
+
         if isinstance(mask, int):
             maskItem = _MaskItem(imgItem, imgItem, mask, size)
             maskItem.setBrush(QColor(maskColor))
@@ -460,8 +486,11 @@ class ImageView(QWidget):
                                          fill=pg.mkBrush(color=(0, 0, 0, 128)))
             vb.addItem(self._roi)
             vb.addItem(self._textItem)
-            self._textItem.setVisible(False)
             self._roi.sigRegionChanged.connect(self.__onRoiRegionChanged)
+            self._roi.sigRegionChangeStarted.connect(
+                self.__onRoiRegionChangedStarted)
+            self._roi.sigRegionChangeFinished.connect(
+                self.__onRoiRegionChangedFinished)
             vb.addItem(maskItem)
         elif mask is not None:
             maskItem = _CustomMaskItem(imgItem, maskColor, mask)
@@ -484,7 +513,8 @@ class ImageView(QWidget):
                 d = (width - size)/2
                 self._roi.setPos(self._roi.pos() + (d, d), update=False,
                                  finish=False)
-                self._roi.setSize((size, size))
+                self._roi.setSize((size, size), update=True, finish=False)
+                self._textItem.setVisible(False)
 
     def getMaskSize(self):
         """
@@ -502,6 +532,22 @@ class ImageView(QWidget):
         """
         if self._maskItem:
             self._maskItem.setMaskColor(QColor(color))
+
+    def setViewMask(self, **kwargs):
+        """
+        Set the mask to use in this ImageView. If mask=None, the current mask
+        will be removed.
+        :param kwargs:
+         - maskColor:   (str) The color in #ARGB format. Example: #22AAFF00
+                        or (QColor). Default value: '#2200FF55'
+         - mask:        (int) The roi type (CIRCLE_ROI or RECT_ROI) for roi mask
+                        (numpy array) for image mask.
+         - maskSize:    (int) The roi radius in case of CIRCLE_ROI or RECT_ROI.
+                        Default value: 100
+        """
+        self._createMask(kwargs.get('maskColor', '#2200FF55'),
+                         kwargs.get('mask'),
+                         kwargs.get('maskSize', 100))
 
     def setAxisOrientation(self, orientation):
         """
@@ -898,6 +944,10 @@ class _CustomMaskItem(pg.ImageItem):
         c = QColor(maskColor)
         lut = [(c.red(), c.green(), c.blue(), c.alpha()), (255, 255, 255, 0)]
         self.setLookupTable(lut)
+
+    def setMask(self, mask):
+        """ Set the image mask """
+        self._imageItem.setImage(mask)
 
     def setMaxBounds(self, bounds):
         """

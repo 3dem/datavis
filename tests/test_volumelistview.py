@@ -24,14 +24,14 @@ class TestVolumeListView(TestView):
         #                                             'maskColor': '#220A1F88',
         #                                             'maskSize': 40}
         #                         },
-        #                AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
+        #               AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
         #                                             'maskColor': '#220A1F88',
         #                                             'maskSize': 40}
-        #                         },
-        #                AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
+        #                        },
+        #               AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
         #                                             'maskColor': '#220A1F88',
         #                                             'maskSize': 40}
-        #                         }
+        #                        }
         #                }
         # uncomment and pass slicesKwargs=slicesKwargs
         return VolumeListView(
