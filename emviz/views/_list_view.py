@@ -12,7 +12,6 @@ from emviz.views import ColumnsView, ImageView, VolumeView
 from ._constants import CIRCLE_ROI
 
 import numpy as np
-import pyqtgraph as pg
 
 
 class ImageListView(QWidget):
@@ -34,7 +33,9 @@ class ImageListView(QWidget):
         :param kwargs: The kwargs arguments for the internal ImageView
         """
         QWidget.__init__(self, parent=parent)
-        self.__setupGUI(**kwargs)
+        default = {'toolBar': False}
+        default.update(kwargs)
+        self.__setupGUI(**default)
         self._connectSignals()
 
         self.setModel(model)
@@ -270,57 +271,47 @@ class ImageMaskListView(ImageListView):
         :param model: (TableModel) The data model
         :param kwargs:
            - maskColor:    (str) The mask color (#ARGB). Example: #2200FF55
-           - maskRoi:      (int) The roi type: RECT_ROI or CIRCLE_ROI(default)
-           - size:         (int) The roi size
+           - mask:         (int) Roi type: RECT_ROI or CIRCLE_ROI(default) or
+                           (numpyarray) Image mask where 0 will be painted with
+                           the specified maskColor and 255 will be transparent
+           - maskSize:     (int) The roi size
            - The kwargs arguments for the internal ImageView
         """
         ImageListView.__init__(self, parent, model, **kwargs)
-        self._createMask(kwargs.get('maskColor', '#2200FF55'),
-                         kwargs.get('maskRoi', CIRCLE_ROI),
-                         kwargs.get('size', 100))
 
-        spinSlider = self.getSpinSlider()
+        spinSlider = self.__getSpinSlider()
         spinSlider.sigValueChanged.connect(self.__onSpinSliderValueChanged)
+        imageView = self.__getImageView()
+        mask = kwargs.get('mask')
+        if isinstance(mask, int):  # ROI MASK
+            imageView.sigMaskSizeChanged.connect(self.__onRoiSizeChanged)
+        else:
+            panel = self._rightPanel.getWidget('bottomRightPanel')
+            panel.setVisible(False)
 
     @pyqtSlot(int)
     def __onSpinSliderValueChanged(self, value):
         """ Slot for SpinSlider value changed """
-        width = self._roi.boundingRect().width()
-        if not int(width) == value:
-            d = (width - value)/2
-            self._roi.setPos(self._roi.pos() + (d, d), update=False,
-                             finish=False)
-            self._roi.setSize((value, value))
+        imageView = self.__getImageView()
+        imageView.setRoiMaskSize(2 * value)
 
-    @pyqtSlot(object)
-    def __onRoiRegionChanged(self, roi):
+    def __onRoiSizeChanged(self, size):
         """ Slot for roi region changed """
-        spinSlider = self.getSpinSlider()
+        spinSlider = self.__getSpinSlider()
         value = spinSlider.getValue()
-        width = int(roi.boundingRect().width())
-        if not width == value:
-            spinSlider.setValue(width)
+        r = int(size/2)
+        if not r == value:
+            spinSlider.setValue(r)
 
-    def _createMask(self, maskColor, roiType, size):
-        """
-         Create the mask
-        :param maskColor: (str) The mask color in #ARGB format.
-                                Example: #22FF4400
-                          or QColor
-        :param roiType: (int) The roi type: RECTANGLE or CIRCLE
-        :param size:    (int) The roi size
-        """
+    def __getSpinSlider(self):
+        """ Return the SpinSlider widget """
+        panel = self._rightPanel.getWidget('bottomRightPanel')
+        return panel.getWidget('spinSlider')
+
+    def __getImageView(self):
+        """ Return the ImageView widget """
         panel = self._rightPanel.getWidget('topRightPanel')
-        imageView = panel.getWidget('imageView')
-        vb = imageView.getViewBox()
-        imgItem = imageView.getImageItem()
-        mask = _MaskItem(imgItem, imgItem, roiType, size)
-        mask.setBrush(QColor(maskColor))
-        self._roi = mask.getRoi()
-        vb.addItem(self._roi)
-        vb.addItem(mask)
-        self._mask = mask
-        self._roi.sigRegionChanged.connect(self.__onRoiRegionChanged)
+        return panel.getWidget('imageView')
 
     def _createBottomRightPanel(self, **kwargs):
         """ Creates the bottom right panel, containing the SpinSlider """
@@ -331,66 +322,22 @@ class ImageMaskListView(ImageListView):
 
         return panel
 
+    def updateImagePanel(self):
+        ImageListView.updateImagePanel(self)
+        spinSlider = self.__getSpinSlider()
+        imgView = self.__getImageView()
+        b = imgView.getImageItem().boundingRect()
+        spinSlider.setRange(
+            1, int(min(b.width(), b.height()) / 2))
+        s = imgView.getMaskSize()
+        if s is not None:
+            spinSlider.setValue(int(s / 2))
+
     def setMaskColor(self, color):
         """
          Set the mask color
         :param color: (str) The color in #ARGB format. Example: #22AAFF00
                       or (QColor)
         """
-        self._mask.setBrush(QColor(color))
-
-    def getSpinSlider(self):
-        """ Return the SpinSlider widget """
-        panel = self._rightPanel.getWidget('bottomRightPanel')
-        return panel.getWidget('spinSlider')
-
-
-class _MaskItem(QAbstractGraphicsShapeItem):
-
-    def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100):
-        if imageItem is None:
-            raise Exception("Invalid ImageItem: None value")
-
-        QAbstractGraphicsShapeItem.__init__(self, parent=parent)
-        self._imageItem = imageItem
-        self._roiRegion = None
-        if roiType == CIRCLE_ROI:
-            self._roi = pg.CircleROI((0, 0), (size, size))
-            self._regionType = QRegion.Ellipse
-        else:
-            self._roi = pg.RectROI(0, 0, (size, size))
-            self._roi.aspectLocked = True
-            self._regionType = QRegion.Rectangle
-
-        self.__updateRoiRegion(self._roi)
-
-        self._roi.sigRegionChanged.connect(self.__updateRoiRegion)
-
-    @pyqtSlot(object)
-    def __updateRoiRegion(self, o):
-        """ Updates the Qt object(QRegion) used in paint method """
-        pos = self._roi.pos()
-        rect = self._roi.boundingRect()
-        self._roiRegion = QRegion(pos.x(), pos.y(), rect.width(), rect.height(),
-                                  self._regionType)
-
-    def paint(self, painter, option, widget):
-        painter.save()
-        painter.setBrush(self.brush())
-
-        imageRect = self._imageItem.boundingRect()
-        imageRegion = QRegion(0, 0, imageRect.width(), imageRect.height())
-        painter.setClipRegion(imageRegion.xored(self._roiRegion))
-        painter.drawRect(imageRect)
-
-        painter.restore()
-
-    def boundingRect(self):
-        """ Return the bounding rect. Reimplemented from
-        QAbstractGraphicsShapeItem"""
-        return self._imageItem.boundingRect() if self._imageItem else \
-            QRectF(0, 0, 0, 0)
-
-    def getRoi(self):
-        """ Return the roi used for this mask item """
-        return self._roi
+        imageView = self.__getImageView()
+        imageView.setMaskColor(color)

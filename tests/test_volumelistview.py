@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from emviz.core import ModelsFactory
-from emviz.views import VolumeListView
+from emviz.views import VolumeListView, CIRCLE_ROI
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
 from .test_commons import TestView
 
 
@@ -19,6 +20,20 @@ class TestVolumeListView(TestView):
         ]
 
     def createView(self):
+        #slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': CIRCLE_ROI,
+        #                                             'maskColor': '#220A1F88',
+        #                                             'maskSize': 40}
+        #                         },
+        #                AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
+        #                                             'maskColor': '#220A1F88',
+        #                                             'maskSize': 40}
+        #                         },
+        #                AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
+        #                                             'maskColor': '#220A1F88',
+        #                                             'maskSize': 40}
+        #                         }
+        #                }
+        # uncomment and pass slicesKwargs=slicesKwargs
         return VolumeListView(
             None, ModelsFactory.createListModel(self.getDataPaths()))
 

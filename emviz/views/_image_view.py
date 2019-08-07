@@ -3,13 +3,16 @@
 
 import pyqtgraph as pg
 import qtawesome as qta
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QLineF
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QLineF, QRectF
 from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
-                             QToolBar, QVBoxLayout, QPushButton, QSizePolicy)
+                             QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
+                             QAbstractGraphicsShapeItem)
+from PyQt5.QtGui import QRegion, QColor
 
 from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
                            TriggerAction, ZoomSpinBox)
-from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT)
+from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
+                         CIRCLE_ROI)
 
 
 class ImageView(QWidget):
@@ -19,6 +22,9 @@ class ImageView(QWidget):
 
     """ Signal emitted when the image scale is changed """
     sigScaleChanged = pyqtSignal(float)
+
+    """ Signal for roi mask size changed"""
+    sigMaskSizeChanged = pyqtSignal(int)
 
     def __init__(self, parent, model=None, **kwargs):
         """
@@ -59,6 +65,11 @@ class ImageView(QWidget):
                    image display. By default is None, so the data from the
                    pixel values will be used. Passing a different range is
                    useful for normalization of the slices in volumes.
+        maskColor: (str) The mask color (#ARGB). Example: #2200FF55
+        mask:      (int) Roi type: RECT_ROI or CIRCLE_ROI(default) or
+                   (numpyarray) Image mask where 0 will be painted with
+                   the specified maskColor and 255 will be transparent
+        maskSize:  (int) The roi radius
         """
         QWidget.__init__(self, parent=parent)
 
@@ -89,9 +100,14 @@ class ImageView(QWidget):
         self._axisPos = kwargs.get('axisPos', AXIS_BOTTOM_LEFT)
         self._axisColor = kwargs.get('axisColor')
         self._levels = kwargs.get('levels', None)
+        # mask params
         self.__updatingImage = False
         self.__setupGUI()
         self.__setupImageView()
+        self._maskItem = None
+        self._roi = None
+        self._createMask(kwargs.get('maskColor', '#2200FF55'),
+                         kwargs.get('mask'), kwargs.get('maskSize', 100))
         self.setModel(model)
 
     def __setupGUI(self):
@@ -99,7 +115,6 @@ class ImageView(QWidget):
         self._mainLayout = QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
-
         self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
         self.__viewRect = self.getViewRect()
         self._imageView.installEventFilter(self)
@@ -338,7 +353,7 @@ class ImageView(QWidget):
 
     def __calcImageScale(self):
         """ Calculate the image scale """
-        rect = self._imageView.imageItem.boundingRect()
+        rect = self._imageView.getImageItem().boundingRect()
         scale = 0
         if rect.width() > 0:
             p1 = pg.Point(0, 0)
@@ -349,6 +364,29 @@ class ImageView(QWidget):
             linev = QLineF(p1v.x(), p1v.y(), p2v.x(), p2v.y())
             scale = abs(linev.dy())
         return scale
+
+    def __onRoiRegionChanged(self, roi):
+        """ Slot for roi region changed """
+        self.__updateMaskTextPos()
+        width = roi.boundingRect().width()
+        b = self._imageView.getImageItem().boundingRect()
+        imgWidth = min(b.width(), b.height())
+        if width <= imgWidth:
+            self._textItem.setText("%d" % int(width/2))
+            self.sigMaskSizeChanged.emit(int(width))
+        else:
+            self.setRoiMaskSize(imgWidth)
+
+    def __updateMaskTextPos(self):
+        """
+        Update the mask text position according to the mask-roi.
+        """
+        pos = self._roi.pos()
+        size = self._roi.size()
+        rect2 = self._textItem.boundingRect()
+        rect2 = self._textItem.mapRectToView(rect2)
+        self._textItem.setPos(pos.x() + size[0] / 2 - rect2.width(),
+                              pos.y() + size[0] / 2)
 
     @pyqtSlot()
     def __resetView(self):
@@ -403,6 +441,68 @@ class ImageView(QWidget):
                 self.__viewRect = self.getViewRect()
                 self.sigScaleChanged.emit(self._scale)
 
+    def _createMask(self, maskColor, mask, size):
+        """
+         Create the mask
+        :param maskColor: (str) The mask color in #ARGB format.
+                                Example: #22FF4400
+                          or QColor
+        :param mask: (int) The roi type: RECTANGLE or CIRCLE
+        :param size: (int) The roi radius
+        """
+        vb = self.getViewBox()
+        imgItem = self._imageView.getImageItem()
+        if isinstance(mask, int):
+            maskItem = _MaskItem(imgItem, imgItem, mask, size)
+            maskItem.setBrush(QColor(maskColor))
+            self._roi = maskItem.getRoi()
+            self._textItem = pg.TextItem(text="", color=(220, 220, 0),
+                                         fill=pg.mkBrush(color=(0, 0, 0, 128)))
+            vb.addItem(self._roi)
+            vb.addItem(self._textItem)
+            self._textItem.setVisible(False)
+            self._roi.sigRegionChanged.connect(self.__onRoiRegionChanged)
+            vb.addItem(maskItem)
+        elif mask is not None:
+            maskItem = _CustomMaskItem(imgItem, maskColor, mask)
+            vb.addItem(maskItem)
+        else:
+            maskItem = None
+
+        self._maskItem = maskItem
+
+    def setRoiMaskSize(self, size):
+        """
+        Set size for the roi mask
+        :param size: (int) The roi size
+        """
+        if isinstance(self._maskItem, _MaskItem):
+            width = self._roi.boundingRect().width()
+            b = self._imageView.getImageItem().boundingRect()
+            w = min(b.width(), b.height())
+            if not size == width and size <= w:
+                d = (width - size)/2
+                self._roi.setPos(self._roi.pos() + (d, d), update=False,
+                                 finish=False)
+                self._roi.setSize((size, size))
+
+    def getMaskSize(self):
+        """
+        Return the mask size
+        """
+        if self._roi:
+            return int(self._roi.boundingRect().width())
+        return None
+
+    def setMaskColor(self, color):
+        """
+        Set the mask color
+        :param color: (str) The color in #ARGB format. Example: #22AAFF00
+                      or (QColor)
+        """
+        if self._maskItem:
+            self._maskItem.setMaskColor(QColor(color))
+
     def setAxisOrientation(self, orientation):
         """
         Sets the axis orientation for this ImageView.
@@ -434,6 +534,14 @@ class ImageView(QWidget):
             self._imageView.setImage(imageModel.getData(),
                                      autoRange=self._fitToSize,
                                      levels=self._levels)
+            if self._roi:
+                imgItem = self._imageView.getImageItem()
+                b = imgItem.boundingRect()
+                r = self._roi.boundingRect()
+                self._maskItem.setMaxBounds(b)
+                self._roi.setPos(imgItem.pos() +
+                                 pg.Point((b.width()-r.width()) / 2,
+                                          (b.height() - r.height()) / 2))
             self.__updatingImage = False
             self.__viewRect = self.getViewRect()
             self._scale = self.__calcImageScale()
@@ -450,7 +558,8 @@ class ImageView(QWidget):
         can be updated.
         """
         data = None if self._model is None else self._model.getData()
-        t = self._imageView.imageItem.transform()  # conserve image QTransform
+        # conserve image QTransform
+        t = self._imageView.getImageItem().transform()
         # For image change, not emit sigScaleChanged
         self.__updatingImage = True
         self._imageView.setImage(data, transform=t, levels=self._levels)
@@ -692,6 +801,107 @@ class ImageView(QWidget):
             view = imageView.getView()
             local.setYLink(view)
 
-    def getImageItem(self):
-        """ Return the ImageItem used for paint the Image """
-        return self._imageView.imageItem
+
+class _MaskItem(QAbstractGraphicsShapeItem):
+
+    def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100):
+        if imageItem is None:
+            raise Exception("Invalid ImageItem: None value")
+
+        QAbstractGraphicsShapeItem.__init__(self, parent=parent)
+        self._imageItem = imageItem
+        self._roiRegion = None
+        if roiType == CIRCLE_ROI:
+            size *= 2
+            self._roi = pg.CircleROI((0, 0), (size, size), movable=False)
+            self._regionType = QRegion.Ellipse
+        else:
+            size *= 2
+            self._roi = pg.RectROI(0, 0, (size, size), movable=False)
+            self._roi.aspectLocked = True
+            self._regionType = QRegion.Rectangle
+
+        self.__updateRoiRegion(self._roi)
+
+        self._roi.sigRegionChanged.connect(self.__updateRoiRegion)
+
+    def __updateRoiRegion(self, o):
+        """ Updates the Qt object(QRegion) used in paint method """
+        pos = self._roi.pos()
+        rect = self._roi.boundingRect()
+        self._roiRegion = QRegion(pos.x(), pos.y(), rect.width(), rect.height(),
+                                  self._regionType)
+
+    def setMaskColor(self, maskColor):
+        """
+        Set the mask color
+        :param maskColor: (str) The mask color in ARGB format.
+                                Example: '#22FF00AA'
+                          or (QColor)
+        """
+        self.setBrush(QColor(maskColor))
+
+    def paint(self, painter, option, widget):
+        painter.save()
+
+        imageRect = self._imageItem.boundingRect()
+        imageRegion = QRegion(0, 0, imageRect.width(), imageRect.height())
+        painter.setClipRegion(imageRegion.xored(self._roiRegion))
+        painter.fillRect(imageRect, self.brush())
+
+        painter.restore()
+
+    def boundingRect(self):
+        """ Return the bounding rect. Reimplemented from
+        QAbstractGraphicsShapeItem """
+        if self._imageItem:
+            return self._imageItem.boundingRect()
+        return QRectF(0, 0, 0, 0)
+
+    def getRoi(self):
+        """ Return the roi used for this mask item """
+        return self._roi
+
+    def setMaxBounds(self, bounds):
+        """
+        :param bounds:(QRect, QRectF, or None) Specifies boundaries that the ROI
+                      cannot be dragged outside of by the user. Default is None.
+        """
+        self._roi.maxBounds = bounds
+
+
+class _CustomMaskItem(pg.ImageItem):
+
+    def __init__(self, imageItem, maskColor, maskData):
+        """
+        :param imageItem: (pg.ImageItem) The image item
+        :param maskColor: (str) The mask color in ARGB format.
+                                Example: '#22FF00AA'
+                          or (QColor)
+        :param maskData:  (numpy array) The mask data
+        """
+        if imageItem is None:
+            raise Exception("Invalid ImageItem: None value")
+
+        pg.ImageItem.__init__(self, image=maskData)
+        self.setMaskColor(maskColor)
+        self._imageItem = imageItem
+        self.maskData = maskData
+
+    def setMaskColor(self, maskColor):
+        """
+        Set the mask color
+        :param maskColor: (str) The mask color in ARGB format.
+                                Example: '#22FF00AA'
+                          or (QColor)
+        """
+        c = QColor(maskColor)
+        lut = [(c.red(), c.green(), c.blue(), c.alpha()), (255, 255, 255, 0)]
+        self.setLookupTable(lut)
+
+    def setMaxBounds(self, bounds):
+        """
+        :param bounds: (QRect, QRectF, or None) Specifies mask boundaries.
+                       Default is None.
+        """
+        pass

@@ -116,9 +116,15 @@ class VolumeView(qtw.QWidget):
 
         # views
         model = EmptySlicesModel()
-        slicesKwargs[AXIS_X] = {'model': model}
-        slicesKwargs[AXIS_Y] = {'model': model}
-        slicesKwargs[AXIS_Z] = {'model': model}
+        d = {'model': model}
+        d.update(slicesKwargs.get(AXIS_X, dict()))
+        slicesKwargs[AXIS_X] = d
+        d = {'model': model}
+        d.update(slicesKwargs.get(AXIS_Y, dict()))
+        slicesKwargs[AXIS_Y] = d
+        d = {'model': model}
+        d.update(slicesKwargs.get(AXIS_Z, dict()))
+        slicesKwargs[AXIS_Z] = d
         self._multiSlicesView = MultiSliceView(self, slicesKwargs)
         self._multiSlicesView.sigAxisChanged.connect(self.__updateAxis)
         self._multiSlicesView.sigScaleChanged.connect(self.__updateImageScale)
