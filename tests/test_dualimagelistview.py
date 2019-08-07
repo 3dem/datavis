@@ -3,7 +3,7 @@
 
 from emviz.core import ModelsFactory
 from emviz.views import DualImageListView
-from .test_commons import TestView
+from test_commons import TestView
 
 
 class TestDualImageListView(TestView):
@@ -97,7 +97,10 @@ class TestDualImageListView(TestView):
         ]
         return DualImageListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            options=tool_params1, method=print)
+            options=tool_params1, method=printFunc)
+
+def printFunc(*args):
+    print(args)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@
 
 from emviz.core import ModelsFactory
 from emviz.views import ImageMaskListView, CIRCLE_ROI
-from .test_commons import TestView
+from test_commons import TestView
 
 
 class TestImageMaskListView(TestView):
