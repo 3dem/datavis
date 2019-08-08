@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from emviz.core import ModelsFactory
-from emviz.views import ImageMaskListView
+from emviz.views import ImageMaskListView, CIRCLE_ROI
 from .test_commons import TestView
 
 
-class TestImageMaskListView(TestView):
+class TestRoiMaskListView(TestView):
     __title = "ImageMaskListView example"
 
     def getDataPaths(self):
@@ -17,16 +17,10 @@ class TestImageMaskListView(TestView):
         ]
 
     def createView(self):
-        import numpy as np
-        # creating the image mask
-        mask = np.zeros(shape=(1024, 1024), dtype=np.int8)
-        for i in range(300, 600):
-            for j in range(300, 600):
-                mask[i][j] = 1
         return ImageMaskListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            maskColor='#220A1F88', mask=mask)
+            maskColor='#220A1F88', mask=CIRCLE_ROI, maskSize=500)
 
 
 if __name__ == '__main__':
-    TestImageMaskListView().runApp()
+    TestRoiMaskListView().runApp()

@@ -4,7 +4,7 @@
 from emviz.views import SlicesView
 from emviz.core import ModelsFactory, ImageManager
 
-from test_commons import TestView
+from .test_commons import TestView
 
 
 class TestSlicesView(TestView):
@@ -36,4 +36,3 @@ class TestSlicesView(TestView):
 
 if __name__ == '__main__':
     TestSlicesView().runApp()
-

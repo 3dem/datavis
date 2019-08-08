@@ -16,7 +16,8 @@ class TestImageListView(TestView):
         ]
 
     def createView(self):
-        return ImageListView(None, ModelsFactory.createTableModel(self._path))
+        return ImageListView(
+            None, ModelsFactory.createTableModel(self.getDataPaths()[0]))
 
 
 if __name__ == '__main__':

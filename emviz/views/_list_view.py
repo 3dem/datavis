@@ -1,15 +1,11 @@
 
 
-from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QPushButton,
-                             QAbstractGraphicsShapeItem)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QRectF
-from PyQt5.QtGui import QRegion, QColor
+from PyQt5.QtWidgets import QWidget, QSplitter, QHBoxLayout, QPushButton
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 
 from emviz.widgets import ViewPanel, DynamicWidgetsFactory, SpinSlider
 from emviz.models import EmptyTableModel, ImageModel, EmptyVolumeModel
 from emviz.views import ColumnsView, ImageView, VolumeView
-
-from ._constants import CIRCLE_ROI
 
 import numpy as np
 
@@ -125,7 +121,7 @@ class ImageListView(QWidget):
         imageView = panel.getWidget('imageView')
         data = self._model.getData(self.currentItem, 0)
         imgModel = ImageModel(data)
-        imageView.setModel(imgModel)
+        imageView.setModel(imgModel, False)
 
     def setModel(self, model):
         """
@@ -254,8 +250,8 @@ class DualImageListView(ImageListView):
             data2 = np.ndarray.copy(data)
             rightModel = ImageModel(data2)
 
-        leftImageView.setModel(leftModel)
-        rightImageView.setModel(rightModel)
+        leftImageView.setModel(leftModel, False)
+        rightImageView.setModel(rightModel, False)
 
 
 class ImageMaskListView(ImageListView):

@@ -117,6 +117,8 @@ class ImageView(QWidget):
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
         self.__viewRect = self.getViewRect()
+        view = self.getViewBox()
+        view.sigTransformChanged.connect(self.__onTransformChanged)
         self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
         self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
@@ -320,6 +322,10 @@ class ImageView(QWidget):
                     axis.setAutoFillBackground(self._autoFill)
                     axis.setZValue(0)
                     axis.linkedViewChanged(viewBox)
+
+    def __onTransformChanged(self, o):
+        """ Slot for ViewBox.sigTransformChanged"""
+        self.__viewRect = self.getViewRect()
 
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
@@ -568,7 +574,7 @@ class ImageView(QWidget):
             view = view.getViewBox()
         return view
 
-    def setModel(self, imageModel):
+    def setModel(self, imageModel, fitToSize=True):
         """
         Set the image model to be used for this ImageView
         :param imageModel: (emviz.models.ImageModel) The image model
@@ -578,7 +584,7 @@ class ImageView(QWidget):
         if imageModel:
             self.__updatingImage = True
             self._imageView.setImage(imageModel.getData(),
-                                     autoRange=self._fitToSize,
+                                     autoRange=True,
                                      levels=self._levels)
             if self._roi:
                 imgItem = self._imageView.getImageItem()
@@ -589,6 +595,9 @@ class ImageView(QWidget):
                                  pg.Point((b.width()-r.width()) / 2,
                                           (b.height() - r.height()) / 2))
             self.__updatingImage = False
+            if not fitToSize:
+                self.setViewRect(self.__viewRect)
+
             self.__viewRect = self.getViewRect()
             self._scale = self.__calcImageScale()
 
@@ -611,6 +620,13 @@ class ImageView(QWidget):
         self._imageView.setImage(data, transform=t, levels=self._levels)
         self._imageView.getView().setRange(rect=self.__viewRect, padding=0.0)
         self.__updatingImage = False
+
+    def setViewRect(self, rect):
+        """
+        Set the current view rect
+        :param rect: (QRect) The view rect
+        """
+        self._imageView.getView().setRange(rect=rect, padding=0.0)
 
     @pyqtSlot(int)
     def rotate(self, angle):
@@ -805,11 +821,25 @@ class ImageView(QWidget):
         if t == QEvent.KeyPress:
             self.__imageViewKeyPressEvent(event)
             return True
-        if t in [QEvent.Wheel, QEvent.MouseMove, QEvent.MouseButtonRelease]:
-            self.__viewRect = self.getViewRect()
-            return True
 
         return QWidget.eventFilter(self, obj, event)
+
+    def getImagePos(self):
+        """
+        Return the image position
+        """
+        return self.getImageItem().pos()
+
+    def setImagePos(self, pos):
+        """
+        Set the image position
+        :param pos: (QPoint, pg.Point) The image position
+        """
+        self.getImageItem().setPos(pos)
+
+    def getScale(self):
+        """ Return the image scale """
+        return self.__calcImageScale()
 
     def setScale(self, scale):
         """
