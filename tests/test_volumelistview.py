@@ -3,7 +3,7 @@
 
 from emviz.core import ModelsFactory
 from emviz.views import VolumeListView
-from .test_commons import TestView
+from test_commons import TestView
 
 
 class TestVolumeListView(TestView):
