@@ -29,6 +29,7 @@ class ImageListView(QWidget):
         :param kwargs: The kwargs arguments for the internal ImageView
         """
         QWidget.__init__(self, parent=parent)
+        self.currentItem = -1
         default = {'toolBar': False}
         default.update(kwargs)
         self.__setupGUI(**default)
@@ -107,9 +108,10 @@ class ImageListView(QWidget):
     @pyqtSlot(int)
     def onItemChanged(self, index):
         """ Slot for sigCurrentRowChanged signal """
-        self.currentItem = index
-        self.updateImagePanel()
-        self.sigCurrentItemChanged.emit(index)
+        if not self.currentItem == index:
+            self.currentItem = index
+            self.updateImagePanel()
+            self.sigCurrentItemChanged.emit(index)
 
     def updateImagePanel(self):
         """
@@ -121,7 +123,7 @@ class ImageListView(QWidget):
         imageView = panel.getWidget('imageView')
         data = self._model.getData(self.currentItem, 0)
         imgModel = ImageModel(data)
-        imageView.setModel(imgModel, False)
+        imageView.setModel(imgModel, imageView.isEmpty())
 
     def setModel(self, model):
         """
@@ -129,6 +131,7 @@ class ImageListView(QWidget):
         :param model: (TableModel) the model
         """
         self._model = model
+        self.currentItem = -1
         cv = self._leftPanel.getWidget('columnsView')
         cv.setModel(model)
 
@@ -242,6 +245,7 @@ class DualImageListView(ImageListView):
         rightImageView = panel.getWidget('rightImageView')
 
         data = self._model.getData(self.currentItem, 0)
+
         if data is None:
             rightModel = None
             leftModel = None
@@ -250,8 +254,9 @@ class DualImageListView(ImageListView):
             data2 = np.ndarray.copy(data)
             rightModel = ImageModel(data2)
 
-        leftImageView.setModel(leftModel, False)
-        rightImageView.setModel(rightModel, False)
+        e = leftImageView.isEmpty()
+        leftImageView.setModel(leftModel, e)
+        rightImageView.setModel(rightModel, e)
 
 
 class ImageMaskListView(ImageListView):

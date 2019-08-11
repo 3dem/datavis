@@ -239,10 +239,9 @@ class VolumeView(qtw.QWidget):
         """
         axis = self._comboBoxCurrentAxis.currentData(Qt.UserRole)
         self._multiSlicesView.setAxis(axis)
-        if self._galleryView.isVisible():
-            self._galleryView.setModel(self._slicesTableModels[axis],
-                                       minMax=self._model.getMinMax())
-            self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)
+        self._galleryView.setModel(self._slicesTableModels[axis],
+                                   minMax=self._model.getMinMax())
+        self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)
 
     @pyqtSlot(int)
     def _onVolumeChanged(self, index):

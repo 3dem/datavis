@@ -4,7 +4,7 @@
 from emviz.core import ModelsFactory
 from emviz.views import VolumeListView, CIRCLE_ROI
 from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
-from .test_commons import TestView
+from test_commons import TestView
 
 
 class TestRoiMaskVolumeListView(TestView):
@@ -21,15 +21,15 @@ class TestRoiMaskVolumeListView(TestView):
 
     def createView(self):
         slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#220A1F88',
+                                                     'maskColor': '#440826E0',
                                                      'maskSize': 40}
                                  },
                         AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#220A1F88',
+                                                     'maskColor': '#44E72929',
                                                      'maskSize': 40}
                                  },
                         AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#220A1F88',
+                                                     'maskColor': '#444BBC23',
                                                      'maskSize': 40}
                                  }
                         }

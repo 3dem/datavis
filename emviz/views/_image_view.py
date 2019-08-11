@@ -703,7 +703,11 @@ class ImageView(QWidget):
     @pyqtSlot()
     def fitToSize(self):
         """ Fit image to the widget size """
-        self._imageView.getView().autoRange()
+        self._imageView.autoRange()
+
+    def isEmpty(self):
+        """ Return True if the ImageView is empty """
+        return self._model == None
 
     def showToolBar(self, visible=True):
         """
@@ -756,9 +760,7 @@ class ImageView(QWidget):
 
     def getViewRect(self):
         """ Returns the view rect area """
-        view = self._imageView.getView()
-        if isinstance(view, pg.PlotItem):
-            view = view.getViewBox()
+        view = self.getViewBox()
 
         return view.viewRect()
 
@@ -823,19 +825,6 @@ class ImageView(QWidget):
             return True
 
         return QWidget.eventFilter(self, obj, event)
-
-    def getImagePos(self):
-        """
-        Return the image position
-        """
-        return self.getImageItem().pos()
-
-    def setImagePos(self, pos):
-        """
-        Set the image position
-        :param pos: (QPoint, pg.Point) The image position
-        """
-        self.getImageItem().setPos(pos)
 
     def getScale(self):
         """ Return the image scale """

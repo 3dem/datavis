@@ -81,7 +81,7 @@ class MultiSliceView(QWidget):
             AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
                      'axisPos': AXIS_BOTTOM_LEFT}
         }
-
+        imageView = None
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
@@ -100,6 +100,10 @@ class MultiSliceView(QWidget):
             imgView.sigScaleChanged.connect(self.__onScaleChanged)
             layout.addWidget(sv, *pos)
             self._slicesDict[axis] = sv
+            if imageView is not None:  # link the previous with the current
+                imageView.setXLink(imgView)
+                #imageView.setYLink(imgView)
+            imageView = imgView
 
         self._renderArea = RenderArea(self)
         layout.addWidget(self._renderArea, 0, 1)
@@ -195,14 +199,6 @@ class MultiSliceView(QWidget):
         if models:
             for axis, model in zip([AXIS_X, AXIS_Y, AXIS_Z], models):
                 self._slicesDict[axis].setModel(model, **kwargs)
-
-            vX = self._slicesDict[AXIS_X].getImageView()
-            vY = self._slicesDict[AXIS_Y].getImageView()
-            vZ = self._slicesDict[AXIS_Z].getImageView()
-            # link only X axis(view aspect is locked)
-            # FIXME[phv] review the linked axis according to the views
-            vX.setXLink(vY)
-            vY.setXLink(vZ)
         else:
             self.clear()
 
@@ -211,8 +207,8 @@ class MultiSliceView(QWidget):
          Set the image scale for all axis
         :param scale: (float) The image scale
         """
-        for sv in self._slicesDict.values():
-            sv.setScale(scale)
+        v = self._slicesDict[AXIS_X]
+        v.setScale(scale)
 
     def clear(self):
         """ Clear the view """

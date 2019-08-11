@@ -4,7 +4,7 @@
 from emviz.core import ModelsFactory
 from emviz.views import VolumeListView
 from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
-from .test_commons import TestView
+from test_commons import TestView
 
 
 class TestImageMaskVolumeListView(TestView):
