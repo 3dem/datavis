@@ -81,7 +81,7 @@ class MultiSliceView(QWidget):
             AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
                      'axisPos': AXIS_BOTTOM_LEFT}
         }
-        imageView = None
+
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
@@ -100,10 +100,6 @@ class MultiSliceView(QWidget):
             imgView.sigScaleChanged.connect(self.__onScaleChanged)
             layout.addWidget(sv, *pos)
             self._slicesDict[axis] = sv
-            if imageView is not None:  # link the previous with the current
-                imageView.setXLink(imgView)
-                #imageView.setYLink(imgView)
-            imageView = imgView
 
         self._renderArea = RenderArea(self)
         layout.addWidget(self._renderArea, 0, 1)
@@ -111,8 +107,7 @@ class MultiSliceView(QWidget):
     @pyqtSlot(float)
     def __onScaleChanged(self, scale):
         """ Called when the image scale is changed """
-        if not self.signalsBlocked():
-            self.sigScaleChanged.emit(scale, AXIS_X)
+        self.sigScaleChanged.emit(scale, AXIS_X)
 
     def _onSliceChanged(self, axis, value):
         """ Called when the slice index is changed in one of the axis. """
@@ -207,13 +202,18 @@ class MultiSliceView(QWidget):
          Set the image scale for all axis
         :param scale: (float) The image scale
         """
-        v = self._slicesDict[AXIS_X]
-        v.setScale(scale)
+        for v in self._slicesDict.values():
+            v.setScale(scale)
 
     def clear(self):
         """ Clear the view """
         for sliceWidget in self._slicesDict.values():
             sliceWidget.clear()
+
+    def fitToSize(self):
+        """ Fit images to the widget size """
+        for sliceWidget in self._slicesDict.values():
+            sliceWidget.getImageView().fitToSize()
 
     def getPreferredSize(self):
         """

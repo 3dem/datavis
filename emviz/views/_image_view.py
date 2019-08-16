@@ -117,8 +117,6 @@ class ImageView(QWidget):
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
         self.__viewRect = self.getViewRect()
-        view = self.getViewBox()
-        view.sigTransformChanged.connect(self.__onTransformChanged)
         self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
         self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
@@ -323,10 +321,6 @@ class ImageView(QWidget):
                     axis.setZValue(0)
                     axis.linkedViewChanged(viewBox)
 
-    def __onTransformChanged(self, o):
-        """ Slot for ViewBox.sigTransformChanged"""
-        self.__viewRect = self.getViewRect()
-
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
         if ev.key() == Qt.Key_H:
@@ -463,12 +457,12 @@ class ImageView(QWidget):
     @pyqtSlot(object)
     def __onImageScaleChanged(self, view):
         """ Invoked when the image scale has changed """
+        self.__viewRect = self.getViewRect()
         if not self.__updatingImage:
             scale = self.__calcImageScale()
-            if not scale == self._scale:
+            if not round(scale, 2) == round(self._scale, 2):
                 self._scale = scale
                 self._spinBoxScale.setValue(self._scale * 100)
-                self.__viewRect = self.getViewRect()
                 self.sigScaleChanged.emit(self._scale)
 
     def _createMask(self, maskColor, mask, size):
@@ -521,6 +515,10 @@ class ImageView(QWidget):
                                  finish=False)
                 self._roi.setSize((size, size), update=True, finish=False)
                 self._textItem.setVisible(False)
+
+    def setRoiMaskSizeVisible(self, visible):
+        """ Show or hide the TextItem used for the roi mask size """
+        self._textItem.setVisible(visible)
 
     def getMaskSize(self):
         """
@@ -579,10 +577,12 @@ class ImageView(QWidget):
         Set the image model to be used for this ImageView
         :param imageModel: (emviz.models.ImageModel) The image model
         """
+        dim = (0, 0) if self._model is None else self._model.getDim()
         self._model = imageModel
         self.clear()
         if imageModel:
             self.__updatingImage = True
+            rect = self.getViewRect()
             self._imageView.setImage(imageModel.getData(),
                                      autoRange=True,
                                      levels=self._levels)
@@ -594,9 +594,10 @@ class ImageView(QWidget):
                 self._roi.setPos(imgItem.pos() +
                                  pg.Point((b.width()-r.width()) / 2,
                                           (b.height() - r.height()) / 2))
+            if not fitToSize and dim == imageModel.getDim():
+                self.setViewRect(rect)
+
             self.__updatingImage = False
-            if not fitToSize:
-                self.setViewRect(self.__viewRect)
 
             self.__viewRect = self.getViewRect()
             self._scale = self.__calcImageScale()
@@ -707,7 +708,7 @@ class ImageView(QWidget):
 
     def isEmpty(self):
         """ Return True if the ImageView is empty """
-        return self._model == None
+        return self._model is None
 
     def showToolBar(self, visible=True):
         """
@@ -838,13 +839,14 @@ class ImageView(QWidget):
         viewBox = self.getViewBox()
         if scale == 0:
             self._spinBoxScale.setValue(self._scale * 100)
-        elif not scale == self._scale:
+        elif not round(scale, 2) == round(self._scale, 2):
             self.__updatingImage = True
             viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
             viewBox.scaleBy(x=1 / scale, y=1 / scale)  # to current scale
             self.__updatingImage = False
             self._scale = scale
             self.__viewRect = self.getViewRect()
+            self._spinBoxScale.setValue(scale * 100)
 
     def setXLink(self, imageView):
         """

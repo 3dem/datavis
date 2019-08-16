@@ -31,15 +31,15 @@ class TestImageMaskVolumeListView(TestView):
             for j in range(20, 44):
                 mask[i][j] = 1
         slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': mask,
-                                                     'maskColor': '#440826E0'
+                                                     'maskColor': '#330826E0'
                                                      }
                                  },
                         AXIS_Y: {'imageViewKwargs': {'mask': mask,
-                                                     'maskColor': '#44E72929'
+                                                     'maskColor': '#33E72929'
                                                      }
                                  },
                         AXIS_Z: {'imageViewKwargs': {'mask': mask,
-                                                     'maskColor': '#444BBC23'
+                                                     'maskColor': '#334BBC23'
                                                      }
                                  }
                         }

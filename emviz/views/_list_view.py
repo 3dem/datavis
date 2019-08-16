@@ -282,6 +282,7 @@ class ImageMaskListView(ImageListView):
 
         spinSlider = self.__getSpinSlider()
         spinSlider.sigValueChanged.connect(self.__onSpinSliderValueChanged)
+        spinSlider.sigSliderReleased.connect(self.__onSpinSliderReleased)
         imageView = self.__getImageView()
         mask = kwargs.get('mask')
         if isinstance(mask, int):  # ROI MASK
@@ -297,6 +298,12 @@ class ImageMaskListView(ImageListView):
         size = imageView.getMaskSize()
         if size is not None and not size == 2*value:
             imageView.setRoiMaskSize(2 * value)
+            imageView.setRoiMaskSizeVisible(True)
+
+    def __onSpinSliderReleased(self):
+        """ Slot for SpinSlider released """
+        imageView = self.__getImageView()
+        imageView.setRoiMaskSizeVisible(False)
 
     def __onRoiSizeChanged(self, size):
         """ Slot for roi region changed """

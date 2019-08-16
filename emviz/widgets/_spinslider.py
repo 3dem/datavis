@@ -9,7 +9,10 @@ class SpinSlider(QWidget):
     Both components will have the same range and the values will
     be synchronized.
     """
+    """ Emitted when the spin value is changed. """
     sigValueChanged = pyqtSignal(int)
+    """ Emitted when the user releases the slider."""
+    sigSliderReleased = pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -61,7 +64,8 @@ class SpinSlider(QWidget):
         # Connect signals when value change to synchronize
         slider.valueChanged.connect(self._onSliderChange)
         spinBox.valueChanged.connect(self._onSpinBoxChanged)
-
+        # Connect signal when the slider is released
+        slider.sliderReleased.connect(self._onSliderReleased)
         # Keep references to label, slider and spinbox
         self._slider = slider
         self._spinBox = spinBox
@@ -87,6 +91,10 @@ class SpinSlider(QWidget):
     def _onSliderChange(self, value):
         """ Invoked when change the spinbox value """
         self._onValueChanged(value, self._spinBox)
+
+    def _onSliderReleased(self):
+        """ Invoked when the slider is released """
+        self.sigSliderReleased.emit()
 
     def getValue(self):
         """ Return the current value.

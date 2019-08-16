@@ -16,20 +16,22 @@ class TestRoiMaskVolumeListView(TestView):
             self.getPath("xmipp_programs", "gold", "xmipp_image_resize_02",
                          "volume_64.vol"),
             self.getPath("xmipp_programs", "gold", "xmipp_ctf_correct_wiener3d",
-                         "wiener_deconvolved.vol")
+                         "wiener_deconvolved.vol"),
+            self.getPath("emx", "reconstRotandShiftFlip_Gold_output.vol"),
+            self.getPath("emx", "reconstRotandShift_Gold_output.vol")
         ]
 
     def createView(self):
         slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#440826E0',
+                                                     'maskColor': '#330826E0',
                                                      'maskSize': 40}
                                  },
                         AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#44E72929',
+                                                     'maskColor': '#33E72929',
                                                      'maskSize': 40}
                                  },
                         AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#444BBC23',
+                                                     'maskColor': '#334BBC23',
                                                      'maskSize': 40}
                                  }
                         }

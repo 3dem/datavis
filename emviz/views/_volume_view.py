@@ -287,3 +287,11 @@ class VolumeView(qtw.QWidget):
             self._onMultiSlicesViewTriggered(True)
 
         self.__setupToolBar()
+
+    def fitToSize(self):
+        """ Fit the images to the widget size """
+        self._multiSlicesView.fitToSize()
+
+    def getModel(self):
+        """ Return the current model """
+        return self._model

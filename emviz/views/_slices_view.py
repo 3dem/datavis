@@ -71,7 +71,8 @@ class SlicesView(qtw.QWidget):
         value -= 1
         if self._imageModel is None:
             self._imageModel = self._model.getImageModel(value)
-            self._imageView.setModel(self._imageModel)
+            self._imageView.setModel(self._imageModel,
+                                     self._imageView.isEmpty())
         else:
             imgData = self._model.getData(value)
             if imgData is not None:
@@ -113,6 +114,10 @@ class SlicesView(qtw.QWidget):
         :param scale: (float) The scale
         """
         self._imageView.setScale(scale)
+
+    def getScale(self):
+        """ Return the current scale """
+        return self._imageView.getScale()
 
     def setModel(self, model, **kwargs):
         """

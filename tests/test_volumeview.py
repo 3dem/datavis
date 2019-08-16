@@ -19,11 +19,11 @@ class TestVolumeView(TestView):
 
     def createView(self):
         print("File: %s" % self._path)
+        self._path = self.getDataPaths()[0]
         volModel = ModelsFactory.createVolumeModel(self._path)
-        return VolumeView(None, model=volModel)
+        return VolumeView(None, model=volModel, toolBar=True)
 
 
 if __name__ == '__main__':
     TestVolumeView().runApp()
-
 
