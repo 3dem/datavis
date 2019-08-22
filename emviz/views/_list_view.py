@@ -29,6 +29,7 @@ class ImageListView(QWidget):
         :param kwargs: The kwargs arguments for the internal ImageView
         """
         QWidget.__init__(self, parent=parent)
+        self._model = model
         self.currentItem = -1
         default = {'toolBar': False}
         default.update(kwargs)
@@ -147,6 +148,11 @@ class VolumeListView(ImageListView):
         """
         ImageListView.__init__(self, parent, model, **kwargs)
 
+    def __getVolumeView(self):
+        panel = self._rightPanel.getWidget('topRightPanel')
+        view = panel.getWidget('volumeView')
+        return view
+
     def _createTopRightPanel(self, **kwargs):
         """Build the top right panel: ViewPanel with VolumeView widget
         The VolumeView should be accessed using the 'volumeView' key.
@@ -154,15 +160,19 @@ class VolumeListView(ImageListView):
         :return:       (ViewPanel)
         """
         panel = ViewPanel(self)
-        view = VolumeView(self, model=EmptyVolumeModel(), **kwargs)
+        view = VolumeView(self, model=self._model.getModel(0), **kwargs)
         panel.addWidget(view, 'volumeView')
         return panel
 
     def updateImagePanel(self):
         model = self._model.getModel(self.currentItem)
-        panel = self._rightPanel.getWidget('topRightPanel')
-        view = panel.getWidget('volumeView')
+        view = self.__getVolumeView()
         view.setModel(model)
+
+    def setModel(self, model):
+        ImageListView.setModel(self, model)
+        view = self.__getVolumeView()
+        view.fitToSize()
 
 
 class DualImageListView(ImageListView):

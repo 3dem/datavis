@@ -13,26 +13,26 @@ class TestRoiMaskVolumeListView(TestView):
     def getDataPaths(self):
         return [
             self.getPath("relion_tutorial", "volumes", "reference_rotated.vol"),
-            self.getPath("xmipp_programs", "gold", "xmipp_image_resize_02",
-                         "volume_64.vol"),
             self.getPath("xmipp_programs", "gold", "xmipp_ctf_correct_wiener3d",
                          "wiener_deconvolved.vol"),
             self.getPath("emx", "reconstRotandShiftFlip_Gold_output.vol"),
-            self.getPath("emx", "reconstRotandShift_Gold_output.vol")
+            self.getPath("emx", "reconstRotandShift_Gold_output.vol"),
+            self.getPath("xmipp_programs", "gold", "xmipp_image_resize_02",
+                         "volume_64.vol")
         ]
 
     def createView(self):
         slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': CIRCLE_ROI,
                                                      'maskColor': '#330826E0',
-                                                     'maskSize': 40}
+                                                     'maskSize': 20}
                                  },
                         AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
                                                      'maskColor': '#33E72929',
-                                                     'maskSize': 40}
+                                                     'maskSize': 20}
                                  },
                         AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
                                                      'maskColor': '#334BBC23',
-                                                     'maskSize': 40}
+                                                     'maskSize': 20}
                                  }
                         }
         return VolumeListView(

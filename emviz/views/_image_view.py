@@ -72,7 +72,6 @@ class ImageView(QWidget):
         maskSize:  (int) The roi radius
         """
         QWidget.__init__(self, parent=parent)
-
         self._model = None
         self._oddFlips = False
         self._oddRotations = False
@@ -106,9 +105,9 @@ class ImageView(QWidget):
         self.__setupImageView()
         self._maskItem = None
         self._roi = None
+        self.setModel(model)
         self._createMask(kwargs.get('maskColor', '#2200FF55'),
                          kwargs.get('mask'), kwargs.get('maskSize', 100))
-        self.setModel(model)
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
@@ -116,7 +115,7 @@ class ImageView(QWidget):
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
-        self.__viewRect = self.getViewRect()
+        self.__viewRect = None
         self._imageView.installEventFilter(self)
         self._splitter = QSplitter(self)
         self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
@@ -457,8 +456,9 @@ class ImageView(QWidget):
     @pyqtSlot(object)
     def __onImageScaleChanged(self, view):
         """ Invoked when the image scale has changed """
-        self.__viewRect = self.getViewRect()
+
         if not self.__updatingImage:
+            self.__viewRect = self.getViewRect()
             scale = self.__calcImageScale()
             if not round(scale, 2) == round(self._scale, 2):
                 self._scale = scale
@@ -482,6 +482,7 @@ class ImageView(QWidget):
             maskItem = _MaskItem(imgItem, imgItem, mask, size)
             maskItem.setBrush(QColor(maskColor))
             self._roi = maskItem.getRoi()
+            maskItem.setMaxBounds(self._roi.boundingRect())
             self._textItem = pg.TextItem(text="", color=(220, 220, 0),
                                          fill=pg.mkBrush(color=(0, 0, 0, 128)))
             vb.addItem(self._roi)
@@ -578,11 +579,11 @@ class ImageView(QWidget):
         :param imageModel: (emviz.models.ImageModel) The image model
         """
         dim = (0, 0) if self._model is None else self._model.getDim()
-        self._model = imageModel
         self.clear()
+
         if imageModel:
             self.__updatingImage = True
-            rect = self.getViewRect()
+            rect = self.getViewRect() if self._model else None
             self._imageView.setImage(imageModel.getData(),
                                      autoRange=True,
                                      levels=self._levels)
@@ -592,15 +593,17 @@ class ImageView(QWidget):
                 r = self._roi.boundingRect()
                 self._maskItem.setMaxBounds(b)
                 self._roi.setPos(imgItem.pos() +
-                                 pg.Point((b.width()-r.width()) / 2,
+                                 pg.Point((b.width() - r.width()) / 2,
                                           (b.height() - r.height()) / 2))
             if not fitToSize and dim == imageModel.getDim():
-                self.setViewRect(rect)
-
+                self.setViewRect(rect or self.getViewRect())
+            else:
+                self.fitToSize()
             self.__updatingImage = False
 
             self.__viewRect = self.getViewRect()
             self._scale = self.__calcImageScale()
+        self._model = imageModel
 
     def setLevels(self, levels):
         """ Set levels for the display. """

@@ -41,13 +41,14 @@ class VolumeView(qtw.QWidget):
         self._minCellSize = kwargs.get("minCellSize", 20)
         self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
         self._view = None
-        self.__setupGUI(kwargs.get('slicesKwargs', dict()),
+        self.__setupGUI(kwargs['model'],
+                        kwargs.get('slicesKwargs', dict()),
                         kwargs.get('galleryKwargs', dict()))
         self.setModel(kwargs['model'])
         self.setView(kwargs.get('view', GALLERY))
         self._onChangeCellSize(self._defaultCellSize)
 
-    def __setupGUI(self, slicesKwargs, galleryKwargs):
+    def __setupGUI(self, model, slicesKwargs, galleryKwargs):
         self._mainLayout = qtw.QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -115,22 +116,23 @@ class VolumeView(qtw.QWidget):
         self._actPageBar.setVisible(False)
 
         # views
-        model = EmptySlicesModel()
-        d = {'model': model}
+        #model = EmptySlicesModel()
+        d = {'model': model.getSlicesModel(AXIS_X)}
         d.update(slicesKwargs.get(AXIS_X, dict()))
         slicesKwargs[AXIS_X] = d
-        d = {'model': model}
+        d = {'model': model.getSlicesModel(AXIS_Y)}
         d.update(slicesKwargs.get(AXIS_Y, dict()))
         slicesKwargs[AXIS_Y] = d
-        d = {'model': model}
+        d = {'model': model.getSlicesModel(AXIS_Z)}
         d.update(slicesKwargs.get(AXIS_Z, dict()))
         slicesKwargs[AXIS_Z] = d
         self._multiSlicesView = MultiSliceView(self, slicesKwargs)
         self._multiSlicesView.sigAxisChanged.connect(self.__updateAxis)
         self._multiSlicesView.sigScaleChanged.connect(self.__updateImageScale)
         self._stackedLayoud.addWidget(self._multiSlicesView)
-        model = EmptyTableModel()
-        self._galleryView = GalleryView(parent=self, model=model,
+
+        self._galleryView = GalleryView(parent=self,
+                                        model=EmptyTableModel(),
                                         **galleryKwargs)
 
         self._stackedLayoud.addWidget(self._galleryView)
@@ -289,7 +291,7 @@ class VolumeView(qtw.QWidget):
         self.__setupToolBar()
 
     def fitToSize(self):
-        """ Fit the images to the widget size """
+        """ Fit the images to the widget size in MultiSlicesView"""
         self._multiSlicesView.fitToSize()
 
     def getModel(self):

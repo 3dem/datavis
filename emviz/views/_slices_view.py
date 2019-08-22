@@ -42,7 +42,8 @@ class SlicesView(qtw.QWidget):
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
         # Create ImageView widget
-        self._imageView = ImageView(self, **self._imageViewKwargs)
+        self._imageView = ImageView(self, self._model.getImageModel(0),
+                                    **self._imageViewKwargs)
         self._imageView.setSizePolicy(
             qtw.QSizePolicy(qtw.QSizePolicy.MinimumExpanding,
                             qtw.QSizePolicy.MinimumExpanding))
