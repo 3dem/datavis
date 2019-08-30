@@ -39,7 +39,6 @@ class PickerView(qtw.QWidget):
         """
         Constructor
 
-
         :param parent:  Reference to the parent widget
         :param model:  (emviz.models.PickerDataModel) The input picker model
         :param kwargs:
