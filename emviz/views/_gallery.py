@@ -239,7 +239,7 @@ class GalleryView(PagingView):
         self.setIconSize(self._listView.iconSize())
         self.updateViewConfiguration()
 
-    def setModel(self, model, displayConfig=None):
+    def setModel(self, model, displayConfig=None, minMax=None):
         """ Sets the model """
         if model is None:
             raise Exception('Invalid model: None')
@@ -271,6 +271,7 @@ class GalleryView(PagingView):
             self._pageItemModel.setModelConfig(tableModel=model,
                                                tableConfig=displayConfig,
                                                pagingInfo=self._pagingInfo)
+        self._delegate.setLevels(minMax)
 
         self.modelChanged()
 

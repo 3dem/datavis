@@ -9,7 +9,10 @@ class SpinSlider(QWidget):
     Both components will have the same range and the values will
     be synchronized.
     """
+    """ Emitted when the spin value is changed. """
     sigValueChanged = pyqtSignal(int)
+    """ Emitted when the user releases the slider."""
+    sigSliderReleased = pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -61,7 +64,8 @@ class SpinSlider(QWidget):
         # Connect signals when value change to synchronize
         slider.valueChanged.connect(self._onSliderChange)
         spinBox.valueChanged.connect(self._onSpinBoxChanged)
-
+        # Connect signal when the slider is released
+        slider.sliderReleased.connect(self._onSliderReleased)
         # Keep references to label, slider and spinbox
         self._slider = slider
         self._spinBox = spinBox
@@ -88,6 +92,10 @@ class SpinSlider(QWidget):
         """ Invoked when change the spinbox value """
         self._onValueChanged(value, self._spinBox)
 
+    def _onSliderReleased(self):
+        """ Invoked when the slider is released """
+        self.sigSliderReleased.emit()
+
     def getValue(self):
         """ Return the current value.
         (Same in both the slider and the spinbox).
@@ -104,8 +112,12 @@ class SpinSlider(QWidget):
         :param minimum: (int) The minimum possible value
         :param maximum: (int) The maximum possible value
         """
+        self._slider.blockSignals(True)
+        self._spinBox.blockSignals(True)
         self._slider.setRange(minimum, maximum)
         self._spinBox.setRange(minimum, maximum)
+        self._slider.blockSignals(False)
+        self._spinBox.blockSignals(False)
 
     def getRange(self):
         """ Return a tuple (minimum, maximum) values
@@ -124,3 +136,6 @@ class SpinSlider(QWidget):
         Returns the label text for the internal slider
         """
         return self._label.text()
+
+    def setFocusPolicy(self, policy):
+        self._spinBox.setFocusPolicy(policy)

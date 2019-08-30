@@ -134,6 +134,20 @@ class SlicesTableModel(TableModel):
                 for c in self.iterColumns()]
         return TableConfig(*cols)
 
+    def getMinMax(self):
+        return self._slicesModel.getMinMax()
+
+
+class ListModel(TableModel):
+    """ Abstract base class to define the list model required by some views."""
+    def getColumnsCount(self):
+        return 1
+
+# ------ Abstract methods that should be implemented in subclasses ---------
+    def getModel(self, row):
+        """ Return the model for the given row """
+        raise Exception("Not implemented")
+
 
 class EmptyTableModel(TableModel):
     """
@@ -160,6 +174,9 @@ class EmptyTableModel(TableModel):
 
     def getTableNames(self):
         return []
+
+    def getMinMax(self):
+        return 0, 0
 
 
 class TableConfig:

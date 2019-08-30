@@ -21,8 +21,7 @@ class ViewsFactory:
     def createSlicesView(path, **kwargs):
         """ Create an SlicesView and load the slices from the given path """
         model = ModelsFactory.createStackModel(path)
-        return emviz.views.SlicesView(None, sliceModel=model,  **kwargs)
-
+        return emviz.views.SlicesView(None, model, **kwargs)
 
     @staticmethod
     def createVolumeView(path, **kwargs):
