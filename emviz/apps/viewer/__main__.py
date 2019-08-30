@@ -22,7 +22,8 @@ from emviz.widgets import ActionsToolBar, DynamicWidgetsFactory, TriggerAction
 from emviz.models import EmptyTableModel
 from emviz.windows import BrowserWindow
 
-from utils import *
+from .validators import *
+
 
 tool_params1 = [
     [
