@@ -510,7 +510,7 @@ class ImageView(QWidget):
             width = self._roi.boundingRect().width()
             b = self._imageView.getImageItem().boundingRect()
             w = min(b.width(), b.height())
-            if not size == width and size <= w:
+            if not size == width and 0 < size <= w:
                 d = (width - size)/2
                 self._roi.setPos(self._roi.pos() + (d, d), update=False,
                                  finish=False)

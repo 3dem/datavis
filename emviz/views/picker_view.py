@@ -539,8 +539,11 @@ class PickerView(qtw.QWidget):
                                      showMic=kwargs.get("showMic", True))
         else:
             c = kwargs.get("coord", None)
-            coord = parseTextCoordinates(c) \
-                if isinstance(c, str) or isinstance(c, unicode) else c
+            if c is None:
+                coord = None
+            else:
+                coord = parseTextCoordinates(c) \
+                    if isinstance(c, str) or isinstance(c, unicode) else c
 
             self.__openImageFile(path, coord)
 

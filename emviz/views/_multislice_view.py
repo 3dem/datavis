@@ -98,6 +98,7 @@ class MultiSliceView(QWidget):
             imgView = sv.getImageView()
             # FIXME[phv] Determine how to pass the AXIS
             imgView.sigScaleChanged.connect(self.__onScaleChanged)
+            imgView.sigMaskSizeChanged.connect(self.__onMaskSizeChanged)
             layout.addWidget(sv, *pos)
             self._slicesDict[axis] = sv
 
@@ -108,6 +109,12 @@ class MultiSliceView(QWidget):
     def __onScaleChanged(self, scale):
         """ Called when the image scale is changed """
         self.sigScaleChanged.emit(scale, AXIS_X)
+
+    def __onMaskSizeChanged(self, size):
+        """ Called when the roi size is changed """
+        for axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+            imgView = self._slicesDict[axis].getImageView()
+            imgView.setRoiMaskSize(size)
 
     def _onSliceChanged(self, axis, value):
         """ Called when the slice index is changed in one of the axis. """

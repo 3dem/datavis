@@ -19,7 +19,7 @@ class TestRoiMaskListView(TestView):
     def createView(self):
         return ImageMaskListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            maskColor='#220A1F88', mask=CIRCLE_ROI, maskSize=500)
+            maskColor='#154BBC23', mask=CIRCLE_ROI, maskSize=500)
 
 
 if __name__ == '__main__':

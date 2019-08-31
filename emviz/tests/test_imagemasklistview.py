@@ -25,7 +25,7 @@ class TestImageMaskListView(TestView):
                 mask[i][j] = 1
         return ImageMaskListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            maskColor='#220A1F88', mask=mask)
+            maskColor='#334BBC23', mask=mask)
 
 
 if __name__ == '__main__':

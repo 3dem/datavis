@@ -22,16 +22,17 @@ class TestRoiMaskVolumeListView(TestView):
         ]
 
     def createView(self):
+        maskColor = '#154BBC23'
         slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#330826E0',
+                                                     'maskColor': maskColor,
                                                      'maskSize': 20}
                                  },
                         AXIS_Y: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#33E72929',
+                                                     'maskColor': maskColor,
                                                      'maskSize': 20}
                                  },
                         AXIS_Z: {'imageViewKwargs': {'mask': CIRCLE_ROI,
-                                                     'maskColor': '#334BBC23',
+                                                     'maskColor': maskColor,
                                                      'maskSize': 20}
                                  }
                         }
