@@ -3,7 +3,7 @@
 
 from emviz.core import ModelsFactory
 from emviz.views import VolumeListView
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
 from test_commons import TestView
 
 
@@ -46,7 +46,7 @@ class TestImageMaskVolumeListView(TestView):
                         }
         return VolumeListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            slicesKwargs=slicesKwargs)
+            slicesKwargs=slicesKwargs, slicesMode=AXIS_XYZ)
 
 
 if __name__ == '__main__':
