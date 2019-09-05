@@ -122,10 +122,7 @@ class VolumeView(qtw.QWidget):
         self._multiSlicesView = MultiSliceView(self, slicesKwargs, slicesMode)
         self._multiSlicesView.sigScaleChanged.connect(self.__updateImageScale)
         # for axis selection
-        selector = AxisSelector(parent=self,
-                                xlabel=self._multiSlicesView.getText(AXIS_X),
-                                ylabel=self._multiSlicesView.getText(AXIS_Y),
-                                zlabel=self._multiSlicesView.getText(AXIS_Z))
+        selector = AxisSelector(parent=self)
         a = AXIS_X if slicesMode == AXIS_XYZ else slicesMode
         self._actAxisSelect = self._toolBar.addWidget(selector)
         selector.sigAxisChanged.connect(self._onAxisChanged)
