@@ -24,11 +24,12 @@ class AxisSelector(qtw.QWidget):
     """ This value is used to show all axis """
     SHOW_ALL = 3
 
-    def __init__(self, parent=None, orientation=HORIZONTAL,
+    def __init__(self, parent=None, orientation=HORIZONTAL, label='Axis: ',
                  xlabel='X', ylabel='Y', zlabel='Z'):
         """
         Create a new AxisSelector object.
         :param parent:   (QWidget) The parent widget
+        :param label:        (str) A label text at for the widget
         :param xlabel:       (str) The label text for X-axis
         :param ylabel:       (str) The label text for Y-axis
         :param zlabel:       (str) The label text for Y-axis
@@ -41,6 +42,8 @@ class AxisSelector(qtw.QWidget):
             layout = qtw.QHBoxLayout(self)
         else:
             layout = qtw.QVBoxLayout(self)
+
+        layout.addWidget(qtw.QLabel(text=label, parent=self))
 
         axisInfo = [(AXIS_X, xlabel),
                     (AXIS_Y, ylabel),
