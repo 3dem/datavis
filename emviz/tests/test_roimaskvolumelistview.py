@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import sys
+
 from emviz.core import ModelsFactory
 from emviz.views import VolumeListView, CIRCLE_ROI
 from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
@@ -9,6 +11,9 @@ from test_commons import TestView
 
 class TestRoiMaskVolumeListView(TestView):
     __title = "RoiMaskVolumeListView example"
+
+    def __init__(self, singleAxis):
+        self._mode = AXIS_Z if singleAxis else AXIS_XYZ
 
     def getDataPaths(self):
         return [
@@ -38,8 +43,14 @@ class TestRoiMaskVolumeListView(TestView):
                         }
         return VolumeListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            slicesKwargs=slicesKwargs, slicesMode=AXIS_XYZ)
+            slicesKwargs=slicesKwargs, slicesMode=self._mode)
 
 
 if __name__ == '__main__':
-    TestRoiMaskVolumeListView().runApp()
+    if 'single' in sys.argv:
+        singleAxis = True
+    else:
+        print("TIP: Use 'single' argument to show a single axis. ")
+        singleAxis = False
+
+    TestRoiMaskVolumeListView(singleAxis).runApp()
