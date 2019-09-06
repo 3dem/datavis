@@ -8,7 +8,7 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import QAbstractItemView, QListView
 from PyQt5 import QtCore
 
-from emviz.models import EmptyTableModel, RENDERABLE
+from emviz.models import EmptyTableModel
 from emviz.widgets import PagingInfo
 from ._paging_view import PagingView
 from ._constants import GALLERY, LABEL_ROLE
@@ -350,6 +350,10 @@ class GalleryView(PagingView):
         self.__updatePageBar()
         self.__updateSelectionInView(self._pageBar.getCurrentPage() - 1)
         self.sigPageSizeChanged.emit()
+
+    def setImageItemDelegate(self, delegate):
+        """ Set the ImageItemDelegate, responsible for rendering each cell """
+        self._delegate = delegate
 
     def selectRow(self, row):
         """ Selects the given row """

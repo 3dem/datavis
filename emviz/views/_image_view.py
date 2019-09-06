@@ -70,6 +70,7 @@ class ImageView(QWidget):
                    (numpyarray) Image mask where 0 will be painted with
                    the specified maskColor and 255 will be transparent
         maskSize:  (int) The roi radius
+        showHandles: (boolean) Enable/Disable the ROI handles
         """
         QWidget.__init__(self, parent=parent)
         self._model = None
@@ -107,7 +108,8 @@ class ImageView(QWidget):
         self._roi = None
         self.setModel(model)
         self._createMask(kwargs.get('maskColor', '#2200FF55'),
-                         kwargs.get('mask'), kwargs.get('maskSize', 100))
+                         kwargs.get('mask'), kwargs.get('maskSize', 100),
+                         kwargs.get('showHandles', True))
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
@@ -465,7 +467,7 @@ class ImageView(QWidget):
                 self._spinBoxScale.setValue(self._scale * 100)
                 self.sigScaleChanged.emit(self._scale)
 
-    def _createMask(self, maskColor, mask, size):
+    def _createMask(self, maskColor, mask, size, showHandles=True):
         """
         Create the mask, replacing the previous one.
         :param maskColor: (str) The mask color in #ARGB format.
@@ -473,6 +475,7 @@ class ImageView(QWidget):
                           or QColor
         :param mask: (int) The roi type: RECTANGLE or CIRCLE
         :param size: (int) The roi radius
+        :param size: (boolean) Enable/Disable the ROI handles
         """
         self.__removeMask()  # remove previous mask
         vb = self.getViewBox()
@@ -552,7 +555,8 @@ class ImageView(QWidget):
         """
         self._createMask(kwargs.get('maskColor', '#2200FF55'),
                          kwargs.get('mask'),
-                         kwargs.get('maskSize', 100))
+                         kwargs.get('maskSize', 100),
+                         kwargs.get('showHandles', True))
 
     def setAxisOrientation(self, orientation):
         """
@@ -874,7 +878,8 @@ class ImageView(QWidget):
 
 class _MaskItem(QAbstractGraphicsShapeItem):
 
-    def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100):
+    def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100,
+                 showHandles=True):
         if imageItem is None:
             raise Exception("Invalid ImageItem: None value")
 
@@ -890,6 +895,10 @@ class _MaskItem(QAbstractGraphicsShapeItem):
             self._roi = pg.RectROI(0, 0, (size, size), movable=False)
             self._roi.aspectLocked = True
             self._regionType = QRegion.Rectangle
+
+        if showHandles:
+            for h in self._roi.getHandles():
+                h.hide()
 
         self.__updateRoiRegion(self._roi)
 
