@@ -127,3 +127,8 @@ class ZoomSpinBox(IconSpinBox):
         IconSpinBox.__init__(self, parent=parent,
                              sufix=' %' if z == ZoomSpinBox.PERCENT else ' px',
                              iconName='fa.search', **kwargs)
+        self._units = z
+
+    def getUnits(self):
+        """ Return the zoom units. Possible values are: PIXELS and PERCENT """
+        return self._units

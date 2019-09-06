@@ -49,6 +49,9 @@ class GalleryView(PagingView):
         self._listView.setSpacing(self._cellSpacing)
         self.setSelectionMode(kwargs.get('selectionMode',
                                          PagingView.SINGLE_SELECTION))
+        # When the icon size is in percent units,
+        # we need to setIconSize in each setModel
+        self._percentIconSize = None
         self.setModel(model=kwargs['model'],
                       displayConfig=kwargs.get('displayConfig'))
         w, h = kwargs.get('iconSize', (100, 100))
@@ -236,7 +239,11 @@ class GalleryView(PagingView):
         tableConfig = self._pageItemModel.getDisplayConfig()
         indexes = [i for i, c in tableConfig.iterColumns(renderable=True)]
         self.setModelColumn(indexes[0] if indexes else 0)
-        self.setIconSize(self._listView.iconSize())
+        if self._percentIconSize is None:
+            self.setIconSize(self._listView.iconSize())
+        else:
+            self.setIconSize(self._percentIconSize)
+
         self.updateViewConfiguration()
 
     def setModel(self, model, displayConfig=None, minMax=None):
@@ -316,13 +323,24 @@ class GalleryView(PagingView):
     def setIconSize(self, size):
         """
         Sets the icon size.
-        size: (width, height) or QSize
+        size: (width, height), QSize or int in % units
         """
-        if not isinstance(size, QSize):
+        if isinstance(size, tuple):
             s = QSize(size[0], size[1])
-        else:
+            self._percentIconSize = None
+        elif isinstance(size, int) or isinstance(size, float):  # in % units
+            self._percentIconSize = size
+            x, y = self._model.getDim()
+            x = int(x * (size / 100.0))
+            y = int(y * (size / 100.0))
+            s = QSize(x, y)
+            size = x, y
+        elif isinstance(size, QSize):
             s = size
             size = size.width(), size.height()
+            self._percentIconSize = None
+        else:
+            raise Exception("Invalid icon size.")
 
         self._pageItemModel.setIconSize(QSize(s))
         dispConfig = self._pageItemModel.getDisplayConfig()

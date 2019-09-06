@@ -85,7 +85,8 @@ class VolumeView(qtw.QWidget):
         zoomSpin = ZoomSpinBox(self._toolBar, valueType=int,
                                minValue=self._minCellSize,
                                maxValue=self._maxCellSize,
-                               currentValue=self._defaultCellSize)
+                               currentValue=self._defaultCellSize,
+                               zoomUnits=ZoomSpinBox.PERCENT)
         zoomSpin.sigValueChanged[int].connect(self._onChangeCellSize)
 
         self._actZoomSpinGallery = self._toolBar.addWidget(zoomSpin)
@@ -175,7 +176,12 @@ class VolumeView(qtw.QWidget):
         """
         This slot is invoked when the cell size need to be rearranged
         """
-        self._galleryView.setIconSize(QSize(size, size))
+        if self._zoomSpinGallery.getUnits() == ZoomSpinBox.PIXELS:
+            s = (size, size)
+        else:
+            s = size
+
+        self._galleryView.setIconSize(s)
 
     @pyqtSlot(float)
     def _onChangeImgZoom(self, zoom):

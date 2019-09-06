@@ -137,6 +137,11 @@ class SlicesTableModel(TableModel):
     def getMinMax(self):
         return self._slicesModel.getMinMax()
 
+    def getDim(self):
+        """ Return the image dimensions """
+        x, y, _ = self._slicesModel.getDim()
+        return x, y
+
 
 class ListModel(TableModel):
     """ Abstract base class to define the list model required by some views."""
