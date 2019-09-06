@@ -24,21 +24,15 @@ class EMImageItemDelegate(QStyledItemDelegate):
         :param parent:  (QObject) The parent object
         """
         QStyledItemDelegate.__init__(self, parent)
-        self._imageView = ImageView(None, toolBar=False, axis=False, mask=1,
-                                    maskColor='#154BBC23',
-                                    maskSize=20,
-                                    showHandles=False)
-        self._pgImageView = self._imageView._imageView  #pg.ImageView(view=pg.ViewBox())
-        self._pgImageView.getView().invertY(False)
+        self._imageView = ImageView(None, toolBar=False, axis=False)
         self._pixmapItem = None
         self._noImageItem = pg.TextItem("NO IMAGE")
-        self._pgImageView.getView().addItem(self._noImageItem)
+        self._imageView.getView().addItem(self._noImageItem)
         self._noImageItem.setVisible(False)
         self._sBorder = 3  # selected state border (px)
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
         self._thumbSize = 64
-        self._levels = None
 
     def paint(self, painter, option, index):
         """
@@ -73,10 +67,12 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._setupView(index, w, h, labelsCount)
         rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
                      h - 2 * self._sBorder)
-        self._pgImageView.ui.graphicsView.scene().setSceneRect(rect)
+        pgImageView = self._imageView.getImageView()
+        pgImageView.ui.graphicsView.scene().setSceneRect(rect)
         rect.setRect(x + self._sBorder, y + self._sBorder,
                      w - 2 * self._sBorder, h - 2 * self._sBorder)
-        self._pgImageView.ui.graphicsView.scene().render(painter, rect)
+
+        pgImageView.ui.graphicsView.scene().render(painter, rect)
 
         if hasFocus:
             painter.save()
@@ -102,8 +98,8 @@ class EMImageItemDelegate(QStyledItemDelegate):
         imgData = self._getThumb(index, self._thumbSize)
 
         if imgData is None:
-            self._pgImageView.clear()
-            v = self._pgImageView.getView()
+            self._imageView.clear()
+            v = self._imageView.getView()
             v.addItem(self._noImageItem)
             self._noImageItem.setVisible(True)
             v.autoRange(padding=0)
@@ -114,19 +110,16 @@ class EMImageItemDelegate(QStyledItemDelegate):
             (w, h) = (size.width(), size.height())
             h -= labelsCount
 
-            v = self._pgImageView.getView()
+            v = self._imageView.getView()
             (cw, ch) = (v.width(), v.height())
-            self._imageView.setGeometry(0, 0, width, height)
             if not (w, h) == (cw, ch):
-                #v.setGeometry(0, 0, width, height)
-                self._imageView.setGeometry(0, 0, width, height)
-                #v.resizeEvent(None)
+                v.setGeometry(0, 0, width, height)
+                v.resizeEvent(None)
 
             if not isinstance(imgData, QPixmap):  # QPixmap or np.array
                 if self._pixmapItem:
                     self._pixmapItem.setVisible(False)
                 self._imageView.setModel(ImageModel(imgData))
-                #self._pgImageView.setImage(imgData, levels=self._levels)
             else:
                 if not self._pixmapItem:
                     self._pixmapItem = QGraphicsPixmapItem(imgData)
@@ -135,7 +128,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
                     self._pixmapItem.setPixmap(imgData)
                 self._pixmapItem.setVisible(True)
             v.autoRange(padding=0)
-            print(self._imageView.geometry())
 
     def _getThumb(self, index, height=64):
         """
@@ -147,12 +139,16 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
         return imgData
 
+    def getImageView(self):
+        """ Return the ImageView used to render de icons """
+        return self._imageView
+
     def setLevels(self, levels):
         """
         Set levels for the image configuration.
         :param levels: (tupple) Minimum an maximum pixel values
         """
-        self._levels = levels
+        self._imageView.setLevels(levels)
 
     def getTextHeight(self):
         """ The height of text """

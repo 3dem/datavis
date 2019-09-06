@@ -355,6 +355,10 @@ class GalleryView(PagingView):
         """ Set the ImageItemDelegate, responsible for rendering each cell """
         self._delegate = delegate
 
+    def getImageItemDelegate(self):
+        """ Return the ImageItemDelegate """
+        return self._delegate
+
     def selectRow(self, row):
         """ Selects the given row """
         if 0 <= row < self._pagingInfo.numberOfItems:

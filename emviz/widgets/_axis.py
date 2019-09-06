@@ -18,6 +18,12 @@ class AxisSelector(qtw.QWidget):
     """ This value is used to signify an vertical orientation """
     VERTICAL = 1
 
+    """ This value is used to show only the current axis """
+    SHOW_CURRENT = 2
+
+    """ This value is used to show all axis """
+    SHOW_ALL = 3
+
     def __init__(self, parent=None, orientation=HORIZONTAL,
                  xlabel='X', ylabel='Y', zlabel='Z'):
         """
@@ -28,6 +34,9 @@ class AxisSelector(qtw.QWidget):
         :param zlabel:       (str) The label text for Y-axis
         """
         qtw.QWidget.__init__(self, parent=parent)
+
+        self._viewMode = AxisSelector.SHOW_ALL
+
         if orientation == AxisSelector.HORIZONTAL:
             layout = qtw.QHBoxLayout(self)
         else:
@@ -50,7 +59,16 @@ class AxisSelector(qtw.QWidget):
 
     def __onAxisChanged(self, id):
         """ Called when the current button change """
+        self.__setupViewMode()
         self.sigAxisChanged.emit(id)
+
+    def __setupViewMode(self):
+        """ Configure the current view mode """
+        bg = self.__group
+        sa = AxisSelector.SHOW_ALL
+        for btn in self.__group.buttons():
+            v = self._viewMode == sa or bg.id(btn) == bg.checkedId()
+            btn.setVisible(v)
 
     def setCurrentAxis(self, axis):
         """ Sets the current axis """
@@ -62,3 +80,11 @@ class AxisSelector(qtw.QWidget):
     def getCurrentAxis(self):
         """ Return the current axis """
         return self.__group.checkedId()
+
+    def setViewMode(self, mode):
+        """
+        Set the view mode.
+        :param mode: (int) Specify the view mode (SHOW_CURRENT, SHOW_ALL)
+        """
+        self._viewMode = mode
+        self.__setupViewMode()

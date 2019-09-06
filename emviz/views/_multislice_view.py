@@ -177,6 +177,10 @@ class MultiSliceView(QWidget):
         (If axis is None the last modified axis is used) """
         self._slicesDict[axis or self._axis].setValue(value)
 
+    def getSliceView(self, axis):
+        """ Return the SliceView widget for the given axis """
+        return self._slicesDict[axis]
+
     def getAxis(self):
         """ Returns the current axis """
         return self._axis
