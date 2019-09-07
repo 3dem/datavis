@@ -1,5 +1,9 @@
 
-import os.path as Path
+import os
+
+from ._constants import TYPE_INT, TYPE_STRING
+from ._table_models import TableModel, ColumnConfig
+
 
 
 class Coordinate:
@@ -112,6 +116,59 @@ class Micrograph:
         self._coordinates = []
 
 
+class MicrographsTableModel(TableModel):
+    """ Simple table model for use in PickerView """
+
+    def __init__(self, columns=[]):
+        """
+        Construct an _TableModel object
+        :param columns: (list) List of ColumnInfo
+        """
+        self._data = []
+        self._colums = columns
+        self._tableName = ''
+        self._tableNames = []
+
+    def _loadTable(self, tableName):
+        pass
+
+    def iterColumns(self):
+        """ Return an iterator for model columns"""
+        return iter(self._colums)
+
+    def getColumnsCount(self):
+        """ Return the number of columns """
+        return len(self._columns)
+
+    def getRowsCount(self):
+        """ Return the number of rows """
+        return len(self._data)
+
+    def getValue(self, row, col):
+        if 0 <= row < len(self._data) and 0 <= col < len(self._colums):
+            return self._data[row][col]
+        return 0
+
+    def setValue(self, row, col, value):
+        """
+        Set the value for the given row and column
+        :param row:    (int) row index.
+        :param col:    (int) column index.
+        :param value:  The value
+        """
+        self._data[row][col] = value
+
+    def appendRow(self, row):
+        """
+        Append a row to the end of the model
+        :param row: (list) The row values.
+        """
+        if isinstance(row, list) and len(row) == len(self._colums):
+            self._data.append(row)
+        else:
+            raise Exception("Invalid row.")
+
+
 class PickerDataModel:
     """
     This class stores the basic information to the particle picking data.
@@ -179,7 +236,7 @@ class PickerDataModel:
         if mic.getId() == -1:
             mic.setId(self.nextId())
 
-        self._micrographs[self._lastId] = mic
+        self._micrographs[mic.getId()] = mic
 
     def getLabels(self):
         """
@@ -212,6 +269,20 @@ class PickerDataModel:
         :return: The micrograph image data
         """
         raise Exception('Not implemented')
+
+    def getMicrographsTableModel(self):
+        """ Return the TableModel that will be used to
+        display the list of micrographs.
+        """
+        micTable = MicrographsTableModel([
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
+        ])
+        for micId, mic in self._micrographs.items():
+            micTable.appendRow([os.path.basename(mic.getPath()), 0, mic.getId()])
+
+        return micTable
 
 
 def parseTextCoordinates(path):

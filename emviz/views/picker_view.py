@@ -13,7 +13,7 @@ import qtawesome as qta
 
 
 from emviz.widgets import (TriggerAction, OnOffAction, DynamicWidgetsFactory)
-from emviz.models import (Micrograph, Coordinate, TableModel, ColumnConfig,
+from emviz.models import (Micrograph, Coordinate, ColumnConfig,
                           TYPE_STRING, TYPE_INT, EmptyTableModel, TableConfig,
                           parseTextCoordinates, ImageModel)
 
@@ -87,19 +87,19 @@ class PickerView(qtw.QWidget):
         self.__eraseROIText.setVisible(False)
         self._imageView.getViewBox().addItem(self.__eraseROIText)
 
-        if len(self._model) > 0:
-            for micId in self._model:
-                self.__addMicToTable(self._model[micId])
+        # if len(self._model) > 0:
+        #     for micId in self._model:
+        #         self.__addMicToTable(self._model[micId])
 
-        sources = kwargs.get("sources", None)
-        if isinstance(sources, dict):
-            for k in sources.keys():
-                mic_path, coord = sources.get(k)
-                self._openFile(mic_path, coord=coord, showMic=False,
-                               appendCoord=True)
+        # sources = kwargs.get("sources", None)
+        # if isinstance(sources, dict):
+        #     for k in sources.keys():
+        #         mic_path, coord = sources.get(k)
+        #         self._openFile(mic_path, coord=coord, showMic=False,
+        #                        appendCoord=True)
 
-        self._cvImages.setModel(self._tvModel,
-                                TableConfig(*self._displayConfig))
+        cols = list(self._tvModel.iterColumns())
+        self._cvImages.setModel(self._tvModel, TableConfig(*cols))
         self._cvImages.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
         self._cvImages.sigCurrentRowChanged.connect(
             self.__onCurrentRowChanged)
@@ -171,7 +171,8 @@ class PickerView(qtw.QWidget):
         micPanel.setGeometry(0, 0, 200, micPanel.height())
         verticalLayout = qtw.QVBoxLayout(micPanel)
         verticalLayout.setContentsMargins(0, 0, 0, 0)
-        cvImages = ColumnsView(micPanel, model=EmptyTableModel(),
+        cvImages = ColumnsView(micPanel,
+                               model=self._model.getMicrographsTableModel(),
                                **kwargs)
         cvImages.setObjectName("columnsViewImages")
         verticalLayout.addWidget(cvImages)
@@ -377,13 +378,13 @@ class PickerView(qtw.QWidget):
             self._controlTable.setItem(rows, col, item)
             col += 1
 
-    def __addMicToTable(self, mic):
-        """
-        Add an image to the internal view widget.
-        """
-        self._tvModel.appendRow([os.path.basename(mic.getPath()), len(mic),
-                                 mic.getId()])
-        self._cvImages.modelChanged()
+    # def __addMicToTable(self, mic):
+    #     """
+    #     Add an image to the internal view widget.
+    #     """
+    #     self._tvModel.appendRow([os.path.basename(mic.getPath()), len(mic),
+    #                              mic.getId()])
+    #     self._cvImages.modelChanged()
 
     def __showHidePickCoord(self, visible):
         """ Show or hide the pick coordinates for the current micrograph """
@@ -413,11 +414,7 @@ class PickerView(qtw.QWidget):
 
     def __createColumsViewModel(self):
         """ Setup the em table """
-        self._displayConfig = [
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)]
-        self._tvModel = _TableModel(self._displayConfig)
+        self._tvModel = self._model.getMicrographsTableModel()
         self._idIndex = 2
         self._nameIndex = 0
         self._coordIndex = 1
@@ -435,16 +432,18 @@ class PickerView(qtw.QWidget):
         :param path: file path
         :param coord: coordinate list ([(x1,y1), (x2,y2)...])
         """
-        if path:
-            try:
-                imgElem = Micrograph(-1,
-                                     path,
-                                     coord)
-                self._model.addMicrograph(imgElem)
-                self.__addMicToTable(imgElem)
-            except:
-                print(sys.exc_info())
-                self._showError(sys.exc_info()[2])
+        # FIXME: Check how this will be used in practice
+        raise Exception('Not implemented!')
+        # if path:
+        #     try:
+        #         imgElem = Micrograph(-1,
+        #                              path,
+        #                              coord)
+        #         self._model.addMicrograph(imgElem)
+        #         self.__addMicToTable(imgElem)
+        #     except:
+        #         print(sys.exc_info())
+        #         self._showError(sys.exc_info()[2])
 
     def _showError(self, msg):
         """
@@ -504,19 +503,22 @@ class PickerView(qtw.QWidget):
             clear: Remove all previous coordinates.
             showMic: Show current mic
         """
-        if self._currentMic is not None:
-            if clear:
-                self._currentMic.clear()  # remove all coordinates
-            row = self._cvImages.getCurrentRow()
-            for c in parserFunc(path):
-                coord = Coordinate(c[0], c[1], c[2])
-                self._currentMic.addCoordinate(coord)
-                self._tvModel.setValue(row, self._coordIndex,
-                                       len(self._currentMic))
-                self._cvImages.updatePage()
-
-            if showMic:
-                self._showMicrograph(self._currentMic)
+        # FIXME: The PickerModel is the one that should load and parse
+        # FIXME: the coordinates in the given file
+        raise Exception("Not implemented")
+        # if self._currentMic is not None:
+        #     if clear:
+        #         self._currentMic.clear()  # remove all coordinates
+        #     row = self._cvImages.getCurrentRow()
+        #     for c in parserFunc(path):
+        #         coord = Coordinate(c[0], c[1], c[2])
+        #         self._currentMic.addCoordinate(coord)
+        #         self._tvModel.setValue(row, self._coordIndex,
+        #                                len(self._currentMic))
+        #         self._cvImages.updatePage()
+        #
+        #     if showMic:
+        #         self._showMicrograph(self._currentMic)
 
     def _openFile(self, path, **kwargs):
         """
@@ -532,21 +534,24 @@ class PickerView(qtw.QWidget):
                                     the current coordinates and add.
                                     Default=False.
         """
-        _, ext = os.path.splitext(path)
+        # FIXME: Check how this will be used in practice
+        raise Exception('Not implemented!')
 
-        if ext == '.box':
-            self._loadMicCoordinates(path, parserFunc=parseTextCoordinates,
-                                     clear=not kwargs.get("appendCoord", False),
-                                     showMic=kwargs.get("showMic", True))
-        else:
-            c = kwargs.get("coord", None)
-            if c is None:
-                coord = None
-            else:
-                coord = parseTextCoordinates(c) \
-                    if isinstance(c, str) or isinstance(c, unicode) else c
-
-            self.__openImageFile(path, coord)
+        # _, ext = os.path.splitext(path)
+        #
+        # if ext == '.box':
+        #     self._loadMicCoordinates(path, parserFunc=parseTextCoordinates,
+        #                              clear=not kwargs.get("appendCoord", False),
+        #                              showMic=kwargs.get("showMic", True))
+        # else:
+        #     c = kwargs.get("coord", None)
+        #     if c is None:
+        #         coord = None
+        #     else:
+        #         coord = parseTextCoordinates(c) \
+        #             if isinstance(c, str) or isinstance(c, unicode) else c
+        #
+        #     self.__openImageFile(path, coord)
 
     def _makePen(self, labelName, width=1):
         """
@@ -568,46 +573,45 @@ class PickerView(qtw.QWidget):
         if self._currentMic is None:
             print("not selected micrograph....")
             return
-        if event.button() == Qt.LeftButton:
-            if self._clickAction == PICK:
-                viewBox = self._imageView.getViewBox()
-                pos = viewBox.mapToView(event.pos())
-                # Create coordinate with event click coordinates and add it
-                if self.__pickerMode == DEFAULT_MODE:
-                    coord = Coordinate(pos.x(), pos.y(),
-                                       self.__currentLabelName)
-                    self._currentMic.addCoordinate(coord)
-                    self._createCoordROI(coord)
-                    if self._tvModel is not None:
-                        r = self._cvImages.getCurrentRow()
-                        self._tvModel.setValue(r, self._coordIndex,
-                                               len(self._currentMic))
-                        self._cvImages.updatePage()
-                elif self.__segmentROI is None:  # filament mode
-                    self.__segPos = pos
-                    self.__segmentROI = pg.LineSegmentROI(
-                        [(pos.x(), pos.y()), (pos.x(), pos.y())],
-                        pen=self._makePen(self.__currentLabelName, 2))
-                    viewBox.addItem(self.__segmentROI)
-                    self.__eraseROIText.setPos(pos)
-                    self.__eraseROIText.setText("angle=")
-                    self.__eraseROIText.setVisible(True)
-                elif not self.__segPos == pos:  # filament mode
-                    coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
-                                        self.__currentLabelName)
-                    coord2 = Coordinate(pos.x(), pos.y(),
-                                        self.__currentLabelName)
-                    coord = (coord1, coord2)
-                    self._currentMic.addCoordinate(coord)
-                    self._createCoordROI(coord)
-                    if self._tvModel is not None:
-                        r = self._cvImages.getCurrentRow()
-                        self._tvModel.setValue(r, self._coordIndex,
-                                               len(self._currentMic))
-                        self._cvImages.updatePage()
-                    viewBox.removeItem(self.__segmentROI)
-                    self.__segmentROI = None  # TODO[hv] delete, memory leak???
-                    self.__eraseROIText.setVisible(False)
+        if event.button() == Qt.LeftButton and self._clickAction == PICK:
+            viewBox = self._imageView.getViewBox()
+            pos = viewBox.mapToView(event.pos())
+            # Create coordinate with event click coordinates and add it
+            if self.__pickerMode == DEFAULT_MODE:
+                coord = Coordinate(pos.x(), pos.y(),
+                                   self.__currentLabelName)
+                self._currentMic.addCoordinate(coord)
+                self._createCoordROI(coord)
+                if self._tvModel is not None:
+                    r = self._cvImages.getCurrentRow()
+                    self._tvModel.setValue(r, self._coordIndex,
+                                           len(self._currentMic))
+                    self._cvImages.updatePage()
+            elif self.__segmentROI is None:  # filament mode
+                self.__segPos = pos
+                self.__segmentROI = pg.LineSegmentROI(
+                    [(pos.x(), pos.y()), (pos.x(), pos.y())],
+                    pen=self._makePen(self.__currentLabelName, 2))
+                viewBox.addItem(self.__segmentROI)
+                self.__eraseROIText.setPos(pos)
+                self.__eraseROIText.setText("angle=")
+                self.__eraseROIText.setVisible(True)
+            elif not self.__segPos == pos:  # filament mode
+                coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
+                                    self.__currentLabelName)
+                coord2 = Coordinate(pos.x(), pos.y(),
+                                    self.__currentLabelName)
+                coord = (coord1, coord2)
+                self._currentMic.addCoordinate(coord)
+                self._createCoordROI(coord)
+                if self._tvModel is not None:
+                    r = self._cvImages.getCurrentRow()
+                    self._tvModel.setValue(r, self._coordIndex,
+                                           len(self._currentMic))
+                    self._cvImages.updatePage()
+                viewBox.removeItem(self.__segmentROI)
+                self.__segmentROI = None  # TODO[hv] delete, memory leak???
+                self.__eraseROIText.setVisible(False)
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
@@ -634,10 +638,9 @@ class PickerView(qtw.QWidget):
         and other global properties.
         """
         if self.__pickerMode == FILAMENT_MODE and isinstance(coord, tuple):
-                pos1, pos2 = (coord[0], coord[1])
-                if isinstance(pos1, Coordinate) \
-                        and isinstance(pos2, Coordinate):
-                    label = pos1.getLabel()
+                p1, p2 = coord[0], coord[1]
+                if isinstance(p1, Coordinate) and isinstance(p2, Coordinate):
+                    label = p1.getLabel()
                 else:
                     raise Exception("Invalid coordinates type for picker mode")
         elif self.__pickerMode == DEFAULT_MODE \
@@ -1158,54 +1161,4 @@ class CoordROI:
                 getattr(h, funcName)()  # show/hide
 
 
-class _TableModel(TableModel):
-    """ Simple table model for use in PickerView """
 
-    def __init__(self, columns=[]):
-        """
-        Construct an _TableModel object
-        :param columns: (list) List of ColumnInfo
-        """
-        self._data = []
-        self._colums = columns
-        self._tableName = ''
-        self._tableNames = []
-
-    def _loadTable(self, tableName):
-        pass
-
-    def iterColumns(self):
-        """ Return an iterator for model columns"""
-        return iter(self._colums)
-
-    def getColumnsCount(self):
-        """ Return the number of columns """
-        return len(self._columns)
-
-    def getRowsCount(self):
-        """ Return the number of rows """
-        return len(self._data)
-
-    def getValue(self, row, col):
-        if 0 <= row < len(self._data) and 0 <= col < len(self._colums):
-            return self._data[row][col]
-        return 0
-
-    def setValue(self, row, col, value):
-        """
-        Set the value for the given row and column
-        :param row:    (int) row index.
-        :param col:    (int) column index.
-        :param value:  The value
-        """
-        self._data[row][col] = value
-
-    def appendRow(self, row):
-        """
-        Append a row to the end of the model
-        :param row: (list) The row values.
-        """
-        if isinstance(row, list) and len(row) == len(self._colums):
-            self._data.append(row)
-        else:
-            raise Exception("Invalid row.")
