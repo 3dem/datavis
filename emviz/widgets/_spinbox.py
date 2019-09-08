@@ -12,6 +12,9 @@ class IconSpinBox(qtw.QWidget):
     sigValueChanged = pyqtSignal([int], [float])
     sigEditingFinished = pyqtSignal()
 
+    # Signal emitted when the user clicks hover the image icon
+    sigIconClicked = pyqtSignal()
+
     def __init__(self, parent=None, **kwargs):
         """
         Create a new IconSpinBox
@@ -58,6 +61,7 @@ class IconSpinBox(qtw.QWidget):
         iconName = kwargs.get('iconName')
         if iconName:
             label = qtw.QLabel(self)
+            label.mousePressEvent = self.__labelClicked
             label.setPixmap(createQPixmap(iconName, kwargs.get('iconSize', 28)))
             layout.addWidget(label)
 
@@ -68,6 +72,9 @@ class IconSpinBox(qtw.QWidget):
         # Keep references to spinbox and type
         self._spinBox = spinBox
         self._spinBoxType = t
+
+    def __labelClicked(self, evt):
+        self.sigIconClicked.emit()
 
     @pyqtSlot()
     def _onValueChanged(self):

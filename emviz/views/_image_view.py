@@ -3,7 +3,7 @@
 
 import pyqtgraph as pg
 import qtawesome as qta
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QLineF, QRectF
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QRectF
 from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QAbstractGraphicsShapeItem)
@@ -351,17 +351,13 @@ class ImageView(QWidget):
         self._actHorFlip.setChecked(False)
 
     def __calcImageScale(self):
-        """ Calculate the image scale """
-        rect = self._imageView.getImageItem().boundingRect()
-        scale = 0
-        if rect.width() > 0:
-            p1 = pg.Point(0, 0)
-            p2 = pg.Point(0, 1)
-            view = self._imageView.getView()
-            p1v = view.mapFromView(p1)
-            p2v = view.mapFromView(p2)
-            linev = QLineF(p1v.x(), p1v.y(), p2v.x(), p2v.y())
-            scale = abs(linev.dy())
+        """ Return the image scale """
+        viewBox = self.getViewBox()
+        bounds = viewBox.rect()
+        vr = viewBox.viewRect()
+        if vr.width() == 0:
+            return 0
+        scale = bounds.width() / float(vr.width())
         return scale
 
     def __onRoiRegionChanged(self, roi):
@@ -606,9 +602,15 @@ class ImageView(QWidget):
                 self.fitToSize()
             self.__updatingImage = False
 
-            self.__viewRect = self.getViewRect()
-            self._scale = self.__calcImageScale()
+            self.updateImageScale()
+
         self._model = imageModel
+        self.sigScaleChanged.emit(self._scale)
+
+    def updateImageScale(self):
+        """ Update the image scale """
+        self.__viewRect = self.getViewRect()
+        self._scale = self.__calcImageScale()
 
     def setLevels(self, levels):
         """ Set levels for the display. """
@@ -713,6 +715,7 @@ class ImageView(QWidget):
     def fitToSize(self):
         """ Fit image to the widget size """
         self._imageView.autoRange()
+        self.updateImageScale()
 
     def isEmpty(self):
         """ Return True if the ImageView is empty """
@@ -852,8 +855,7 @@ class ImageView(QWidget):
             viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
             viewBox.scaleBy(x=1 / scale, y=1 / scale)  # to current scale
             self.__updatingImage = False
-            self._scale = scale
-            self.__viewRect = self.getViewRect()
+            self.updateImageScale()
             self._spinBoxScale.setValue(scale * 100)
 
     def setXLink(self, imageView):
