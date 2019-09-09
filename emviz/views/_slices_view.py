@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, QEvent, Qt
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt
 import PyQt5.QtWidgets as qtw
 
 from emviz.models import EmptySlicesModel

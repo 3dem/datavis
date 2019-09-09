@@ -3,7 +3,7 @@
 
 from emviz.core import ModelsFactory
 from emviz.views import VolumeListView
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
 from test_commons import TestView
 
 
@@ -30,22 +30,23 @@ class TestImageMaskVolumeListView(TestView):
         for i in range(20, 44):
             for j in range(20, 44):
                 mask[i][j] = 1
+        maskColor = '#334BBC23'
         slicesKwargs = {AXIS_X: {'imageViewKwargs': {'mask': mask,
-                                                     'maskColor': '#330826E0'
+                                                     'maskColor': maskColor
                                                      }
                                  },
                         AXIS_Y: {'imageViewKwargs': {'mask': mask,
-                                                     'maskColor': '#33E72929'
+                                                     'maskColor': maskColor
                                                      }
                                  },
                         AXIS_Z: {'imageViewKwargs': {'mask': mask,
-                                                     'maskColor': '#334BBC23'
+                                                     'maskColor': maskColor
                                                      }
                                  }
                         }
         return VolumeListView(
             None, ModelsFactory.createListModel(self.getDataPaths()),
-            slicesKwargs=slicesKwargs)
+            slicesKwargs=slicesKwargs, slicesMode=AXIS_XYZ)
 
 
 if __name__ == '__main__':

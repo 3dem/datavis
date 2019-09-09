@@ -1,10 +1,11 @@
 
 
-from PyQt5.QtWidgets import QWidget, QGridLayout
-from PyQt5.QtCore import QSize, pyqtSlot, pyqtSignal
+from PyQt5.QtWidgets import (QWidget, QGridLayout, QGraphicsWidget,
+                             QStackedLayout)
+from PyQt5.QtCore import QSize, pyqtSlot, pyqtSignal, Qt
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
-from emviz.models import AXIS_X, AXIS_Y, AXIS_Z
+from emviz.models import AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
 
 from ._slices_view import SlicesView
 from ._constants import AXIS_BOTTOM_LEFT, AXIS_BOTTOM_RIGHT, AXIS_TOP_LEFT
@@ -25,24 +26,36 @@ class MultiSliceView(QWidget):
     # Signal for scale changed (scale, axis)
     sigScaleChanged = pyqtSignal(float, int)
 
-    def __init__(self, parent, slicesKwargs):
+    """ """
+
+    def __init__(self, parent, slicesKwargs, mode=AXIS_XYZ):
         """
         parent:       (QWidget) Parent QWidget
         slicesKwargs: (dict)A dict with keys of axis () and values for the model
                       for each axis.
+        mode:         (int) Specifies which axis will be visible.
+                            Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
         """
         QWidget.__init__(self, parent=parent)
         self._slicesKwargs = slicesKwargs
         self._slicesDict = {}
         self._axis = AXIS_X
         self._slice = -1
+        self._mode = mode
         self.__setupGUI()
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
-        layout = QGridLayout(self)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
+        mainLayout = QGridLayout(self)
+        mainLayout.setSpacing(0)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+
+        axisPos = {
+            AXIS_X: [1, 2],
+            AXIS_Y: [0, 1],
+            AXIS_Z: [1, 1],
+            AXIS_XYZ: [0, 1]
+        }
 
         slicesInfo = {
             AXIS_X: ('X Axis (side)', [1, 1], self._onSliceXChanged),
@@ -82,6 +95,11 @@ class MultiSliceView(QWidget):
                      'axisPos': AXIS_BOTTOM_LEFT}
         }
 
+        if not self._mode == AXIS_XYZ:
+            layout = QStackedLayout()
+        else:
+            layout = mainLayout
+
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
@@ -98,16 +116,34 @@ class MultiSliceView(QWidget):
             imgView = sv.getImageView()
             # FIXME[phv] Determine how to pass the AXIS
             imgView.sigScaleChanged.connect(self.__onScaleChanged)
-            layout.addWidget(sv, *pos)
+            imgView.sigMaskSizeChanged.connect(self.__onMaskSizeChanged)
+            if self._mode == AXIS_XYZ:
+                layout.addWidget(sv, *pos)
+            else:
+                layout.addWidget(sv)
+
             self._slicesDict[axis] = sv
 
-        self._renderArea = RenderArea(self)
-        layout.addWidget(self._renderArea, 0, 1)
+        self._axisWidget = AxisWidget(self)
+        if not self._mode == AXIS_XYZ:
+            mainLayout.addWidget(self._axisWidget, 0, 1, alignment=Qt.AlignTop)
+            mainLayout.addLayout(layout, 0, 0)
+        else:
+            mainLayout.addWidget(self._axisWidget, 0, 1)
+
+        self._mainLayout = mainLayout
 
     @pyqtSlot(float)
     def __onScaleChanged(self, scale):
         """ Called when the image scale is changed """
+        self.setScale(scale)
         self.sigScaleChanged.emit(scale, AXIS_X)
+
+    def __onMaskSizeChanged(self, size):
+        """ Called when the roi size is changed """
+        for axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+            imgView = self._slicesDict[axis].getImageView()
+            imgView.setRoiMaskSize(size)
 
     def _onSliceChanged(self, axis, value):
         """ Called when the slice index is changed in one of the axis. """
@@ -120,7 +156,7 @@ class MultiSliceView(QWidget):
         value = nMax - value
         # Convert to 40 scale index that is required by the RenderArea
         renderAreaShift = int(40 * (1 - value / nMax))
-        self._renderArea.setShift(axis, renderAreaShift)
+        self._axisWidget.setShift(axis, renderAreaShift)
         if e:
             self.sigAxisChanged.emit(self._axis)
         self.sigSliceChanged.emit(axis, value)
@@ -152,6 +188,10 @@ class MultiSliceView(QWidget):
         (If axis is None the last modified axis is used) """
         self._slicesDict[axis or self._axis].setValue(value)
 
+    def getSliceView(self, axis=None):
+        """ Return the SliceView widget for the given axis """
+        return self._slicesDict[self._axis if axis is None else axis]
+
     def getAxis(self):
         """ Returns the current axis """
         return self._axis
@@ -164,9 +204,12 @@ class MultiSliceView(QWidget):
         if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
             e = not self._axis == axis
             self._axis = axis
+            if not self._mode == AXIS_XYZ:
+                s = self._mainLayout.itemAtPosition(0, 0).layout()
+                s.setCurrentWidget(self._slicesDict[axis])
+            self._onSliceChanged(axis, self._slicesDict[axis].getValue())
             if e:
                 self.sigAxisChanged.emit(self._axis)
-            self._onSliceChanged(axis, self.getValue(axis))
         else:
             raise Exception("Invalid axis value: %d" % axis)
 
@@ -205,6 +248,11 @@ class MultiSliceView(QWidget):
         for v in self._slicesDict.values():
             v.setScale(scale)
 
+    def getMode(self):
+        """ Return the current mode. Possible values:
+        AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ """
+        return self._mode
+
     def clear(self):
         """ Clear the view """
         for sliceWidget in self._slicesDict.values():
@@ -224,9 +272,8 @@ class MultiSliceView(QWidget):
         return 2 * (w, h + self._spinSlider.height())
 
 
-class RenderArea(QWidget):
-    def __init__(self, parent=None):
-        QWidget.__init__(self, parent)
+class RenderArea:
+    def __init__(self):
         self._shiftx = 0
         self._widthx = 40
         self._shifty = 0
@@ -235,13 +282,12 @@ class RenderArea(QWidget):
         self._widthz = 20
         self._boxaxis = AXIS_Z
         self._oldPosX = 60
+        self._width = 80
+        self._height = 80
 
-        self.setBackgroundRole(QPalette.Base)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        w = self.width()
-        h = self.height()
+    def paint(self, painter):
+        w = self._width
+        h = self._height
         painter.setRenderHint(QPainter.Antialiasing)
         painter.translate(w / 3 + 20, h / 2)
         scale = w if w < h else h
@@ -322,6 +368,17 @@ class RenderArea(QWidget):
         rectPath.closeSubpath()
         painter.drawPath(rectPath)
 
+    def setWidth(self, width):
+        """ Setter for RenderArea width """
+        self._width = width
+
+    def setHeight(self, height):
+        """ Setter for RenderArea height """
+        self._height = height
+
+    def setBoxAxis(self, axis):
+        self._boxaxis = axis
+
     def setShift(self, axis, value):
         if axis == AXIS_X:
             self._shiftx = value
@@ -330,7 +387,27 @@ class RenderArea(QWidget):
         elif axis == AXIS_Z:
             self._shiftz = value
 
-        self._boxaxis = axis
+
+class AxisWidget(QWidget):
+    """ """
+    def __init__(self, parent=None, renderArea=RenderArea()):
+        QWidget.__init__(self, parent=parent)
+        self._renderArea = renderArea
+        self.setBackgroundRole(QPalette.Base)
+
+    def resizeEvent(self, evt):
+        QWidget.resizeEvent(self, evt)
+        size = evt.size()
+        self._renderArea.setWidth(size.width())
+        self._renderArea.setHeight(size.height())
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        self._renderArea.paint(painter)
+
+    def setShift(self, axis, value):
+        self._renderArea.setShift(axis, value)
+        self._renderArea.setBoxAxis(axis)
         self.update()
 
     def minimumSizeHint(self):
@@ -339,11 +416,16 @@ class RenderArea(QWidget):
     def sizeHint(self):
         return QSize(80, 80)
 
-    def getPreferredSize(self):
-        """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
-        """
-        d = self._slicesDict
-        sliceView = d.get(AXIS_X) or d.get(AXIS_Y) or d.get(AXIS_Z)
-        return sliceView.getPreferredSize() if sliceView else 100, 100
+
+class AxisItem(QGraphicsWidget):
+    """ """
+    def __init__(self, parent=None, renderArea=RenderArea()):
+        QGraphicsWidget.__init__(self, parent=parent)
+        self._renderArea = renderArea
+
+    def setShift(self, axis, value):
+        self._renderArea.setShift(axis, value)
+        self._renderArea.setBoxAxis(axis)
+
+    def paint(self, painter, option, widget):
+        self._renderArea.paint(painter)

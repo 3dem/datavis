@@ -77,6 +77,7 @@ class PickerView(qtw.QWidget):
         self.__eraseROI.setCursor(Qt.CrossCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROI.sigRegionChanged.connect(self.__eraseRoiChanged)
+        self.__mousePressed = False
 
         self._imageView.getViewBox().addItem(self.__eraseROI)
         for h in self.__eraseROI.getHandles():
@@ -539,8 +540,11 @@ class PickerView(qtw.QWidget):
                                      showMic=kwargs.get("showMic", True))
         else:
             c = kwargs.get("coord", None)
-            coord = parseTextCoordinates(c) \
-                if isinstance(c, str) or isinstance(c, unicode) else c
+            if c is None:
+                coord = None
+            else:
+                coord = parseTextCoordinates(c) \
+                    if isinstance(c, str) or isinstance(c, unicode) else c
 
             self.__openImageFile(path, coord)
 
@@ -784,23 +788,22 @@ class PickerView(qtw.QWidget):
 
                 def __mousePressEvent(ev):
                     mousePressEvent(ev)
+                    self.__mousePressed = True
                     if self._clickAction == ERASE:
-                        block = self.__eraseROI.blockSignals(True)
                         self.__eraseROI.setVisible(True)
                         size = self.__eraseROI.size()[0]
                         pos = self._imageView.getViewBox().mapSceneToView(
                             ev.pos())
                         pos.setX(pos.x() - size / 2)
                         pos.setY(pos.y() - size / 2)
-                        self.__eraseROI.setPos((pos.x(), pos.y()))
-                        self.__eraseROI.setVisible(True)
                         self.__eraseROIText.setVisible(True)
                         self.__eraseROIText.setText(str(size))
                         self.__updateEraseTextPos()
-                        self.__eraseROI.blockSignals(block)
+                        self.__eraseRoiChanged(self.__eraseROI)
 
                 def __mouseReleaseEvent(ev):
                     mouseReleaseEvent(ev)
+                    self.__mousePressed = False
                     if self._clickAction == ERASE:
                         for item in self.__eraseList:
                             self._roiList.remove(item.parent)
@@ -848,6 +851,8 @@ class PickerView(qtw.QWidget):
                 self.__eraseROI.setVisible(True)
                 self.__eraseROIText.setVisible(False)
                 self.__eraseROI.blockSignals(block)
+                if self.__mousePressed:
+                    self.__eraseRoiChanged(self.__eraseROI)
             elif self._clickAction == PICK and self.__segmentROI is not None:
                 handler = self.__segmentROI.getHandles()[1]
                 handler.movePoint(origPos)
@@ -928,6 +933,7 @@ class PickerView(qtw.QWidget):
                 or isinstance(roi, pg.ScatterPlotItem)) and \
                     not roi == self.__eraseROI:
                 roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, True)
+                roi.setAcceptedMouseButtons(Qt.NoButton)
 
     @pyqtSlot(int)
     def __onPickShowHideTriggered(self, state):
@@ -1000,6 +1006,7 @@ class PickerView(qtw.QWidget):
                     rem = True
 
                 if rem or shape.contains(pos):
+                    item.setVisible(False)
                     viewBox.removeItem(item)
                     self.__eraseList.append(item)
                     if self._tvModel is not None:

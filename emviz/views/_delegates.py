@@ -6,7 +6,9 @@ from PyQt5.QtWidgets import (QStyledItemDelegate, QStyle, QGraphicsPixmapItem,
                              QComboBox, QItemDelegate, QColorDialog)
 from PyQt5.QtGui import (QPixmap, QPalette, QPen)
 
+from emviz.models import ImageModel
 from ._constants import LABEL_ROLE, DATA_ROLE
+from ._image_view import ImageView
 
 import pyqtgraph as pg
 
@@ -22,8 +24,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
         :param parent:  (QObject) The parent object
         """
         QStyledItemDelegate.__init__(self, parent)
-        self._imageView = pg.ImageView(view=pg.ViewBox())
-        self._imageView.getView().invertY(False)
+        self._imageView = ImageView(None, toolBar=False, axis=False)
         self._pixmapItem = None
         self._noImageItem = pg.TextItem("NO IMAGE")
         self._imageView.getView().addItem(self._noImageItem)
@@ -32,7 +33,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._textHeight = 16
         self._focusPen = QPen(Qt.DotLine)
         self._thumbSize = 64
-        self._levels = None
 
     def paint(self, painter, option, index):
         """
@@ -67,10 +67,12 @@ class EMImageItemDelegate(QStyledItemDelegate):
         self._setupView(index, w, h, labelsCount)
         rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
                      h - 2 * self._sBorder)
-        self._imageView.ui.graphicsView.scene().setSceneRect(rect)
+        pgImageView = self._imageView.getImageView()
+        pgImageView.ui.graphicsView.scene().setSceneRect(rect)
         rect.setRect(x + self._sBorder, y + self._sBorder,
                      w - 2 * self._sBorder, h - 2 * self._sBorder)
-        self._imageView.ui.graphicsView.scene().render(painter, rect)
+
+        pgImageView.ui.graphicsView.scene().render(painter, rect)
 
         if hasFocus:
             painter.save()
@@ -110,7 +112,6 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
             v = self._imageView.getView()
             (cw, ch) = (v.width(), v.height())
-
             if not (w, h) == (cw, ch):
                 v.setGeometry(0, 0, width, height)
                 v.resizeEvent(None)
@@ -118,8 +119,7 @@ class EMImageItemDelegate(QStyledItemDelegate):
             if not isinstance(imgData, QPixmap):  # QPixmap or np.array
                 if self._pixmapItem:
                     self._pixmapItem.setVisible(False)
-
-                self._imageView.setImage(imgData, levels=self._levels)
+                self._imageView.setModel(ImageModel(imgData))
             else:
                 if not self._pixmapItem:
                     self._pixmapItem = QGraphicsPixmapItem(imgData)
@@ -139,12 +139,16 @@ class EMImageItemDelegate(QStyledItemDelegate):
 
         return imgData
 
+    def getImageView(self):
+        """ Return the ImageView used to render de icons """
+        return self._imageView
+
     def setLevels(self, levels):
         """
         Set levels for the image configuration.
         :param levels: (tupple) Minimum an maximum pixel values
         """
-        self._levels = levels
+        self._imageView.setLevels(levels)
 
     def getTextHeight(self):
         """ The height of text """
