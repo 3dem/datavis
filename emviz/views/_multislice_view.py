@@ -1,6 +1,7 @@
 
 
-from PyQt5.QtWidgets import QWidget, QGridLayout, QGraphicsWidget
+from PyQt5.QtWidgets import (QWidget, QGridLayout, QGraphicsWidget,
+                             QStackedLayout)
 from PyQt5.QtCore import QSize, pyqtSlot, pyqtSignal, Qt
 from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
 
@@ -45,9 +46,9 @@ class MultiSliceView(QWidget):
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
-        layout = QGridLayout(self)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
+        mainLayout = QGridLayout(self)
+        mainLayout.setSpacing(0)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
 
         axisPos = {
             AXIS_X: [1, 2],
@@ -94,6 +95,11 @@ class MultiSliceView(QWidget):
                      'axisPos': AXIS_BOTTOM_LEFT}
         }
 
+        if not self._mode == AXIS_XYZ:
+            layout = QStackedLayout()
+        else:
+            layout = mainLayout
+
         for axis, args in self._slicesKwargs.items():
             text, pos, slot = slicesInfo[axis]
             model = args['model']
@@ -111,21 +117,26 @@ class MultiSliceView(QWidget):
             # FIXME[phv] Determine how to pass the AXIS
             imgView.sigScaleChanged.connect(self.__onScaleChanged)
             imgView.sigMaskSizeChanged.connect(self.__onMaskSizeChanged)
-            layout.addWidget(sv, *pos)
+            if self._mode == AXIS_XYZ:
+                layout.addWidget(sv, *pos)
+            else:
+                layout.addWidget(sv)
+
             self._slicesDict[axis] = sv
-            v = self._mode == AXIS_XYZ or self._mode == axis
-            sv.setVisible(v)
 
         self._axisWidget = AxisWidget(self)
         if not self._mode == AXIS_XYZ:
-            layout.addWidget(self._axisWidget, *axisPos[self._mode],
-                             alignment=Qt.AlignTop)
+            mainLayout.addWidget(self._axisWidget, 0, 1, alignment=Qt.AlignTop)
+            mainLayout.addLayout(layout, 0, 0)
         else:
-            layout.addWidget(self._axisWidget, *axisPos[self._mode])
+            mainLayout.addWidget(self._axisWidget, 0, 1)
+
+        self._mainLayout = mainLayout
 
     @pyqtSlot(float)
     def __onScaleChanged(self, scale):
         """ Called when the image scale is changed """
+        self.setScale(scale)
         self.sigScaleChanged.emit(scale, AXIS_X)
 
     def __onMaskSizeChanged(self, size):
@@ -177,6 +188,10 @@ class MultiSliceView(QWidget):
         (If axis is None the last modified axis is used) """
         self._slicesDict[axis or self._axis].setValue(value)
 
+    def getSliceView(self, axis=None):
+        """ Return the SliceView widget for the given axis """
+        return self._slicesDict[self._axis if axis is None else axis]
+
     def getAxis(self):
         """ Returns the current axis """
         return self._axis
@@ -189,9 +204,12 @@ class MultiSliceView(QWidget):
         if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
             e = not self._axis == axis
             self._axis = axis
+            if not self._mode == AXIS_XYZ:
+                s = self._mainLayout.itemAtPosition(0, 0).layout()
+                s.setCurrentWidget(self._slicesDict[axis])
+            self._onSliceChanged(axis, self._slicesDict[axis].getValue())
             if e:
                 self.sigAxisChanged.emit(self._axis)
-            self._onSliceChanged(axis, self.getValue(axis))
         else:
             raise Exception("Invalid axis value: %d" % axis)
 

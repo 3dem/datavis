@@ -85,7 +85,8 @@ class VolumeView(qtw.QWidget):
         zoomSpin = ZoomSpinBox(self._toolBar, valueType=int,
                                minValue=self._minCellSize,
                                maxValue=self._maxCellSize,
-                               currentValue=self._defaultCellSize)
+                               currentValue=self._defaultCellSize,
+                               zoomUnits=ZoomSpinBox.PERCENT)
         zoomSpin.sigValueChanged[int].connect(self._onChangeCellSize)
 
         self._actZoomSpinGallery = self._toolBar.addWidget(zoomSpin)
@@ -95,6 +96,7 @@ class VolumeView(qtw.QWidget):
                                minValue=1, maxValue=10000,
                                zoomUnits=ZoomSpinBox.PERCENT)
         zoomSpin.sigValueChanged[float].connect(self._onChangeImgZoom)
+        zoomSpin.sigIconClicked.connect(self.fitToSize)
         self._actZoomSpinImg = self._toolBar.addWidget(zoomSpin)
         self._zoomSpinImg = zoomSpin
 
@@ -127,8 +129,8 @@ class VolumeView(qtw.QWidget):
         self._actAxisSelect = self._toolBar.addWidget(selector)
         selector.sigAxisChanged.connect(self._onAxisChanged)
         selector.setCurrentAxis(a)
-        if not slicesMode == AXIS_XYZ:
-            self._actAxisSelect.setVisible(False)
+        selector.setViewMode(AxisSelector.SHOW_ALL)
+
         self._axisSelector = selector
         self._stackedLayoud.addWidget(self._multiSlicesView)
 
@@ -137,18 +139,26 @@ class VolumeView(qtw.QWidget):
                                         **galleryKwargs)
 
         self._stackedLayoud.addWidget(self._galleryView)
+        imgView = self._multiSlicesView.getSliceView(a).getImageView()
+        imgView.sigMaskSizeChanged.connect(self.__maskSizeChanged)
 
     def __setupToolBar(self):
         """ Configure the toolbar according to the current view """
         v = self._view == GALLERY
         # Gallery
         self._actAxisSelect.setVisible(
-            v and self._multiSlicesView.getMode() == AXIS_XYZ)
+            v or not self._multiSlicesView.getMode() == AXIS_XYZ)
         self._actZoomSpinGallery.setVisible(v)
         # MultiSlicesView
         self._actZoomSpinImg.blockSignals(True)
         self._actZoomSpinImg.setVisible(not v)
         self._actZoomSpinImg.blockSignals(False)
+
+    def __maskSizeChanged(self, size):
+        """ Invoked when the mask size is changed """
+        d = self._galleryView.getImageItemDelegate()
+        imgView = d.getImageView()
+        imgView.setRoiMaskSize(size)
 
     @pyqtSlot(float, int)
     def __updateImageScale(self, scale, axis):
@@ -158,13 +168,14 @@ class VolumeView(qtw.QWidget):
         :param axis:  (int) The axis
         """
         self._zoomSpinImg.setValue(scale * 100)
+        self._multiSlicesView.setScale(scale)
 
     @pyqtSlot(int)
     def _onChangeCellSize(self, size):
         """
         This slot is invoked when the cell size need to be rearranged
         """
-        self._galleryView.setIconSize(QSize(size, size))
+        self._galleryView.setIconSize(size)
 
     @pyqtSlot(float)
     def _onChangeImgZoom(self, zoom):
@@ -179,6 +190,7 @@ class VolumeView(qtw.QWidget):
         if checked:
             self._stackedLayoud.setCurrentWidget(self._multiSlicesView)
             self._view = SLICES
+
         self._aGallery.setChecked(not checked)
         self.__setupToolBar()
 
@@ -208,9 +220,29 @@ class VolumeView(qtw.QWidget):
     def _onAxisChanged(self, axis):
         """
         Invoked when the current value for ComboBox axis has been changed
-        :param index: (int) The current index
+        :param axis: (int) The current axis
         """
         self._multiSlicesView.setAxis(axis)
+        sv = self._multiSlicesView.getSliceView(axis)
+        m = self._multiSlicesView.getMode()
+        if not m == AXIS_XYZ and not self._view == GALLERY:
+            zoom = self._zoomSpinImg.getValue()
+            sv.getImageView().updateImageScale()
+            self._multiSlicesView.setScale(zoom * 0.01)
+
+        imgView = sv.getImageView()
+        mask = imgView.getMask()
+        if mask is not None:
+            delegate = self._galleryView.getImageItemDelegate()
+            params = {
+                'mask': mask,
+                'maskColor': imgView.getMaskColor()
+            }
+            if isinstance(mask, int):
+                params['maskSize'] = int(imgView.getMaskSize() / 2)
+                params['showHandles'] = False
+            delegate.getImageView().setViewMask(**params)
+
         self._galleryView.setModel(self._slicesTableModels[axis],
                                    minMax=self._model.getMinMax())
         self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)
@@ -239,9 +271,11 @@ class VolumeView(qtw.QWidget):
         }
         self._multiSlicesView.setModel((xModel, yModel, zModel), normalize=True,
                                        slice=int(model.getDim()[0]/2))
-
         if self._view == GALLERY:
             self._onAxisChanged(self._axisSelector.getCurrentAxis())
+        else:
+            sv = self._multiSlicesView.getSliceView()
+            self._zoomSpinImg.setValue(sv.getScale() * 100)
 
     def clear(self):
         """ Clear the volume view """
@@ -263,6 +297,8 @@ class VolumeView(qtw.QWidget):
     def fitToSize(self):
         """ Fit the images to the widget size in MultiSlicesView"""
         self._multiSlicesView.fitToSize()
+        self._zoomSpinImg.setValue(
+            self._multiSlicesView.getSliceView().getScale() * 100)
 
     def getModel(self):
         """ Return the current model """
