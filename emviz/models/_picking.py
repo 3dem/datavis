@@ -280,7 +280,8 @@ class PickerDataModel:
             ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
         ])
         for micId, mic in self._micrographs.items():
-            micTable.appendRow([os.path.basename(mic.getPath()), 0, mic.getId()])
+            micTable.appendRow([os.path.basename(mic.getPath()),
+                                len(mic), mic.getId()])
 
         return micTable
 

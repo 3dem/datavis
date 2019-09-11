@@ -482,8 +482,7 @@ class PickerView(qtw.QWidget):
         """
         # Create new ROIs and add to the list
         self._roiList = [self._createCoordROI(coord)
-                         for coord in self._currentMic] \
-            if self._currentMic else []
+                         for coord in self._currentMic]
 
     def _updateROIs(self):
         """ Update all ROIs that need to be shown in the current micrographs.
@@ -730,7 +729,7 @@ class PickerView(qtw.QWidget):
         self._imageView.getViewBox().addItem(roi)
         roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable,
                     self._clickAction == ERASE)
-        self._roiList.append(coordROI)
+        #self._roiList.append(coordROI)
 
         if self._shape == SHAPE_CIRCLE or self._shape == SHAPE_RECT:
             self.__removeHandles(roi)

@@ -2,46 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 from glob import glob
 
 import em
 from emviz.views import PagingView, SHAPE_CIRCLE, DEFAULT_MODE, PickerView
-from emviz.models import PickerDataModel, Micrograph
+from emviz.models import PickerDataModel, Micrograph, Coordinate
 from emviz.core import EmPickerDataModel
 from test_commons import TestView
 
 
 class TestPickerView(TestView):
-    __title = "PickerView Example"
+    __title = "Relion picking viewer"
 
-    def __parseFiles(self, values):
-        """
-        Try to matching a path pattern for micrographs
-        and another for coordinates.
-
-        Return a list of tuples [mic_path, pick_path].
-        """
-        length = len(values)
-        result = dict()
-        if length > 2:
-            raise ValueError("Invalid number of arguments. Only 2 "
-                             "arguments are supported.")
-
-        if length > 0:
-            mics = glob(values[0])
-            for i in mics:
-                basename = os.path.splitext(os.path.basename(i))[0]
-                result[basename] = (i, None)
-
-        if length > 1:
-            coords = glob(values[1])
-            for i in coords:
-                basename = os.path.splitext(os.path.basename(i))[0]
-                t = result.get(basename)
-                if t:
-                    result[basename] = (t[0], i)
-
-        return result
+    def __init__(self, projectFolder, pickingFolder):
+        self.projectFolder = projectFolder
+        self.pickingFolder = pickingFolder
 
     def getDataPaths(self):
         return [
@@ -57,24 +33,67 @@ class TestPickerView(TestView):
         kwargs['removeRois'] = True
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
-        dataPaths = self.getDataPaths()
-        kwargs['sources'] = self.__parseFiles(["%s*" % dataPaths[0]])
-        projectFolder = '/Users/josem/work/data/relion30_tutorial_precalculated_results/'
-        pickingFolder = projectFolder + 'AutoPick/LoG_based'
-        inputMics = 'Select/job005/micrographs_selected.star'
+
+        projectFolder = self.projectFolder #'/Users/josem/work/data/relion30_tutorial_precalculated_results/'
+        pickingFolder = self.pickingFolder # 'AutoPick/LoG_based'
+        pickingPath = os.path.join(projectFolder, pickingFolder)
+        micsStar = 'Select/job005/micrographs_selected.star'
+
+        # For some reason Relion store input micrographs star filename
+        # in the following star file, that is not a STAR file
+        suffixMicFn = os.path.join(pickingPath, 'coords_suffix_autopick.star')
+
+        if not os.path.exists(suffixMicFn):
+            raise Exception("Missing expected file: %s" % suffixMicFn)
+
+        with open(suffixMicFn) as f:
+            micsStar = f.readline().strip()
+
+        micsStarPath = os.path.join(projectFolder, micsStar)
+        print("file: '%s', exists: %s" % (micsStarPath, os.path.exists(micsStarPath)))
+        if not os.path.exists(micsStarPath):
+            raise Exception("Missing expected file %s" % micsStarPath)
+
+        print("Relion Project: %s" % projectFolder)
+        print("   Micrographs: %s" % micsStar)
+        print("       Picking: %s" % pickingFolder)
 
         # FIXME: Read Table data from the constructor
         table = em.Table()
-        table.read(projectFolder + inputMics)
+        coordTable = em.Table()
+        table.read(micsStarPath)
 
         model = EmPickerDataModel()
-        model.setBoxSize(100)
+        model.setBoxSize(300)
+
         for i, row in enumerate(table):
             micPath = os.path.join(projectFolder, str(row['rlnMicrographName']))
             mic = Micrograph(i + 1, micPath)
+            coordFn = os.path.join(pickingPath, 'Movies')
+            micCoordsFn = os.path.join(
+                coordFn, os.path.basename(micPath).replace(".mrc", "_autopick.star"))
+            if os.path.exists(micCoordsFn):
+                coordTable.read(micCoordsFn)
+                for coordRow in coordTable:
+                    mic.addCoordinate(
+                        Coordinate(round(float(coordRow['rlnCoordinateY'])),
+                                   round(float(coordRow['rlnCoordinateX']))))
             model.addMicrograph(mic)
 
         return PickerView(None, model=model, **kwargs)
 
 if __name__ == '__main__':
-    TestPickerView().runApp()
+    n = len(sys.argv)
+
+    if n != 3:
+        raise Exception(
+            "Expecting only two arguments: PROJECT_PATH PICKING_SUBFOLDER \n\n"
+            "Example: \n"
+            "   python emviz/tests/test_picking_relion.py "
+            "/Users/josem/work/data/relion30_tutorial_precalculated_results/ "
+            "AutoPick/LoG_based")
+
+    projectFolder = sys.argv[1]
+    pickingFolder = sys.argv[2]
+
+    TestPickerView(projectFolder, pickingFolder).runApp()
