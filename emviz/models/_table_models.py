@@ -183,6 +183,9 @@ class EmptyTableModel(TableModel):
     def getMinMax(self):
         return 0, 0
 
+    def getDim(self):
+        return 0, 0
+
 
 class TableConfig:
     """

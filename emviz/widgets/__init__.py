@@ -8,4 +8,5 @@ from ._dynamic import OptionList, DynamicWidget, DynamicWidgetsFactory
 from ._plot import PlotConfigWidget
 from ._panels import ViewPanel
 from ._axis import AxisSelector
+from ._tree import FileTreeView, FileNavigator
 
