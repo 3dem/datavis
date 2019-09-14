@@ -15,9 +15,10 @@ from test_commons import TestView
 class TestPickerView(TestView):
     __title = "Relion picking viewer"
 
-    def __init__(self, projectFolder, pickingFolder):
+    def __init__(self, projectFolder, micStar, pickingFolder):
         self.projectFolder = projectFolder
         self.pickingFolder = pickingFolder
+        self.micStar = micStar
 
     def getDataPaths(self):
         return [
@@ -34,20 +35,20 @@ class TestPickerView(TestView):
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
 
-        projectFolder = self.projectFolder #'/Users/josem/work/data/relion30_tutorial_precalculated_results/'
-        pickingFolder = self.pickingFolder # 'AutoPick/LoG_based'
+        projectFolder = self.projectFolder  #'/Users/josem/work/data/relion30_tutorial_precalculated_results/'
+        pickingFolder = self.pickingFolder  # 'AutoPick/LoG_based'
         pickingPath = os.path.join(projectFolder, pickingFolder)
-        micsStar = 'Select/job005/micrographs_selected.star'
+        micsStar = self.micStar  # 'Select/job005/micrographs_selected.star'
 
         # For some reason Relion store input micrographs star filename
         # in the following star file, that is not a STAR file
-        suffixMicFn = os.path.join(pickingPath, 'coords_suffix_autopick.star')
-
-        if not os.path.exists(suffixMicFn):
-            raise Exception("Missing expected file: %s" % suffixMicFn)
-
-        with open(suffixMicFn) as f:
-            micsStar = f.readline().strip()
+        # suffixMicFn = os.path.join(pickingPath, 'coords_suffix_autopick.star')
+        #
+        # if not os.path.exists(suffixMicFn):
+        #     raise Exception("Missing expected file: %s" % suffixMicFn)
+        #
+        # with open(suffixMicFn) as f:
+        #     micsStar = f.readline().strip()
 
         micsStarPath = os.path.join(projectFolder, micsStar)
         print("file: '%s', exists: %s" % (micsStarPath, os.path.exists(micsStarPath)))
@@ -66,13 +67,26 @@ class TestPickerView(TestView):
         model = EmPickerDataModel()
         model.setBoxSize(300)
 
+        def _getMicPath(micName):
+            micPath = os.path.join(projectFolder, micName)
+            if os.path.exists(micPath):
+                return micPath
+            micPath = os.path.join(pickingPath, micName)
+            if os.path.exists(micPath):
+                return micPath
+
+            raise Exception("Can not find root path for mic: %s" % micName)
+
         for i, row in enumerate(table):
-            micPath = os.path.join(projectFolder, str(row['rlnMicrographName']))
+            micPath = _getMicPath(str(row['rlnMicrographName']))
             mic = Micrograph(i + 1, micPath)
-            coordFn = os.path.join(pickingPath, 'Movies')
             micCoordsFn = os.path.join(
+<<<<<<< HEAD
                 coordFn, os.path.basename(micPath).replace(".mrc",
                                                            "_autopick.star"))
+=======
+                pickingPath, os.path.basename(micPath).replace(".mrc", "_autopick.star"))
+>>>>>>> 395473982c119cbff8e0983f0ffb19a4114edf5d
             if os.path.exists(micCoordsFn):
                 coordTable.read(micCoordsFn)
                 for coordRow in coordTable:
@@ -87,15 +101,20 @@ class TestPickerView(TestView):
 if __name__ == '__main__':
     n = len(sys.argv)
 
-    if n != 3:
+    if n != 4:
         raise Exception(
-            "Expecting only two arguments: PROJECT_PATH PICKING_SUBFOLDER \n\n"
+            "Expecting only two arguments: PROJECT_PATH MICROGRAPHS_STAR COORDINATES_PATH \n\n"
+            "Where: \n"
+            "   PROJECT_PATH: Project path, root of all other inputs are found. \n"
+            "   MICROGRAPHS_STAR: Star file with micrographs. \n"
+            "   COORDINATES_PATH: Where the coordinates star files are. \n"
             "Example: \n"
             "   python emviz/tests/test_picking_relion.py "
             "/Users/josem/work/data/relion30_tutorial_precalculated_results/ "
-            "AutoPick/LoG_based")
+            "AutoPick/LoG_based/Movies")
 
     projectFolder = sys.argv[1]
-    pickingFolder = sys.argv[2]
+    micStar = sys.argv[2]
+    pickingFolder = sys.argv[3]
 
-    TestPickerView(projectFolder, pickingFolder).runApp()
+    TestPickerView(projectFolder, micStar, pickingFolder).runApp()

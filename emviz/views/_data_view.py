@@ -4,7 +4,7 @@
 import os
 from collections import OrderedDict
 
-from PyQt5.QtCore import (Qt, pyqtSlot, pyqtSignal)
+from PyQt5.QtCore import (pyqtSlot, pyqtSignal)
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QToolBar, QLabel, QStatusBar,
                              QComboBox, QStackedLayout, QLineEdit, QActionGroup,
                              QMessageBox, QSplitter, QSizePolicy, QPushButton,

@@ -10,9 +10,9 @@ from PyQt5 import QtCore
 
 from emviz.models import EmptyTableModel
 from emviz.widgets import PagingInfo
+from ._delegates import EMImageItemDelegate
 from ._paging_view import PagingView
 from ._constants import GALLERY, LABEL_ROLE
-from ._delegates import EMImageItemDelegate
 from .model import TablePageItemModel
 
 

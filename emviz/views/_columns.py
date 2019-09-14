@@ -9,10 +9,10 @@ from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
 from emviz.widgets import PagingInfo
-from emviz.models import VISIBLE, RENDERABLE,EmptyTableModel
+from emviz.models import VISIBLE, RENDERABLE, EmptyTableModel
 from ._paging_view import PagingView
-from ._constants import COLUMNS
 from ._delegates import EMImageItemDelegate
+from ._constants import COLUMNS
 from .model import TablePageItemModel
 
 
