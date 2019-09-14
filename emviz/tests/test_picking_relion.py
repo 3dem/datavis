@@ -81,12 +81,8 @@ class TestPickerView(TestView):
             micPath = _getMicPath(str(row['rlnMicrographName']))
             mic = Micrograph(i + 1, micPath)
             micCoordsFn = os.path.join(
-<<<<<<< HEAD
-                coordFn, os.path.basename(micPath).replace(".mrc",
-                                                           "_autopick.star"))
-=======
-                pickingPath, os.path.basename(micPath).replace(".mrc", "_autopick.star"))
->>>>>>> 395473982c119cbff8e0983f0ffb19a4114edf5d
+                pickingPath,
+                os.path.basename(micPath).replace(".mrc", "_autopick.star"))
             if os.path.exists(micCoordsFn):
                 coordTable.read(micCoordsFn)
                 for coordRow in coordTable:
