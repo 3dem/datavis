@@ -71,7 +71,8 @@ class TestPickerView(TestView):
             mic = Micrograph(i + 1, micPath)
             coordFn = os.path.join(pickingPath, 'Movies')
             micCoordsFn = os.path.join(
-                coordFn, os.path.basename(micPath).replace(".mrc", "_autopick.star"))
+                coordFn, os.path.basename(micPath).replace(".mrc",
+                                                           "_autopick.star"))
             if os.path.exists(micCoordsFn):
                 coordTable.read(micCoordsFn)
                 for coordRow in coordTable:
@@ -81,6 +82,7 @@ class TestPickerView(TestView):
             model.addMicrograph(mic)
 
         return PickerView(None, model=model, **kwargs)
+
 
 if __name__ == '__main__':
     n = len(sys.argv)

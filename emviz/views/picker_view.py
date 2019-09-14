@@ -103,8 +103,6 @@ class PickerView(qtw.QWidget):
         self._cvImages.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
         self._cvImages.sigCurrentRowChanged.connect(
             self.__onCurrentRowChanged)
-        self._cvImages.getHorizontalHeader().sectionClicked.connect(
-            self.__onSectionClicked)
         # By default select the first micrograph in the list
         if self._tvModel.getRowsCount() > 0:
             self._cvImages.selectRow(0)
@@ -488,10 +486,10 @@ class PickerView(qtw.QWidget):
         """ Update all ROIs that need to be shown in the current micrographs.
         Remove first the old ones and then create new ones.
         """
-        # First destroy the ROIs
-        self._destroyROIs()
-        # then create new ones
-        self._createROIs()
+        if self._roiList:
+            size = self._model.getBoxSize()
+            for coordROI in self._roiList:
+                coordROI.updateSize(size)
 
     def _loadMicCoordinates(self, path, parserFunc, clear=True, showMic=True):
         """ Load coordinates for the current selected micrograph.
@@ -580,7 +578,7 @@ class PickerView(qtw.QWidget):
                 coord = Coordinate(pos.x(), pos.y(),
                                    self.__currentLabelName)
                 self._currentMic.addCoordinate(coord)
-                self._createCoordROI(coord)
+                self._roiList.append(self._createCoordROI(coord))
                 if self._tvModel is not None:
                     r = self._cvImages.getCurrentRow()
                     self._tvModel.setValue(r, self._coordIndex,
@@ -602,7 +600,7 @@ class PickerView(qtw.QWidget):
                                     self.__currentLabelName)
                 coord = (coord1, coord2)
                 self._currentMic.addCoordinate(coord)
-                self._createCoordROI(coord)
+                self._roiList.append(self._createCoordROI(coord))
                 if self._tvModel is not None:
                     r = self._cvImages.getCurrentRow()
                     self._tvModel.setValue(r, self._coordIndex,
@@ -616,9 +614,8 @@ class PickerView(qtw.QWidget):
         """ Update the box size to be used. """
         if newBoxSize != self._model.getBoxSize():
             self._model.setBoxSize(newBoxSize)
-            # Probably is more efficient to just change size and position
-            # of ROIs, but maybe re-creating is good enough
             self._updateROIs()
+            self.__eraseROIText.setVisible(False)
 
     def _getSelectedPen(self):
         """
@@ -868,13 +865,15 @@ class PickerView(qtw.QWidget):
     def on_actionPickEllipse_triggered(self):
         """ Activate the coordinates to ellipse ROI. """
         self._shape = SHAPE_CIRCLE
-        self._updateROIs()
+        self._destroyROIs()
+        self._createROIs()
 
     @pyqtSlot()
     def on_actionPickSegment_triggered(self):
         """ Activate the coordinates to filament ROI. """
         self._shape = SHAPE_SEGMENT
-        self._updateROIs()
+        self._destroyROIs()
+        self._createROIs()
 
     @pyqtSlot()
     def on_actionPickRect_triggered(self):
@@ -883,7 +882,8 @@ class PickerView(qtw.QWidget):
         Change all boxes to rect ROI
         """
         self._shape = SHAPE_RECT
-        self._updateROIs()
+        self._destroyROIs()
+        self._createROIs()
 
     @pyqtSlot()
     def on_actionPickCenter_triggered(self):
@@ -892,18 +892,13 @@ class PickerView(qtw.QWidget):
         Change all boxes to center ROI
         """
         self._shape = SHAPE_CENTER
-        self._updateROIs()
+        self._destroyROIs()
+        self._createROIs()
 
     @pyqtSlot()
     def __collectParams(self):
         if self.__paramsWidget is not None:
             print(self.__paramsWidget.getParams())
-
-    @pyqtSlot(int)
-    def __onSectionClicked(self, logicalIndex):
-        self._destroyROIs()
-        self._imageView.clear()
-        self._currentMic = None
 
     @pyqtSlot()
     def __onPickTriggered(self):
@@ -946,8 +941,10 @@ class PickerView(qtw.QWidget):
     def __onCurrentRowChanged(self, row):
         """ Invoked when current row change in micrographs list """
         micId = int(self._tvModel.getValue(row, self._idIndex))
+        currentId = self._currentMic.getId() \
+            if self._currentMic is not None else -5
         try:
-            if micId > 0:
+            if micId > 0 and not micId == currentId:
                 self._showMicrograph(self._model[micId])
         except RuntimeError as ex:
             self._showError(ex.message)
@@ -1117,6 +1114,24 @@ class CoordROI:
         self._roi.coordinate = coord
         self._roi.parent = self
 
+    def __calcFilamentSize(self, pos1, pos2, width):
+        """
+        Calculate the filament size (width x height)
+        :param pos1:  (pg.Point) Fist point
+        :param pos2:  (pg.Point) Second point
+        :param width: (int) The new size
+        :return:      (pg.Point, pg.Point, float) A Tuple (pos, size, angle)
+        """
+        d = pg.Point(pos2) - pg.Point(pos1)
+        angle = pg.Point(1, 0).angle(d)
+        if angle is None:
+            angle = 0
+        ra = -angle * pi / 180.
+        c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
+        pos1 = pos1 + c
+
+        return pos1, pg.Point(d.length(), width), -angle
+
     def __createFilament(self, pos1, pos2, width, roiClass, handleSize,
                          **kwargs):
         """
@@ -1124,16 +1139,8 @@ class CoordROI:
         pg.LineSegmentROI or pg.ROI
         """
         if roiClass == pg.ROI:
-            d = pg.Point(pos2) - pg.Point(pos1)
-            angle = pg.Point(1, 0).angle(d)
-            if angle is None:
-                angle = 0
-            ra = -angle * pi / 180.
-            c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
-            pos1 = pos1 + c
-
-            seg = pg.ROI(pos1, size=pg.Point(d.length(), width), angle=-angle,
-                         **kwargs)
+            pos, size, angle = self.__calcFilamentSize(pos1, pos2, width)
+            seg = pg.ROI(pos, size=size, angle=angle, **kwargs)
             seg.handleSize = handleSize
             seg.addScaleRotateHandle([0, 0.5], [1, 0.5])
             seg.addScaleRotateHandle([1, 0.5], [0, 0.5])
@@ -1159,5 +1166,25 @@ class CoordROI:
             for h in self._roi.getHandles():
                 getattr(h, funcName)()  # show/hide
 
-
-
+    def updateSize(self, size):
+        """
+        Update the roi size
+        :param size: (int) The new size
+        """
+        if isinstance(self._roi, pg.ROI):
+            coord = self._roi.coordinate
+            if isinstance(coord, tuple):  # filament
+                c1, c2 = coord
+                pos1 = pg.Point(c1.x, c1.y)
+                pos2 = pg.Point(c2.x, c2.y)
+                pos, size, angle = self.__calcFilamentSize(pos1, pos2, size)
+                self._roi.setPos(pos, update=False, finish=False)
+                self._roi.setSize(size, update=False, finish=False)
+                self._roi.setAngle(angle, update=False, finish=False)
+                self._roi.stateChanged(False)
+            else:  # CIRCLE or RECT
+                self._roi.setSize((size, size), update=False, finish=False)
+                half = size / 2
+                x = self._roi.coordinate.x - half
+                y = self._roi.coordinate.y - half
+                self._roi.setPos((x, y), update=False, finish=False)

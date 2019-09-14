@@ -138,7 +138,8 @@ class TestPickerView(TestView):
         dataPaths = self.getDataPaths()
         kwargs['sources'] = self.__parseFiles(["%s*" % dataPaths[1],
                                                "%s*" % dataPaths[0]])
-        return ViewsFactory.createPickerView(None, **kwargs)
+        files = [micPath for (micPath, _) in kwargs['sources'].values()]
+        return ViewsFactory.createPickerView(files, **kwargs)
 
 
 if __name__ == '__main__':

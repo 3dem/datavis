@@ -5,7 +5,6 @@ from ._constants import TYPE_INT, TYPE_STRING
 from ._table_models import TableModel, ColumnConfig
 
 
-
 class Coordinate:
     """
     The PPCoordinate class describes a coordinate defined in a plane

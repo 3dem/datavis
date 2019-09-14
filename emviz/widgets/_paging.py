@@ -81,6 +81,16 @@ class PagingInfo:
         """
         return self.currentPage == self.numberOfPages
 
+    def getPage(self, index):
+        """ Return the page where index are located or
+        -1 if it can not be calculated
+        :param index: (int) The index. 0 is the first
+        :return:      (int) The page index. 0 is the first
+        """
+        if self.pageSize <= 0:
+            return -1
+        return int(index / self.pageSize) if index >= 0 else -1
+
 
 class PageBar(QWidget):
     """
