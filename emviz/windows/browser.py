@@ -11,7 +11,7 @@ from PyQt5.QtCore import (Qt, QCoreApplication, QMetaObject, QDir,
 
 from emviz.views import (DataView,  VolumeView, ImageView, SlicesView, ITEMS,
                          COLUMNS, GALLERY)
-from emviz.widgets import FileNavigator, FileTreeView
+from emviz.widgets import FileNavigatorPanel, FileBrowser
 from emviz.models import EmptyTableModel, EmptySlicesModel, EmptyVolumeModel
 from emviz.core import ModelsFactory, ImageManager
 
@@ -56,9 +56,9 @@ class BrowserWindow(QMainWindow):
 
         # Create a Tree View
         if kwargs.get('mode') is None:
-            kwargs['mode'] = FileTreeView.DIR_MODE
+            kwargs['mode'] = FileBrowser.DIR_MODE
         kwargs['navigate'] = True
-        self._navigator = FileNavigator(self, **kwargs)
+        self._navigator = FileNavigatorPanel(self, **kwargs)
         self._navigator.sigIndexSelected.connect(self.__onIndexSelected)
         self._leftVerticalLayout.addWidget(self._navigator)
 
