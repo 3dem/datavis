@@ -43,6 +43,7 @@ class FileBrowser(qtw.QTreeView):
 
         self._model = None
         self.setModel(qtw.QFileSystemModel(self))
+        self.header().setSectionResizeMode(0, qtw.QHeaderView.ResizeToContents)
         self._model.setRootPath(qtc.QDir.rootPath())
         path = kwargs.get('path', qtc.QDir.rootPath())
 
@@ -73,7 +74,6 @@ class FileBrowser(qtw.QTreeView):
                 index = indexes[0]
                 self.expand(index)
                 self.scrollTo(index)
-                self.resizeColumnToContents(index.column())
 
     def __expandIndex(self, index):
         if index.isValid():
@@ -82,7 +82,6 @@ class FileBrowser(qtw.QTreeView):
             self.selectionModel().select(index, cs | r)
             self.expand(index)
             self.scrollTo(index)
-            self.resizeColumnToContents(index.column())
 
     def expandTree(self, path):
         """
@@ -94,7 +93,6 @@ class FileBrowser(qtw.QTreeView):
     def setRootIndex(self, index):
         if self._navigate and index.isValid():
             qtw.QTreeView.setRootIndex(self, index)
-            self.resizeColumnToContents(index.column())
 
     def setItemsExpandable(self, enable):
         qtw.QTreeView.setItemsExpandable(self, enable)

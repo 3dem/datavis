@@ -3,7 +3,8 @@
 
 import argparse
 
-from PyQt5.QtCore import QDir
+from PyQt5.QtCore import QDir, QFileInfo
+import PyQt5.QtWidgets as qtw
 from emviz.views import *
 from emviz.widgets import FileBrowser, FileNavigatorPanel
 from test_commons import TestView
@@ -16,7 +17,24 @@ class TestBowser(TestView):
         self._kwargs = kwargs
 
     def createView(self):
-        return FileNavigatorPanel(None, **self._kwargs)
+        mainWidget = qtw.QWidget(None)
+        layout = qtw.QHBoxLayout(mainWidget)
+        fileNav = FileNavigatorPanel(None, **self._kwargs)
+        self._info = qtw.QTextEdit(mainWidget)
+        self._info.setReadOnly(True)
+        layout.addWidget(fileNav)
+        layout.addWidget(self._info)
+        fileNav.sigIndexSelected.connect(self.__onIndexChanged)
+        return mainWidget
+
+    def __onIndexChanged(self, index):
+        info = QFileInfo(index.model().filePath(index))
+        if info.isDir():
+            self._info.clear()
+        else:
+            text = 'File name: %s\nExt: %s\nAbsolute path:%s\nSize: %d bytes\n'
+            self._info.setText(text % (info.fileName(), info.suffix(),
+                                       info.absolutePath(), info.size()))
 
 
 if __name__ == '__main__':
