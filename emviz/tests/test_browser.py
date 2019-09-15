@@ -5,7 +5,7 @@ import argparse
 
 from PyQt5.QtCore import QDir
 from emviz.views import *
-from emviz.widgets import FileTreeView, FileNavigator
+from emviz.widgets import FileBrowser, FileNavigatorPanel
 from test_commons import TestView
 
 
@@ -16,7 +16,7 @@ class TestBowser(TestView):
         self._kwargs = kwargs
 
     def createView(self):
-        return FileNavigator(None, **self._kwargs)
+        return FileNavigatorPanel(None, **self._kwargs)
 
 
 if __name__ == '__main__':
@@ -41,9 +41,12 @@ if __name__ == '__main__':
     print("TIP: Use --help for a more specific explanation.")
     args = argParser.parse_args()
     kwargs['path'] = args.path
-    kwargs['mode'] = FileTreeView.DIR_MODE \
-        if args.mode == 'dir' else FileTreeView.DEFAULT_MODE
-    kwargs['navigate'] = True if args.navigate == 'on' else False
-    kwargs['readOnly'] = True if args.read_only == 'on' else False
+    if args.mode == 'dir':
+        kwargs['mode'] = FileBrowser.DIR_MODE
+    else:
+        kwargs['mode'] = FileBrowser.DEFAULT_MODE
+
+    kwargs['navigate'] = args.navigate == 'on'
+    kwargs['readOnly'] = args.read_only == 'on'
 
     TestBowser(**kwargs).runApp()
