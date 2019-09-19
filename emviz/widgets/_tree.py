@@ -13,11 +13,11 @@ class FileBrowser(qtw.QTreeView):
 
     The widget can be initialized by one of the following modes:
 
-     - DEFAULT_MODE: All files on the initial QFileSystemModel are shown
+     - TREE_MODE: All files on the initial QFileSystemModel are shown
      - DIR_MODE: Only the files on the current folder are shown
     """
 
-    DEFAULT_MODE = 0
+    TREE_MODE = 0
     DIR_MODE = 1
 
     # signal emitted when the view has been resized
@@ -28,15 +28,16 @@ class FileBrowser(qtw.QTreeView):
         Constructs an TreeView object
         :param parent:   The parent widget
         :param kwargs:
-           - mode:     (int) The TreeView mode. Possible values:
-                       DEFAULT_MODE, DIR_MODE
-           - navigate: (Boolean) If True, the user can navigate through
-                       the directories. Valid only for DIR_MODE
-           - path:     (str) Initial root path
+           - mode:         (int) The TreeView mode. Possible values:
+                           TREE_MODE, DIR_MODE
+           - navigate:     (Boolean) If True, the user can navigate through
+                           the directories
+           - rootPath:     (str) Initial root path
+           - selectedPath  (str) The selected path
         """
         qtw.QTreeView.__init__(self, parent=parent)
-        dm = FileBrowser.DEFAULT_MODE
-        self._mode = kwargs.get('mode', dm)
+        tm = FileBrowser.TREE_MODE
+        self._mode = kwargs.get('mode', tm)
         self._navigate = True
 
         self.doubleClicked.connect(self.__onPathDoubleClick)
@@ -44,18 +45,19 @@ class FileBrowser(qtw.QTreeView):
         self._model = None
         self.setModel(qtw.QFileSystemModel(self))
         self.header().setSectionResizeMode(0, qtw.QHeaderView.ResizeToContents)
-        self._model.setRootPath(qtc.QDir.rootPath())
-        path = kwargs.get('path', qtc.QDir.rootPath())
+        rootPath = kwargs.get('rootPath', qtc.QDir.rootPath())
+        self._model.setRootPath(rootPath)
+        selectedPath = kwargs.get('selectedPath')
+        isTreeMode = self._mode == tm
+        rootIndex = self._model.index(rootPath)
 
-        isDefault = self._mode == dm
-        if not isDefault:
-            self.setRootIndex(self._model.index(path))
-        else:
-            self.expandTree(path)
+        self.setRootIndex(rootIndex)
+        self.setCurrentIndex(rootIndex)
+        self.selectPath(selectedPath)
 
-        self._navigate = isDefault or kwargs.get('navigate', True)
-        self.setItemsExpandable(isDefault)
-        self.setRootIsDecorated(isDefault)
+        self._navigate = kwargs.get('navigate', True)
+        self.setItemsExpandable(isTreeMode)
+        self.setRootIsDecorated(isTreeMode)
         self.sigSizeChanged.connect(self.__treeViewSizeChanged)
 
     def __onPathDoubleClick(self, index):
@@ -63,12 +65,11 @@ class FileBrowser(qtw.QTreeView):
         Slot invoked when the mouse is double-clicked on the specified index
         """
         if self._navigate and self._mode == FileBrowser.DIR_MODE:
-            info = qtc.QFileInfo(self._model.filePath(index))
-            if info.isDir():
+            if self._model.isDir(index):
                 self.setRootIndex(index)
 
     def __treeViewSizeChanged(self):
-        if self._mode == FileBrowser.DEFAULT_MODE:
+        if self._mode == FileBrowser.TREE_MODE:
             indexes = self.selectionModel().selectedIndexes()
             if indexes:
                 index = indexes[0]
@@ -77,9 +78,6 @@ class FileBrowser(qtw.QTreeView):
 
     def __expandIndex(self, index):
         if index.isValid():
-            cs = qtc.QItemSelectionModel.ClearAndSelect
-            r = qtc.QItemSelectionModel.Rows
-            self.selectionModel().select(index, cs | r)
             self.expand(index)
             self.scrollTo(index)
 
@@ -92,13 +90,14 @@ class FileBrowser(qtw.QTreeView):
 
     def setRootIndex(self, index):
         if self._navigate and index.isValid():
+            self._model.setRootPath(self._model.filePath(index))
             qtw.QTreeView.setRootIndex(self, index)
 
     def setItemsExpandable(self, enable):
         qtw.QTreeView.setItemsExpandable(self, enable)
 
     def expand(self, index):
-        if self._mode == FileBrowser.DEFAULT_MODE:
+        if self._mode == FileBrowser.TREE_MODE:
             qtw.QTreeView.expand(self, index)
 
     def scrollTo(self, index, hint=qtw.QAbstractItemView.EnsureVisible):
@@ -120,39 +119,55 @@ class FileBrowser(qtw.QTreeView):
 
     def goHome(self):
         """ Changes current directory by moving to the home directory. """
-        if self._mode == FileBrowser.DIR_MODE and self._navigate:
+        if self._navigate:
             self.setRootPath(qtc.QDir.homePath())
-        elif self._navigate:
-            self.__expandIndex(self._model.index(qtc.QDir.homePath()))
+            self.setCurrentIndex(self.rootIndex())
 
     def goUp(self):
         """ Changes directory by moving one directory up from the current
         directory."""
-        if self._mode == FileBrowser.DIR_MODE and self._navigate:
+        if self._navigate:
             parent = self.rootIndex().parent()
-            if parent.isValid():
+            if parent is not None and parent.isValid():
+                index = self.currentIndex()
                 self.setRootIndex(parent)
-        elif self._navigate:
-            indexes = self.selectedIndexes()
-            if indexes:
-                index = indexes[0]
-                parent = index.parent()
-                self.__expandIndex(parent)
-                self.collapse(index)
+                if self._mode == FileBrowser.TREE_MODE:
+                    self.expandTree(self._model.filePath(index))
+                else:
+                    self.setCurrentIndex(parent)
 
     def setRootPath(self, path):
         """
         Sets the root path to the given path
         :param path: (str) The new root path
         """
-        self.setRootIndex(self._model.index(path))
+        if self._navigate:
+            self.setRootIndex(self._model.index(path))
 
-    def getCurrentPath(self):
-        """ Return the path from the current directory """
-        if self._mode == FileBrowser.DIR_MODE:
-            return self._model.filePath(self.rootIndex())
-        else:
-            return self._model.filePath(self.currentIndex())
+    def getRootPath(self):
+        """ Return the root path """
+        return self._model.rootPath()
+
+    def getSelectedPath(self):
+        """ Return the current selected path. If selected index is None then
+        return the root path """
+        index = self.currentIndex()
+        if not index.isValid():
+            index = self.rootIndex()
+
+        return self._model.filePath(index)
+
+    def selectPath(self, path):
+        """ Set the given path as selected. If mode is DIR_MODE then the root
+        path will be the root of the given path."""
+        if path is not None:
+            index = self._model.index(path)
+            if index.isValid():
+                self.setRootIndex(index.parent())
+                if self._mode == FileBrowser.TREE_MODE:
+                    self.__expandIndex(index)
+
+                self.setCurrentIndex(index)
 
     def canNavigate(self):
         """ Return True if navigation is available """
@@ -203,14 +218,9 @@ class FileNavigatorPanel(qtw.QWidget):
         self._lineCompleter.textChanged.connect(self._view.expandTree)
         layout.addWidget(self._view)
         self._completer.setModel(self._view.model())
-        self._lineCompleter.setText(self._view.getCurrentPath())
+        self._lineCompleter.setText(self._view.getSelectedPath())
         self._view.selectionModel().selectionChanged.connect(
             self.__onSelectionChanged)
-        if self._view.getMode() == FileBrowser.DEFAULT_MODE:
-            root = qtc.QDir.rootPath()
-            path = kwargs.get('path', root)
-            if not path == root and qtc.QFileInfo.exists(path):
-                self._lineCompleter.setText(path)
 
     def __createToolBar(self):
         """ Create the tool bar and the navigation actions """
@@ -238,6 +248,11 @@ class FileNavigatorPanel(qtw.QWidget):
         self._upAct.setEnabled(v)
         self._refreshAct.setEnabled(v)
 
+    def __emitSelectedPathIndex(self):
+        """ Emits sigIndexSelected signal for the current selected path """
+        path = self._view.getSelectedPath()
+        self.sigIndexSelected.emit(self._view.model().index(path))
+
     def __onSelectionChanged(self, selected, deselected):
         """ Invoked when the selection change in the tree view """
         if not selected.isEmpty():
@@ -249,42 +264,25 @@ class FileNavigatorPanel(qtw.QWidget):
     def _onHomeAction(self):
         """ This slot leads the FileTreeView to the user home directory """
         self._view.goHome()
-        m = self._view.getMode()
-        if m == FileBrowser.DIR_MODE and self._view.canNavigate():
-            self.sigIndexSelected.emit(qtc.QModelIndex())
 
     def _onUpAction(self):
         """ Changes directory by moving one directory up from the current
         directory. """
         self._view.goUp()
-        m = self._view.getMode()
-        if m == FileBrowser.DIR_MODE and self._view.canNavigate():
-            self.sigIndexSelected.emit(qtc.QModelIndex())
 
     def _onRefreshAction(self):
         """ Refreshes the directory information """
-        d = qtc.QDir(self._view.getCurrentPath())
+        d = qtc.QDir(self._view.getSelectedPath())
         d.refresh()
 
     def _onReturnPressed(self):
         """ Invoked when the user press Enter on line completer """
-        navigate = self._view.canNavigate()
-        text = self._lineCompleter.text()
-        if self._view.getMode() == FileBrowser.DIR_MODE:
-            if qtc.QFileInfo.exists(text):
-                info = qtc.QFileInfo(text)
-                if navigate and info.isDir():
-                    self._view.setRootPath(text)
-                else:
-                    path = info.dir().absolutePath()
-                    index = self._view.model().index(text)
-                    self._view.setRootPath(path)
-                    self._view.expandTree(text)
-                    self.sigIndexSelected.emit(index)
-        else:
-            self._view.expandTree(self._lineCompleter.text())
-            if navigate:
-                self.sigIndexSelected.emit(self._view.model().index(text))
+        path = self._lineCompleter.text()
+        if self._view.canNavigate():
+            if qtc.QFileInfo.exists(path):
+                index = self._view.model().index(path)
+                self._view.selectPath(path)
+                self.sigIndexSelected.emit(index)
 
     def getModel(self):
         """ Return the current model """
