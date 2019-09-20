@@ -127,14 +127,15 @@ class FileBrowser(qtw.QTreeView):
         """ Changes directory by moving one directory up from the current
         directory."""
         if self._navigate:
-            parent = self.rootIndex().parent()
-            if parent is not None and parent.isValid():
-                index = self.currentIndex()
-                self.setRootIndex(parent)
-                if self._mode == FileBrowser.TREE_MODE:
-                    self.expandTree(self._model.filePath(index))
-                else:
-                    self.setCurrentIndex(parent)
+            parent = self.currentIndex().parent()
+            rootIndex = self.rootIndex()
+            index = self.currentIndex()
+            isDirMode = self._mode == FileBrowser.DIR_MODE
+            if index == rootIndex or parent == rootIndex or isDirMode:
+                self.selectPath(self._model.filePath(parent))
+            else:
+                self.expandTree(self._model.filePath(parent))
+                self.setCurrentIndex(parent)
 
     def setRootPath(self, path):
         """
