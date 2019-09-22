@@ -51,7 +51,6 @@ class TestPickerView(TestView):
         #     micsStar = f.readline().strip()
 
         micsStarPath = os.path.join(projectFolder, micsStar)
-        print("file: '%s', exists: %s" % (micsStarPath, os.path.exists(micsStarPath)))
         if not os.path.exists(micsStarPath):
             raise Exception("Missing expected file %s" % micsStarPath)
 
@@ -65,7 +64,7 @@ class TestPickerView(TestView):
         table.read(micsStarPath)
 
         model = EmPickerDataModel()
-        model.setBoxSize(300)
+        model.setBoxSize(64)
 
         def _getMicPath(micName):
             micPath = os.path.join(projectFolder, micName)

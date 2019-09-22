@@ -64,6 +64,7 @@ if __name__ == '__main__':
     args = argParser.parse_args()
     kwargs['selectedPath'] = args.select
     kwargs['rootPath'] = args.root
+
     if args.mode == 'dir':
         kwargs['mode'] = FileBrowser.DIR_MODE
     else:
