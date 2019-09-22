@@ -674,7 +674,7 @@ class PickerView(qtw.QWidget):
                     raise Exception("Unknown shape value: %s" % self._shape)
         else:  # picker-mode : filament
             pickCenter = self._actionPickCenter.isChecked()
-            roiClass = pg.LineSegmentROI if  pickCenter else pg.ROI
+            roiClass = pg.LineSegmentROI if pickCenter else pg.ROI
 
         coordROI = CoordROI(coord, size, roiClass, self._handleSize, **roiDict)
         roi = coordROI.getROI()
@@ -682,7 +682,7 @@ class PickerView(qtw.QWidget):
         # Connect some slots we are interested in
         roi.setAcceptedMouseButtons(Qt.LeftButton)
         if not isinstance(roi, pg.ScatterPlotItem):
-            roi. setAcceptHoverEvents(True)
+            roi.setAcceptHoverEvents(True)
             mouseDoubleClickEvent = roi.mouseDoubleClickEvent
             hoverEnterEvent = roi.hoverEnterEvent
             hoverLeaveEvent = roi.hoverLeaveEvent
@@ -710,7 +710,8 @@ class PickerView(qtw.QWidget):
         self._imageView.getViewBox().addItem(roi)
         roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable,
                     self._clickAction == ERASE)
-        roi.setAcceptedMouseButtons(Qt.NoButton)
+        if self._clickAction == ERASE:
+            roi.setAcceptedMouseButtons(Qt.NoButton)
 
         return coordROI
 
@@ -897,10 +898,11 @@ class PickerView(qtw.QWidget):
             imgItem.setCursor(Qt.ArrowCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROIText.setVisible(False)
-        for roi in self._imageView.getViewBox().addedItems:
+        for roi in view.addedItems:
             isBox = isinstance(roi, CircleROI) or isinstance(roi, pg.ROI)
             if isBox or isinstance(roi, pg.ScatterPlotItem):
                 roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, False)
+                roi.setAcceptedMouseButtons(Qt.LeftButton)
 
     @pyqtSlot()
     def __onEraseTriggered(self):
@@ -911,7 +913,7 @@ class PickerView(qtw.QWidget):
         imgItem = self._imageView.getImageItem()
         if imgItem is not None:
             imgItem.setCursor(Qt.CrossCursor)
-        for roi in self._imageView.getViewBox().addedItems:
+        for roi in view.addedItems:
             isBox = isinstance(roi, CircleROI) or isinstance(roi, pg.ROI)
             isErase = roi == self.__eraseROI
             if (isBox or isinstance(roi, pg.ScatterPlotItem)) and not isErase:
