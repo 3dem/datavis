@@ -38,15 +38,24 @@ class TestImageView(TestView):
         layout = qtw.QVBoxLayout(view)
         toolbar = qtw.QToolBar(view)
         layout.addWidget(toolbar)
-        toolbar.addAction(TriggerAction(toolbar, actionName='Save',
+        toolbar.addAction(TriggerAction(toolbar, actionName='SaveAll',
+                                        tooltip='Export all view',
                                         faIconName='fa.save',
+                                        slot=self.__exportView))
+        toolbar.addSeparator()
+        toolbar.addAction(TriggerAction(toolbar, actionName='SaveImage',
+                                        tooltip='Export image and content',
+                                        faIconName='fa5s.save',
                                         slot=self.__export))
         layout.addWidget(imageView)
         self._imageView = imageView
         return view
 
-    def __export(self):
+    def __exportView(self):
         self._imageView.export(None)
+
+    def __export(self):
+        self._imageView.export(None, exportView=False)
 
 
 if __name__ == '__main__':

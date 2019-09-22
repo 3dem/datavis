@@ -4,6 +4,7 @@
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter as pgImageExporter
 from pyqtgraph import functions as fn
+from pyqtgraph import USE_PYSIDE
 
 import qtawesome as qta
 import numpy as np
@@ -11,8 +12,7 @@ import numpy as np
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QRectF, QRect
 from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
-                             QAbstractGraphicsShapeItem, QGraphicsItemGroup,
-                             QStyleOptionGraphicsItem)
+                             QAbstractGraphicsShapeItem)
 from PyQt5.QtGui import (QRegion, QColor, QImageWriter, QPainter,
                          QGuiApplication)
 
@@ -337,7 +337,9 @@ class ImageView(QWidget):
             self.__actAxisOnOffTriggered(True)
 
         if ev.key() == Qt.Key_E:
-            self.export()
+            ctrl = Qt.ControlModifier
+            if ev.modifiers() & ctrl == ctrl:
+                self.export()
 
     def __setupImageView(self):
         """
@@ -923,7 +925,8 @@ class ImageView(QWidget):
             view = imageView.getView()
             local.setYLink(view)
 
-    def export(self, path=None, background=None, antialias=True):
+    def export(self, path=None, background=None, antialias=True,
+               exportView=True):
         """
         Export the scene to the given path. Image - PNG is the default format.
         The exact set of image formats supported will depend on Qt libraries.
@@ -934,21 +937,32 @@ class ImageView(QWidget):
                            then a save dialog will be displayed
         :param background: (str or QColor) The background color
         :param antialias:  (boolean) Use antialiasing for render the image
+        :param exportView: (boolean) If true, all the view area will be exported
+                                     else export the image
         """
         v = self.getView()
-        rect = self.__groupVisibleItems()
-        width = rect.width()/self._scale
-        height = rect.height()/self._scale
-
-        if self._exporter is None:
+        if not exportView:
+            rect = self.__groupVisibleItems()
+            width = rect.width()/self._scale
+            height = rect.height()/self._scale
             self._exporter = ImageExporter(v.scene(), rect)
-        else:
-            self._exporter.setSourceRect(rect)
+            w = self._exporter.params.param('width')
+            w.setValue(int(width), blockSignal=self._exporter.widthChanged)
+            h = self._exporter.params.param('height')
+            h.setValue(int(height), blockSignal=self._exporter.heightChanged)
 
-        w = self._exporter.params.param('width')
-        w.setValue(int(width), blockSignal=self._exporter.widthChanged)
-        h = self._exporter.params.param('height')
-        h.setValue(int(height), blockSignal=self._exporter.heightChanged)
+        else:
+            width, height = v.width(), v.height()
+            self._exporter = pgImageExporter(v)
+            # jump pyqtgraph bug, reported here:
+            # https://github.com/pyqtgraph/pyqtgraph/issues/538
+            w = self._exporter.params.param('width')
+            w.setValue(width + 1, blockSignal=self._exporter.widthChanged)
+            h = self._exporter.params.param('height')
+            h.setValue(height + 1, blockSignal=self._exporter.heightChanged)
+
+            w.setValue(int(width), blockSignal=self._exporter.widthChanged)
+            h.setValue(int(height), blockSignal=self._exporter.heightChanged)
 
         if background is not None:
             self._exporter.parameters()['background'] = background
@@ -992,8 +1006,13 @@ class ImageExporter(pgImageExporter):
                                    rather than writing to file.
         """
         if fileName is None and not toBytes and not copy:
-            filter = ["*." + str(f) for f in
-                      QImageWriter.supportedImageFormats()]
+            if USE_PYSIDE:
+                filter = ["*." + str(f) for f in
+                          QImageWriter.supportedImageFormats()]
+            else:
+                filter = ["*." + bytes(f).decode('utf-8') for f in
+                          QImageWriter.supportedImageFormats()]
+
             preferred = ['*.png', '*.tif', '*.jpg']
             for p in preferred[::-1]:
                 if p in filter:
