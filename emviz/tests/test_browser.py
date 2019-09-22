@@ -25,6 +25,7 @@ class TestBowser(TestView):
         layout.addWidget(fileNav)
         layout.addWidget(self._info)
         fileNav.sigIndexSelected.connect(self.__onIndexChanged)
+        self.__onIndexChanged(fileNav.getCurrentIndex())
         return mainWidget
 
     def __onIndexChanged(self, index):
@@ -44,7 +45,7 @@ if __name__ == '__main__':
                                         prefix_chars='--',
                                         argument_default=None)
     argParser.add_argument('--mode', default='dir',
-                           required=False, choices=['dir', 'default'],
+                           required=False, choices=['dir', 'tree'],
                            help=' the view mode: dir, or default')
     argParser.add_argument('--navigate', default='on',
                            required=False, choices=['on', 'off'],
@@ -52,17 +53,21 @@ if __name__ == '__main__':
     argParser.add_argument('--read-only', default='off',
                            required=False, choices=['on', 'off'],
                            help=' the read only mode')
-    argParser.add_argument('--path', nargs='?', default=QDir.homePath(),
+    argParser.add_argument('--root', nargs='?', default=QDir.homePath(),
                            required=False, type=str,
                            help=' the initial path')
+    argParser.add_argument('--select', nargs='?', default=QDir.homePath(),
+                           required=False, type=str,
+                           help=' the selected path')
 
     print("TIP: Use --help for a more specific explanation.")
     args = argParser.parse_args()
-    kwargs['path'] = args.path
+    kwargs['selectedPath'] = args.select
+    kwargs['rootPath'] = args.root
     if args.mode == 'dir':
         kwargs['mode'] = FileBrowser.DIR_MODE
     else:
-        kwargs['mode'] = FileBrowser.DEFAULT_MODE
+        kwargs['mode'] = FileBrowser.TREE_MODE
 
     kwargs['navigate'] = args.navigate == 'on'
     kwargs['readOnly'] = args.read_only == 'on'
