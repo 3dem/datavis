@@ -6,7 +6,9 @@ import argparse
 from PyQt5.QtCore import QDir, QFileInfo
 import PyQt5.QtWidgets as qtw
 from emviz.views import *
-from emviz.widgets import FileBrowser, FileNavigatorPanel
+from emviz.widgets import FileBrowser, TreeModelView
+from emviz.core import EmBrowser
+
 from test_commons import TestView
 
 
@@ -17,16 +19,7 @@ class TestBowser(TestView):
         self._kwargs = kwargs
 
     def createView(self):
-        mainWidget = qtw.QWidget(None)
-        layout = qtw.QHBoxLayout(mainWidget)
-        fileNav = FileNavigatorPanel(None, **self._kwargs)
-        self._info = qtw.QTextEdit(mainWidget)
-        self._info.setReadOnly(True)
-        layout.addWidget(fileNav)
-        layout.addWidget(self._info)
-        fileNav.sigIndexSelected.connect(self.__onIndexChanged)
-        self.__onIndexChanged(fileNav.getCurrentIndex())
-        return mainWidget
+        return EmBrowser(**self._kwargs)
 
     def __onIndexChanged(self, index):
         info = QFileInfo(index.model().filePath(index))
@@ -56,7 +49,7 @@ if __name__ == '__main__':
     argParser.add_argument('--root', nargs='?', default=QDir.homePath(),
                            required=False, type=str,
                            help=' the initial path')
-    argParser.add_argument('--select', nargs='?', default=QDir.homePath(),
+    argParser.add_argument('--select', nargs='?', default=None,
                            required=False, type=str,
                            help=' the selected path')
 
@@ -66,9 +59,9 @@ if __name__ == '__main__':
     kwargs['rootPath'] = args.root
 
     if args.mode == 'dir':
-        kwargs['mode'] = FileBrowser.DIR_MODE
+        kwargs['mode'] = TreeModelView.DIR_MODE
     else:
-        kwargs['mode'] = FileBrowser.TREE_MODE
+        kwargs['mode'] = TreeModelView.TREE_MODE
 
     kwargs['navigate'] = args.navigate == 'on'
     kwargs['readOnly'] = args.read_only == 'on'

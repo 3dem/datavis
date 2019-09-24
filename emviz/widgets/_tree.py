@@ -5,18 +5,14 @@ import PyQt5.QtWidgets as qtw
 from ._toolbar import TriggerAction
 
 
-class FileBrowser(qtw.QTreeView):
-    """ The FileBrowser class is an extension of the QTreeView class, allowing
-    different navigation modes.
-    FileBrowser is initialized with a QFileSystemModel, having the 'path' param
-    as the root path of the model.
+class TreeModelView(qtw.QTreeView):
+    """ The TreeModelView class is an extension of the QTreeView class, allowing
+        different navigation modes.
+        It can be initialized by one of the following modes:
 
-    The widget can be initialized by one of the following modes:
-
-     - TREE_MODE: All files on the initial QFileSystemModel are shown
-     - DIR_MODE: Only the files on the current folder are shown
-    """
-
+            - TREE_MODE: All files on the initial QFileSystemModel are shown
+            - DIR_MODE: Only the files on the current folder are shown
+        """
     TREE_MODE = 0
     DIR_MODE = 1
 
@@ -25,84 +21,50 @@ class FileBrowser(qtw.QTreeView):
 
     def __init__(self, parent=None, **kwargs):
         """
-        Constructs an TreeView object
-        :param parent:   The parent widget
+        Constructs an TreeModelView object.
+        :param parent:  The parent widget
         :param kwargs:
-           - mode:         (int) The TreeView mode. Possible values:
-                           TREE_MODE, DIR_MODE
-           - navigate:     (Boolean) If True, the user can navigate through
-                           the directories
-           - rootPath:     (str) Initial root path
-           - selectedPath  (str) The selected path
+        - model         The tree model for the view to present.
+        - mode:         (int) The TreeView mode. Possible values:
+                        TREE_MODE, DIR_MODE
+        - navigate:     (Boolean) If True, the user can navigate through
+                        the directories
         """
-        qtw.QTreeView.__init__(self, parent=parent)
-        tm = FileBrowser.TREE_MODE
-        self._mode = kwargs.get('mode', tm)
-        self._navigate = True
+        qtw.QTreeView.__init__(self, parent)
 
-        self.doubleClicked.connect(self.__onPathDoubleClick)
-
-        self._model = None
-        self.setModel(qtw.QFileSystemModel(self))
-        self.header().setSectionResizeMode(0, qtw.QHeaderView.ResizeToContents)
-        rootPath = kwargs.get('rootPath', qtc.QDir.rootPath())
-        self._model.setRootPath(rootPath)
-        selectedPath = kwargs.get('selectedPath')
-        isTreeMode = self._mode == tm
-        rootIndex = self._model.index(rootPath)
-
-        self.setRootIndex(rootIndex)
-        self.setCurrentIndex(rootIndex)
-        self.selectPath(selectedPath)
-
+        self._mode = kwargs.get('mode', TreeModelView.TREE_MODE)
         self._navigate = kwargs.get('navigate', True)
+        self._model = None
+
+        self.setModel(kwargs.get('model'))
+        self.header().setSectionResizeMode(0, qtw.QHeaderView.ResizeToContents)
+
+        isTreeMode = self._mode == TreeModelView.TREE_MODE
         self.setItemsExpandable(isTreeMode)
         self.setRootIsDecorated(isTreeMode)
         self.sigSizeChanged.connect(self.__treeViewSizeChanged)
+        self.doubleClicked.connect(self.__onPathDoubleClick)
 
     def __onPathDoubleClick(self, index):
         """
         Slot invoked when the mouse is double-clicked on the specified index
         """
-        if self._navigate and self._mode == FileBrowser.DIR_MODE:
-            if self._model.isDir(index):
-                self.setRootIndex(index)
+        if (self._navigate and self._mode == TreeModelView.DIR_MODE
+                and self._model.hasChildren(index)):
+            self.setRootIndex(index)
 
     def __treeViewSizeChanged(self):
-        if self._mode == FileBrowser.TREE_MODE:
+        if self._mode == TreeModelView.TREE_MODE:
             indexes = self.selectionModel().selectedIndexes()
             if indexes:
                 index = indexes[0]
                 self.expand(index)
                 self.scrollTo(index)
 
-    def __expandIndex(self, index):
+    def _expandIndex(self, index):
         if index.isValid():
             self.expand(index)
             self.scrollTo(index)
-
-    def expandTree(self, path):
-        """
-        Expand the Tree View to the given path
-        """
-        index = self._model.index(path)
-        self.__expandIndex(index)
-
-    def setRootIndex(self, index):
-        if self._navigate and index.isValid():
-            self._model.setRootPath(self._model.filePath(index))
-            qtw.QTreeView.setRootIndex(self, index)
-
-    def setItemsExpandable(self, enable):
-        qtw.QTreeView.setItemsExpandable(self, enable)
-
-    def expand(self, index):
-        if self._mode == FileBrowser.TREE_MODE:
-            qtw.QTreeView.expand(self, index)
-
-    def scrollTo(self, index, hint=qtw.QAbstractItemView.EnsureVisible):
-        if self._navigate:
-            qtw.QTreeView.scrollTo(self, index, hint)
 
     def setModel(self, model):
         if not model == self._model:
@@ -117,6 +79,272 @@ class FileBrowser(qtw.QTreeView):
         """ Return the current mode """
         return self._mode
 
+    def expand(self, index):
+        if self._mode == TreeModelView.TREE_MODE:
+            qtw.QTreeView.expand(self, index)
+
+    def scrollTo(self, index, hint=qtw.QAbstractItemView.EnsureVisible):
+        if self._navigate:
+            qtw.QTreeView.scrollTo(self, index, hint)
+
+    def setRootIndex(self, index):
+        if self._navigate and index.isValid():
+            qtw.QTreeView.setRootIndex(self, index)
+
+    def goHome(self):
+        """ Changes current index by moving to the root model index """
+        if self._navigate:
+            root = self.model().index(0, 0)
+            self.setRootIndex(root)
+            self.setCurrentIndex(root)
+
+    def goUp(self):
+        """ Changes directory by moving one directory up from the current
+        directory."""
+        if self._navigate:
+            parent = self.currentIndex().parent()
+            rootIndex = self.rootIndex()
+            index = self.currentIndex()
+            isDirMode = self._mode == TreeModelView.DIR_MODE
+            if index == rootIndex or parent == rootIndex or isDirMode:
+                self.selectIndex(parent)
+            else:
+                self._expandIndex(parent)
+
+    def selectIndex(self, index):
+        """ Set the given index as selected. If mode is DIR_MODE then the root
+        path will be the root of the given index."""
+        if index.isValid():
+            self.setRootIndex(index.parent())
+            if self._mode == TreeModelView.TREE_MODE:
+                self._expandIndex(index)
+
+            self.setCurrentIndex(index)
+
+
+class Browser(qtw.QWidget):
+    """ Browser is the base class for browsers that allow users to select paths
+    from a TreeModelView. It will contain a left panel with the TreeModelView,
+    navigation buttons and a completer to facilitate the search. A  right panel
+    with ViewPanel (top) and InfoPanel (bottom).
+    """
+
+    # signal emitted when the current index is changed
+    sigIndexChanged = qtc.pyqtSignal(qtc.QModelIndex)
+
+    def __init__(self, **kwargs):
+        """
+         Constructs a new Browser object
+
+        :param kwargs:
+         - parent:       The parent widget
+         - model         The tree model for the view to present.
+         - mode:         (int) The TreeView mode. Possible values:
+                         TREE_MODE, DIR_MODE
+        - navigate:      (Boolean) If True, the user can navigate through
+                         the directories
+         - readOnly      (Boolean) If True, all navigation buttons and completer
+                         will be disabled
+        """
+        qtw.QWidget.__init__(self, kwargs.get('parent'))
+        self.__setupUi(kwargs)
+        self.sigIndexChanged.connect(self.__onCurrentIndexChanged)
+
+    def __setupUi(self, kwargs):
+        """ Create the main GUI of the Browser.
+         """
+        mainLayout = qtw.QHBoxLayout(self)
+        mainLayout.setSpacing(0)
+        mainLayout.setContentsMargins(1, 1, 1, 1)
+        self._splitter = qtw.QSplitter(orientation=qtc.Qt.Horizontal,
+                                       parent=self)
+        leftWidget = qtw.QWidget(self)
+        layout = qtw.QVBoxLayout(leftWidget)
+        layout.addWidget(self.__createToolBar())
+        self._completer = qtw.QCompleter(parent=self)
+        self._lineCompleter = qtw.QLineEdit(self)
+        boxLayout = qtw.QBoxLayout(qtw.QBoxLayout.LeftToRight)
+        boxLayout.addWidget(qtw.QLabel(text='Path', parent=self))
+        self._lineCompleter.setCompleter(self._completer)
+        boxLayout.addWidget(self._lineCompleter)
+        layout.addLayout(boxLayout)
+
+        readOnly = kwargs.get('readOnly', False)
+        if readOnly:
+            kwargs['navigate'] = False
+
+        self._treeModelView = self._createTreeModelView(**kwargs)
+        self.__enableActions(not readOnly)
+        self._lineCompleter.setReadOnly(readOnly)
+        self._lineCompleter.returnPressed.connect(self._onReturnPressed)
+        self._lineCompleter.textChanged.connect(self._onTextChanged)
+        layout.addWidget(self._treeModelView)
+        self._completer.setModel(self._treeModelView.model())
+        self._treeModelView.selectionModel().selectionChanged.connect(
+            self._onSelectionChanged)
+
+        self._splitter.addWidget(leftWidget)
+        rightPanel = self._createRightPanel(**kwargs)
+        self._splitter.addWidget(rightPanel)
+        self._splitter.setStretchFactor(0, 5)
+        self._splitter.setStretchFactor(1, 3)
+        mainLayout.addWidget(self._splitter)
+
+    def __createToolBar(self):
+        """ Create the tool bar and the navigation actions """
+        toolBar = qtw.QToolBar(self)
+        toolBar.setToolButtonStyle(qtc.Qt.ToolButtonIconOnly)
+        self._homeAct = TriggerAction(parent=toolBar, actionName='home',
+                                      text='Home', faIconName='fa.home',
+                                      checkable=False, slot=self._onHomeAction)
+        toolBar.addAction(self._homeAct)
+        self._upAct = TriggerAction(parent=toolBar, actionName='up',
+                                    text='Up', faIconName='fa.arrow-up',
+                                    checkable=False, slot=self._onUpAction)
+        toolBar.addAction(self._upAct)
+        self._refreshAct = TriggerAction(parent=toolBar, actionName='refresh',
+                                         text='Refresh',
+                                         faIconName='fa.refresh',
+                                         checkable=False,
+                                         slot=self._onRefreshAction)
+        toolBar.addAction(self._refreshAct)
+        return toolBar
+
+    def __enableActions(self, v):
+        """ Enable/Disable actions"""
+        self._homeAct.setEnabled(v)
+        self._upAct.setEnabled(v)
+        self._refreshAct.setEnabled(v)
+
+    def __onCurrentIndexChanged(self, index):
+        self.updateViewPanel()
+
+    def _onSelectionChanged(self, selected, deselected):
+        """ Invoked when the selection change in the tree view """
+        if not selected.isEmpty():
+            index = selected.indexes()[0]
+            if not self._lineCompleter.hasFocus():
+                self.sigIndexChanged.emit(index)
+
+    def _createTreeModelView(self, **kwargs):
+        """
+        Create the TreeModelView
+        :param kwargs: Initialization params
+        :return: (TreeModelView)
+        """
+        raise Exception('Not implemented yet. ')
+
+    def _createRightPanel(self, **kwargs):
+        """
+        Build the right panel: (Top) ViewPanel, (Bottom) InfoPanel. Subclasses
+        might create different widgets.
+        """
+        viewPanel = self._createViewPanel(**kwargs)
+        splitter = qtw.QSplitter()
+        splitter.setOrientation(qtc.Qt.Vertical)
+        splitter.addWidget(viewPanel)
+        splitter.addWidget(self._createInfoPanel(**kwargs))
+
+        return splitter
+
+    def _createViewPanel(self, **kwargs):
+        """ Build the top right panel"""
+        raise Exception('Not implemented yet. ')
+
+    def _createInfoPanel(self, **kwargs):
+        """ Build the bottom right panel for additional information """
+        raise Exception('Not implemented yet. ')
+
+    def _onHomeAction(self):
+        """ This slot leads the TreeModelView to the root model index """
+        self._treeModelView.goHome()
+        self.sigIndexChanged.emit(self._treeModelView.currentIndex())
+
+    def _onUpAction(self):
+        """ Changes the current index by moving one index up from the current
+        index. """
+        self._treeModelView.goUp()
+        self.sigIndexChanged.emit(self._treeModelView.currentIndex())
+
+    def _onRefreshAction(self):
+        """ Refreshes the TreeModelView information. Subclasses can
+        implement this method for custom tasks """
+        pass
+
+    def _onReturnPressed(self):
+        """ Invoked when the user press Enter on line completer. Subclasses can
+        implement this method for custom tasks """
+        pass
+
+    def _onTextChanged(self, text):
+        """ Invoked when the text change on line completer. Subclasses can
+        implement this method for custom tasks """
+        pass
+
+    def getModel(self):
+        """ Return the current model """
+        return self._treeModelView.model()
+
+    def getCurrentIndex(self):
+        """ Return the current index """
+        return self._treeModelView.currentIndex()
+
+    def updateViewPanel(self):
+        """
+        Update the information of the view panel. Implement this method in
+        subclasses for file data visualization
+        """
+        pass
+
+
+class FileModelView(TreeModelView):
+    """ The FileModelView class is an extension of the TreeModelView class,
+    allowing the file system navigation. FileBrowser is initialized with
+    a QFileSystemModel, having the 'rootPath' param as the root path of
+    the model and the 'selectedPath' as the current selected path.
+    """
+
+    def __init__(self, **kwargs):
+        """
+        Constructs an FileBrowser object
+
+        :param kwargs:
+           - parent:       The parent widget
+           - mode:         (int) The TreeView mode. Possible values:
+                           TREE_MODE, DIR_MODE
+           - navigate:     (Boolean) If True, the user can navigate through
+                           the directories
+           - rootPath:     (str) Initial root path
+           - selectedPath  (str) The selected path
+        """
+
+        TreeModelView.__init__(self, **kwargs)
+        self._mode = kwargs.get('mode', TreeModelView.TREE_MODE)
+        self._navigate = True
+
+        self._model = None
+        self.setModel(kwargs.get('model', qtw.QFileSystemModel(self)))
+        self.header().setSectionResizeMode(0, qtw.QHeaderView.ResizeToContents)
+        rootPath = kwargs.get('rootPath', qtc.QDir.rootPath())
+        self._model.setRootPath(qtc.QDir.rootPath())
+        rootIndex = self._model.index(rootPath)
+
+        self.setRootIndex(rootIndex)
+        self.setCurrentIndex(rootIndex)
+        self.selectPath(kwargs.get('selectedPath'))
+        self._navigate = kwargs.get('navigate', True)
+
+    def expandTree(self, path):
+        """
+        Expand the Tree View to the given path
+        """
+        index = self._model.index(path)
+        self._expandIndex(index)
+
+    def setRootIndex(self, index):
+        if self._navigate and index.isValid():
+            qtw.QTreeView.setRootIndex(self, index)
+
     def goHome(self):
         """ Changes current directory by moving to the home directory. """
         if self._navigate:
@@ -130,7 +358,7 @@ class FileBrowser(qtw.QTreeView):
             parent = self.currentIndex().parent()
             rootIndex = self.rootIndex()
             index = self.currentIndex()
-            isDirMode = self._mode == FileBrowser.DIR_MODE
+            isDirMode = self._mode == TreeModelView.DIR_MODE
             if index == rootIndex or parent == rootIndex or isDirMode:
                 self.selectPath(self._model.filePath(parent))
             else:
@@ -165,8 +393,8 @@ class FileBrowser(qtw.QTreeView):
             index = self._model.index(path)
             if index.isValid():
                 self.setRootIndex(index.parent())
-                if self._mode == FileBrowser.TREE_MODE:
-                    self.__expandIndex(index)
+                if self._mode == TreeModelView.TREE_MODE:
+                    self._expandIndex(index)
 
                 self.setCurrentIndex(index)
 
@@ -175,120 +403,51 @@ class FileBrowser(qtw.QTreeView):
         return self._navigate
 
 
-class FileNavigatorPanel(qtw.QWidget):
-    """ The FileNavigatorPanel class allow users to select files or directories.
-     It incorporates a completer to facilitate the search."""
-
-    # signal emitted when new index is selected
-    sigIndexSelected = qtc.pyqtSignal(qtc.QModelIndex)
-
-    def __init__(self, parent=None, **kwargs):
+class FileBrowser(Browser):
+    """ The FileBrowser is an extension of Browser class for file navigation
+    """
+    def __init__(self, **kwargs):
         """
-         Constructs a new FileNavigator object
-        :param parent: The parent widget
-        :param kwargs: The FileTreeView kwargs and the following:
-         - readOnly  (Boolean) If True, all navigation buttons and completer
-                     will be disabled
+        Creates a FileBrowser object
+        :param kwargs:
+        - model         The tree model for the view to present.
+        - mode:         (int) The TreeView mode. Possible values:
+                        TREE_MODE, DIR_MODE
+        - navigate:     (Boolean) If True, the user can navigate through
+                        the directories
         """
-        qtw.QWidget.__init__(self, parent)
-        self.__setupUi(kwargs)
+        Browser.__init__(self, **kwargs)
+        model = self._treeModelView.model()
+        self._lineCompleter.setText(
+            model.filePath(self._treeModelView.currentIndex()))
 
-    def __setupUi(self, kwargs):
-        """ Create the main GUI of the FileNavigator. The GUI is composed by a
-        tool bar with navigation actions and a FileTreeView.
-         """
-        layout = qtw.QVBoxLayout(self)
-        layout.addWidget(self.__createToolBar())
-        self._completer = qtw.QCompleter(parent=self)
-        self._lineCompleter = qtw.QLineEdit(self)
-        boxLayout = qtw.QBoxLayout(qtw.QBoxLayout.LeftToRight)
-        boxLayout.addWidget(qtw.QLabel(text='Path', parent=self))
-        self._lineCompleter.setCompleter(self._completer)
-        boxLayout.addWidget(self._lineCompleter)
-        layout.addLayout(boxLayout)
+    def _createTreeModelView(self, **kwargs):
+        """
+        Create the FileModelView
+        """
+        model = kwargs.get('model')
+        if model is None:
+            kwargs['model'] = qtw.QFileSystemModel(self)
+        elif not isinstance(model, qtw.QFileSystemModel):
+            raise Exception('Specify a QFileSystemModel instance.')
 
-        readOnly = kwargs.get('readOnly', False)
-        if readOnly:
-            kwargs['navigate'] = False
-
-        self._view = FileBrowser(self, **kwargs)
-        self._view.setSortingEnabled(True)
-        self.__enableActions(not readOnly)
-        self._lineCompleter.setReadOnly(readOnly)
-        self._lineCompleter.returnPressed.connect(self._onReturnPressed)
-        self._lineCompleter.textChanged.connect(self._view.expandTree)
-        layout.addWidget(self._view)
-        self._completer.setModel(self._view.model())
-        self._lineCompleter.setText(self._view.getSelectedPath())
-        self._view.selectionModel().selectionChanged.connect(
-            self.__onSelectionChanged)
-
-    def __createToolBar(self):
-        """ Create the tool bar and the navigation actions """
-        toolBar = qtw.QToolBar(self)
-        toolBar.setToolButtonStyle(qtc.Qt.ToolButtonIconOnly)
-        self._homeAct = TriggerAction(parent=toolBar, actionName='home',
-                                      text='Home', faIconName='fa.home',
-                                      checkable=False, slot=self._onHomeAction)
-        toolBar.addAction(self._homeAct)
-        self._upAct = TriggerAction(parent=toolBar, actionName='up',
-                                    text='Up', faIconName='fa.arrow-up',
-                                    checkable=False, slot=self._onUpAction)
-        toolBar.addAction(self._upAct)
-        self._refreshAct = TriggerAction(parent=toolBar, actionName='refresh',
-                                         text='Refresh',
-                                         faIconName='fa.refresh',
-                                         checkable=False,
-                                         slot=self._onRefreshAction)
-        toolBar.addAction(self._refreshAct)
-        return toolBar
-
-    def __enableActions(self, v):
-        """ Enable/Disable actions"""
-        self._homeAct.setEnabled(v)
-        self._upAct.setEnabled(v)
-        self._refreshAct.setEnabled(v)
-
-    def __emitSelectedPathIndex(self):
-        """ Emits sigIndexSelected signal for the current selected path """
-        path = self._view.getSelectedPath()
-        self.sigIndexSelected.emit(self._view.model().index(path))
-
-    def __onSelectionChanged(self, selected, deselected):
-        """ Invoked when the selection change in the tree view """
-        if not selected.isEmpty():
-            index = selected.indexes()[0]
-            self._lineCompleter.setText(self._view.model().filePath(index))
-            if not self._lineCompleter.hasFocus():
-                self.sigIndexSelected.emit(index)
-
-    def _onHomeAction(self):
-        """ This slot leads the FileTreeView to the user home directory """
-        self._view.goHome()
-
-    def _onUpAction(self):
-        """ Changes directory by moving one directory up from the current
-        directory. """
-        self._view.goUp()
-
-    def _onRefreshAction(self):
-        """ Refreshes the directory information """
-        d = qtc.QDir(self._view.getSelectedPath())
-        d.refresh()
+        view = FileModelView(**kwargs)
+        view.setSortingEnabled(True)
+        return view
 
     def _onReturnPressed(self):
         """ Invoked when the user press Enter on line completer """
-        path = self._lineCompleter.text()
-        if self._view.canNavigate():
-            if qtc.QFileInfo.exists(path):
-                index = self._view.model().index(path)
-                self._view.selectPath(path)
-                self.sigIndexSelected.emit(index)
+        if self._treeModelView.canNavigate():
+            path = self._lineCompleter.text()
+            index = self._treeModelView.model().index(path)
+            # FIXME[hv] self._completer.currentIndex() could be sufficient
+            if index.isValid():
+                self._treeModelView.selectIndex(index)
+                self.sigIndexChanged.emit(index)
 
-    def getModel(self):
-        """ Return the current model """
-        return self._view.model()
-
-    def getCurrentIndex(self):
-        """ Return the current index """
-        return self._view.currentIndex()
+    def _onSelectionChanged(self, selected, deselected):
+        Browser._onSelectionChanged(self, selected, deselected)
+        if not selected.isEmpty():
+            index = selected.indexes()[0]
+            model = self._treeModelView.model()
+            self._lineCompleter.setText(model.filePath(index))
