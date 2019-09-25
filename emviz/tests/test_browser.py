@@ -3,16 +3,16 @@
 
 import argparse
 
-from PyQt5.QtCore import QDir, QFileInfo
-import PyQt5.QtWidgets as qtw
+from PyQt5.QtCore import QDir
+
 from emviz.views import *
-from emviz.widgets import FileBrowser, TreeModelView
+from emviz.widgets import TreeModelView
 from emviz.core import EmBrowser
 
 from test_commons import TestView
 
 
-class TestBowser(TestView):
+class TestBrowser(TestView):
     __title = "Browser example"
 
     def __init__(self, **kwargs):
@@ -20,15 +20,6 @@ class TestBowser(TestView):
 
     def createView(self):
         return EmBrowser(**self._kwargs)
-
-    def __onIndexChanged(self, index):
-        info = QFileInfo(index.model().filePath(index))
-        if info.isDir():
-            self._info.clear()
-        else:
-            text = 'File name: %s\nExt: %s\nAbsolute path:%s\nSize: %d bytes\n'
-            self._info.setText(text % (info.fileName(), info.suffix(),
-                                       info.absolutePath(), info.size()))
 
 
 if __name__ == '__main__':
@@ -66,4 +57,4 @@ if __name__ == '__main__':
     kwargs['navigate'] = args.navigate == 'on'
     kwargs['readOnly'] = args.read_only == 'on'
 
-    TestBowser(**kwargs).runApp()
+    TestBrowser(**kwargs).runApp()

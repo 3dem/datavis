@@ -121,6 +121,10 @@ class TreeModelView(qtw.QTreeView):
 
             self.setCurrentIndex(index)
 
+    def canNavigate(self):
+        """ Return True if navigation is available """
+        return self._navigate
+
 
 class Browser(qtw.QWidget):
     """ Browser is the base class for browsers that allow users to select paths
@@ -185,9 +189,11 @@ class Browser(qtw.QWidget):
 
         self._splitter.addWidget(leftWidget)
         rightPanel = self._createRightPanel(**kwargs)
-        self._splitter.addWidget(rightPanel)
-        self._splitter.setStretchFactor(0, 5)
-        self._splitter.setStretchFactor(1, 3)
+        if rightPanel is not None:
+            self._splitter.addWidget(rightPanel)
+            self._splitter.setStretchFactor(0, 5)
+            self._splitter.setStretchFactor(1, 3)
+
         mainLayout.addWidget(self._splitter)
 
     def __createToolBar(self):
@@ -240,10 +246,16 @@ class Browser(qtw.QWidget):
         might create different widgets.
         """
         viewPanel = self._createViewPanel(**kwargs)
+        infoPanel = self._createInfoPanel(**kwargs)
+        if viewPanel is None:
+            return infoPanel
+        if infoPanel is None:
+            return viewPanel
+
         splitter = qtw.QSplitter()
         splitter.setOrientation(qtc.Qt.Vertical)
         splitter.addWidget(viewPanel)
-        splitter.addWidget(self._createInfoPanel(**kwargs))
+        splitter.addWidget(infoPanel)
 
         return splitter
 
@@ -334,6 +346,13 @@ class FileModelView(TreeModelView):
         self.selectPath(kwargs.get('selectedPath'))
         self._navigate = kwargs.get('navigate', True)
 
+    def _createViewPanel(self, **kwargs):
+        return None
+
+    def _createInfoPanel(self, **kwargs):
+        """ Build the bottom right panel for additional information """
+        return None
+
     def expandTree(self, path):
         """
         Expand the Tree View to the given path
@@ -398,10 +417,6 @@ class FileModelView(TreeModelView):
 
                 self.setCurrentIndex(index)
 
-    def canNavigate(self):
-        """ Return True if navigation is available """
-        return self._navigate
-
 
 class FileBrowser(Browser):
     """ The FileBrowser is an extension of Browser class for file navigation
@@ -434,6 +449,12 @@ class FileBrowser(Browser):
         view = FileModelView(**kwargs)
         view.setSortingEnabled(True)
         return view
+
+    def _createViewPanel(self, **kwargs):
+        return None
+
+    def _createInfoPanel(self, **kwargs):
+        return None
 
     def _onReturnPressed(self):
         """ Invoked when the user press Enter on line completer """

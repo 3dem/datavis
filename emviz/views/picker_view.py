@@ -1,11 +1,10 @@
-import sys
-import os
+
 from math import cos, sin
 from numpy import pi
 
-from PyQt5.QtCore import (pyqtSlot, Qt, QMetaObject)
-from PyQt5.QtGui import (QStandardItem, QBrush, QColor, QKeySequence,
-                         QPainterPath)
+import PyQt5.QtCore as qtc
+import PyQt5.QtGui as qtg
+from PyQt5.QtCore import pyqtSlot
 import PyQt5.QtWidgets as qtw
 
 import pyqtgraph as pg
@@ -13,9 +12,7 @@ import qtawesome as qta
 
 
 from emviz.widgets import (TriggerAction, OnOffAction, DynamicWidgetsFactory)
-from emviz.models import (Micrograph, Coordinate, ColumnConfig,
-                          TYPE_STRING, TYPE_INT, EmptyTableModel, TableConfig,
-                          parseTextCoordinates, ImageModel)
+from emviz.models import (Coordinate, TableConfig, ImageModel)
 
 from ._image_view import ImageView
 from ._columns import ColumnsView
@@ -74,7 +71,7 @@ class PickerView(qtw.QWidget):
                                        pen=pg.mkPen(color="FFF",
                                                     width=1,
                                                     dash=[2, 2, 2]))
-        self.__eraseROI.setCursor(Qt.CrossCursor)
+        self.__eraseROI.setCursor(qtc.Qt.CrossCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROI.sigRegionChanged.connect(self.__eraseRoiChanged)
         self.__mousePressed = False
@@ -86,17 +83,6 @@ class PickerView(qtw.QWidget):
                                           fill=pg.mkBrush(color=(0, 0, 0, 128)))
         self.__eraseROIText.setVisible(False)
         self._imageView.getViewBox().addItem(self.__eraseROIText)
-
-        # if len(self._model) > 0:
-        #     for micId in self._model:
-        #         self.__addMicToTable(self._model[micId])
-
-        # sources = kwargs.get("sources", None)
-        # if isinstance(sources, dict):
-        #     for k in sources.keys():
-        #         mic_path, coord = sources.get(k)
-        #         self._openFile(mic_path, coord=coord, showMic=False,
-        #                        appendCoord=True)
 
         cols = list(self._tvModel.iterColumns())
         self._cvImages.setModel(self._tvModel, TableConfig(*cols))
@@ -124,7 +110,7 @@ class PickerView(qtw.QWidget):
         viewLayout.addWidget(self._imageView)
         self._labelMouseCoord = qtw.QLabel(self)
         self._labelMouseCoord.setMaximumHeight(22)
-        self._labelMouseCoord.setAlignment(Qt.AlignRight)
+        self._labelMouseCoord.setAlignment(qtc.Qt.AlignRight)
         viewLayout.addWidget(self._labelMouseCoord)
         horizontalLayout.addWidget(viewWidget)
 
@@ -136,7 +122,7 @@ class PickerView(qtw.QWidget):
         self.__addPickerToolAction(imgViewToolBar, kwargs.get('pickerParams'))
 
         self.setWindowTitle("Picker")
-        QMetaObject.connectSlotsByName(self)
+        qtc.QMetaObject.connectSlotsByName(self)
 
     def __setup(self, **kwargs):
         """ Configure the PickerView. """
@@ -155,7 +141,12 @@ class PickerView(qtw.QWidget):
         elif self._shape == SHAPE_SEGMENT:
             self._actionPickSegment.setChecked(True)
 
-        self._spinBoxBoxSize.setValue(kwargs.get("boxSize", 100))
+        if self._model is None:
+            size = kwargs.get("boxSize", 100)
+        else:
+            size = self._model.getBoxSize()
+
+        self._spinBoxBoxSize.setValue(size)
 
     def __addMicrographsAction(self, toolbar, **kwargs):
         """
@@ -201,11 +192,11 @@ class PickerView(qtw.QWidget):
         self._actGroupPickErase = qtw.QActionGroup(self)
         self._actGroupPickErase.setExclusive(True)
 
-        self._actionPick = TriggerAction(parent=self, actionName='actionPick',
-                                         faIconName='fa5s.crosshairs',
-                                         checkable=True, tooltip='Pick',
-                                         shortCut=QKeySequence(Qt.Key_P),
-                                         slot=self.__onPickTriggered)
+        self._actionPick = TriggerAction(
+            parent=self, actionName='actionPick', faIconName='fa5s.crosshairs',
+            checkable=True, tooltip='Pick',
+            shortCut=qtg.QKeySequence(qtc.Qt.Key_P),
+            slot=self.__onPickTriggered)
         self._actGroupPickErase.addAction(self._actionPick)
         self._actionPick.setChecked(True)
         self._imageView.addAction(self._actionPick)
@@ -215,7 +206,8 @@ class PickerView(qtw.QWidget):
             self._actionErase = TriggerAction(
                 parent=self, actionName='actionErase',
                 faIconName='fa5s.eraser', checkable=True, tooltip='Erase',
-                shortCut=QKeySequence(Qt.Key_E), slot=self.__onEraseTriggered)
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_E),
+                slot=self.__onEraseTriggered)
             self._actGroupPickErase.addAction(self._actionErase)
             self._imageView.addAction(self._actionErase)
             tb.addAction(self._actionErase)
@@ -236,13 +228,13 @@ class PickerView(qtw.QWidget):
             self._actionPickRect = TriggerAction(
                 parent=self, actionName='actionPickRect',
                 faIconName='fa.square', checkable=True, tooltip='Rect',
-                shortCut=QKeySequence(Qt.Key_R))
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_R))
             self._actionPickRect.setChecked(True)
 
             self._actionPickEllipse = TriggerAction(
                 parent=self, actionName='actionPickEllipse',
                 faIconName='fa.circle', checkable=True, tooltip='Circle',
-                shortCut=QKeySequence(Qt.Key_C))
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_C))
             self._actionPickEllipse.setChecked(False)
             tb.addAction(self._actionPickRect)
             tb.addAction(self._actionPickEllipse)
@@ -254,7 +246,7 @@ class PickerView(qtw.QWidget):
             self._actionPickSegment = TriggerAction(
                 parent=self, actionName='actionPickSegment',
                 faIconName='fa5s.arrows-alt-h', checkable=True,
-                tooltip='Segment', shortCut=QKeySequence(Qt.Key_S))
+                tooltip='Segment', shortCut=qtg.QKeySequence(qtc.Qt.Key_S))
             self._actionPickSegment.setChecked(True)
             tb.addAction(self._actionPickSegment)
             self._actionGroupPick.addAction(self._actionPickSegment)
@@ -263,12 +255,12 @@ class PickerView(qtw.QWidget):
         self._actionPickCenter = TriggerAction(
             parent=self, actionName='actionPickCenter',
             faIconName='fa5s.dot-circle', checkable=True,
-            tooltip='Center', shortCut=QKeySequence(Qt.Key_D))
+            tooltip='Center', shortCut=qtg.QKeySequence(qtc.Qt.Key_D))
         self._actionPickCenter.setChecked(False)
 
         self._actionPickShowHide = OnOffAction(
-            tb, toolTipOn='Hide coordinates',
-            toolTipOff='Show coordinates', shortCut=QKeySequence(Qt.Key_N))
+            tb, toolTipOn='Hide coordinates', toolTipOff='Show coordinates',
+            shortCut=qtg.QKeySequence(qtc.Qt.Key_N))
         self._actionPickShowHide.set(True)
         self._actionPickShowHide.sigStateChanged.connect(
             self.__onPickShowHideTriggered)
@@ -290,7 +282,7 @@ class PickerView(qtw.QWidget):
                 vLayout = qtw.QVBoxLayout()
                 label = qtw.QLabel(self)
                 label.setText("<strong>Params:</strong>")
-                vLayout.addWidget(label, 0, Qt.AlignLeft)
+                vLayout.addWidget(label, 0, qtc.Qt.AlignLeft)
                 vLayout.addWidget(dw)
                 button = qtw.QPushButton(self)
                 button.setText("Collect")
@@ -345,7 +337,7 @@ class PickerView(qtw.QWidget):
                                                    qtw.QTableWidgetItem("Help"))
         # Add table items
         # Add row1
-        flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        flags = qtc.Qt.ItemIsSelectable | qtc.Qt.ItemIsEnabled
         self.__addRowToControls([(qtw.QTableWidgetItem(qta.icon('fa.list-alt'),
                                                    "Title1"), flags),
                                  (qtw.QTableWidgetItem("Help text"), flags)])
@@ -492,32 +484,6 @@ class PickerView(qtw.QWidget):
             for coordROI in self._roiList:
                 coordROI.updateSize(size)
 
-    def _loadMicCoordinates(self, path, parserFunc, clear=True, showMic=True):
-        """ Load coordinates for the current selected micrograph.
-        Params:
-            path: Path that will be parsed and search for coordinates.
-            parserFunc: function that will parse the file and yield
-                all coordinates.
-            clear: Remove all previous coordinates.
-            showMic: Show current mic
-        """
-        # FIXME: The PickerModel is the one that should load and parse
-        # FIXME: the coordinates in the given file
-        raise Exception("Not implemented")
-        # if self._currentMic is not None:
-        #     if clear:
-        #         self._currentMic.clear()  # remove all coordinates
-        #     row = self._cvImages.getCurrentRow()
-        #     for c in parserFunc(path):
-        #         coord = Coordinate(c[0], c[1], c[2])
-        #         self._currentMic.addCoordinate(coord)
-        #         self._tvModel.setValue(row, self._coordIndex,
-        #                                len(self._currentMic))
-        #         self._cvImages.updatePage()
-        #
-        #     if showMic:
-        #         self._showMicrograph(self._currentMic)
-
     def _openFile(self, path, **kwargs):
         """
         Open de given file.
@@ -571,45 +537,54 @@ class PickerView(qtw.QWidget):
         if self._currentMic is None:
             print("not selected micrograph....")
             return
-        if event.button() == Qt.LeftButton and self._clickAction == PICK:
+        if event.button() == qtc.Qt.LeftButton and self._clickAction == PICK:
             viewBox = self._imageView.getViewBox()
             pos = viewBox.mapToView(event.pos())
-            # Create coordinate with event click coordinates and add it
-            if self.__pickerMode == DEFAULT_MODE:
-                coord = Coordinate(pos.x(), pos.y(),
-                                   self.__currentLabelName)
-                self._currentMic.addCoordinate(coord)
-                self._roiList.append(self._createCoordROI(coord))
-                if self._tvModel is not None:
-                    r = self._cvImages.getCurrentRow()
-                    self._tvModel.setValue(r, self._coordIndex,
-                                           len(self._currentMic))
-                    self._cvImages.updatePage()
-            elif self.__segmentROI is None:  # filament mode
-                self.__segPos = pos
-                self.__segmentROI = pg.LineSegmentROI(
-                    [(pos.x(), pos.y()), (pos.x(), pos.y())],
-                    pen=self._makePen(self.__currentLabelName, 2))
-                viewBox.addItem(self.__segmentROI)
-                self.__eraseROIText.setPos(pos)
-                self.__eraseROIText.setText("angle=")
-                self.__eraseROIText.setVisible(True)
-            elif not self.__segPos == pos:  # filament mode
-                coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
-                                    self.__currentLabelName)
-                coord2 = Coordinate(pos.x(), pos.y(),
-                                    self.__currentLabelName)
-                coord = (coord1, coord2)
-                self._currentMic.addCoordinate(coord)
-                self._roiList.append(self._createCoordROI(coord))
-                if self._tvModel is not None:
-                    r = self._cvImages.getCurrentRow()
-                    self._tvModel.setValue(r, self._coordIndex,
-                                           len(self._currentMic))
-                    self._cvImages.updatePage()
-                viewBox.removeItem(self.__segmentROI)
-                self.__segmentROI = None  # TODO[hv] delete, memory leak???
-                self.__eraseROIText.setVisible(False)
+            bounds = self._imageView.getImageItem().boundingRect()
+            r = self._spinBoxBoxSize.value() / 2
+            x, y = pos.x(), pos.y()
+            if (0 <= x + r <= bounds.width() and
+                    0 <= x - r <= bounds.width() and
+                    0 <= y + r <= bounds.height() and
+                    0 <= y - r <= bounds.height()):
+                if self.__pickerMode == DEFAULT_MODE:
+                    # Create coordinate with event click coordinates and add it
+                    coord = Coordinate(pos.x(), pos.y(),
+                                       self.__currentLabelName)
+                    self._currentMic.addCoordinate(coord)
+                    self._roiList.append(self._createCoordROI(coord))
+                    if self._tvModel is not None:
+                        r = self._cvImages.getCurrentRow()
+                        self._tvModel.setValue(r, self._coordIndex,
+                                               len(self._currentMic))
+                        self._cvImages.updatePage()
+                elif self.__segmentROI is None:  # filament mode
+                    self.__segPos = pos
+                    self.__segmentROI = pg.LineSegmentROI(
+                        [(pos.x(), pos.y()), (pos.x(), pos.y())],
+                        pen=self._makePen(self.__currentLabelName, 2))
+                    viewBox.addItem(self.__segmentROI)
+                    self.__eraseROIText.setPos(pos)
+                    self.__eraseROIText.setText("angle=")
+                    self.__eraseROIText.setVisible(True)
+                elif not self.__segPos == pos:  # filament mode
+                    coord1 = Coordinate(self.__segPos.x(), self.__segPos.y(),
+                                        self.__currentLabelName)
+                    coord2 = Coordinate(pos.x(), pos.y(),
+                                        self.__currentLabelName)
+                    coord = (coord1, coord2)
+                    self._currentMic.addCoordinate(coord)
+                    self._roiList.append(self._createCoordROI(coord))
+                    if self._tvModel is not None:
+                        r = self._cvImages.getCurrentRow()
+                        self._tvModel.setValue(r, self._coordIndex,
+                                               len(self._currentMic))
+                        self._cvImages.updatePage()
+                    viewBox.removeItem(self.__segmentROI)
+                    self.__segmentROI = None  # TODO[hv] delete, memory leak???
+                    self.__eraseROIText.setVisible(False)
+            else:
+                print('point out')
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
@@ -662,7 +637,8 @@ class PickerView(qtw.QWidget):
             if self._actionPickCenter.isChecked():
                 roiClass = pg.ScatterPlotItem
                 roiDict['symbol'] = 'o'
-                roiDict['brush'] = QBrush(QColor(roiDict['pen'].color()))
+                color = qtg.QColor(roiDict['pen'].color())
+                roiDict['brush'] = qtg.QBrush(color)
                 roiDict['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
                 size = 3
             else:
@@ -680,7 +656,7 @@ class PickerView(qtw.QWidget):
         roi = coordROI.getROI()
 
         # Connect some slots we are interested in
-        roi.setAcceptedMouseButtons(Qt.LeftButton)
+        roi.setAcceptedMouseButtons(qtc.Qt.LeftButton)
         if not isinstance(roi, pg.ScatterPlotItem):
             roi.setAcceptHoverEvents(True)
             mouseDoubleClickEvent = roi.mouseDoubleClickEvent
@@ -711,7 +687,7 @@ class PickerView(qtw.QWidget):
         roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable,
                     self._clickAction == ERASE)
         if self._clickAction == ERASE:
-            roi.setAcceptedMouseButtons(Qt.NoButton)
+            roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
 
         return coordROI
 
@@ -738,7 +714,8 @@ class PickerView(qtw.QWidget):
             wheelEvent = v.wheelEvent
 
             def __wheelEvent(ev, axis=None):
-                if ev.modifiers() & Qt.ControlModifier == Qt.ControlModifier:
+                mod = ev.modifiers() & qtc.Qt.ControlModifier
+                if mod == qtc.Qt.ControlModifier:
                     ex, ey = v.mouseEnabled()
                     v.setMouseEnabled(False, False)
                     d = 1 if ev.delta() > 0 else -1
@@ -895,14 +872,14 @@ class PickerView(qtw.QWidget):
         self._clickAction = PICK
         imgItem = self._imageView.getImageItem()
         if imgItem is not None:
-            imgItem.setCursor(Qt.ArrowCursor)
+            imgItem.setCursor(qtc.Qt.ArrowCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROIText.setVisible(False)
         for roi in view.addedItems:
             isBox = isinstance(roi, CircleROI) or isinstance(roi, pg.ROI)
             if isBox or isinstance(roi, pg.ScatterPlotItem):
                 roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, False)
-                roi.setAcceptedMouseButtons(Qt.LeftButton)
+                roi.setAcceptedMouseButtons(qtc.Qt.LeftButton)
 
     @pyqtSlot()
     def __onEraseTriggered(self):
@@ -912,13 +889,13 @@ class PickerView(qtw.QWidget):
         self._clickAction = ERASE
         imgItem = self._imageView.getImageItem()
         if imgItem is not None:
-            imgItem.setCursor(Qt.CrossCursor)
+            imgItem.setCursor(qtc.Qt.CrossCursor)
         for roi in view.addedItems:
             isBox = isinstance(roi, CircleROI) or isinstance(roi, pg.ROI)
             isErase = roi == self.__eraseROI
             if (isBox or isinstance(roi, pg.ScatterPlotItem)) and not isErase:
                 roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, True)
-                roi.setAcceptedMouseButtons(Qt.NoButton)
+                roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
 
     @pyqtSlot(int)
     def __onPickShowHideTriggered(self, state):
@@ -966,7 +943,6 @@ class PickerView(qtw.QWidget):
     def _roiMouseHover(self, roi):
         """ Handler invoked when the roi is hovered by the mouse. """
         self.__showHandlers(roi, roi.mouseHovering)
-        #roi.parent.showHandlers(True)
 
     @pyqtSlot(object)
     def __eraseRoiChanged(self, eraseRoi):
@@ -976,10 +952,10 @@ class PickerView(qtw.QWidget):
         scene = viewBox.scene()
         pos = self.__eraseROI.pos()
         size = self.__eraseROI.size()
-        shape = QPainterPath()
+        shape = qtg.QPainterPath()
         shape.addEllipse(pos.x(), pos.y(), size[0], size[1])
         scene.setSelectionArea(viewBox.mapViewToScene(shape),
-                               Qt.IntersectsItemShape)
+                               qtc.Qt.IntersectsItemShape)
         items = scene.selectedItems()
         for item in items:
             if (not item == self.__eraseROI and item.isVisible() and
@@ -1054,18 +1030,17 @@ class PickerView(qtw.QWidget):
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data
         """
-        # FIXME[phv] Review
-        #w, h = self._imageView.getPreferredSize()
-        #toolBar = self._imageView.getToolBar()
-        #w += toolBar.getPanelMinSize() if toolBar.hasPanelVisible() else 0
-        #return w + toolBar.width() + 80, min(h, toolBar.height())
-        return 1200, 600
+        w, h = self._imageView.getPreferredSize()
+        toolBar = self._imageView.getToolBar()
+
+        w += toolBar.width() + 100
+        return w, max(h, toolBar.height())
 
     def getToolBar(self):
         return self._imageView.getToolBar()
 
 
-class MicrographItem(QStandardItem):
+class MicrographItem(qtg.QStandardItem):
     """
     The MicrographItem is the item that we use in the ColumnsView
     where the images are displayed

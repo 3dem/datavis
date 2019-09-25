@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QAbstractGraphicsShapeItem)
 from PyQt5.QtGui import (QRegion, QColor, QImageWriter, QPainter,
-                         QGuiApplication)
+                         QGuiApplication, QKeySequence)
 
 from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
                            TriggerAction, ZoomSpinBox)
@@ -78,6 +78,9 @@ class ImageView(QWidget):
                    the specified maskColor and 255 will be transparent
         maskSize:  (int) The roi radius
         showHandles: (boolean) Enable/Disable the ROI handles
+
+        preferredSize: (list of tuples). The first element is the image size and
+                       the second element is the preferred size.
         """
         QWidget.__init__(self, parent=parent)
         self._model = None
@@ -87,6 +90,8 @@ class ImageView(QWidget):
         self._isHorizontalFlip = False
         self._rotationStep = 90
         self._scale = 1
+        self._sizePref = kwargs.get('preferredSize',
+                                    [(100, 500), (512, 800), (1000, 1000)])
         self._exporter = None
 
         self._showToolBar = kwargs.get('toolBar', True)
@@ -327,6 +332,21 @@ class ImageView(QWidget):
                     axis.setAutoFillBackground(self._autoFill)
                     axis.setZValue(0)
                     axis.linkedViewChanged(viewBox)
+
+    def __getPreferredImageSize(self, width, height):
+        """
+        Return the preferred image size for the given size
+        :param width: (int)
+        :param height: (int)
+        """
+        size = max(width, height)
+        for s, p in self._sizePref:
+            if size <= s:
+                c = p / float(size)
+                return int(width * c), int(height * c)
+
+        c = self._sizePref[-1][1] / float(size)
+        return int(width * c), int(height * c)
 
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
@@ -868,7 +888,30 @@ class ImageView(QWidget):
         dimensions to contain all the image """
         if self._model is None:
             return 800, 600
-        return self._model.getDim()
+        hw = self._imageView.ui.histogram.item.width() \
+            if self._showHistogram else 0
+
+        plot = self._imageView.getView()
+        dim = self._model.getDim()
+        width, height = self.__getPreferredImageSize(dim[0], dim[1])
+        width += hw
+
+        if isinstance(plot, pg.PlotItem):
+            bottomAxis = plot.getAxis("bottom")
+            topAxis = plot.getAxis("top")
+            leftAxis = plot.getAxis("left")
+            rightAxis = plot.getAxis("right")
+
+            if bottomAxis is not None and bottomAxis.isVisible():
+                height += bottomAxis.height()
+            if topAxis is not None and topAxis.isVisible():
+                height += topAxis.height()
+            if leftAxis is not None and leftAxis.isVisible():
+                width += leftAxis.width()
+            if rightAxis is not None and rightAxis.isVisible():
+                width += rightAxis.width()
+
+        return width + self._toolBar.width(), height
 
     def eventFilter(self, obj, event):
         """
