@@ -227,13 +227,13 @@ class PickerView(qtw.QWidget):
         if self.__pickerMode == DEFAULT_MODE:
             self._actionPickRect = TriggerAction(
                 parent=self, actionName='actionPickRect',
-                faIconName='fa.square', checkable=True, tooltip='Rect',
+                faIconName='fa5.square', checkable=True, tooltip='Rect',
                 shortCut=qtg.QKeySequence(qtc.Qt.Key_R))
             self._actionPickRect.setChecked(True)
 
             self._actionPickEllipse = TriggerAction(
                 parent=self, actionName='actionPickEllipse',
-                faIconName='fa.circle', checkable=True, tooltip='Circle',
+                faIconName='fa5.circle', checkable=True, tooltip='Circle',
                 shortCut=qtg.QKeySequence(qtc.Qt.Key_C))
             self._actionPickEllipse.setChecked(False)
             tb.addAction(self._actionPickRect)
@@ -254,8 +254,10 @@ class PickerView(qtw.QWidget):
 
         self._actionPickCenter = TriggerAction(
             parent=self, actionName='actionPickCenter',
-            faIconName='fa5s.dot-circle', checkable=True,
-            tooltip='Center', shortCut=qtg.QKeySequence(qtc.Qt.Key_D))
+            faIconName='fa5s.circle', checkable=True,
+            tooltip='Center', shortCut=qtg.QKeySequence(qtc.Qt.Key_D),
+            options=[{'scale_factor': 0.25}]
+        )
         self._actionPickCenter.setChecked(False)
 
         self._actionPickShowHide = OnOffAction(
