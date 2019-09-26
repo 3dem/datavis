@@ -1033,8 +1033,7 @@ class PickerView(qtw.QWidget):
         w, h = self._imageView.getPreferredSize()
         toolBar = self._imageView.getToolBar()
 
-        w += toolBar.width() + 100
-        return w, max(h, toolBar.height())
+        return w + 100, max(h, toolBar.height())
 
     def getToolBar(self):
         return self._imageView.getToolBar()

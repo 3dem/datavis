@@ -90,8 +90,7 @@ class ImageView(QWidget):
         self._isHorizontalFlip = False
         self._rotationStep = 90
         self._scale = 1
-        self._sizePref = kwargs.get('preferredSize',
-                                    [(100, 500), (512, 800), (1000, 1000)])
+        self._sizePref = kwargs.get('preferredSize', (128, 1000))
         self._exporter = None
 
         self._showToolBar = kwargs.get('toolBar', True)
@@ -340,12 +339,14 @@ class ImageView(QWidget):
         :param height: (int)
         """
         size = max(width, height)
-        for s, p in self._sizePref:
-            if size <= s:
-                c = p / float(size)
-                return int(width * c), int(height * c)
+        if size < self._sizePref[0]:
+            p = self._sizePref[0]
+        elif size > self._sizePref[1]:
+            p = self._sizePref[1]
+        else:
+            return width, height
 
-        c = self._sizePref[-1][1] / float(size)
+        c = p / float(size)
         return int(width * c), int(height * c)
 
     def __imageViewKeyPressEvent(self, ev):
@@ -894,7 +895,9 @@ class ImageView(QWidget):
         plot = self._imageView.getView()
         dim = self._model.getDim()
         width, height = self.__getPreferredImageSize(dim[0], dim[1])
-        width += hw
+        padding = 100
+        width += hw + padding
+        height += padding
 
         if isinstance(plot, pg.PlotItem):
             bottomAxis = plot.getAxis("bottom")
