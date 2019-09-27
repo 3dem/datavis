@@ -116,7 +116,6 @@ class TestPickerView(TestView):
                 t = result.get(basename)
                 if t:
                     result[basename] = (t[0], i)
-
         return result
 
     def getDataPaths(self):
@@ -136,7 +135,8 @@ class TestPickerView(TestView):
         kwargs['roiCentered'] = True
         dataPaths = self.getDataPaths()
         kwargs['sources'] = self.__parseFiles(["%s*" % dataPaths[0]])
-        return ViewsFactory.createPickerView(None, **kwargs)
+        files = [micPath for (micPath, _) in kwargs['sources'].values()]
+        return ViewsFactory.createPickerView(files, **kwargs)
 
 
 if __name__ == '__main__':

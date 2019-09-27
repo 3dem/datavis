@@ -10,6 +10,7 @@ class EmPickerDataModel(models.PickerDataModel):
     def __init__(self, imageManager=None):
         models.PickerDataModel.__init__(self)
         self._imageManager = imageManager or ImageManager()
+        self._cache = {}
 
     def getData(self, micId):
         """
@@ -17,8 +18,23 @@ class EmPickerDataModel(models.PickerDataModel):
         :param micId: (int) The micrograph id
         :return: The micrograph image data
         """
-        mic = self._micrographs[micId]
-        return self._imageManager.getData(mic.getPath())
+        print("Loading data...micId=%s" % micId)
+        if micId in self._cache:
+            data = self._cache[micId]
+        else:
+            print("  Computing....")
+            mic = self._micrographs[micId]
+            from scipy.ndimage import gaussian_filter
+            import numpy as np
+            data = self._imageManager.getData(mic.getPath())
+            gaussian_filter(data, sigma=2, output=data)
+            mean = np.mean(data)
+            std = 5 * np.std(data)
+            print("mean: %s, std: %s" % (mean, std))
+            np.clip(data, mean - std, mean + std, out=data)
+            self._cache[micId] = data
+
+        return data
 
     def getImageInfo(self, micId):
         """

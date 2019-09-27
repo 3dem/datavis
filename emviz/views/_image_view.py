@@ -2,12 +2,19 @@
 # -*- coding: utf-8 -*-
 
 import pyqtgraph as pg
+from pyqtgraph.exporters import ImageExporter as pgImageExporter
+from pyqtgraph import functions as fn
+from pyqtgraph import USE_PYSIDE
+
 import qtawesome as qta
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QRectF
+import numpy as np
+
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QRectF, QRect
 from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
                              QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
                              QAbstractGraphicsShapeItem)
-from PyQt5.QtGui import QRegion, QColor
+from PyQt5.QtGui import (QRegion, QColor, QImageWriter, QPainter,
+                         QGuiApplication, QKeySequence)
 
 from emviz.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
                            TriggerAction, ZoomSpinBox)
@@ -71,6 +78,9 @@ class ImageView(QWidget):
                    the specified maskColor and 255 will be transparent
         maskSize:  (int) The roi radius
         showHandles: (boolean) Enable/Disable the ROI handles
+
+        preferredSize: (list of tuples). The first element is the image size and
+                       the second element is the preferred size.
         """
         QWidget.__init__(self, parent=parent)
         self._model = None
@@ -80,6 +90,8 @@ class ImageView(QWidget):
         self._isHorizontalFlip = False
         self._rotationStep = 90
         self._scale = 1
+        self._sizePref = kwargs.get('preferredSize', (128, 1000))
+        self._exporter = None
 
         self._showToolBar = kwargs.get('toolBar', True)
         self._showRoiBtn = kwargs.get('roi', False)
@@ -320,6 +332,23 @@ class ImageView(QWidget):
                     axis.setZValue(0)
                     axis.linkedViewChanged(viewBox)
 
+    def __getPreferredImageSize(self, width, height):
+        """
+        Return the preferred image size for the given size
+        :param width: (int)
+        :param height: (int)
+        """
+        size = max(width, height)
+        if size < self._sizePref[0]:
+            p = self._sizePref[0]
+        elif size > self._sizePref[1]:
+            p = self._sizePref[1]
+        else:
+            return width, height
+
+        c = p / float(size)
+        return int(width * c), int(height * c)
+
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
         if ev.key() == Qt.Key_H:
@@ -327,6 +356,11 @@ class ImageView(QWidget):
 
         if ev.key() == Qt.Key_A:
             self.__actAxisOnOffTriggered(True)
+
+        if ev.key() == Qt.Key_E:
+            ctrl = Qt.ControlModifier
+            if ev.modifiers() & ctrl == ctrl:
+                self.export()
 
     def __setupImageView(self):
         """
@@ -349,6 +383,40 @@ class ImageView(QWidget):
         self._isHorizontalFlip = False
         self._actVerFlip.setChecked(False)
         self._actHorFlip.setChecked(False)
+
+    def __destroyGroup(self, group):
+        """
+        Reparents all items in group to group's parent item, then removes group
+        from the scene, and finally deletes it. The items' positions and
+        transformations are mapped from the group to the group's parent.
+        :param group: (QGraphicsItemGroup)
+        """
+        v = self.getViewBox()
+        scene = v.scene()
+        for item in group.childItems():
+            if item.isVisible():
+                group.removeFromGroup(item)
+                v.addItem(item)
+        scene.destroyItemGroup(group)
+
+    def __groupVisibleItems(self):
+        """
+        Groups all visible items into a new QGraphicsItemGroup.
+        :param axis: (boolean) if True then inserts the visible axis items
+                               into the group.
+        :return: (QGraphicsItemGroup)
+        """
+        v = self.getViewBox()
+        scene = v.scene()
+        group = scene.createItemGroup([])
+        boundingRect = QRectF()
+        for item in v.addedItems:
+            if item.isVisible():
+                itemTransform, _ = item.itemTransform(group)
+                boundingRect |= itemTransform.mapRect(item.boundingRect())
+
+        scene.destroyItemGroup(group)
+        return boundingRect
 
     def __calcImageScale(self):
         """ Return the image scale """
@@ -821,7 +889,32 @@ class ImageView(QWidget):
         dimensions to contain all the image """
         if self._model is None:
             return 800, 600
-        return self._model.getDim()
+        hw = self._imageView.ui.histogram.item.width() \
+            if self._showHistogram else 0
+
+        plot = self._imageView.getView()
+        dim = self._model.getDim()
+        width, height = self.__getPreferredImageSize(dim[0], dim[1])
+        padding = 100
+        width += hw + padding
+        height += padding
+
+        if isinstance(plot, pg.PlotItem):
+            bottomAxis = plot.getAxis("bottom")
+            topAxis = plot.getAxis("top")
+            leftAxis = plot.getAxis("left")
+            rightAxis = plot.getAxis("right")
+
+            if bottomAxis is not None and bottomAxis.isVisible():
+                height += bottomAxis.height()
+            if topAxis is not None and topAxis.isVisible():
+                height += topAxis.height()
+            if leftAxis is not None and leftAxis.isVisible():
+                width += leftAxis.width()
+            if rightAxis is not None and rightAxis.isVisible():
+                width += rightAxis.width()
+
+        return width + self._toolBar.width(), height
 
     def eventFilter(self, obj, event):
         """
@@ -877,6 +970,141 @@ class ImageView(QWidget):
             local = self.getView()
             view = imageView.getView()
             local.setYLink(view)
+
+    def export(self, path=None, background=None, antialias=True,
+               exportView=True):
+        """
+        Export the scene to the given path. Image - PNG is the default format.
+        The exact set of image formats supported will depend on Qt libraries.
+        However, common formats such as PNG, JPG, and TIFF are almost always
+        available.
+
+        :param path:       (str) The image path. If no path is specified,
+                           then a save dialog will be displayed
+        :param background: (str or QColor) The background color
+        :param antialias:  (boolean) Use antialiasing for render the image
+        :param exportView: (boolean) If true, all the view area will be exported
+                                     else export the image
+        """
+        v = self.getView()
+        if not exportView:
+            rect = self.__groupVisibleItems()
+            width = rect.width()/self._scale
+            height = rect.height()/self._scale
+            self._exporter = ImageExporter(v.scene(), rect)
+            w = self._exporter.params.param('width')
+            w.setValue(int(width), blockSignal=self._exporter.widthChanged)
+            h = self._exporter.params.param('height')
+            h.setValue(int(height), blockSignal=self._exporter.heightChanged)
+
+        else:
+            width, height = v.width(), v.height()
+            self._exporter = pgImageExporter(v)
+            # jump pyqtgraph bug, reported here:
+            # https://github.com/pyqtgraph/pyqtgraph/issues/538
+            w = self._exporter.params.param('width')
+            w.setValue(width + 1, blockSignal=self._exporter.widthChanged)
+            h = self._exporter.params.param('height')
+            h.setValue(height + 1, blockSignal=self._exporter.heightChanged)
+
+            w.setValue(int(width), blockSignal=self._exporter.widthChanged)
+            h.setValue(int(height), blockSignal=self._exporter.heightChanged)
+
+        if background is not None:
+            self._exporter.parameters()['background'] = background
+
+        self._exporter.parameters()['antialias'] = antialias
+        self._exporter.export(path)
+
+
+class ImageExporter(pgImageExporter):
+    """
+    The ImageExporter class provides functionality for export an scene rect to
+    image file. The exact set of image formats supported will depend on Qt
+    libraries. However, common formats such as PNG, JPG, and TIFF are almost
+    always available.
+    """
+    def __init__(self, item, sourceRect):
+        self._sourceRect = sourceRect
+        pgImageExporter.__init__(self, item)
+
+    def setSourceRect(self, rect):
+        """
+        Set the source rect
+        :param rect: (QRect)
+        """
+        self._sourceRect = rect
+
+    def getTargetRect(self):
+        return self._sourceRect
+
+    def getSourceRect(self):
+        return self._sourceRect
+
+    def export(self, fileName=None, toBytes=False, copy=False):
+        """
+        Export the scene to image file.
+        :param fileName: (str)     The file path. If fileName is None,
+                                   pop-up a file dialog.
+        :param toBytes:  (boolean) If toBytes is True, return a bytes object
+                                   rather than writing to file.
+        :param copy:     (boolean) If copy is True, export to the copy buffer
+                                   rather than writing to file.
+        """
+        if fileName is None and not toBytes and not copy:
+            if USE_PYSIDE:
+                filter = ["*." + str(f) for f in
+                          QImageWriter.supportedImageFormats()]
+            else:
+                filter = ["*." + bytes(f).decode('utf-8') for f in
+                          QImageWriter.supportedImageFormats()]
+
+            preferred = ['*.png', '*.tif', '*.jpg']
+            for p in preferred[::-1]:
+                if p in filter:
+                    filter.remove(p)
+                    filter.insert(0, p)
+            self.fileSaveDialog(filter=filter)
+            return
+
+        w, h = int(self.params['width']), int(self.params['height'])
+        if w == 0 or h == 0:
+            raise Exception(
+                "Cannot export image with size=0 "
+                "(requested export size is %dx%d)" % (w, h))
+        targetRect = QRect(0, 0, w, h)
+        sourceRect = self.getSourceRect()
+
+        bg = np.empty((w, h, 4), dtype=np.ubyte)
+        color = self.params['background']
+        bg[:, :, 0] = color.blue()
+        bg[:, :, 1] = color.green()
+        bg[:, :, 2] = color.red()
+        bg[:, :, 3] = color.alpha()
+        self.png = fn.makeQImage(bg, alpha=True)
+
+        ## set resolution of image:
+        resolutionScale = targetRect.width() / sourceRect.width()
+        painter = QPainter(self.png)
+        try:
+            self.setExportMode(True, {'antialias': self.params['antialias'],
+                                      'background': self.params['background'],
+                                      'painter': painter,
+                                      'resolutionScale': resolutionScale})
+            painter.setRenderHint(QPainter.Antialiasing,
+                                  self.params['antialias'])
+            self.getScene().render(painter, QRectF(targetRect),
+                                   QRectF(sourceRect))
+        finally:
+            self.setExportMode(False)
+        painter.end()
+
+        if copy:
+            QGuiApplication.clipboard().setImage(self.png)
+        elif toBytes:
+            return self.png
+        else:
+            self.png.save(fileName)
 
 
 class _MaskItem(QAbstractGraphicsShapeItem):

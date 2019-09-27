@@ -81,10 +81,11 @@ class ViewMainWindow(qtw.QMainWindow):
         qtw.QMainWindow.__init__(self)
         self.setCentralWidget(view)
         self.setWindowTitle(title)
-        self.__setGeometryFromView(view, maxScreenPercent)
         self._view = view
 
-    def __setGeometryFromView(self, view, maxScreenPercent):
+    def setGeometryFromCentralView(self, maxScreenPercent=0.8):
+        view = self.centralWidget()
+
         if hasattr(view, 'getPreferredSize'):
             width, height = view.getPreferredSize()
         else:
@@ -113,4 +114,5 @@ class TestView(TestData):
         app = app or qtw.QApplication(self.getArgs())
         win = ViewMainWindow(self.createView(), title=self.getTitle())
         win.show()
+        win.setGeometryFromCentralView()
         sys.exit(app.exec_())

@@ -1,2 +1,0 @@
-
-from .browser import BrowserWindow

@@ -9,10 +9,10 @@ from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
 from emviz.widgets import PagingInfo
-from emviz.models import VISIBLE, RENDERABLE,EmptyTableModel
+from emviz.models import VISIBLE, RENDERABLE, EmptyTableModel
 from ._paging_view import PagingView
-from ._constants import COLUMNS
 from ._delegates import EMImageItemDelegate
+from ._constants import COLUMNS
 from .model import TablePageItemModel
 
 
@@ -45,7 +45,7 @@ class ColumnsView(PagingView):
         self._selection = set()
         self._delegate = EMImageItemDelegate(self)
         self._pageItemModel = None
-        self.setSelectionMode(kwargs.get("selectionMode",
+        self.setSelectionMode(kwargs.get('selectionMode',
                                          PagingView.SINGLE_SELECTION))
         self.setModel(model=self._model,
                       displayConfig=kwargs.get('displayConfig'))
@@ -71,6 +71,7 @@ class ColumnsView(PagingView):
 
         tv.resizeEvent = self.__tableViewResizeEvent
         tv.setModel(None)
+        tv.setFocusPolicy(Qt.NoFocus)
         self._tableView = tv
         return tv
 
@@ -103,15 +104,6 @@ class ColumnsView(PagingView):
         QTableView.resizeEvent(self._tableView, evt)
         self.sigSizeChanged.emit(evt.oldSize(), evt.size())
 
-    def __getPage(self, row):
-        """
-        Return the page where row are located or -1 if it can not be calculated
-        :param row: (int) The row index. 0 is the first
-        :return:    (int) The page index. 0 is the first
-        """
-        return int(row / self._pagingInfo.pageSize) \
-            if self._pagingInfo.pageSize > 0 and row >= 0 else -1
-
     def __calcPageSize(self):
         """
         Calculate the number of items per page according to the size of the
@@ -132,7 +124,7 @@ class ColumnsView(PagingView):
         if not rows == self._pagingInfo.pageSize:
             self._pagingInfo.setPageSize(rows)
             self._pagingInfo.setCurrentPage(
-                self.__getPage(self._currentRow) + 1)
+                self._pagingInfo.getPage(self._currentRow) + 1)
             self._pageBar.setPagingInfo(self._pagingInfo)
 
     def __setupDelegatesForColumns(self):
@@ -187,7 +179,9 @@ class ColumnsView(PagingView):
     def __onSizeChanged(self, oldSize, newSize):
         """ Invoked when the table widget is resized """
         if not oldSize.height() == newSize.height():
+            self._resizing = True
             self.__updatePageBar()
+            self._resizing = False
             self.selectRow(self._currentRow)
 
     @pyqtSlot(int)
@@ -196,13 +190,14 @@ class ColumnsView(PagingView):
         Invoked when change current page. Emits sigCurrentRowChanged signal.
         1 is the index of the first page.
         """
-        self._currentRow = (page - 1) * self._pagingInfo.pageSize
-        if self.isSingleSelection():
-            self._selection.clear()
-            self._selection.add(self._currentRow)
+        if not self._resizing:
+            self._currentRow = (page - 1) * self._pagingInfo.pageSize
+            if self.isSingleSelection():
+                self._selection.clear()
+                self._selection.add(self._currentRow)
 
-        self.__updateSelectionInView(page - 1)
-        self.sigCurrentRowChanged.emit(self._currentRow)
+            self.__updateSelectionInView(page - 1)
+            self.sigCurrentRowChanged.emit(self._currentRow)
 
     @pyqtSlot(QModelIndex, QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
@@ -319,7 +314,7 @@ class ColumnsView(PagingView):
         self._currentRow = 0
         self._model = model
         self._displayConfig = displayConfig or model.createDefaultConfig()
-
+        self._resizing = False
         if self._pageItemModel is None:
             self._pageItemModel = TablePageItemModel(
                 model, self._pagingInfo, tableConfig=self._displayConfig,
@@ -408,7 +403,7 @@ class ColumnsView(PagingView):
     def selectRow(self, row):
         """ Selects the given row """
         if 0 <= row < self._pagingInfo.numberOfItems:
-            page = self.__getPage(row) + 1
+            page = self._pagingInfo.getPage(row) + 1
             self._currentRow = row
             if not page == self._pagingInfo.currentPage:
                 self._pageBar.setCurrentPage(page)

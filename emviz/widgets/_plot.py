@@ -4,7 +4,8 @@ import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIntValidator, QColor
 import qtawesome as qta
 
-from emviz.views._delegates import (ColorItemDelegate, ComboBoxStyleItemDelegate,
+from emviz.views._delegates import (ColorItemDelegate,
+                                    ComboBoxStyleItemDelegate,
                                     ColumnPropertyItemDelegate)
 
 

@@ -173,8 +173,11 @@ class ActionsToolBar(QWidget):
         self.__setupUi()
 
     def __setupUi(self):
-        layout = QHBoxLayout(self) \
-            if self._orientation == Qt.Vertical else QVBoxLayout(self)
+        if self._orientation == Qt.Vertical:
+            layout = QHBoxLayout(self)
+        else:
+            layout = QVBoxLayout(self)
+
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
                                        QSizePolicy.Fixed))
         layout.setSpacing(0)
@@ -374,9 +377,13 @@ class ActionsToolBar(QWidget):
         for dock in self._docks:
             dock.setMinimumWidth(width)
 
-    def getPanelMinSize(self):
-        """ Returns the side panel minimum width """
-        return self._panelMinWidth
+    def getPanelMaxWidth(self):
+        """ Returns the side panel maximum width """
+        m = self._panelMaxWidth
+        for dock in self._docks:
+            m = max(m, dock.width())
+        print('maximum width: ', m)
+        return m
 
     def setPanelMaxSize(self, width):
         """ Sets the side panel maximum width """
@@ -402,11 +409,17 @@ class ActionsToolBar(QWidget):
         widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         return widget
 
-    def hasPanelVisible(self):
+    def hasVisiblePanel(self):
         """
         Return True if has any panel visible
         """
-        for dock in self._docks:
-            if dock.isVisible():
-                return True
+        for action in self._toolBar.actions():
+            if action.isCheckable():
+                actWidget = self._toolBar.widgetForAction(action)
+                if actWidget is not None:
+                    return True
         return False
+
+    def getIconSize(self):
+        """ Return the maximum size an icon can have """
+        return self._toolBar.iconSize()

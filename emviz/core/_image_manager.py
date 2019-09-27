@@ -33,6 +33,8 @@ class ImageManager:
         self._lastOpenedFile = None
 
         # FIXME: Control the max size of the Cache (no limited now)
+        # TODO: Maybe check LRUCache implementation here:
+        # https://www.kunxi.org/2014/05/lru-cache-in-python/
         self._imageCache = {}
 
         # Just for debugging purposes
