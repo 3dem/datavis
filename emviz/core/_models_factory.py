@@ -2,7 +2,7 @@
 import os.path as Path
 import numpy as np
 
-import em
+import emcore as emc
 import emviz.models as models
 from ._empath import EmPath
 from ._emtype import EmType
@@ -17,9 +17,9 @@ class ModelsFactory:
     """
     @classmethod
     def createImageModel(cls, path):
-        """ Create an ImageModel reading path as an em.Image. """
-        image = em.Image()
-        loc = em.ImageLocation(path)
+        """ Create an ImageModel reading path as an emc.Image. """
+        image = emc.Image()
+        loc = emc.ImageLocation(path)
         image.read(loc)
         return models.ImageModel(
             data=np.array(image, copy=False), location=(loc.index, loc.path))
@@ -27,7 +27,7 @@ class ModelsFactory:
     @classmethod
     def createTableModel(cls, path):
         """
-        Creates an TableModel reading path as an em.Table
+        Creates an TableModel reading path as an emc.Table
         :param path: (str) The table path
         :return:     TableModel
         """
@@ -73,7 +73,7 @@ class ModelsFactory:
                                 initialization
         :return: TableModel
         """
-        Column = em.Table.Column
+        Column = emc.Table.Column
         cols = []
         for i, info in enumerate(columns):
             if isinstance(info, models.ColumnInfo):
@@ -82,7 +82,7 @@ class ModelsFactory:
             else:
                 raise Exception("Invalid ColumnInfo.")
 
-        return EmTableModel(em.Table(cols))
+        return EmTableModel(emc.Table(cols))
 
     @classmethod
     def createStackModel(cls, path):
@@ -110,15 +110,15 @@ class ModelsFactory:
     @classmethod
     def createTableConfig(cls, table, *cols):
         """
-        Create a TableModel instance from a given em.Table input.
+        Create a TableModel instance from a given emc.Table input.
         This function allows users to specify the minimum of properties
         and create the config from that.
-        :param table: input em.Table that will be visualized
+        :param table: input emc.Table that will be visualized
         :param cols: list of elements to specify the values for each
             ColumnConfig. Each element could be either
             a single string (the column name) or a tuple (column name and
             a dict with properties). If only the column name is provided,
-            the property values will be inferred from the em.Table.Column.
+            the property values will be inferred from the emc.Table.Column.
         :return: a new instance of TableModel
         """
         # TODO: Implement iterColumns in table

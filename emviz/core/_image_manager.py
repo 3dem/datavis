@@ -5,7 +5,7 @@ import os
 import numpy as np
 import scipy.ndimage as ndimage
 
-import em
+import emcore as emc
 from emviz.utils import py23
 from ._empath import EmPath
 from ._emtype import EmType
@@ -28,8 +28,8 @@ class ImageManager:
 
         # FIXME: We can have many open ImageFile (until maxOpenFiles)
         # to prevent opening many times the same file
-        self._imgIO = em.ImageFile()
-        self._img = em.Image()
+        self._imgIO = emc.ImageFile()
+        self._img = emc.Image()
         self._lastOpenedFile = None
 
         # FIXME: Control the max size of the Cache (no limited now)
@@ -105,7 +105,7 @@ class ImageManager:
         # to re-open if in the next use it is the same file
         if self._lastOpenedFile != imgRef.path:
             self._imgIO.close()
-            self._imgIO.open(imgRef.path, em.File.READ_ONLY)
+            self._imgIO.open(imgRef.path, emc.File.READ_ONLY)
             self._lastOpenedFile = imgRef.path
         return imgRef, self._imgIO
 
@@ -125,13 +125,13 @@ class ImageManager:
             imgRef, imgIO = self._openRO(imgSource)
             # Create a new image if a copy is requested
             # TODO: Review this when the cache is implemented
-            imgOut = em.Image()
+            imgOut = emc.Image()
             self._readCount += 1
             imgIO.read(imgRef.index, imgOut)
             self._imageCache[imgId] = imgOut
             self._cacheSize += imgOut.getDataSize()
             if copy:
-                imgOut = em.Image(imgOut)
+                imgOut = emc.Image(imgOut)
         return imgOut
 
     def getData(self, imgSource, copy=False):

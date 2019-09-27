@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 
-import em
+import emcore as emc
 from emviz.core import ImageManager
 from test_commons import TestBase
 
@@ -18,7 +18,7 @@ class TestImageManager(TestBase):
         ]
 
     def _checkPrefix(self, tableFn, expectedPrefix):
-        table = em.Table()
+        table = emc.Table()
         table.read(tableFn)
         row = table[0]
         imgPath = str(row['rlnImageName'])

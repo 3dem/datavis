@@ -5,7 +5,7 @@ import os
 import sys
 from glob import glob
 
-import em
+import emcore as emc
 from emviz.views import PagingView, SHAPE_CIRCLE, DEFAULT_MODE, PickerView
 from emviz.models import PickerDataModel, Micrograph, Coordinate
 from emviz.core import EmPickerDataModel
@@ -59,8 +59,8 @@ class TestPickerView(TestView):
         print("       Picking: %s" % pickingFolder)
 
         # FIXME: Read Table data from the constructor
-        table = em.Table()
-        coordTable = em.Table()
+        table = emc.Table()
+        coordTable = emc.Table()
         table.read(micsStarPath)
 
         model = EmPickerDataModel()

@@ -3,7 +3,7 @@ import os
 import sys
 import unittest
 
-import em
+import emcore as emc
 import emviz.models as models
 from emviz.core import ImageManager
 from test_commons import TestBase
@@ -18,7 +18,7 @@ class TestImageModels(TestBase):
         ]
 
     def _checkPrefix(self, tableFn, expectedPrefix):
-        table = em.Table()
+        table = emc.Table()
         table.read(tableFn)
         row = table[0]
         imgPath = str(row['rlnImageName'])
@@ -74,10 +74,10 @@ class TestImageModels(TestBase):
 
         # 2D stack of particles
         stackName = "emx/alignment/Test2/stack2D.mrc"
-        stackDim = em.ArrayDim(128, 128, 1, 100)
+        stackDim = emc.ArrayDim(128, 128, 1, 100)
         # 3D volumes
         vol1Name = "resmap/t20s_proteasome_full.map"
-        vol1Dim = em.ArrayDim(300, 300, 300, 1)
+        vol1Dim = emc.ArrayDim(300, 300, 300, 1)
 
         fileDims = {volName: (micDim, 87008256),
                     stackName: (stackDim, 65536),  # 128 * 128 * 4
@@ -85,8 +85,8 @@ class TestImageModels(TestBase):
                     }
 
         for fn, (dim, size) in fileDims.items():
-            img = em.Image()
-            loc = em.ImageLocation(os.path.join(testDataPath, fn), 1)
+            img = emc.Image()
+            loc = emc.ImageLocation(os.path.join(testDataPath, fn), 1)
             print(">>> Reading image: ", loc.path)
             img.read(loc)
             dim.n = 1

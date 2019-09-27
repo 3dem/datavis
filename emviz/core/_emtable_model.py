@@ -2,7 +2,7 @@
 import os
 import numpy as np
 
-import em
+import emcore as emc
 import emviz.models as models
 from emviz.models import TYPE_STRING
 from emviz.utils import py23
@@ -14,14 +14,14 @@ from ._empath import EmPath
 
 class EmTableModel(models.TableModel):
     """
-    Implementation of TableBase with an underlying em.Table object.
+    Implementation of TableBase with an underlying emc.Table object.
     """
     def __init__(self, tableSource, **kwargs):
         """
         Initialization of an EmTableModel
         :param tableSource: Input from where table will be retrieved,
             it can be one of the following options:
-            * em.Table: just a single table that will be used, not
+            * emc.Table: just a single table that will be used, not
                 other tables will be loaded in this case
             * string: This should be the path from where to read
                 the table(s). The first table will be loaded by default.
@@ -32,14 +32,14 @@ class EmTableModel(models.TableModel):
             * imageManager=value Provide an ImageManager that can be used
                 to read images referenced from this table.
         """
-        if isinstance(tableSource, em.Table):
+        if isinstance(tableSource, emc.Table):
             self._table = tableSource
             self._tableIO = None
             # Define only a single table name ''
             tableName = ''
             self._path = None
             self._tableNames = [tableName]
-        else:  # In this variant we will create a em.TableIO to read data
+        else:  # In this variant we will create a emc.TableIO to read data
             if isinstance(tableSource, py23.str):
                 self._path, tableName = tableSource, None
             elif isinstance(tableSource, tuple):
@@ -47,9 +47,9 @@ class EmTableModel(models.TableModel):
             else:
                 raise Exception("Invalid tableSource input '%s' (type %s)"
                                 % (tableSource, type(tableSource)))
-            self._tableIO = em.TableIO()
-            self._tableIO.open(self._path, em.File.Mode.READ_ONLY)
-            self._table = em.Table()
+            self._tableIO = emc.TableIO()
+            self._tableIO.open(self._path, emc.File.Mode.READ_ONLY)
+            self._table = emc.Table()
             self._tableNames = self._tableIO.getTableNames()
             # If not tableName provided, load first table
             tableName = tableName or self._tableNames[0]
@@ -72,7 +72,7 @@ class EmTableModel(models.TableModel):
                          for i, c in enumerate(self._table.iterColumns())}
 
     def _loadTable(self, tableName):
-        # Only really load table if we have created the em.TableIO
+        # Only really load table if we have created the emc.TableIO
         if self._tableIO is not None:
             self._tableIO.read(tableName, self._table)
         self.__updateColsMap()

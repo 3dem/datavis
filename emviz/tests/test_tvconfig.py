@@ -4,21 +4,21 @@
 
 import os
 
-import em
+import emcore as emc
 from emviz.views import TableModel
 
 
 testDataPath = os.environ.get("EM_TEST_DATA", None)
 
-print("hasImpl('star'): ", em.TableIO.hasImpl('star'))
+print("hasImpl('star'): ", emc.TableIO.hasImpl('star'))
 
 if testDataPath is not None:
     root = testDataPath + "relion_tutorial/import/"
     fn1 = root + "case1/classify3d_small_it038_data.star";
     print("Reading star: ", fn1)
 
-    t = em.Table()
-    tio = em.TableIO()
+    t = emc.Table()
+    tio = emc.TableIO()
     tio.open(fn1)
     tio.read("images", t)
     tio.close()
