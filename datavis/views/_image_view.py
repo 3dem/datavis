@@ -9,37 +9,34 @@ from pyqtgraph import USE_PYSIDE
 import qtawesome as qta
 import numpy as np
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QEvent, QRectF, QRect
-from PyQt5.QtWidgets import (QWidget, QLabel, QHBoxLayout, QSplitter, QTextEdit,
-                             QToolBar, QVBoxLayout, QPushButton, QSizePolicy,
-                             QAbstractGraphicsShapeItem)
-from PyQt5.QtGui import (QRegion, QColor, QImageWriter, QPainter,
-                         QGuiApplication, QKeySequence)
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
+import PyQt5.QtGui as qtg
 
-from datavis.widgets import (ActionsToolBar, MultiStateAction, OnOffAction,
-                           TriggerAction, ZoomSpinBox)
+from .. import widgets
+from .. import models
 from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                          CIRCLE_ROI)
 
 
-class ImageView(QWidget):
+class ImageView(qtw.QWidget):
     """ The ImageView widget provides functionality for display images and
     performing basic operations over the view, such as: rotations, zoom, flips,
     move, levels. """
 
     """ Signal emitted when the image scale is changed """
-    sigScaleChanged = pyqtSignal(float)
+    sigScaleChanged = qtc.pyqtSignal(float)
 
     """ Signal for roi mask size changed"""
-    sigMaskSizeChanged = pyqtSignal(int)
+    sigMaskSizeChanged = qtc.pyqtSignal(int)
 
     def __init__(self, parent, model=None, **kwargs):
         """
         By default, ImageView show a toolbar for image operations.
         **Arguments**
-        parent :   (QWidget) Specifies the parent widget to which this ImageView
-                   will belong. If None, then the ImageView is created with
-                   no parent.
+        parent :   (qtw.QWidget) Specifies the parent widget to which this
+                   ImageView will belong. If None, then the ImageView is
+                   created with no parent.
         toolBar:   (Bool) If specified, this will be used to set visible the
                    ToolBar. By default, the toolbar is visible.
         roi:       (Bool) If specified, this will be used to set visible the
@@ -53,7 +50,7 @@ class ImageView(QWidget):
                    True by default.
         autoFill:  (Bool) This property holds whether the widget background
                    is filled automatically. The color used is defined by
-                   the QPalette::Window color role from the widget's palette.
+                   the qtg.QPalette::Window color role from the widget's palette.
                    False by default.
         hideButtons: (Bool) Hide/show the internal pg buttons. For example,
                      the button used to center an image. False by default.
@@ -82,7 +79,7 @@ class ImageView(QWidget):
         preferredSize: (list of tuples). The first element is the image size and
                        the second element is the preferred size.
         """
-        QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=parent)
         self._model = None
         self._oddFlips = False
         self._oddRotations = False
@@ -123,28 +120,28 @@ class ImageView(QWidget):
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
-        self._mainLayout = QHBoxLayout(self)
+        self._mainLayout = qtw.QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
         self.__viewRect = None
         self._imageView.installEventFilter(self)
-        self._splitter = QSplitter(self)
-        self._toolBar = ActionsToolBar(self, orientation=Qt.Vertical)
+        self._splitter = qtw.QSplitter(self)
+        self._toolBar = widgets.ActionsToolBar(self, orientation=qtc.Qt.Vertical)
         self._splitter.addWidget(self._toolBar)
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._imageView)
 
         displayPanel = self._toolBar.createPanel('displayPanel')
-        vLayout = QVBoxLayout(displayPanel)
-        self._labelScale = QLabel('Scale: ', displayPanel)
-        hLayout = QHBoxLayout()
+        vLayout = qtw.QVBoxLayout(displayPanel)
+        self._labelScale = qtw.QLabel('Scale: ', displayPanel)
+        hLayout = qtw.QHBoxLayout()
         hLayout.addWidget(self._labelScale)
-        self._spinBoxScale = ZoomSpinBox(displayPanel,
+        self._spinBoxScale = widgets.ZoomSpinBox(displayPanel,
                                          valueType=float,
                                          minValue=0,
                                          maxValue=10000,
-                                         zoomUnits=ZoomSpinBox.PERCENT,
+                                         zoomUnits=widgets.ZoomSpinBox.PERCENT,
                                          iconSize=25)
         self._spinBoxScale.sigValueChanged[float].connect(
             self.__onSpinBoxScaleValueChanged)
@@ -155,18 +152,18 @@ class ImageView(QWidget):
         view.sigTransformChanged.connect(self.__onImageScaleChanged)
 
         # --Histogram On/Off--
-        toolbar = QToolBar(displayPanel)
-        toolbar.addWidget(QLabel('Histogram ', toolbar))
-        self._actHistOnOff = OnOffAction()
+        toolbar = qtw.QToolBar(displayPanel)
+        toolbar.addWidget(qtw.QLabel('Histogram ', toolbar))
+        self._actHistOnOff = widgets.OnOffAction()
         self._actHistOnOff.set(self._showHistogram)
         self._actHistOnOff.sigStateChanged.connect(self.__actHistOnOffChanged)
         toolbar.addAction(self._actHistOnOff)
         vLayout.addWidget(toolbar)
 
         # -- Axis --
-        toolbar = QToolBar(displayPanel)
-        toolbar.addWidget(QLabel('Axis ', toolbar))
-        actAxis = MultiStateAction(
+        toolbar = qtw.QToolBar(displayPanel)
+        toolbar.addWidget(qtw.QLabel('Axis ', toolbar))
+        actAxis = widgets.MultiStateAction(
             toolbar, states=[(AXIS_BOTTOM_LEFT,
                               qta.icon('fa.long-arrow-up',
                                        'fa.long-arrow-right',
@@ -189,16 +186,16 @@ class ImageView(QWidget):
         toolbar.addAction(actAxis)
 
         # -- Axis On/Off --
-        actAxisOnOff = OnOffAction(toolbar)
+        actAxisOnOff = widgets.OnOffAction(toolbar)
         actAxisOnOff.set(self._xAxisArgs['visible'])
         actAxisOnOff.sigStateChanged.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(actAxisOnOff)
         vLayout.addWidget(toolbar)
 
         # -- Flip --
-        toolbar = QToolBar(displayPanel)
-        toolbar.addWidget(QLabel('Flip ', toolbar))
-        self._actHorFlip = TriggerAction(parent=toolbar, actionName="HFlip",
+        toolbar = qtw.QToolBar(displayPanel)
+        toolbar.addWidget(qtw.QLabel('Flip ', toolbar))
+        self._actHorFlip = widgets.TriggerAction(parent=toolbar, actionName="HFlip",
                                          text="Horizontal Flip",
                                          icon=qta.icon('fa.long-arrow-right',
                                                        'fa.long-arrow-left',
@@ -209,7 +206,7 @@ class ImageView(QWidget):
                                          checkable=True,
                                          slot=self.horizontalFlip)
         toolbar.addAction(self._actHorFlip)
-        self._actVerFlip = TriggerAction(parent=toolbar, actionName="VFlip",
+        self._actVerFlip = widgets.TriggerAction(parent=toolbar, actionName="VFlip",
                                          text="Vertical Flip",
                                          icon=qta.icon('fa.long-arrow-up',
                                                        'fa.long-arrow-down',
@@ -222,20 +219,20 @@ class ImageView(QWidget):
         vLayout.addWidget(toolbar)
 
         # --Rotate--
-        toolbar = QToolBar(displayPanel)
-        toolbar.addWidget(QLabel('Rotate ', toolbar))
-        act = TriggerAction(parent=toolbar, actionName="RRight",
+        toolbar = qtw.QToolBar(displayPanel)
+        toolbar.addWidget(qtw.QLabel('Rotate ', toolbar))
+        act = widgets.TriggerAction(parent=toolbar, actionName="RRight",
                             text="Rotate Right", faIconName="fa.rotate-right",
                             checkable=False, slot=self.__rotateRight)
         toolbar.addAction(act)
-        act = TriggerAction(parent=toolbar, actionName="RLeft",
+        act = widgets.TriggerAction(parent=toolbar, actionName="RLeft",
                             text="Rotate Left", faIconName="fa.rotate-left",
                             checkable=False, slot=self.__rotateLeft)
         toolbar.addAction(act)
         vLayout.addWidget(toolbar)
 
         # --Adjust--
-        btnAdjust = QPushButton(displayPanel)
+        btnAdjust = qtw.QPushButton(displayPanel)
         btnAdjust.setText('Adjust')
         btnAdjust.setIcon(qta.icon('fa.crosshairs'))
         btnAdjust.setToolTip('Adjust image to the view')
@@ -243,7 +240,7 @@ class ImageView(QWidget):
         vLayout.addWidget(btnAdjust)
 
         # --Reset--
-        btnReset = QPushButton(displayPanel)
+        btnReset = qtw.QPushButton(displayPanel)
         btnReset.setText('Reset')
         btnReset.setToolTip('Reset image operations')
         btnReset.setIcon(qta.icon('fa.mail-reply-all'))
@@ -252,21 +249,21 @@ class ImageView(QWidget):
 
         vLayout.addStretch()
         displayPanel.setFixedHeight(260)
-        actDisplay = TriggerAction(parent=self._toolBar, actionName="ADisplay",
+        actDisplay = widgets.TriggerAction(parent=self._toolBar, actionName="ADisplay",
                                    text='Display', faIconName='fa.adjust')
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
-        fileInfoPanel.setSizePolicy(QSizePolicy.Ignored,
-                                    QSizePolicy.Minimum)
-        vLayout = QVBoxLayout(fileInfoPanel)
-        self._textEditPath = QTextEdit(fileInfoPanel)
+        fileInfoPanel.setSizePolicy(qtw.QSizePolicy.Ignored,
+                                    qtw.QSizePolicy.Minimum)
+        vLayout = qtw.QVBoxLayout(fileInfoPanel)
+        self._textEditPath = qtw.QTextEdit(fileInfoPanel)
         self._textEditPath.viewport().setAutoFillBackground(False)
 
         vLayout.addWidget(self._textEditPath)
         fileInfoPanel.setMinimumHeight(30)
 
-        actFileInfo = TriggerAction(parent=self._toolBar, actionName='FInfo',
+        actFileInfo = widgets.TriggerAction(parent=self._toolBar, actionName='FInfo',
                                     text='File Info',
                                     faIconName='fa.info-circle')
         self._toolBar.addAction(actFileInfo, fileInfoPanel, exclusive=False)
@@ -351,14 +348,14 @@ class ImageView(QWidget):
 
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
-        if ev.key() == Qt.Key_H:
+        if ev.key() == qtc.Qt.Key_H:
             self.__actHistOnOffChanged(True)
 
-        if ev.key() == Qt.Key_A:
+        if ev.key() == qtc.Qt.Key_A:
             self.__actAxisOnOffTriggered(True)
 
-        if ev.key() == Qt.Key_E:
-            ctrl = Qt.ControlModifier
+        if ev.key() == qtc.Qt.Key_E:
+            ctrl = qtc.Qt.ControlModifier
             if ev.modifiers() & ctrl == ctrl:
                 self.export()
 
@@ -409,7 +406,7 @@ class ImageView(QWidget):
         v = self.getViewBox()
         scene = v.scene()
         group = scene.createItemGroup([])
-        boundingRect = QRectF()
+        boundingRect = qtc.QRectF()
         for item in v.addedItems:
             if item.isVisible():
                 itemTransform, _ = item.itemTransform(group)
@@ -475,7 +472,7 @@ class ImageView(QWidget):
             self._maskItem = None
             self._textItem = None
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __resetView(self):
         """
         Resets the view. The image operations (flips, rotations)
@@ -484,40 +481,40 @@ class ImageView(QWidget):
         self.__resetOperationParams()
         self.setModel(self._model)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __actAxisTriggered(self, state):
         """ This slot is invoked when the action histogram is triggered """
         self.setAxisOrientation(state)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __actHistOnOffChanged(self, state):
         """ This slot is invoked when the action histogram is triggered """
         self._imageView.ui.histogram.setVisible(bool(state))
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __actAxisOnOffTriggered(self, state):
         """ This slot is invoked when the action histogram is triggered """
         self._yAxisArgs['visible'] = self._xAxisArgs['visible'] = bool(state)
         self.__setupAxis()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __rotateLeft(self):
         """ Rotate the image 90 degrees to the left """
         self.rotate(-self._rotationStep)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __rotateRight(self):
         """ Rotate the image 90 degrees to the right """
         self.rotate(self._rotationStep)
 
-    @pyqtSlot(float)
+    @qtc.pyqtSlot(float)
     def __onSpinBoxScaleValueChanged(self, value):
         """
         This slot is invoked when the spinbox value for image scale is changed
         """
         self.setScale(value * 0.01)
 
-    @pyqtSlot(object)
+    @qtc.pyqtSlot(object)
     def __onImageScaleChanged(self, view):
         """ Invoked when the image scale has changed """
 
@@ -569,10 +566,10 @@ class ImageView(QWidget):
         """
         Set the mask color
         :param color: (str) The color in #ARGB format. Example: #22AAFF00
-                      or (QColor)
+                      or (qtg.QColor)
         """
         if self._maskItem:
-            self._maskItem.setMaskColor(QColor(color))
+            self._maskItem.setMaskColor(qtg.QColor(color))
 
     def setViewMask(self, **kwargs):
         """
@@ -580,7 +577,7 @@ class ImageView(QWidget):
         will be removed.
         :param kwargs:
          - maskColor:   (str) The color in #ARGB format. Example: #22AAFF00
-                        or (QColor). Default value: '#2200FF55'
+                        or (qtg.QColor). Default value: '#2200FF55'
          - mask:        (int) The roi type (CIRCLE_ROI or RECT_ROI) for roi mask
                         (numpy array) for image mask.
          - maskSize:    (int) The roi radius in case of CIRCLE_ROI or RECT_ROI.
@@ -684,7 +681,7 @@ class ImageView(QWidget):
         """ Set levels for the display. """
         self._levels = levels
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def imageModelChanged(self):
         """
         Call this function when the image model has been modified externally.
@@ -703,11 +700,11 @@ class ImageView(QWidget):
     def setViewRect(self, rect):
         """
         Set the current view rect
-        :param rect: (QRect) The view rect
+        :param rect: (qtc.QRect) The view rect
         """
         self._imageView.getView().setRange(rect=rect, padding=0.0)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def rotate(self, angle):
         """
         Make a rotation according to the given angle.
@@ -731,7 +728,7 @@ class ImageView(QWidget):
             imgItem.rotate(angle)
             imgItem.translate(-centerX, -centerY)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def horizontalFlip(self):
         """
         Realize a horizontally transformation-flip.
@@ -750,7 +747,7 @@ class ImageView(QWidget):
                 transform.translate(0.0, -imgItem.boundingRect().height())
             imgItem.setTransform(transform)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def verticalFlip(self):
         """
         Realize a vertically transformation-flip.
@@ -769,7 +766,7 @@ class ImageView(QWidget):
                 transform.translate(-imgItem.boundingRect().width(), 0.0)
             imgItem.setTransform(transform)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def clear(self):
         """ Clear the view, setting a null image """
         self.__updatingImage = True
@@ -779,7 +776,7 @@ class ImageView(QWidget):
         self._textEditPath.setText("")
         self.__updatingImage = True
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def fitToSize(self):
         """ Fit image to the widget size """
         self._imageView.autoRange()
@@ -925,11 +922,11 @@ class ImageView(QWidget):
         :return: True if this object has been installed, False i.o.c
         """
         t = event.type()
-        if t == QEvent.KeyPress:
+        if t == qtc.QEvent.KeyPress:
             self.__imageViewKeyPressEvent(event)
             return True
 
-        return QWidget.eventFilter(self, obj, event)
+        return qtw.QWidget.eventFilter(self, obj, event)
 
     def getScale(self):
         """ Return the image scale """
@@ -975,13 +972,13 @@ class ImageView(QWidget):
                exportView=True):
         """
         Export the scene to the given path. Image - PNG is the default format.
-        The exact set of image formats supported will depend on Qt libraries.
+        The exact set of image formats supported will depend on qtc.Qt libraries.
         However, common formats such as PNG, JPG, and TIFF are almost always
         available.
 
         :param path:       (str) The image path. If no path is specified,
                            then a save dialog will be displayed
-        :param background: (str or QColor) The background color
+        :param background: (str or qtg.QColor) The background color
         :param antialias:  (boolean) Use antialiasing for render the image
         :param exportView: (boolean) If true, all the view area will be exported
                                      else export the image
@@ -1020,7 +1017,7 @@ class ImageView(QWidget):
 class ImageExporter(pgImageExporter):
     """
     The ImageExporter class provides functionality for export an scene rect to
-    image file. The exact set of image formats supported will depend on Qt
+    image file. The exact set of image formats supported will depend on qtc.Qt
     libraries. However, common formats such as PNG, JPG, and TIFF are almost
     always available.
     """
@@ -1031,7 +1028,7 @@ class ImageExporter(pgImageExporter):
     def setSourceRect(self, rect):
         """
         Set the source rect
-        :param rect: (QRect)
+        :param rect: (qtc.QRect)
         """
         self._sourceRect = rect
 
@@ -1054,10 +1051,10 @@ class ImageExporter(pgImageExporter):
         if fileName is None and not toBytes and not copy:
             if USE_PYSIDE:
                 filter = ["*." + str(f) for f in
-                          QImageWriter.supportedImageFormats()]
+                          qtg.QImageWriter.supportedImageFormats()]
             else:
                 filter = ["*." + bytes(f).decode('utf-8') for f in
-                          QImageWriter.supportedImageFormats()]
+                          qtg.QImageWriter.supportedImageFormats()]
 
             preferred = ['*.png', '*.tif', '*.jpg']
             for p in preferred[::-1]:
@@ -1072,7 +1069,7 @@ class ImageExporter(pgImageExporter):
             raise Exception(
                 "Cannot export image with size=0 "
                 "(requested export size is %dx%d)" % (w, h))
-        targetRect = QRect(0, 0, w, h)
+        targetRect = qtc.QRect(0, 0, w, h)
         sourceRect = self.getSourceRect()
 
         bg = np.empty((w, h, 4), dtype=np.ubyte)
@@ -1085,36 +1082,36 @@ class ImageExporter(pgImageExporter):
 
         ## set resolution of image:
         resolutionScale = targetRect.width() / sourceRect.width()
-        painter = QPainter(self.png)
+        painter = qtg.QPainter(self.png)
         try:
             self.setExportMode(True, {'antialias': self.params['antialias'],
                                       'background': self.params['background'],
                                       'painter': painter,
                                       'resolutionScale': resolutionScale})
-            painter.setRenderHint(QPainter.Antialiasing,
+            painter.setRenderHint(qtg.QPainter.Antialiasing,
                                   self.params['antialias'])
-            self.getScene().render(painter, QRectF(targetRect),
-                                   QRectF(sourceRect))
+            self.getScene().render(painter, qtc.QRectF(targetRect),
+                                   qtc.QRectF(sourceRect))
         finally:
             self.setExportMode(False)
         painter.end()
 
         if copy:
-            QGuiApplication.clipboard().setImage(self.png)
+            qtg.QGuiApplication.clipboard().setImage(self.png)
         elif toBytes:
             return self.png
         else:
             self.png.save(fileName)
 
 
-class _MaskItem(QAbstractGraphicsShapeItem):
+class _MaskItem(qtw.QAbstractGraphicsShapeItem):
 
     def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100,
                  showHandles=True):
         if imageItem is None:
             raise Exception("Invalid ImageItem: None value")
 
-        QAbstractGraphicsShapeItem.__init__(self, parent=parent)
+        qtw.QAbstractGraphicsShapeItem.__init__(self, parent=parent)
         self._imageItem = imageItem
         self._roiRegion = None
         self._maskColor = None
@@ -1123,12 +1120,12 @@ class _MaskItem(QAbstractGraphicsShapeItem):
         if roiType == CIRCLE_ROI:
             size *= 2
             self._roi = pg.CircleROI((0, 0), (size, size), movable=False)
-            self._regionType = QRegion.Ellipse
+            self._regionType = qtg.QRegion.Ellipse
         else:
             size *= 2
             self._roi = pg.RectROI(0, 0, (size, size), movable=False)
             self._roi.aspectLocked = True
-            self._regionType = QRegion.Rectangle
+            self._regionType = qtg.QRegion.Rectangle
 
         if not showHandles:
             for h in self._roi.getHandles():
@@ -1139,10 +1136,10 @@ class _MaskItem(QAbstractGraphicsShapeItem):
         self._roi.sigRegionChanged.connect(self.__updateRoiRegion)
 
     def __updateRoiRegion(self, o):
-        """ Updates the Qt object(QRegion) used in paint method """
+        """ Updates the qtc.Qt object(qtg.QRegion) used in paint method """
         pos = self._roi.pos()
         rect = self._roi.boundingRect()
-        self._roiRegion = QRegion(pos.x(), pos.y(), rect.width(), rect.height(),
+        self._roiRegion = qtg.QRegion(pos.x(), pos.y(), rect.width(), rect.height(),
                                   self._regionType)
 
     def setMaskColor(self, maskColor):
@@ -1150,10 +1147,10 @@ class _MaskItem(QAbstractGraphicsShapeItem):
         Set the mask color
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (QColor)
+                          or (qtg.QColor)
         """
         self._maskColor = maskColor
-        self.setBrush(QColor(maskColor))
+        self.setBrush(qtg.QColor(maskColor))
 
     def getMaskColor(self):
         """ Return the mask color """
@@ -1163,7 +1160,7 @@ class _MaskItem(QAbstractGraphicsShapeItem):
         painter.save()
 
         imageRect = self._imageItem.boundingRect()
-        imageRegion = QRegion(0, 0, imageRect.width(), imageRect.height())
+        imageRegion = qtg.QRegion(0, 0, imageRect.width(), imageRect.height())
         painter.setClipRegion(imageRegion.xored(self._roiRegion))
         painter.fillRect(imageRect, self.brush())
 
@@ -1171,10 +1168,10 @@ class _MaskItem(QAbstractGraphicsShapeItem):
 
     def boundingRect(self):
         """ Return the bounding rect. Reimplemented from
-        QAbstractGraphicsShapeItem """
+        qtw.QAbstractGraphicsShapeItem """
         if self._imageItem:
             return self._imageItem.boundingRect()
-        return QRectF(0, 0, 0, 0)
+        return qtc.QRectF(0, 0, 0, 0)
 
     def getRoi(self):
         """ Return the roi used for this mask item """
@@ -1190,7 +1187,7 @@ class _MaskItem(QAbstractGraphicsShapeItem):
 
     def setMaxBounds(self, bounds):
         """
-        :param bounds:(QRect, QRectF, or None) Specifies boundaries that the ROI
+        :param bounds:(qtc.QRect, qtc.QRectF, or None) Specifies boundaries that the ROI
                       cannot be dragged outside of by the user. Default is None.
         """
         self._roi.maxBounds = bounds
@@ -1203,7 +1200,7 @@ class _CustomMaskItem(pg.ImageItem):
         :param imageItem: (pg.ImageItem) The image item
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (QColor)
+                          or (qtg.QColor)
         :param maskData:  (numpy array) The mask data
         """
         if imageItem is None:
@@ -1220,10 +1217,10 @@ class _CustomMaskItem(pg.ImageItem):
         Set the mask color
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (QColor)
+                          or (qtg.QColor)
         """
         self._maskColor = maskColor
-        c = QColor(maskColor)
+        c = qtg.QColor(maskColor)
         lut = [(c.red(), c.green(), c.blue(), c.alpha()), (255, 255, 255, 0)]
         self.setLookupTable(lut)
 
@@ -1242,7 +1239,149 @@ class _CustomMaskItem(pg.ImageItem):
 
     def setMaxBounds(self, bounds):
         """
-        :param bounds: (QRect, QRectF, or None) Specifies mask boundaries.
+        :param bounds: (qtc.QRect, qtc.QRectF, or None) Specifies mask boundaries.
                        Default is None.
         """
         pass
+
+
+class EMImageItemDelegate(qtw.QStyledItemDelegate):
+    """
+    ImageItemDelegate class provides display and editing facilities for
+    em image data items from a model.
+    """
+    def __init__(self, parent=None):
+        """
+        Constructs a EMImageItemDelegate.
+        :param parent:  (QObject) The parent object
+        """
+        qtw.QStyledItemDelegate.__init__(self, parent)
+        self._imageView = ImageView(None, toolBar=False, axis=False)
+        self._pixmapItem = None
+        self._noImageItem = pg.TextItem("NO IMAGE")
+        self._imageView.getView().addItem(self._noImageItem)
+        self._noImageItem.setVisible(False)
+        self._sBorder = 3  # selected state border (px)
+        self._textHeight = 16
+        self._focusPen = qtg.QPen(qtc.Qt.DotLine)
+        self._thumbSize = 64
+
+    def paint(self, painter, option, index):
+        """
+        Reimplemented from qtw.QStyledItemDelegate
+        """
+        if not index.isValid():
+            return
+
+        x = option.rect.x()
+        y = option.rect.y()
+        w = option.rect.width()
+        h = option.rect.height()
+        rect = qtc.QRectF()
+        selected = option.state & qtw.QStyle.State_Selected
+        hasFocus = option.state & qtw.QStyle.State_HasFocus
+        active = option.state & qtw.QStyle.State_Active
+
+        colorGroup = qtg.QPalette.Active
+        palette = qtg.QPalette.HighlightedText
+
+        if selected:
+            if not (hasFocus or active):
+                colorGroup = qtg.QPalette.Inactive
+            palette = qtg.QPalette.Highlight
+
+        painter.fillRect(option.rect, option.palette.color(colorGroup, palette))
+        labels = index.data(widgets.LABEL_ROLE)
+        labelsCount = len(labels)
+        if labels:
+            h -= self._textHeight * labelsCount
+
+        self._setupView(index, w, h, labelsCount)
+        rect.setRect(self._sBorder, self._sBorder, w - 2 * self._sBorder,
+                     h - 2 * self._sBorder)
+        pgImageView = self._imageView.getImageView()
+        pgImageView.ui.graphicsView.scene().setSceneRect(rect)
+        rect.setRect(x + self._sBorder, y + self._sBorder,
+                     w - 2 * self._sBorder, h - 2 * self._sBorder)
+
+        pgImageView.ui.graphicsView.scene().render(painter, rect)
+
+        if hasFocus:
+            painter.save()
+            self._focusPen.setColor(
+                option.palette.color(qtg.QPalette.Active,
+                                     qtg.QPalette.Highlight))
+            painter.setPen(self._focusPen)
+            rect.setRect(x, y, w - 1, h - 1)
+            if labels:
+                rect.setHeight(h + self._textHeight * labelsCount - 1)
+            painter.drawRect(rect)
+            painter.restore()
+
+        for i, text in enumerate(labels):
+            rect.setRect(x + self._sBorder, y + h + i * self._textHeight,
+                         w - 2 * self._sBorder, self._textHeight)
+            painter.drawText(rect, qtc.Qt.AlignLeft, text)
+
+    def _setupView(self, index, width, height, labelsCount):
+        """
+        Configure the widget used as view to show the image
+        """
+        imgData = self._getThumb(index, self._thumbSize)
+
+        if imgData is None:
+            self._imageView.clear()
+            v = self._imageView.getView()
+            v.addItem(self._noImageItem)
+            self._noImageItem.setVisible(True)
+            v.autoRange(padding=0)
+            return
+        self._noImageItem.setVisible(False)
+        size = index.data(qtc.Qt.SizeHintRole)
+        if size is not None:
+            (w, h) = (size.width(), size.height())
+            h -= labelsCount
+
+            v = self._imageView.getView()
+            (cw, ch) = (v.width(), v.height())
+            if not (w, h) == (cw, ch):
+                v.setGeometry(0, 0, width, height)
+                v.resizeEvent(None)
+
+            if not isinstance(imgData, qtg.QPixmap):  # qtg.QPixmap or np.array
+                if self._pixmapItem:
+                    self._pixmapItem.setVisible(False)
+                self._imageView.setModel(models.ImageModel(imgData))
+            else:
+                if not self._pixmapItem:
+                    self._pixmapItem = qtw.QGraphicsPixmapItem(imgData)
+                    v.addItem(self._pixmapItem)
+                else:
+                    self._pixmapItem.setPixmap(imgData)
+                self._pixmapItem.setVisible(True)
+            v.autoRange(padding=0)
+
+    def _getThumb(self, index, height=64):
+        """
+        If the thumbnail stored in Image Cache
+        :param index: QModelIndex
+        :param height: height to scale the image
+        """
+        imgData = index.data(widgets.DATA_ROLE)
+
+        return imgData
+
+    def getImageView(self):
+        """ Return the ImageView used to render de icons """
+        return self._imageView
+
+    def setLevels(self, levels):
+        """
+        Set levels for the image configuration.
+        :param levels: (tupple) Minimum an maximum pixel values
+        """
+        self._imageView.setLevels(levels)
+
+    def getTextHeight(self):
+        """ The height of text """
+        return self._textHeight

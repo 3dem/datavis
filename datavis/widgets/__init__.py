@@ -9,4 +9,7 @@ from ._plot import PlotConfigWidget
 from ._panels import ViewPanel
 from ._axis import AxisSelector
 from ._tree import TreeModelView, Browser, FileModelView, FileBrowser
+from ._delegates import (DATA_ROLE, LABEL_ROLE,
+                         ColorItemDelegate, ComboBoxStyleItemDelegate,
+                         MarkerStyleItemDelegate, ColumnPropertyItemDelegate)
 

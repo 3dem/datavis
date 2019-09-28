@@ -30,10 +30,6 @@ VISIBLE_UNCHECKED = 8
 RENDER_CHECKED = 9
 RENDER_UNCHECKED = 10
 
-# Data roles for QtModels
-DATA_ROLE = Qt.UserRole + 2
-LABEL_ROLE = Qt.UserRole + 3
-
 # ROI types
 RECT_ROI = 0
 CIRCLE_ROI = 1

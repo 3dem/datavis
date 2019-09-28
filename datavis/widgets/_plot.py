@@ -4,11 +4,8 @@ import PyQt5.QtWidgets as qtw
 from PyQt5.QtGui import QIntValidator, QColor
 import qtawesome as qta
 
-# FIXME: We need to move delegates to other place
-# this import should not be here since datavis.views depends on datavis.widgets
-from datavis.views._delegates import (ColorItemDelegate,
-                                    ComboBoxStyleItemDelegate,
-                                    ColumnPropertyItemDelegate)
+from ._delegates import (ColorItemDelegate, ComboBoxStyleItemDelegate,
+                         ColumnPropertyItemDelegate)
 
 
 class PlotConfigWidget(qtw.QWidget):

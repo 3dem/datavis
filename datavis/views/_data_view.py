@@ -17,7 +17,7 @@ from datavis.models import (RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO)
 from datavis.widgets import (ActionsToolBar,  PlotConfigWidget, TriggerAction,
                            ZoomSpinBox, IconSpinBox)
 
-from ._delegates import ColumnPropertyItemDelegate
+from ..widgets import ColumnPropertyItemDelegate
 from ._columns import ColumnsView
 from ._gallery import GalleryView
 from ._items import ItemsView

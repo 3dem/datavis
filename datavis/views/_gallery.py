@@ -3,17 +3,15 @@
 
 from random import sample as random_sample
 
-from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange)
-from PyQt5.QtWidgets import QAbstractItemView, QListView
-from PyQt5 import QtCore
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
 
-from datavis.models import EmptyTableModel
-from datavis.widgets import PagingInfo
-from ._delegates import EMImageItemDelegate
+from .. import models
+from .. import widgets
 from ._paging_view import PagingView
-from ._constants import GALLERY, LABEL_ROLE
+from ._constants import GALLERY
 from .model import TablePageItemModel
+from ._image_view import EMImageItemDelegate
 
 
 class GalleryView(PagingView):
@@ -21,9 +19,9 @@ class GalleryView(PagingView):
     The GalleryView class provides some functionality for show large numbers of
     items with simple paginate elements in gallery view.
     """
-    sigCurrentRowChanged = QtCore.pyqtSignal(int)  # For current row changed
-    sigPageSizeChanged = QtCore.pyqtSignal()  # Signal for page size changed
-    sigSizeChanged = QtCore.pyqtSignal(object, object)
+    sigCurrentRowChanged = qtc.pyqtSignal(int)  # For current row changed
+    sigPageSizeChanged = qtc.pyqtSignal()  # Signal for page size changed
+    sigSizeChanged = qtc.pyqtSignal(object, object)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -40,7 +38,8 @@ class GalleryView(PagingView):
             iconSize:       (tuple) The icon size (width, height).
                             Default value: (100, 100)
         """
-        PagingView.__init__(self, parent=parent, pagingInfo=PagingInfo(1, 1),
+        PagingView.__init__(self, parent=parent,
+                            pagingInfo=widgets.PagingInfo(1, 1),
                             **kwargs)
         self._selection = set()
         self._delegate = EMImageItemDelegate(self)
@@ -55,22 +54,22 @@ class GalleryView(PagingView):
         self.setModel(model=kwargs['model'],
                       displayConfig=kwargs.get('displayConfig'))
         w, h = kwargs.get('iconSize', (100, 100))
-        self.setIconSize(QSize(w, h))
+        self.setIconSize(qtc.QSize(w, h))
 
     def _createContentWidget(self):
-        lv = QListView(self)
-        lv.setViewMode(QListView.IconMode)
-        lv.setSelectionBehavior(QAbstractItemView.SelectRows)
-        lv.setSelectionMode(QAbstractItemView.SingleSelection)
-        lv.setResizeMode(QListView.Adjust)
-        lv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        lv.setVerticalScrollMode(QAbstractItemView.ScrollPerItem)
-        lv.setHorizontalScrollMode(QAbstractItemView.ScrollPerItem)
-        lv.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        lv.setLayoutMode(QListView.Batched)
+        lv = qtw.QListView(self)
+        lv.setViewMode(qtw.QListView.IconMode)
+        lv.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
+        lv.setSelectionMode(qtw.QAbstractItemView.SingleSelection)
+        lv.setResizeMode(qtw.QListView.Adjust)
+        lv.setVerticalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
+        lv.setVerticalScrollMode(qtw.QAbstractItemView.ScrollPerItem)
+        lv.setHorizontalScrollMode(qtw.QAbstractItemView.ScrollPerItem)
+        lv.setHorizontalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
+        lv.setLayoutMode(qtw.QListView.Batched)
         lv.setBatchSize(500)
-        lv.setMovement(QListView.Static)
-        lv.setIconSize(QSize(32, 32))
+        lv.setMovement(qtw.QListView.Static)
+        lv.setIconSize(qtc.QSize(32, 32))
         lv.setModel(None)
         lv.resizeEvent = self.__listViewResizeEvent
         self.sigSizeChanged.connect(self.__onSizeChanged)
@@ -95,11 +94,11 @@ class GalleryView(PagingView):
 
     def __listViewResizeEvent(self, evt):
         """
-        Reimplemented to receive QListView resize events which are passed
+        Reimplemented to receive qtw.QListView resize events which are passed
         in the event parameter. Emits sigListViewSizeChanged
         :param evt:
         """
-        QListView.resizeEvent(self._listView, evt)
+        qtw.QListView.resizeEvent(self._listView, evt)
         self.sigSizeChanged.emit(evt.oldSize(), evt.size())
 
     def __calcPageSize(self):
@@ -151,19 +150,19 @@ class GalleryView(PagingView):
             if selModel is not None:
                 pageSize = self._pagingInfo.pageSize
                 m = self._pageItemModel
-                sel = QItemSelection()
+                sel = qtc.QItemSelection()
                 for row in range(page * pageSize, (page + 1) * pageSize):
                     if row in self._selection:
                         sel.append(
-                            QItemSelectionRange(m.index(row % pageSize, 0),
+                            qtc.QItemSelectionRange(m.index(row % pageSize, 0),
                                                 m.index(row % pageSize,
                                                         m.columnCount() - 1)))
-                allSel = QItemSelection(m.index(0, 0),
+                allSel = qtc.QItemSelection(m.index(0, 0),
                                         m.index(pageSize - 1,
                                                 m.columnCount() - 1))
-                selModel.select(allSel, QItemSelectionModel.Deselect)
+                selModel.select(allSel, qtc.QItemSelectionModel.Deselect)
                 if not sel.isEmpty():
-                    selModel.select(sel, QItemSelectionModel.Select)
+                    selModel.select(sel, qtc.QItemSelectionModel.Select)
 
     def __updatePagingInfo(self):
         """"""
@@ -172,13 +171,13 @@ class GalleryView(PagingView):
         self._pagingInfo.setPageSize(rows * cols)
         self._pagingInfo.setCurrentPage(1)
 
-    @pyqtSlot(object, object)
+    @qtc.pyqtSlot(object, object)
     def __onSizeChanged(self, oldSize, newSize):
         """ Invoked when the gallery widget is resized """
         self.__updatePageBar()
         self.selectRow(self._currentRow)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """
         Invoked when change current page. Emits sigCurrentRowChanged signal.
@@ -193,7 +192,7 @@ class GalleryView(PagingView):
             self.__updateSelectionInView(page - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
-    @pyqtSlot(QModelIndex, QModelIndex)
+    @qtc.pyqtSlot(qtc.QModelIndex, qtc.QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
         if current.isValid():
@@ -206,7 +205,7 @@ class GalleryView(PagingView):
             self.__updateSelectionInView(p.currentPage - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
-    @pyqtSlot(QItemSelection, QItemSelection)
+    @qtc.pyqtSlot(qtc.QItemSelection, qtc.QItemSelection)
     def __onInternalSelectionChanged(self, selected, deselected):
         """ Invoked when the internal selection is changed """
         page = self._pagingInfo.currentPage - 1
@@ -225,13 +224,13 @@ class GalleryView(PagingView):
 
         self.sigSelectionChanged.emit()
 
-    @pyqtSlot(set)
+    @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
         """ Invoked when the selection is changed """
         self._selection = selection
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def modelChanged(self):
         """Slot for model data changed notification """
         self.__updatePagingInfo()
@@ -298,7 +297,7 @@ class GalleryView(PagingView):
 
     def clear(self):
         """ Clear the view """
-        self.setModel(EmptyTableModel())
+        self.setModel(models.EmptyTableModel())
 
     def resetView(self):
         """
@@ -323,32 +322,32 @@ class GalleryView(PagingView):
     def setIconSize(self, size):
         """
         Sets the icon size.
-        size: (width, height), QSize or int in % units
+        size: (width, height), qtc.QSize or int in % units
         """
         if isinstance(size, tuple):
-            s = QSize(size[0], size[1])
+            s = qtc.QSize(size[0], size[1])
             self._percentIconSize = None
         elif isinstance(size, int) or isinstance(size, float):  # in % units
             self._percentIconSize = size
             x, y = self._model.getDim()
             x = int(x * (size / 100.0))
             y = int(y * (size / 100.0))
-            s = QSize(x, y)
+            s = qtc.QSize(x, y)
             size = x, y
-        elif isinstance(size, QSize):
+        elif isinstance(size, qtc.QSize):
             s = size
             size = size.width(), size.height()
             self._percentIconSize = None
         else:
             raise Exception("Invalid icon size.")
 
-        self._pageItemModel.setIconSize(QSize(s))
+        self._pageItemModel.setIconSize(qtc.QSize(s))
         dispConfig = self._pageItemModel.getDisplayConfig()
         if dispConfig is not None:
             m = self._pageItemModel
             cc = dispConfig.getColumnConfig(0)
             lSize = len(cc.getLabels()) if cc is not None else 0
-            s = QSize(size[0], size[1])
+            s = qtc.QSize(size[0], size[1])
             margin = 10
             if lSize > 0:
                 maxWidth = 0
@@ -357,7 +356,7 @@ class GalleryView(PagingView):
 
                 for i in random_sample(range(r), min(10, r)):
                     index = m.createIndex(i, 0)
-                    labels = m.data(index, LABEL_ROLE)
+                    labels = m.data(index, widgets.LABEL_ROLE)
                     for text in labels:
                         w = fontMetrics.boundingRect(text).width() + margin
                         maxWidth = max(maxWidth, w)
@@ -415,7 +414,7 @@ class GalleryView(PagingView):
         n = self._model.getRowsCount()
         s = self._listView.iconSize()
         spacing = self._listView.spacing()
-        size = QSize(int(n**0.5) * (spacing + s.width()) + spacing,
+        size = qtc.QSize(int(n**0.5) * (spacing + s.width()) + spacing,
                      int(n**0.5) * (spacing + s.height()) + spacing)
 
         w = int(size.width() / (spacing + s.width()))
@@ -439,15 +438,15 @@ class GalleryView(PagingView):
         """
         PagingView.setSelectionMode(self, selectionMode)
         if selectionMode == self.SINGLE_SELECTION:
-            self._listView.setSelectionMode(QAbstractItemView.SingleSelection)
+            self._listView.setSelectionMode(qtw.QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
             self._listView.setSelectionMode(
-                QAbstractItemView.ExtendedSelection)
+                qtw.QAbstractItemView.ExtendedSelection)
         elif selectionMode == self.MULTI_SELECTION:
-            self._listView.setSelectionMode(QAbstractItemView.MultiSelection)
+            self._listView.setSelectionMode(qtw.QAbstractItemView.MultiSelection)
         else:
             PagingView.setSelectionMode(self, PagingView.NO_SELECTION)
-            self._listView.setSelectionMode(QAbstractItemView.NoSelection)
+            self._listView.setSelectionMode(qtw.QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
         """
@@ -459,9 +458,9 @@ class GalleryView(PagingView):
                         SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
         """
         if selectionBehavior == self.SELECT_ITEMS:
-            self._listView.setSelectionBehavior(QAbstractItemView.SelectItems)
+            self._listView.setSelectionBehavior(qtw.QAbstractItemView.SelectItems)
         elif selectionBehavior == self.SELECT_COLUMNS:
             self._listView.setSelectionBehavior(
-                QAbstractItemView.SelectColumns)
+                qtw.QAbstractItemView.SelectColumns)
         elif selectionBehavior == self.SELECT_ROWS:
-            self._listView.setSelectionBehavior(QAbstractItemView.SelectRows)
+            self._listView.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)

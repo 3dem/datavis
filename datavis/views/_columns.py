@@ -8,12 +8,12 @@ from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
 from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
 from PyQt5 import QtCore
 
-from datavis.widgets import PagingInfo
-from datavis.models import VISIBLE, RENDERABLE, EmptyTableModel
+from .. import models
+from .. import widgets
 from ._paging_view import PagingView
-from ._delegates import EMImageItemDelegate
 from ._constants import COLUMNS
 from .model import TablePageItemModel
+from ._image_view import EMImageItemDelegate
 
 
 class ColumnsView(PagingView):
@@ -40,7 +40,7 @@ class ColumnsView(PagingView):
         """
         self._model = kwargs['model']
         PagingView.__init__(self, parent=parent,
-                            pagingInfo=PagingInfo(1, 1),
+                            pagingInfo=widgets.PagingInfo(1, 1),
                             **kwargs)
         self._selection = set()
         self._delegate = EMImageItemDelegate(self)
@@ -134,7 +134,7 @@ class ColumnsView(PagingView):
         # we have defined one delegate for the moment: ImageItemDelegate
         for i, colConfig in self._displayConfig.iterColumns():
             delegate = self._defaultDelegate
-            if colConfig[RENDERABLE]:
+            if colConfig[models.RENDERABLE]:
                 delegate = self._delegate
             self._tableView.setItemDelegateForColumn(i, delegate)
 
@@ -280,7 +280,7 @@ class ColumnsView(PagingView):
         Hide the columns with visible property=True
         """
         for i, colConfig in self._displayConfig.iterColumns():
-            if not colConfig[VISIBLE]:
+            if not colConfig[models.VISIBLE]:
                 self._tableView.hideColumn(i)
             else:
                 self._tableView.showColumn(i)
@@ -333,7 +333,7 @@ class ColumnsView(PagingView):
 
     def clear(self):
         """ Clear the view """
-        self.setModel(EmptyTableModel())
+        self.setModel(models.EmptyTableModel())
 
     def resetView(self):
         """ Reset the internal state of the view. """
