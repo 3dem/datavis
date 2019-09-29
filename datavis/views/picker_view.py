@@ -4,7 +4,6 @@ from numpy import pi
 
 import PyQt5.QtCore as qtc
 import PyQt5.QtGui as qtg
-from PyQt5.QtCore import pyqtSlot
 import PyQt5.QtWidgets as qtw
 
 import pyqtgraph as pg
@@ -781,7 +780,7 @@ class PickerView(qtw.QWidget):
                 scene.mousePressEvent = __mousePressEvent
                 scene.mouseReleaseEvent = __mouseReleaseEvent
 
-    @pyqtSlot(object)
+    @qtc.pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
         """
         This slot is invoked when the mouse is moved hover de View
@@ -827,21 +826,21 @@ class PickerView(qtw.QWidget):
                     self.__updateFilemantText(-angle, d.x(), self.__segPos)
                     self.__eraseROIText.setVisible(True)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def on_actionPickEllipse_triggered(self):
         """ Activate the coordinates to ellipse ROI. """
         self._shape = SHAPE_CIRCLE
         self._destroyROIs()
         self._createROIs()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def on_actionPickSegment_triggered(self):
         """ Activate the coordinates to filament ROI. """
         self._shape = SHAPE_SEGMENT
         self._destroyROIs()
         self._createROIs()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def on_actionPickRect_triggered(self):
         """
         Activate the pick rect ROI.
@@ -851,7 +850,7 @@ class PickerView(qtw.QWidget):
         self._destroyROIs()
         self._createROIs()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def on_actionPickCenter_triggered(self):
         """
         Activate the pick rect ROI.
@@ -861,12 +860,12 @@ class PickerView(qtw.QWidget):
         self._destroyROIs()
         self._createROIs()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __collectParams(self):
         if self.__paramsWidget is not None:
             print(self.__paramsWidget.getParams())
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __onPickTriggered(self):
         """ Invoked when action pick is triggered """
         view = self._imageView.getViewBox()
@@ -883,7 +882,7 @@ class PickerView(qtw.QWidget):
                 roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, False)
                 roi.setAcceptedMouseButtons(qtc.Qt.LeftButton)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __onEraseTriggered(self):
         """ Invoked when action erase is triggered """
         view = self._imageView.getViewBox()
@@ -899,12 +898,12 @@ class PickerView(qtw.QWidget):
                 roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, True)
                 roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onPickShowHideTriggered(self, state):
         """ Invoked when action pick-show-hide is triggered """
         self.__showHidePickCoord(bool(state))
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onCurrentRowChanged(self, row):
         """ Invoked when current row change in micrographs list """
         micId = int(self._tvModel.getValue(row, self._idIndex))
@@ -916,7 +915,7 @@ class PickerView(qtw.QWidget):
         except RuntimeError as ex:
             self._showError(ex.message)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _boxSizeChanged(self, value):
         """
         This slot is invoked when de value of spinBoxBoxSize is changed
@@ -924,14 +923,14 @@ class PickerView(qtw.QWidget):
         """
         self._updateBoxSize(value)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def _boxSizeEditingFinished(self):
         """
         This slot is invoked when spinBoxBoxSize editing is finished
         """
         self._updateBoxSize(self._spinBoxBoxSize.value())
 
-    @pyqtSlot(bool)
+    @qtc.pyqtSlot(bool)
     def _labelAction_triggered(self, checked):
         """
         This slot is invoked when clicks on label
@@ -941,12 +940,12 @@ class PickerView(qtw.QWidget):
         if checked and btn:
             self.__currentLabelName = btn.text()
 
-    @pyqtSlot(object)
+    @qtc.pyqtSlot(object)
     def _roiMouseHover(self, roi):
         """ Handler invoked when the roi is hovered by the mouse. """
         self.__showHandlers(roi, roi.mouseHovering)
 
-    @pyqtSlot(object)
+    @qtc.pyqtSlot(object)
     def __eraseRoiChanged(self, eraseRoi):
         """ Handler invoked when the roi is moved. """
         self.__eraseROIText.setVisible(False)
@@ -982,7 +981,7 @@ class PickerView(qtw.QWidget):
                             len(self._currentMic) - len(self.__eraseList))
                         self._cvImages.updatePage()
 
-    @pyqtSlot(object)
+    @qtc.pyqtSlot(object)
     def _roiRegionChanged(self, roi):
         """
         Handler invoked when the roi region is changed.
@@ -1000,7 +999,7 @@ class PickerView(qtw.QWidget):
             self.__updateFilemantText(roi.angle(), roi.size()[0], roi.pos())
             self.__eraseROIText.setVisible(True)
 
-    @pyqtSlot(object)
+    @qtc.pyqtSlot(object)
     def _roiRegionChangeFinished(self, roi):
         """
         Handler invoked when the roi region is changed.

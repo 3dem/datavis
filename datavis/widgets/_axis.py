@@ -1,5 +1,5 @@
 
-from PyQt5.QtCore import pyqtSignal
+import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
 from datavis.models import AXIS_X, AXIS_Y, AXIS_Z
@@ -10,7 +10,7 @@ class AxisSelector(qtw.QWidget):
     Custom widget for axis selection
     """
     """ Signal for axis changed """
-    sigAxisChanged = pyqtSignal(int)
+    sigAxisChanged = qtc.pyqtSignal(int)
 
     """ This value is used to signify an horizontal orientation """
     HORIZONTAL = 0

@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtGui import QFont
 import PyQt5.QtCore as qtc
+import PyQt5.QtGui as qtg
 
 from .. import models
 from .. import widgets
@@ -27,7 +27,7 @@ class TablePageItemModel(qtc.QAbstractItemModel):
         """
         qtc.QAbstractItemModel.__init__(self, kwargs.get('parent', None))
         self.setModelConfig(tableModel, tableConfig, pagingInfo)
-        self._defaultFont = QFont()
+        self._defaultFont = qtg.QFont()
         self._indexWidth = 50
         self._iconSize = None
 
@@ -117,7 +117,8 @@ class TablePageItemModel(qtc.QAbstractItemModel):
             return qtc.QVariant(self._getPageValue(row, col))
 
         if role == qtc.Qt.CheckStateRole and t == models.TYPE_BOOL:
-            return qtc.Qt.Checked if self._getPageValue(row, col) else qtc.Qt.Unchecked
+            CHECKED = qtc.Qt.Checked
+            return CHECKED if self._getPageValue(row, col) else qtc.Qt.Unchecked
 
         if (role == qtc.Qt.EditRole or role == qtc.Qt.UserRole
                 or role == qtc.Qt.AccessibleTextRole

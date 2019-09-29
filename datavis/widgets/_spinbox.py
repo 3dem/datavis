@@ -1,5 +1,5 @@
 
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
 from ._common import createQPixmap
@@ -9,11 +9,11 @@ class IconSpinBox(qtw.QWidget):
     """ Custom widget that contains a Icon and a Spinbox. """
 
     # Signal for value changed
-    sigValueChanged = pyqtSignal([int], [float])
-    sigEditingFinished = pyqtSignal()
+    sigValueChanged = qtc.pyqtSignal([int], [float])
+    sigEditingFinished = qtc.pyqtSignal()
 
     # Signal emitted when the user clicks hover the image icon
-    sigIconClicked = pyqtSignal()
+    sigIconClicked = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -66,7 +66,7 @@ class IconSpinBox(qtw.QWidget):
             layout.addWidget(label)
 
         layout.addWidget(spinBox)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setAlignment(qtc.Qt.AlignCenter)
 
         self.setMinimumWidth(layout.sizeHint().width())
         # Keep references to spinbox and type
@@ -76,7 +76,7 @@ class IconSpinBox(qtw.QWidget):
     def __labelClicked(self, evt):
         self.sigIconClicked.emit()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def _onValueChanged(self):
         """ Either the slider or the spinbox changed the
         value. Let's update the other one and emit the signal.

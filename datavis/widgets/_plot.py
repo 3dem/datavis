@@ -1,8 +1,9 @@
 
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
-import PyQt5.QtWidgets as qtw
-from PyQt5.QtGui import QIntValidator, QColor
 import qtawesome as qta
+
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
+import PyQt5.QtGui as qtg
 
 from ._delegates import (ColorItemDelegate, ComboBoxStyleItemDelegate,
                          ColumnPropertyItemDelegate)
@@ -16,7 +17,7 @@ class PlotConfigWidget(qtw.QWidget):
     emit(str:error)     
     """
     # TODO[hv] emit error code, not str message
-    sigError = pyqtSignal(str)
+    sigError = qtc.pyqtSignal(str)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -37,9 +38,10 @@ class PlotConfigWidget(qtw.QWidget):
                                                 "s", "p", "h", "H", "+", "x",
                                                 "D", "d", "|", "_"])
         self.__styles = kwargs.get('styles', ['solid', 'dashed', 'dotted'])
-        self.__colors = kwargs.get('colors', [Qt.blue, Qt.green, Qt.red,
-                                              Qt.black, Qt.darkYellow,
-                                              Qt.yellow, Qt.magenta, Qt.cyan])
+        self.__colors = kwargs.get('colors', [qtc.Qt.blue, qtc.Qt.green, 
+                                              qtc.Qt.red, qtc.Qt.black, 
+                                              qtc.Qt.darkYellow, qtc.Qt.yellow, 
+                                              qtc.Qt.magenta, qtc.Qt.cyan])
         self.__plotTypes = kwargs.get('plot-types',
                                       ['Plot', 'Histogram', 'Scatter'])
         self.__markerDelegate = \
@@ -61,7 +63,7 @@ class PlotConfigWidget(qtw.QWidget):
         vLayout = qtw.QVBoxLayout(self)
         formLayout = qtw.QFormLayout()
         formLayout.setLabelAlignment(
-            Qt.AlignRight | Qt.AlignTrailing | Qt.AlignVCenter)
+            qtc.Qt.AlignRight | qtc.Qt.AlignTrailing | qtc.Qt.AlignVCenter)
         formLayout.setWidget(0, qtw.QFormLayout.LabelRole,
                              qtw.QLabel(text='Title: ', parent=self))
         self._lineEditPlotTitle = qtw.QLineEdit(parent=self)
@@ -96,7 +98,7 @@ class PlotConfigWidget(qtw.QWidget):
         self._labelBins.setVisible(False)
         self._lineEditBins.setVisible(False)
         self._lineEditBins.setFixedWidth(80)
-        self._lineEditBins.setValidator(QIntValidator())
+        self._lineEditBins.setValidator(qtg.QIntValidator())
         formLayout.setWidget(5, qtw.QFormLayout.LabelRole,
                              qtw.QLabel(text='X Axis: ', parent=self))
         self._comboBoxXaxis = qtw.QComboBox(parent=self)
@@ -107,12 +109,12 @@ class PlotConfigWidget(qtw.QWidget):
         label = qtw.QLabel(parent=self,
                        text="<strong>Plot columns:</strong>")
         label.setSizePolicy(qtw.QSizePolicy.Expanding, qtw.QSizePolicy.Fixed)
-        vLayout.addWidget(label, 0, Qt.AlignLeft)
+        vLayout.addWidget(label, 0, qtc.Qt.AlignLeft)
         self._tablePlotConf = qtw.QTableWidget(self)
         self._tablePlotConf.setObjectName("tablePlotConf")
         self._tablePlotConf.setSelectionMode(qtw.QTableWidget.NoSelection)
         self._tablePlotConf.setSelectionBehavior(qtw.QTableWidget.SelectRows)
-        self._tablePlotConf.setFocusPolicy(Qt.NoFocus)
+        self._tablePlotConf.setFocusPolicy(qtc.Qt.NoFocus)
         self._tablePlotConf.setMinimumSize(self._tablePlotConf.sizeHint())
         self._tablePlotConf.setSizePolicy(qtw.QSizePolicy.Expanding,
                                           qtw.QSizePolicy.Expanding)
@@ -144,19 +146,19 @@ class PlotConfigWidget(qtw.QWidget):
         for i, colName in enumerate(self.__params):
             self._comboBoxXaxis.addItem(colName)
             item = qtw.QTableWidgetItem(colName)
-            item.setFlags(Qt.ItemIsEnabled)
+            item.setFlags(qtc.Qt.ItemIsEnabled)
             itemPlot = qtw.QTableWidgetItem("")  # for plot option
-            itemPlot.setCheckState(Qt.Unchecked)
+            itemPlot.setCheckState(qtc.Qt.Unchecked)
             itemColor = qtw.QTableWidgetItem("")  # for color option
-            itemColor.setData(Qt.BackgroundRole,
-                              QColor(self.__colors[i % nColors]))
+            itemColor.setData(qtc.Qt.BackgroundRole,
+                              qtg.QColor(self.__colors[i % nColors]))
             itemLineStye = qtw.QTableWidgetItem("")  # for line style option
-            itemLineStye.setData(Qt.DisplayRole,
+            itemLineStye.setData(qtc.Qt.DisplayRole,
                                  self.__styles[0].capitalize())
-            itemLineStye.setData(Qt.UserRole, 0)
+            itemLineStye.setData(qtc.Qt.UserRole, 0)
             itemMarker = qtw.QTableWidgetItem("")  # for marker option
-            itemMarker.setData(Qt.DisplayRole, self.__markers[0])
-            itemMarker.setData(Qt.UserRole, 0)
+            itemMarker.setData(qtc.Qt.DisplayRole, self.__markers[0])
+            itemMarker.setData(qtc.Qt.UserRole, 0)
             self._tablePlotConf.setItem(row, 0, item)
             self._tablePlotConf.setItem(row, 1, itemPlot)
             self._tablePlotConf.setItem(row, 2, itemColor)
@@ -183,24 +185,24 @@ class PlotConfigWidget(qtw.QWidget):
         """
         ret = dict()
         for i in range(self._tablePlotConf.rowCount()):
-            if self._tablePlotConf.item(i, 1).checkState() == Qt.Checked:
+            if self._tablePlotConf.item(i, 1).checkState() == qtc.Qt.Checked:
                 p = dict()
                 p['color'] = self._tablePlotConf.item(i, 2).data(
-                    Qt.BackgroundRole).name()
+                    qtc.Qt.BackgroundRole).name()
                 p['line-style'] = self._tablePlotConf.item(i, 3).text().lower()
                 p['marker'] = self._tablePlotConf.item(i, 4).text()
                 ret[self.__params[i]] = p
 
         return ret
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __onCurrentPlotTypeChanged(self):
         """ Invoked when the current plot type is changed """
         visible = self._comboBoxPlotType.currentText() == 'Histogram'
         self._labelBins.setVisible(visible)
         self._lineEditBins.setVisible(visible)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __onCurrentXaxisChanged(self):
         """
         Invoked when the current x axis is changed configuring the plot

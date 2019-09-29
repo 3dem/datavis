@@ -50,8 +50,8 @@ class ImageView(qtw.QWidget):
                    True by default.
         autoFill:  (Bool) This property holds whether the widget background
                    is filled automatically. The color used is defined by
-                   the qtg.QPalette::Window color role from the widget's palette.
-                   False by default.
+                   the qtg.QPalette::Window color role from the widget's
+                   palette. False by default.
         hideButtons: (Bool) Hide/show the internal pg buttons. For example,
                      the button used to center an image. False by default.
         axisPos:   (Bool) The axis position.
@@ -129,7 +129,8 @@ class ImageView(qtw.QWidget):
         self.__viewRect = None
         self._imageView.installEventFilter(self)
         self._splitter = qtw.QSplitter(self)
-        self._toolBar = widgets.ActionsToolBar(self, orientation=qtc.Qt.Vertical)
+        self._toolBar = widgets.ActionsToolBar(self,
+                                               orientation=qtc.Qt.Vertical)
         self._splitter.addWidget(self._toolBar)
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._imageView)
@@ -192,31 +193,31 @@ class ImageView(qtw.QWidget):
         actAxisOnOff.set(self._xAxisArgs['visible'])
         actAxisOnOff.sigStateChanged.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(actAxisOnOff)
+        self._actAxisOnOff = actAxisOnOff
         vLayout.addWidget(toolbar)
 
         # -- Flip --
         toolbar = qtw.QToolBar(displayPanel)
         toolbar.addWidget(qtw.QLabel('Flip ', toolbar))
-        self._actHorFlip = widgets.TriggerAction(parent=toolbar, actionName="HFlip",
-                                         text="Horizontal Flip",
-                                         icon=qta.icon('fa.long-arrow-right',
-                                                       'fa.long-arrow-left',
-                                                       options=[
-                                                           {'offset': (0, 0.2)},
-                                                           {'offset': (0, -0.2)}
-                                                       ]),
-                                         checkable=True,
-                                         slot=self.horizontalFlip)
+        self._actHorFlip = widgets.TriggerAction(
+            parent=toolbar, actionName="HFlip", text="Horizontal Flip",
+            icon=qta.icon('fa.long-arrow-right',
+                          'fa.long-arrow-left',
+                          options=[
+                              {'offset': (0, 0.2)},
+                              {'offset': (0, -0.2)}
+                          ]),
+            checkable=True, slot=self.horizontalFlip)
         toolbar.addAction(self._actHorFlip)
-        self._actVerFlip = widgets.TriggerAction(parent=toolbar, actionName="VFlip",
-                                         text="Vertical Flip",
-                                         icon=qta.icon('fa.long-arrow-up',
-                                                       'fa.long-arrow-down',
-                                                       options=[
-                                                           {'offset': (0.2, 0)},
-                                                           {'offset': (-0.2, 0)}
-                                                       ]),
-                                         checkable=True, slot=self.verticalFlip)
+        self._actVerFlip = widgets.TriggerAction(
+            parent=toolbar, actionName="VFlip", text="Vertical Flip",
+            icon=qta.icon('fa.long-arrow-up',
+                          'fa.long-arrow-down',
+                          options=[
+                              {'offset': (0.2, 0)},
+                              {'offset': (-0.2, 0)}
+                          ]),
+            checkable=True, slot=self.verticalFlip)
         toolbar.addAction(self._actVerFlip)
         vLayout.addWidget(toolbar)
 
@@ -224,12 +225,15 @@ class ImageView(qtw.QWidget):
         toolbar = qtw.QToolBar(displayPanel)
         toolbar.addWidget(qtw.QLabel('Rotate ', toolbar))
         act = widgets.TriggerAction(parent=toolbar, actionName="RRight",
-                            text="Rotate Right", faIconName="fa.rotate-right",
-                            checkable=False, slot=self.__rotateRight)
+                                    text="Rotate Right",
+                                    faIconName="fa.rotate-right",
+                                    checkable=False,
+                                    slot=self.__rotateRight)
         toolbar.addAction(act)
         act = widgets.TriggerAction(parent=toolbar, actionName="RLeft",
-                            text="Rotate Left", faIconName="fa.rotate-left",
-                            checkable=False, slot=self.__rotateLeft)
+                                    text="Rotate Left",
+                                    faIconName="fa.rotate-left",
+                                    checkable=False, slot=self.__rotateLeft)
         toolbar.addAction(act)
         vLayout.addWidget(toolbar)
 
@@ -314,6 +318,7 @@ class ImageView(qtw.QWidget):
             iconName='fa5s.pen', iconSize=16, sufix=' px')
         self._spinBoxMaskPen.sigValueChanged[int].connect(
             self.__onSpinBoxMaskPenValueChanged)
+        self._spinBoxMaskPen.setMinimumHeight(30)
         tb.addWidget(self._spinBoxMaskPen)
         self._actPenOnOf = widgets.OnOffAction(
             tb, toolTipOn='Pen to add', toolTipOff='Pen to remove')
@@ -475,10 +480,10 @@ class ImageView(qtw.QWidget):
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
         if ev.key() == qtc.Qt.Key_H:
-            self.__actHistOnOffChanged(True)
+            self._actHistOnOff.next()
 
         if ev.key() == qtc.Qt.Key_A:
-            self.__actAxisOnOffTriggered(True)
+            self._actAxisOnOff.next()
 
         if ev.key() == qtc.Qt.Key_E:
             ctrl = qtc.Qt.ControlModifier

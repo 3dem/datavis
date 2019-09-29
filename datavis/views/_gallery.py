@@ -109,9 +109,8 @@ class GalleryView(PagingView):
         size = self._listView.viewport().size()
         s = self._listView.iconSize()
         spacing = self._listView.spacing()
-
-        if size.width() > 0 and size.height() > 0 \
-                and s.width() > 0 and s.height() > 0:
+        w, h = size.width(), size.height()
+        if w > 0 and h > 0 and s.width() > 0 and s.height() > 0:
             cols = int((size.width() - spacing - 1) / (s.width() + spacing))
             rows = int((size.height() - 1) / (s.height() + spacing))
             # if size.width() < iconSize.width() pRows may be 0
@@ -130,8 +129,8 @@ class GalleryView(PagingView):
         :param row: (int) The row index. 0 is the first
         :return:    (int) The page index. 0 is the first
         """
-        return int(row / self._pagingInfo.pageSize) \
-            if self._pagingInfo.pageSize > 0 and row >= 0 else -1
+        ps = self._pagingInfo.pageSize
+        return int(row / ps) if ps > 0 and row >= 0 else -1
 
     def __updatePageBar(self):
         """Updates the PageBar paging settings """
