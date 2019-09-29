@@ -13,9 +13,9 @@ class TriggerAction(QAction):
     The TriggerAction class offers an initialization of configuration params
     not provided by Qt.
     """
-    def __init__(self, parent, actionName=None, text="", faIconName=None, icon=None,
-                 checkable=False, tooltip=None, slot=None, shortCut=None,
-                 userData=None, **kwargs):
+    def __init__(self, parent, actionName=None, text="", faIconName=None,
+                 faIconColor=None, icon=None, checkable=False, tooltip=None,
+                 slot=None, shortCut=None, userData=None, **kwargs):
         """
         Creates a TriggerAction with the given name, text and icon. If slot is
         not None then the signal QAction.triggered is connected to it.
@@ -33,7 +33,7 @@ class TriggerAction(QAction):
         if actionName:
             self.setObjectName(str(actionName))
         if faIconName:
-            icon = qta.icon(faIconName)
+            icon = qta.icon(faIconName, color=faIconColor)
 
         if icon is not None:
             self.setIcon(icon)
@@ -98,7 +98,7 @@ class MultiStateAction(TriggerAction):
 
     def set(self, state):
         """
-        Change the current active state. Rise an Exception if the specified
+        Change the current active state. Raise an Exception if the specified
         state is invalid.
         :param state: The state.
         """
@@ -109,6 +109,7 @@ class MultiStateAction(TriggerAction):
         _, icon, tooltip = self._states[self._current]
         self.setIcon(icon)
         self.setToolTip(tooltip)
+        self.sigStateChanged.emit(state)
 
     def __move(self, shift):
         """
@@ -129,7 +130,6 @@ class MultiStateAction(TriggerAction):
     @pyqtSlot()
     def __onTriggered(self):
         self.next()
-        self.sigStateChanged.emit(int(self.get()))
 
 
 class OnOffAction(MultiStateAction):
@@ -319,8 +319,9 @@ class ActionsToolBar(QWidget):
                 for d in self._docks:
                     d.setMinimumWidth(self._panelMinWidth)
 
-            dock = QDockWidget(action.text() if showTitle else "",
-                               self._sidePanel)
+            dock = QDockWidget(
+                action.text().replace('\n', ' ') if showTitle else "",
+                self._sidePanel)
             dock.setFloating(floating)
             dock.setAllowedAreas(Qt.LeftDockWidgetArea)
             features = \

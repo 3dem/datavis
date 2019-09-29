@@ -111,6 +111,8 @@ class ImageView(qtw.QWidget):
         self._levels = kwargs.get('levels', None)
         # mask params
         self.__updatingImage = False
+        self._maskColor = qtg.QColor('#88212a55')  # ARGB format
+        self._maskCreatorItem = None
         self.__setupGUI()
         self.__setupImageView()
         self._maskItem = None
@@ -249,9 +251,14 @@ class ImageView(qtw.QWidget):
 
         vLayout.addStretch()
         displayPanel.setFixedHeight(260)
-        actDisplay = widgets.TriggerAction(parent=self._toolBar, actionName="ADisplay",
-                                   text='Display', faIconName='fa.adjust')
+        actDisplay = widgets.TriggerAction(parent=self._toolBar,
+                                           actionName="ADisplay",
+                                           text='Display',
+                                           faIconName='fa.adjust')
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
+        # --Mask Creator--
+        self.__addMaskCreatorTools(self._toolBar)
+        # --End-Mask Creator--
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
         fileInfoPanel.setSizePolicy(qtw.QSizePolicy.Ignored,
@@ -263,13 +270,132 @@ class ImageView(qtw.QWidget):
         vLayout.addWidget(self._textEditPath)
         fileInfoPanel.setMinimumHeight(30)
 
-        actFileInfo = widgets.TriggerAction(parent=self._toolBar, actionName='FInfo',
-                                    text='File Info',
-                                    faIconName='fa.info-circle')
+        actFileInfo = widgets.TriggerAction(parent=self._toolBar,
+                                            actionName='FInfo',
+                                            text='File Info',
+                                            faIconName='fa.info-circle')
         self._toolBar.addAction(actFileInfo, fileInfoPanel, exclusive=False)
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._splitter)
+
+    def __addMaskCreatorTools(self, toolbar):
+        """ Creates the mask creator panel """
+        maskPanel = toolbar.createPanel('maskCreatorPanel')
+        layout = qtw.QVBoxLayout(maskPanel)
+        maskPanel.setSizePolicy(qtw.QSizePolicy.MinimumExpanding,
+                                qtw.QSizePolicy.Minimum)
+        tb = qtw.QToolBar(maskPanel)
+        layout.addWidget(tb)
+        tb.addWidget(qtw.QLabel("<strong>Mask:</strong>", tb))
+
+        self._actColor = widgets.TriggerAction(parent=tb, actionName='ASColor',
+                                               faIconName='fa5s.palette',
+                                               faIconColor=self._maskColor,
+                                               tooltip='Select mask color',
+                                               slot=self.__onSelectColor)
+        tb.addAction(self._actColor)
+
+        self._actMaskCreatorShowHide = widgets.OnOffAction(
+            tb, toolTipOn='Hide mask', toolTipOff='Show mask')
+        self._actMaskCreatorShowHide.set(False)
+        self._actMaskCreatorShowHide.sigStateChanged.connect(
+            self.__onMaskCreatorShowHideTriggered)
+        tb.addAction(self._actMaskCreatorShowHide)
+        self._actMaskCreator = widgets.TriggerAction(
+            parent=toolbar, actionName='AMask', text='Mask\nCreator',
+            faIconName='fa5s.stroopwafel')
+        # pen
+        tb = qtw.QToolBar(maskPanel)
+        layout.addWidget(tb)
+        tb.addWidget(qtw.QLabel("<strong>Pen:</strong>", tb))
+        self._spinBoxMaskPen = widgets.IconSpinBox(
+            maskPanel, valueType=int, minValue=50, maxValue=10000,
+            iconName='fa5s.pen', iconSize=16, sufix=' px')
+        self._spinBoxMaskPen.sigValueChanged[int].connect(
+            self.__onSpinBoxMaskPenValueChanged)
+        tb.addWidget(self._spinBoxMaskPen)
+        self._actPenOnOf = widgets.OnOffAction(
+            tb, toolTipOn='Pen to add', toolTipOff='Pen to remove')
+        self._actPenOnOf.set(True)
+        self._actPenOnOf.sigStateChanged.connect(
+            self.__onPenOnOffTriggered)
+        tb.addAction(self._actPenOnOf)
+
+        maskPanel.setFixedHeight(90)
+        toolbar.addAction(self._actMaskCreator, maskPanel, exclusive=False,
+                          checked=False)
+
+    def __onSelectColor(self):
+        """ Invoked when select color action is triggered """
+        color = qtw.QColorDialog.getColor(
+            initial=self._maskColor, parent=self, title='Mask Color Selector',
+            options=qtw.QColorDialog.ShowAlphaChannel)
+        if color.isValid():
+            self._maskColor = color
+            self._actColor.setIcon(qta.icon('fa5s.palette',
+                                            color=self._maskColor))
+            if self._maskCreatorItem is None:
+                self.createMaskItem()
+            else:
+                self._maskCreatorItem.setMaskColor(self._maskColor)
+
+    def __onSpinBoxMaskPenValueChanged(self, size):
+        """ Invoked when the pen size is changed """
+        self.__createMaskCreatorBrush(size,
+                                      self._actPenOnOf.get())
+
+    def __onMaskCreatorShowHideTriggered(self, state):
+        """ Invoked when action mask-creator-show-hide is triggered """
+        if self._actMaskCreatorShowHide.get():
+            if self._maskCreatorItem is None:
+                self.createMaskItem()
+            else:
+                self.getViewBox().addItem(self._maskCreatorItem)
+        elif self._maskCreatorItem is not None:
+            self.getViewBox().removeItem(self._maskCreatorItem)
+
+    def __onPenOnOffTriggered(self, state):
+        """ Invoked when action pen-on-off is triggered """
+        self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue(),
+                                      state)
+
+    def __createMaskCreatorBrush(self, size, add):
+        """ Create the mask creator brush """
+        if self._maskCreatorItem is not None:
+            roi = pg.CircleROI((0, 0), size)
+            path = roi.shape()
+            k = []
+            pos = pg.Point()
+            mode = 'add' if add else 'set'
+            for i in range(size):
+                r = []
+                for j in range(size):
+                    pos.setX(i)
+                    pos.setY(j)
+                    v = 1 if path.contains(pos) else 0
+                    r.append(v)
+                k.append(r)
+            kern = np.array(k)
+            self._maskCreatorItem.setDrawKernel(kern, mask=kern,
+                                                center=(int(size/2),
+                                                        int(size/2)),
+                                                mode=mode)
+
+    def createMaskItem(self):
+        """ Create the mask item """
+        imageItem = self.getImageItem()
+        w, h = (imageItem.width(), imageItem.height())
+        if w is not None and h is not None:
+            viewBox = self.getViewBox()
+            if self._maskCreatorItem is not None:
+                viewBox.removeItem(self._maskCreatorItem)
+            maskData = np.zeros(shape=(w, h), dtype=np.int8)
+            self._maskCreatorItem = _CustomMaskItem(imageItem, self._maskColor,
+                                                    maskData)
+            self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue(),
+                                          self._actPenOnOf.get())
+            viewBox.addItem(self._maskCreatorItem)
 
     def __setupAxis(self):
         """
@@ -1200,7 +1326,7 @@ class _CustomMaskItem(pg.ImageItem):
         :param imageItem: (pg.ImageItem) The image item
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (qtg.QColor)
+                          or (QColor)
         :param maskData:  (numpy array) The mask data
         """
         if imageItem is None:
@@ -1210,19 +1336,21 @@ class _CustomMaskItem(pg.ImageItem):
         self.setMaskColor(maskColor)
         self._imageItem = imageItem
         self.maskData = maskData
-        self._maskColor = maskColor
 
     def setMaskColor(self, maskColor):
         """
         Set the mask color
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (qtg.QColor)
+                          or (QColor)
         """
         self._maskColor = maskColor
-        c = qtg.QColor(maskColor)
-        lut = [(c.red(), c.green(), c.blue(), c.alpha()), (255, 255, 255, 0)]
-        self.setLookupTable(lut)
+        if maskColor is not None:
+            c = qtg.QColor(maskColor)
+            lut = [(c.red(), c.green(), c.blue(), c.alpha())]
+            for i in range(254):
+                lut.append((0, 0, 0, 0))
+            self.setLookupTable(lut)
 
     def getMaskColor(self):
         """ Return the mask color """
@@ -1239,7 +1367,7 @@ class _CustomMaskItem(pg.ImageItem):
 
     def setMaxBounds(self, bounds):
         """
-        :param bounds: (qtc.QRect, qtc.QRectF, or None) Specifies mask boundaries.
+        :param bounds: (QRect, QRectF, or None) Specifies mask boundaries.
                        Default is None.
         """
         pass
