@@ -162,12 +162,9 @@ class ImageView(qtw.QWidget):
         self._labelScale = qtw.QLabel('Scale: ', displayPanel)
         hLayout = qtw.QHBoxLayout()
         hLayout.addWidget(self._labelScale)
-        self._spinBoxScale = widgets.ZoomSpinBox(displayPanel,
-                                         valueType=float,
-                                         minValue=0,
-                                         maxValue=10000,
-                                         zoomUnits=widgets.ZoomSpinBox.PERCENT,
-                                         iconSize=25)
+        self._spinBoxScale = widgets.ZoomSpinBox(
+            displayPanel, valueType=float, minValue=0, maxValue=10000,
+            zoomUnits=widgets.ZoomSpinBox.PERCENT, iconSize=25)
         self._spinBoxScale.sigValueChanged[float].connect(
             self.__onSpinBoxScaleValueChanged)
         hLayout.addWidget(self._spinBoxScale)
@@ -311,10 +308,9 @@ class ImageView(qtw.QWidget):
         This slot is invoked when the mouse is moved hover de View
         :param pos: The mouse pos
         """
-        if self._maskCreatorItem is not None:
-            v = self._maskCreatorItem.isVisible()
-            self._maskPen.setVisible(v)
-            if v and pos is not None:
+        if (self._maskCreatorItem is not None and
+                self._maskCreatorItem.isVisible() and
+                pos is not None):
                 vb = self.getViewBox()
                 pos = vb.mapSceneToView(pos)
                 size = self._maskPen.size()
@@ -336,6 +332,11 @@ class ImageView(qtw.QWidget):
                                                tooltip='Select mask color',
                                                slot=self.__onSelectColor)
         tb.addAction(self._actColor)
+        self._actClearMask = widgets.TriggerAction(parent=tb,
+                                                   faIconName='fa5s.broom',
+                                                   tooltip='Clear mask',
+                                                   slot=self.__clearMask)
+        tb.addAction(self._actClearMask)
 
         self._actMaskCreatorShowHide = widgets.OnOffAction(
             tb, toolTipOn='Hide mask', toolTipOff='Show mask')
@@ -377,6 +378,17 @@ class ImageView(qtw.QWidget):
                           checked=False)
         self._actMaskCreator.setVisible(showMaskCreator)
 
+    def __clearMask(self):
+        """ Clear the mask """
+        if self._maskCreatorItem is not None:
+            data = self._maskCreatorItem.image
+            w, h = (data.shape[1],
+                    data.shape[0])
+            for i in range(w):
+                for j in range(h):
+                    data[i][j] = 0
+            self._maskCreatorItem.updateImage()
+
     def __onSelectColor(self):
         """ Invoked when select color action is triggered """
         color = qtw.QColorDialog.getColor(
@@ -390,6 +402,7 @@ class ImageView(qtw.QWidget):
                 self.__createMaskItem()
             else:
                 self._maskCreatorItem.setMaskColor(self._maskColor)
+            self._actMaskCreatorShowHide.set(True)
 
     def __onSpinBoxMaskPenValueChanged(self, size):
         """ Invoked when the pen size is changed """
@@ -405,13 +418,19 @@ class ImageView(qtw.QWidget):
 
     def __onMaskCreatorShowHideTriggered(self, state):
         """ Invoked when action mask-creator-show-hide is triggered """
+        cursor = qtc.Qt.ArrowCursor
+        self._maskPen.setVisible(False)
         if self._actMaskCreatorShowHide.get():
+            self._maskPen.setVisible(True)
             if self._maskCreatorItem is None:
                 self.__createMaskItem()
             else:
                 self.getViewBox().addItem(self._maskCreatorItem)
+            cursor = qtc.Qt.CrossCursor
         elif self._maskCreatorItem is not None:
             self.getViewBox().removeItem(self._maskCreatorItem)
+
+        self._imageView.setCursor(cursor)
         # make circle pen
         self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
 
@@ -455,16 +474,22 @@ class ImageView(qtw.QWidget):
         w, h = (imageItem.width(), imageItem.height())
         if w is not None and h is not None:
             viewBox = self.getViewBox()
-            if self._maskCreatorItem is not None:
-                viewBox.removeItem(self._maskCreatorItem)
             maskData = np.zeros(shape=(w, h), dtype=np.int8)
-            self._maskCreatorItem = _CustomMaskItem(imageItem, self._maskColor,
-                                                    maskData)
+            if (self._maskCreatorItem is None or
+                    not self._maskCreatorItem.width() == w or
+                    not self._maskCreatorItem.height() == h):
+                self._maskCreatorItem = _CustomMaskItem(imageItem,
+                                                        self._maskColor,
+                                                        maskData)
+                viewBox.addItem(self._maskCreatorItem)
+            else:
+                self._maskCreatorItem.setMaskColor(self._maskColor)
+                self._maskCreatorItem.setImage(maskData)
+
             bg = self._maskButtonGroup
             self.__createMaskCreatorBrush(
                 self._spinBoxMaskPen.getValue(),
                 bg.checkedButton() == self._radioButtonRemoveMask)
-            viewBox.addItem(self._maskCreatorItem)
 
     def __setupAxis(self):
         """
@@ -651,6 +676,25 @@ class ImageView(qtw.QWidget):
                 vb.removeItem(self._textItem)
             self._maskItem = None
             self._textItem = None
+
+    def __normalizeMask(self):
+        """
+        Normalize the mask by setting the pixel values to 0 and 1
+        :return: (u8bit numpy array) the mask
+        """
+        if self._maskCreatorItem is not None:
+            data = self._maskCreatorItem.image
+            w, h = (data.shape[1],
+                    data.shape[0])
+            maskData = np.zeros(shape=(w, h), dtype=np.uint8)
+            for i in range(w):
+                for j in range(h):
+                    if data[i][j] <= 1:
+                        maskData[i][j] = 0
+                    else:
+                        maskData[i][j] = 1
+            return maskData
+        return None
 
     @qtc.pyqtSlot()
     def __resetView(self):
@@ -850,6 +894,8 @@ class ImageView(qtw.QWidget):
             self.updateImageScale()
 
         self._model = imageModel
+        if self._maskCreatorItem is not None:
+            self.__createMaskItem()
         self.sigScaleChanged.emit(self._scale)
 
     def updateImageScale(self):
@@ -1192,6 +1238,10 @@ class ImageView(qtw.QWidget):
 
         self._exporter.parameters()['antialias'] = antialias
         self._exporter.export(path)
+
+    def getCreatedMask(self):
+        """ Return the mask created by the user using the Mask Creator Tools """
+        return self.__normalizeMask()
 
 
 class ImageExporter(pgImageExporter):
