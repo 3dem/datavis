@@ -1,25 +1,45 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import numpy as np
+import pyqtgraph as pg
+
 import datavis as dv
 
 
-class TestColumnsView(dv.tests.TestView):
-    __title = "ColumnsView example"
+class TestDataView(dv.tests.TestView):
+    __title = "DataView example"
 
     def getDataPaths(self):
         return ['']
 
     def createView(self):
-        return dv.views.ColumnsView(model=createTableModel())
+        return dv.views.DataView(model=createTableModel((60, 60)))
 
 
-def createTableModel():
+class SimpleItemsModel(dv.models.SimpleTableModel):
+    """ Example class implementing a simple items model """
+
+    def __init__(self, columInfo):
+        """
+        Creates an SimpleItemsModel.
+        :param columInfo: (list) The list of ColumnInfo
+        """
+        dv.models.SimpleTableModel.__init__(self, columInfo)
+
+    def getData(self, row, col):
+        v = self.getValue(row, col)
+        if isinstance(v, np.ndarray):
+            return v
+        return None
+
+
+def createTableModel(imgSize):
     """
     Creates a SimpleTableModel from a raw string
-    :return: (SimpleTableModel)
+    :return: (SimpleTableModel). The data model .
     """
-    star = """1 001@../input_particles.mrcs 1 0.100 2.0 300.0 1 -39.034721 16.49
+    star = """1 001@../input_particles.mrcs 1 0.100 2.0 300.0 1 -39.034721 16.49 
      2 002@../input_particles.mrcs 1 0.100 2.0 300.0 1 -42.167542 81.923042  
      3 003@../input_particles.mrcs 1 0.100 2.0 300.0 1 159.489304 141.634064 
      4 004@../input_particles.mrcs 1 0.100 2.0 300.0 1 83.591354 12.817675  
@@ -228,7 +248,7 @@ def createTableModel():
 
     ColumnInfo = dv.models.ColumnInfo
     colInfo = [ColumnInfo('rlnImageId', dv.models.TYPE_INT),
-               ColumnInfo('rlnImageName', dv.models.TYPE_STRING),
+               ColumnInfo('rlnImageData', dv.models.TYPE_STRING),
                ColumnInfo('rlnEnabled', dv.models.TYPE_BOOL),
                ColumnInfo('rlnAmplitudeContrast', dv.models.TYPE_FLOAT),
                ColumnInfo('rlnSphericalAberration', dv.models.TYPE_FLOAT),
@@ -236,12 +256,16 @@ def createTableModel():
                ColumnInfo('rlnGroupNumber', dv.models.TYPE_FLOAT),
                ColumnInfo('rlnAngleRot', dv.models.TYPE_FLOAT),
                ColumnInfo('rlnAngleTilt', dv.models.TYPE_FLOAT)]
-    model = dv.models.SimpleTableModel(colInfo)
+    model = SimpleItemsModel(colInfo)
     for line in star.split('\n'):
-        line = line.strip()
-        model.addRow(line.split())
+        line = line.strip().split()
+        line[1] = pg.gaussianFilter(np.random.normal(size=imgSize),
+                                    (5, 5))
+        model.addRow(line)
+
     return model
 
 
 if __name__ == '__main__':
-    TestColumnsView().runApp()
+    TestDataView().runApp()
+

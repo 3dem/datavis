@@ -280,8 +280,9 @@ class ImageView(qtw.QWidget):
                                            faIconName='fa.adjust')
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
         # --Mask Creator--
-        self.__addMaskCreatorTools(self._toolBar, kwargs.get('showMaskCreator',
-                                                             False))
+        self.__addMaskCreatorTools(self._toolBar,
+                                   kwargs.get('showMaskCreator', False),
+                                   kwargs.get('maskPenSize', 30))
         # --End-Mask Creator--
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
@@ -316,7 +317,7 @@ class ImageView(qtw.QWidget):
                 size = self._maskPen.size()
                 self._maskPen.setPos(pos - size / 2)
 
-    def __addMaskCreatorTools(self, toolbar, showMaskCreator):
+    def __addMaskCreatorTools(self, toolbar, showMaskCreator, penSize=5):
         """ Creates the mask creator panel """
         maskPanel = toolbar.createPanel('maskCreatorPanel')
         layout = qtw.QVBoxLayout(maskPanel)
@@ -352,8 +353,8 @@ class ImageView(qtw.QWidget):
         layout.addWidget(tb)
         tb.addWidget(qtw.QLabel("<strong>Pen:</strong>", tb))
         self._spinBoxMaskPen = widgets.IconSpinBox(
-            maskPanel, valueType=int, minValue=50, maxValue=10000,
-            iconName='fa5s.pen', iconSize=16, sufix=' px')
+            maskPanel, valueType=int, minValue=5, maxValue=10000,
+            currentValue=penSize, iconName='fa5s.pen', iconSize=16, sufix=' px')
         self._spinBoxMaskPen.sigValueChanged[int].connect(
             self.__onSpinBoxMaskPenValueChanged)
         self._spinBoxMaskPen.setMinimumHeight(30)
@@ -375,7 +376,7 @@ class ImageView(qtw.QWidget):
         self._radioButtonRemoveMask.setChecked(True)
         layout.addWidget(tb)
         toolbar.addAction(self._actMaskCreator, maskPanel, exclusive=False,
-                          checked=False)
+                          checked=showMaskCreator)
         self._actMaskCreator.setVisible(showMaskCreator)
 
     def __clearMask(self):

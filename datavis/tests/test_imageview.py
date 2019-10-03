@@ -16,7 +16,7 @@ class TestImageView(dv.tests.TestView):
     def createView(self):
         imageView = dv.views.ImageView(parent=None, border_color='#FFAA33')
         data = pg.gaussianFilter(np.random.normal(size=(512, 512)),
-                                 (5, 5)) * 20 + 100
+                                 (5, 5))
         imgModel = dv.models.ImageModel(data)
         imageView.setModel(imgModel)
         dim_x, dim_y = imgModel.getDim()

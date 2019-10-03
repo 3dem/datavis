@@ -386,13 +386,6 @@ class SimpleTableModel(TableModel):
         """
         raise Exception("Not implemented")
 
-    def createDefaultConfig(self):
-        """ Create the default TableConfig based on the columns on this table.
-        """
-        cols = [ColumnConfig(c.getName(), c.getType())
-                for c in self.iterColumns()]
-        return TableConfig(*cols)
-
     def addRow(self, row):
         """
         Add a row to the end of the model

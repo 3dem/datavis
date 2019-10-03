@@ -47,7 +47,7 @@ class ItemsView(PagingView):
         self._model = None
         self._config = None
         self._pageItemModel = None
-        self.setModel(kwargs['model'], kwargs.get('config', None))
+        self.setModel(kwargs['model'], kwargs.get('displayConfig', None))
 
     def _createContentWidget(self):
         mainWidget = qtw.QWidget(self)
@@ -201,6 +201,11 @@ class ItemsView(PagingView):
         """Slot for model data changed notification """
         self.__updatePagingInfo()
         self._imageView.setVisible(self._pageItemModel.hasRenderableColumn())
+        tableConfig = self._pageItemModel.getDisplayConfig()
+        indexes = [i for i, c in tableConfig.iterColumns(renderable=True)]
+
+        self.setModelColumn(indexes[0] if indexes else 0)
+        self.__loadRowImages()
         self._pageBar.setPagingInfo(self._pagingInfo)
 
     def selectRow(self, row):
@@ -275,3 +280,4 @@ class ItemsView(PagingView):
         :param column: (int) Column index. 0 is the first index.
         """
         self._column = column
+
