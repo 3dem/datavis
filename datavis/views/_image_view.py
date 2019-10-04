@@ -82,6 +82,10 @@ class ImageView(qtw.QWidget):
                           Example: '#66212a55' in ARGB format
         showMaskCreator: (bool) Show/Hide the Mask-Creator tool.
                          Default value: False
+        maskCreatorData: (int) Initial mask values for mask-creator.
+                         Possible values: 0(default) or 1.
+        maskCreatorOp: (Boolean) Initial mask-creator operation.
+                       True: Add, False: Remove
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = None
@@ -125,6 +129,7 @@ class ImageView(qtw.QWidget):
         }
 
         self._maskPen = PenROI((0, 0), 20, **d)
+        self._maskCreatorData = kwargs.get('maskCreatorData', 0)
         self.__setupGUI(**kwargs)
         self.__setupImageView()
         self._maskItem = None
@@ -142,8 +147,9 @@ class ImageView(qtw.QWidget):
         v.addItem(self._maskPen)
         self._maskPen.setAcceptedMouseButtons(qtc.Qt.NoButton)
         self._maskPen.setAcceptHoverEvents(False)
-        self._maskPen.setVisible(False)
         self._maskPen.setZValue(0)
+        self._maskPen.setVisible(False)
+
         scene = v.scene()
         if scene is not None:
             scene.sigMouseMoved.connect(self.__viewBoxMouseMoved)
@@ -282,7 +288,8 @@ class ImageView(qtw.QWidget):
         # --Mask Creator--
         self.__addMaskCreatorTools(self._toolBar,
                                    kwargs.get('showMaskCreator', False),
-                                   kwargs.get('maskPenSize', 30))
+                                   kwargs.get('maskPenSize', 30),
+                                   kwargs.get('maskCreatorOp', False))
         # --End-Mask Creator--
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
@@ -312,12 +319,13 @@ class ImageView(qtw.QWidget):
         if (self._maskCreatorItem is not None and
                 self._maskCreatorItem.isVisible() and
                 pos is not None):
-                vb = self.getViewBox()
-                pos = vb.mapSceneToView(pos)
-                size = self._maskPen.size()
-                self._maskPen.setPos(pos - size / 2)
+            vb = self.getViewBox()
+            pos = vb.mapSceneToView(pos)
+            size = self._maskPen.size()
+            self._maskPen.setPos(pos - size / 2)
 
-    def __addMaskCreatorTools(self, toolbar, showMaskCreator, penSize=5):
+    def __addMaskCreatorTools(self, toolbar, showMaskCreator, penSize=5,
+                              add=False):
         """ Creates the mask creator panel """
         maskPanel = toolbar.createPanel('maskCreatorPanel')
         layout = qtw.QVBoxLayout(maskPanel)
@@ -341,7 +349,7 @@ class ImageView(qtw.QWidget):
 
         self._actMaskCreatorShowHide = widgets.OnOffAction(
             tb, toolTipOn='Hide mask', toolTipOff='Show mask')
-        self._actMaskCreatorShowHide.set(False)
+        self._actMaskCreatorShowHide.set(showMaskCreator)
         self._actMaskCreatorShowHide.sigStateChanged.connect(
             self.__onMaskCreatorShowHideTriggered)
         tb.addAction(self._actMaskCreatorShowHide)
@@ -371,23 +379,30 @@ class ImageView(qtw.QWidget):
         self._maskButtonGroup.setExclusive(True)
         self._maskButtonGroup.addButton(self._radioButtonRemoveMask)
         self._maskButtonGroup.addButton(self._radioButtonAddMask)
+        if add:
+            self._radioButtonAddMask.setChecked(True)
+        else:
+            self._radioButtonRemoveMask.setChecked(True)
+
         self._maskButtonGroup.buttonToggled[qtw.QAbstractButton, bool].connect(
             self.__onActionMaskToggled)
-        self._radioButtonRemoveMask.setChecked(True)
         layout.addWidget(tb)
         toolbar.addAction(self._actMaskCreator, maskPanel, exclusive=False,
                           checked=showMaskCreator)
         self._actMaskCreator.setVisible(showMaskCreator)
+        self._maskPen.setVisible(showMaskCreator)
+        self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
 
     def __clearMask(self):
         """ Clear the mask """
         if self._maskCreatorItem is not None:
             data = self._maskCreatorItem.image
+            v = 2 if self._radioButtonRemoveMask.isChecked() else 0
             w, h = (data.shape[1],
                     data.shape[0])
             for i in range(w):
                 for j in range(h):
-                    data[i][j] = 0
+                    data[i][j] = v
             self._maskCreatorItem.updateImage()
 
     def __onSelectColor(self):
@@ -400,7 +415,7 @@ class ImageView(qtw.QWidget):
             self._actColor.setIcon(qta.icon('fa5s.palette',
                                             color=self._maskColor))
             if self._maskCreatorItem is None:
-                self.__createMaskItem()
+                self.__createMaskItem(1 if self._maskCreatorData == 0 else 2)
             else:
                 self._maskCreatorItem.setMaskColor(self._maskColor)
             self._actMaskCreatorShowHide.set(True)
@@ -408,8 +423,7 @@ class ImageView(qtw.QWidget):
     def __onSpinBoxMaskPenValueChanged(self, size):
         """ Invoked when the pen size is changed """
         bg = self._maskButtonGroup
-        self.__createMaskCreatorBrush(
-            size, bg.checkedButton() == self._radioButtonRemoveMask)
+        self.__createMaskCreatorBrush(size)
         pos = self._maskPen.pos()
         oldSize = self._maskPen.size()
         newsize = pg.Point(size, size)
@@ -424,7 +438,7 @@ class ImageView(qtw.QWidget):
         if self._actMaskCreatorShowHide.get():
             self._maskPen.setVisible(True)
             if self._maskCreatorItem is None:
-                self.__createMaskItem()
+                self.__createMaskItem(1 if self._maskCreatorData == 0 else 2)
             else:
                 self.getViewBox().addItem(self._maskCreatorItem)
             cursor = qtc.Qt.CrossCursor
@@ -439,22 +453,19 @@ class ImageView(qtw.QWidget):
         """ Invoked que the action mask button is toggled """
         if checked:
             if button == self._radioButtonRemoveMask:
-                self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue(),
-                                              True)
+                self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue())
                 self._maskPen.setPen(self._removeMaskPen)
             else:
-                self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue(),
-                                              False)
+                self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue())
                 self._maskPen.setPen(self._addMaskPen)
 
-    def __createMaskCreatorBrush(self, size, add):
+    def __createMaskCreatorBrush(self, size):
         """ Create the mask creator brush """
         if self._maskCreatorItem is not None:
             roi = pg.CircleROI((0, 0), size)
             path = roi.shape()
             k = []
             pos = pg.Point()
-            mode = 'add' if add else 'set'
             for i in range(size):
                 r = []
                 for j in range(size):
@@ -467,15 +478,26 @@ class ImageView(qtw.QWidget):
             self._maskCreatorItem.setDrawKernel(kern, mask=kern,
                                                 center=(int(size/2),
                                                         int(size/2)),
-                                                mode=mode)
+                                                mode=self.__drawMask)
 
-    def __createMaskItem(self):
-        """ Create the mask item """
+    def __drawMask(self, dk, image, mask, ss, ts, ev):
+        """ Function passed to ImageItem for draw mode """
+        mask = mask[ss]
+        if self._radioButtonRemoveMask.isChecked():
+            image[ts] |= 1 + mask
+        else:
+            image[ts] = image[ts] * (1 - mask)
+
+        self._maskCreatorItem.updateImage()
+
+    def __createMaskItem(self, data=0):
+        """ Create the mask item, initializing the mask with the given value """
         imageItem = self.getImageItem()
         w, h = (imageItem.width(), imageItem.height())
         if w is not None and h is not None:
             viewBox = self.getViewBox()
-            maskData = np.zeros(shape=(w, h), dtype=np.int8)
+
+            maskData = np.full(shape=(w, h), fill_value=data, dtype=np.int8)
             if (self._maskCreatorItem is None or
                     not self._maskCreatorItem.width() == w or
                     not self._maskCreatorItem.height() == h):
@@ -487,10 +509,7 @@ class ImageView(qtw.QWidget):
                 self._maskCreatorItem.setMaskColor(self._maskColor)
                 self._maskCreatorItem.setImage(maskData)
 
-            bg = self._maskButtonGroup
-            self.__createMaskCreatorBrush(
-                self._spinBoxMaskPen.getValue(),
-                bg.checkedButton() == self._radioButtonRemoveMask)
+            self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue())
 
     def __setupAxis(self):
         """
@@ -895,8 +914,8 @@ class ImageView(qtw.QWidget):
             self.updateImageScale()
 
         self._model = imageModel
-        if self._maskCreatorItem is not None:
-            self.__createMaskItem()
+        if self._actMaskCreatorShowHide.get():
+            self.__createMaskItem(1 if self._maskCreatorData == 0 else 2)
         self.sigScaleChanged.emit(self._scale)
 
     def updateImageScale(self):
@@ -1240,7 +1259,7 @@ class ImageView(qtw.QWidget):
         self._exporter.parameters()['antialias'] = antialias
         self._exporter.export(path)
 
-    def getCreatedMask(self):
+    def getMaskImage(self):
         """ Return the mask created by the user using the Mask Creator Tools """
         return self.__normalizeMask()
 
