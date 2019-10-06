@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-
-from PyQt5.QtCore import pyqtSlot, QSize
+import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
 from datavis.widgets import (PageBar, TriggerAction, ZoomSpinBox, PagingInfo,
@@ -160,7 +159,7 @@ class VolumeView(qtw.QWidget):
         imgView = d.getImageView()
         imgView.setRoiMaskSize(size)
 
-    @pyqtSlot(float, int)
+    @qtc.pyqtSlot(float, int)
     def __updateImageScale(self, scale, axis):
         """
         Update the combobox for image scale
@@ -170,21 +169,21 @@ class VolumeView(qtw.QWidget):
         self._zoomSpinImg.setValue(scale * 100)
         self._multiSlicesView.setScale(scale)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onChangeCellSize(self, size):
         """
         This slot is invoked when the cell size need to be rearranged
         """
         self._galleryView.setIconSize(size)
 
-    @pyqtSlot(float)
+    @qtc.pyqtSlot(float)
     def _onChangeImgZoom(self, zoom):
         """
         This slot is invoked when the image zoom need to be rearranged
         """
         self._multiSlicesView.setScale(zoom * 0.01)
 
-    @pyqtSlot(bool)
+    @qtc.pyqtSlot(bool)
     def _onMultiSlicesViewTriggered(self, checked):
         """ Triggered function for multislices view action """
         if checked:
@@ -194,13 +193,13 @@ class VolumeView(qtw.QWidget):
         self._aGallery.setChecked(not checked)
         self.__setupToolBar()
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onGalleryRowChanged(self, row):
         """ Invoked when change the current gallery row """
         axis = self._axisSelector.getCurrentAxis()
         self._multiSlicesView.setValue(row + 1, axis)
 
-    @pyqtSlot(bool)
+    @qtc.pyqtSlot(bool)
     def _onGalleryViewTriggered(self, checked):
         """ Triggered function for gallery view action """
         if checked:
@@ -216,7 +215,7 @@ class VolumeView(qtw.QWidget):
         self._aSlices.setChecked(not checked)
         self.__setupToolBar()
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onAxisChanged(self, axis):
         """
         Invoked when the current value for ComboBox axis has been changed
@@ -247,7 +246,7 @@ class VolumeView(qtw.QWidget):
                                    minMax=self._model.getMinMax())
         self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onVolumeChanged(self, index):
         # FIXME [phv] Review the volume stacks
         pass

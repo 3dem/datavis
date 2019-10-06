@@ -1,4 +1,6 @@
 
+from collections import OrderedDict
+
 from ._constants import *
 
 
@@ -338,3 +340,57 @@ class ColumnConfig(ColumnInfo):
             s += "    %s: %s\n" % (p, self[p])
 
         return s
+
+
+class SimpleTableModel(TableModel):
+    """ Implementation of TableModel using list for store data """
+    def __init__(self, columnsInfo):
+        """
+        Create an SimpleTableModel object.
+        :param columnsInfo: (list of ColumnInfo) The list of columns info
+        """
+        self._tableName = 'noname'
+        self._columnsInfo = columnsInfo or []
+        self._columns = OrderedDict()
+        for i, info in enumerate(self._columnsInfo):
+            self._columns[i] = []
+
+    def getTableNames(self):
+        return [self._tableName]
+
+    def getTableName(self):
+        return self._tableName
+
+    def _loadTable(self, tableName):
+        return None
+
+    def iterColumns(self):
+        """ Generate a ColumnInfo iterator over the columns of the model. """
+        return iter(self._columnsInfo)
+
+    def getColumnsCount(self):
+        """ Return the number of columns. """
+        return len(self._columnsInfo)
+
+    def getRowsCount(self):
+        """ Return the number of rows. """
+        return len(self._columns[0]) if self._columns else 0
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        return self._columns[col][row]
+
+    def getData(self, row, col):
+        """ Return the data (array like) for the item in this row, column.
+         Used by rendering of images in a given cell of the table.
+        """
+        raise Exception("Not implemented")
+
+    def addRow(self, row):
+        """
+        Add a row to the end of the model
+        :param row: (list of values)
+        """
+        if len(row) == len(self._columnsInfo):
+            for i, col in self._columns.items():
+                col.append(row[i])

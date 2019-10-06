@@ -1,10 +1,9 @@
 
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-                             QSplitter)
-from PyQt5.QtCore import Qt
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
 
 
-class ViewPanel(QWidget):
+class ViewPanel(qtw.QWidget):
     """ The ViewPanel contains widgets organized according to the specific
     layout."""
 
@@ -20,10 +19,10 @@ class ViewPanel(QWidget):
     VSPLITTER = 4
 
     def __init__(self, parent, layoutType=HORIZONTAL):
-        QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=parent)
         self._mainLayout = self.__createLayout(layoutType)
-        if isinstance(self._mainLayout, QSplitter):
-            layout = QVBoxLayout(self)
+        if isinstance(self._mainLayout, qtw.QSplitter):
+            layout = qtw.QVBoxLayout(self)
             layout.addWidget(self._mainLayout)
 
         self._widgets = dict()
@@ -43,20 +42,22 @@ class ViewPanel(QWidget):
                             "VERTICAL, HSPLITTER, VSPLITTER or GRID"
                             % type)
         if type == ViewPanel.HORIZONTAL:
-            layout = QHBoxLayout(self)
+            layout = qtw.QHBoxLayout(self)
         elif type == ViewPanel.VERTICAL:
-            layout = QVBoxLayout(self)
+            layout = qtw.QVBoxLayout(self)
         elif type == ViewPanel.GRID:
-            layout = QGridLayout(self)
+            layout = qtw.QGridLayout(self)
         else:
-            h = Qt.Horizontal if type == ViewPanel.HSPLITTER else Qt.Vertical
-            layout = QSplitter(orientation=h, parent=self)
+            hor = qtc.Qt.Horizontal
+            h = hor if type == ViewPanel.HSPLITTER else qtc.Qt.Vertical
+            layout = qtw.QSplitter(orientation=h, parent=self)
         return layout
 
-    def addWidget(self, widget, key, alignment=Qt.Alignment(), row=-1, col=-1):
+    def addWidget(self, widget, key, alignment=qtc.Qt.Alignment(), row=-1, 
+                  col=-1):
         """
         Add a widget to the internal layout
-        :param widget:     (QWidget) The widget
+        :param widget:     (qtw.QWidget) The widget
         :param key:        Unique key for the widget
         :param alignment:  (Qt.Alignment) The alignment for the widget.
                            Default value is Qt.AlignCenter

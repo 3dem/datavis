@@ -1,20 +1,17 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from datavis.core import ModelsFactory
-from datavis.views import DualImageListView
-from test_commons import TestView
+import numpy as np
+import pyqtgraph as pg
+
+import datavis as dv
 
 
-class TestDualImageListView(TestView):
+class TestDualImageListView(dv.tests.TestView):
     __title = "DualImageListView example"
 
     def getDataPaths(self):
-        return [
-            self.getPath("relion_tutorial", "micrographs", "006.mrc"),
-            self.getPath("relion_tutorial", "micrographs", "008.mrc"),
-            self.getPath("relion_tutorial", "micrographs", "016.mrc")
-        ]
+        return ['']
 
     def createView(self):
         tool_params1 = [
@@ -82,10 +79,12 @@ class TestDualImageListView(TestView):
                 'value': 1,  # values in enum are int, in this case it is 'LoG'
                 'label': 'Picking method',
                 'help': 'Select the picking strategy that you want to use. ',
-                # display should be optional, for most params, a textbox is the default
-                # for enum, a combobox is the default, other options could be sliders
-                'display': 'combo'
-            # or 'combo' or 'vlist' or 'hlist' or 'slider'
+                # display should be optional, for most params, a textbox is the
+                # default
+                # for enum, a combobox is the default, other options could be
+                # sliders
+                'display': 'combo'  # or 'combo' or 'vlist' or 'hlist' or
+                # 'slider'
             },
             {
                 'name': 'threshold3',
@@ -95,9 +94,61 @@ class TestDualImageListView(TestView):
                 'help': 'If this is a boolean param'
             }
         ]
-        return DualImageListView(
-            None, ModelsFactory.createListModel(self.getDataPaths()),
+        return dv.views.DualImageListView(
+            None, SimpleListModel(['image %d' % i for i in range(10)],
+                                  'Image', (512, 512)),
             options=tool_params1, method=printFunc)
+
+
+class SimpleListModel(dv.models.ListModel):
+    """ The SimpleListModel class is an example implementation of ListModel
+    """
+    def __init__(self, names, columnName, imgSize):
+        """
+        Create an SimpleListModel
+        :param names: (list) A list of names
+        """
+        self._names = list(names)
+        self._columnName = columnName or 'Image'
+        self._imgSize = imgSize
+        self._imgData = dict()
+
+        self._tableName = ''
+        self._tableNames = [self._tableName]
+
+    def iterColumns(self):
+        yield dv.models.ColumnInfo(self._columnName, dv.models.TYPE_STRING)
+
+    def getRowsCount(self):
+        """ Return the number of rows. """
+        return len(self._names)
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        return self._names[row]
+
+    def getData(self, row, col=0):
+        """ Return the data (array like) for the item in this row, column.
+         Used by rendering of images in a given cell of the table.
+        """
+        data = self._imgData.get(row)
+        if data is None:
+            data = pg.gaussianFilter(np.random.normal(size=self._imgSize),
+                                    (5, 5))
+            self._imgData[row] = data
+
+        return data
+
+    def getModel(self, row):
+        """ Return the model for the given row """
+        return dv.models.ImageModel(self.getData(row))
+
+    def createDefaultConfig(self):
+        c = dv.models.ListModel.createDefaultConfig(self)
+        cc = c[0]
+        cc[dv.models.RENDERABLE] = True
+        return c
+
 
 def printFunc(*args):
     print(args)

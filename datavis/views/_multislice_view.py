@@ -1,66 +1,64 @@
 
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
+import PyQt5.QtGui as qtg
 
-from PyQt5.QtWidgets import (QWidget, QGridLayout, QGraphicsWidget,
-                             QStackedLayout)
-from PyQt5.QtCore import QSize, pyqtSlot, pyqtSignal, Qt
-from PyQt5.QtGui import QPalette, QPainter, QPainterPath, QPen, QColor
-
-from datavis.models import AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
+import datavis as dv
 
 from ._slices_view import SlicesView
 from ._constants import AXIS_BOTTOM_LEFT, AXIS_BOTTOM_RIGHT, AXIS_TOP_LEFT
 
 
-class MultiSliceView(QWidget):
+class MultiSliceView(qtw.QWidget):
     """
     This view is currently used for displaying 3D volumes and it is composed
     by 3 SlicerViews and a custom 2D plot showing the axis and the slider
     position. This view is the default for Volumes.
     """
     # Signal for current slice changed(axis, slice)
-    sigSliceChanged = pyqtSignal(int, int)
+    sigSliceChanged = qtc.pyqtSignal(int, int)
 
     # Signal for current axis changed(axis)
-    sigAxisChanged = pyqtSignal(int)
+    sigAxisChanged = qtc.pyqtSignal(int)
 
     # Signal for scale changed (scale, axis)
-    sigScaleChanged = pyqtSignal(float, int)
+    sigScaleChanged = qtc.pyqtSignal(float, int)
 
     """ """
 
-    def __init__(self, parent, slicesKwargs, mode=AXIS_XYZ):
+    def __init__(self, parent, slicesKwargs, mode=dv.models.AXIS_XYZ):
         """
-        parent:       (QWidget) Parent QWidget
+        parent:       (qtw.QWidget) Parent qtw.QWidget
         slicesKwargs: (dict)A dict with keys of axis () and values for the model
                       for each axis.
         mode:         (int) Specifies which axis will be visible.
                             Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
         """
-        QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=parent)
         self._slicesKwargs = slicesKwargs
         self._slicesDict = {}
-        self._axis = AXIS_X
+        self._axis = dv.models.AXIS_X
         self._slice = -1
         self._mode = mode
         self.__setupGUI()
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
-        mainLayout = QGridLayout(self)
+        mainLayout = qtw.QGridLayout(self)
         mainLayout.setSpacing(0)
         mainLayout.setContentsMargins(0, 0, 0, 0)
 
         axisPos = {
-            AXIS_X: [1, 2],
-            AXIS_Y: [0, 1],
-            AXIS_Z: [1, 1],
-            AXIS_XYZ: [0, 1]
+            dv.models.AXIS_X: [1, 2],
+            dv.models.AXIS_Y: [0, 1],
+            dv.models.AXIS_Z: [1, 1],
+            dv.models.AXIS_XYZ: [0, 1]
         }
 
         slicesInfo = {
-            AXIS_X: ('X Axis (side)', [1, 1], self._onSliceXChanged),
-            AXIS_Y: ('Y Axis (top)', [0, 0], self._onSliceYChanged),
-            AXIS_Z: ('Z Axis (front)', [1, 0], self._onAxisZChanged)
+            dv.models.AXIS_X: ('X Axis (side)', [1, 1], self._onSliceXChanged),
+            dv.models.AXIS_Y: ('Y Axis (top)', [0, 0], self._onSliceYChanged),
+            dv.models.AXIS_Z: ('Z Axis (front)', [1, 0], self._onAxisZChanged)
         }
 
         # Build one SlicesView for each axis, taking into account the
@@ -87,16 +85,16 @@ class MultiSliceView(QWidget):
                            'font-weight': 'bold'}
         }
         axisImgViewKargs = {
-            AXIS_X: {'labelX': zArgs, 'labelY': yArgs,
+            dv.models.AXIS_X: {'labelX': zArgs, 'labelY': yArgs,
                      'axisPos': AXIS_BOTTOM_RIGHT},
-            AXIS_Y: {'labelX': xArgs, 'labelY': zArgs,
+            dv.models.AXIS_Y: {'labelX': xArgs, 'labelY': zArgs,
                      'axisPos': AXIS_TOP_LEFT},
-            AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
+            dv.models.AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
                      'axisPos': AXIS_BOTTOM_LEFT}
         }
 
-        if not self._mode == AXIS_XYZ:
-            layout = QStackedLayout()
+        if not self._mode == dv.models.AXIS_XYZ:
+            layout = qtw.QStackedLayout()
         else:
             layout = mainLayout
 
@@ -117,7 +115,7 @@ class MultiSliceView(QWidget):
             # FIXME[phv] Determine how to pass the AXIS
             imgView.sigScaleChanged.connect(self.__onScaleChanged)
             imgView.sigMaskSizeChanged.connect(self.__onMaskSizeChanged)
-            if self._mode == AXIS_XYZ:
+            if self._mode == dv.models.AXIS_XYZ:
                 layout.addWidget(sv, *pos)
             else:
                 layout.addWidget(sv)
@@ -125,23 +123,24 @@ class MultiSliceView(QWidget):
             self._slicesDict[axis] = sv
 
         self._axisWidget = AxisWidget(self)
-        if not self._mode == AXIS_XYZ:
-            mainLayout.addWidget(self._axisWidget, 0, 1, alignment=Qt.AlignTop)
+        if not self._mode == dv.models.AXIS_XYZ:
+            mainLayout.addWidget(self._axisWidget, 0, 1, 
+                                 alignment=qtc.Qt.AlignTop)
             mainLayout.addLayout(layout, 0, 0)
         else:
             mainLayout.addWidget(self._axisWidget, 0, 1)
 
         self._mainLayout = mainLayout
 
-    @pyqtSlot(float)
+    @qtc.pyqtSlot(float)
     def __onScaleChanged(self, scale):
         """ Called when the image scale is changed """
         self.setScale(scale)
-        self.sigScaleChanged.emit(scale, AXIS_X)
+        self.sigScaleChanged.emit(scale, dv.models.AXIS_X)
 
     def __onMaskSizeChanged(self, size):
         """ Called when the roi size is changed """
-        for axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+        for axis in [dv.models.AXIS_X, dv.models.AXIS_Y, dv.models.AXIS_Z]:
             imgView = self._slicesDict[axis].getImageView()
             imgView.setRoiMaskSize(size)
 
@@ -161,20 +160,20 @@ class MultiSliceView(QWidget):
             self.sigAxisChanged.emit(self._axis)
         self.sigSliceChanged.emit(axis, value)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onSliceYChanged(self, value):
         """ Called when the slice index is changed in Y axis """
-        self._onSliceChanged(AXIS_Y, value)
+        self._onSliceChanged(dv.models.AXIS_Y, value)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onAxisZChanged(self, value):
         """ Called when the slice index is changed in Z axis """
-        self._onSliceChanged(AXIS_Z, value)
+        self._onSliceChanged(dv.models.AXIS_Z, value)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onSliceXChanged(self, value):
         """ Called when the slice index is changed in Z axis """
-        self._onSliceChanged(AXIS_X, value)
+        self._onSliceChanged(dv.models.AXIS_X, value)
 
     def getValue(self, axis=None):
         """ Return the current slice index for a given axis.
@@ -201,10 +200,10 @@ class MultiSliceView(QWidget):
         Sets the current axis. Updates the axis graphic.
         :param axis: (int) The axis (AXIS_X or AXIS_Y or AXIS_Z)
         """
-        if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+        if axis in [dv.models.AXIS_X, dv.models.AXIS_Y, dv.models.AXIS_Z]:
             e = not self._axis == axis
             self._axis = axis
-            if not self._mode == AXIS_XYZ:
+            if not self._mode == dv.models.AXIS_XYZ:
                 s = self._mainLayout.itemAtPosition(0, 0).layout()
                 s.setCurrentWidget(self._slicesDict[axis])
             self._onSliceChanged(axis, self._slicesDict[axis].getValue())
@@ -219,7 +218,7 @@ class MultiSliceView(QWidget):
         :param axis: (int) The axis. (AXIS_X or AXIS_Y or AXIS_Z)
         :return:     (str) The label text
         """
-        if axis in [AXIS_X, AXIS_Y, AXIS_Z]:
+        if axis in [dv.models.AXIS_X, dv.models.AXIS_Y, dv.models.AXIS_Z]:
             return self._slicesDict[axis].getText()
 
         raise Exception("Invalid axis: %d" % axis)
@@ -235,7 +234,8 @@ class MultiSliceView(QWidget):
                 * slice (int) Default slice
         """
         if models:
-            for axis, model in zip([AXIS_X, AXIS_Y, AXIS_Z], models):
+            for axis, model in zip([dv.models.AXIS_X, dv.models.AXIS_Y,
+                                    dv.models.AXIS_Z], models):
                 self._slicesDict[axis].setModel(model, **kwargs)
         else:
             self.clear()
@@ -268,8 +268,9 @@ class MultiSliceView(QWidget):
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data
         """
-        w, h = self._imageView.getPreferredSize()
-        return 2 * (w, h + self._spinSlider.height())
+        sv = self._slicesDict[dv.models.AXIS_X]
+        w, h = sv.getPreferredSize()
+        return 2 * w, 2 * h
 
 
 class RenderArea:
@@ -280,7 +281,7 @@ class RenderArea:
         self._widthy = 40
         self._shiftz = 0
         self._widthz = 20
-        self._boxaxis = AXIS_Z
+        self._boxaxis = dv.models.AXIS_Z
         self._oldPosX = 60
         self._width = 80
         self._height = 80
@@ -288,7 +289,7 @@ class RenderArea:
     def paint(self, painter):
         w = self._width
         h = self._height
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(qtg.QPainter.Antialiasing)
         painter.translate(w / 3 + 20, h / 2)
         scale = w if w < h else h
         painter.scale(scale / 100.0, scale / 100.0)
@@ -300,7 +301,7 @@ class RenderArea:
 
         # Draw Y axis
         ty = oy - wy
-        painter.setPen(QColor(200, 0, 0))
+        painter.setPen(qtg.QColor(200, 0, 0))
         painter.drawLine(ox, oy, ox, ty)
         painter.drawLine(ox, ty, ox - 1, ty + 1)
         painter.drawLine(ox, ty, ox + 1, ty + 1)
@@ -308,14 +309,14 @@ class RenderArea:
 
         # Draw X axis
         tx = ox + wx
-        painter.setPen(QColor(0, 0, 200))
+        painter.setPen(qtg.QColor(0, 0, 200))
         painter.drawLine(ox, oy, tx, oy)
         painter.drawLine(tx - 1, oy + 1, tx, oy)
         painter.drawLine(tx - 1, oy - 1, tx, oy)
         painter.drawLine(tx - 1, oy + 1, tx - 1, oy - 1)
 
         # Draw Z axis
-        painter.setPen(QColor(0, 200, 0))
+        painter.setPen(qtg.QColor(0, 200, 0))
         tzx = ox - wz
         tzy = oy + wz
         painter.drawLine(ox, oy, tzx, tzy)
@@ -325,20 +326,20 @@ class RenderArea:
         # painter.drawPath(self.path)
 
         # Draw labels
-        painter.setPen(QColor(0, 0, 0))
+        painter.setPen(qtg.QColor(0, 0, 0))
         painter.drawText(tx - 5, oy + 15, "x")
         painter.drawText(ox - 15, ty + 15, "y")
         painter.drawText(tzx + 5, tzy + 10, "z")
 
-        painter.setPen(QPen(QColor(50, 50, 50), 0.3))
-        painter.setBrush(QColor(220, 220, 220, 100))
-        rectPath = QPainterPath()
+        painter.setPen(qtg.QPen(qtg.QColor(50, 50, 50), 0.3))
+        painter.setBrush(qtg.QColor(220, 220, 220, 100))
+        rectPath = qtg.QPainterPath()
 
         self.size = float(self._widthx)
         bw = 30
         bwz = float(wz) / wx * bw
 
-        if self._boxaxis == AXIS_Z:
+        if self._boxaxis == dv.models.AXIS_Z:
             shiftz = float(self._widthz) / self.size * self._shiftz
             box = ox - shiftz
             boy = oy + shiftz
@@ -347,7 +348,7 @@ class RenderArea:
             rectPath.lineTo(box + bw, boy - bw)
             rectPath.lineTo(box + bw, boy)
 
-        elif self._boxaxis == AXIS_Y:
+        elif self._boxaxis == dv.models.AXIS_Y:
             shifty = float(self._widthy) / self.size * self._shifty
             box = ox
             boy = oy - shifty
@@ -356,7 +357,7 @@ class RenderArea:
             rectPath.lineTo(box + bw - bwz, boy + bwz)
             rectPath.lineTo(box - bwz, boy + bwz)
 
-        elif self._boxaxis == AXIS_X:
+        elif self._boxaxis == dv.models.AXIS_X:
             shiftx = float(self._widthx) / self.size * self._shiftx
             box = ox + shiftx
             boy = oy
@@ -380,29 +381,29 @@ class RenderArea:
         self._boxaxis = axis
 
     def setShift(self, axis, value):
-        if axis == AXIS_X:
+        if axis == dv.models.AXIS_X:
             self._shiftx = value
-        elif axis == AXIS_Y:
+        elif axis == dv.models.AXIS_Y:
             self._shifty = value
-        elif axis == AXIS_Z:
+        elif axis == dv.models.AXIS_Z:
             self._shiftz = value
 
 
-class AxisWidget(QWidget):
+class AxisWidget(qtw.QWidget):
     """ """
     def __init__(self, parent=None, renderArea=RenderArea()):
-        QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=parent)
         self._renderArea = renderArea
-        self.setBackgroundRole(QPalette.Base)
+        self.setBackgroundRole(qtg.QPalette.Base)
 
     def resizeEvent(self, evt):
-        QWidget.resizeEvent(self, evt)
+        qtw.QWidget.resizeEvent(self, evt)
         size = evt.size()
         self._renderArea.setWidth(size.width())
         self._renderArea.setHeight(size.height())
 
     def paintEvent(self, event):
-        painter = QPainter(self)
+        painter = qtg.QPainter(self)
         self._renderArea.paint(painter)
 
     def setShift(self, axis, value):
@@ -411,16 +412,16 @@ class AxisWidget(QWidget):
         self.update()
 
     def minimumSizeHint(self):
-        return QSize(30, 30)
+        return qtc.QSize(30, 30)
 
     def sizeHint(self):
-        return QSize(80, 80)
+        return qtc.QSize(80, 80)
 
 
-class AxisItem(QGraphicsWidget):
+class AxisItem(qtw.QGraphicsWidget):
     """ """
     def __init__(self, parent=None, renderArea=RenderArea()):
-        QGraphicsWidget.__init__(self, parent=parent)
+        qtw.QGraphicsWidget.__init__(self, parent=parent)
         self._renderArea = renderArea
 
     def setShift(self, axis, value):

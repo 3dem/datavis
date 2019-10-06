@@ -1,6 +1,5 @@
 
 import PyQt5.QtCore as qtc
-from PyQt5.QtCore import Qt, pyqtSlot
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtGui as qtg
 
@@ -45,15 +44,17 @@ class OptionList(qtw.QWidget):
             self.__singleWidget = qtw.QComboBox(self)
             self.__buttonClass = None
         elif display == 'slider':
-            self.__singleWidget = qtw.QSlider(Qt.Horizontal, self)
+            self.__singleWidget = qtw.QSlider(qtc.Qt.Horizontal, self)
             if isinstance(options, tuple):
                 self.__singleWidget.setRange(options[0], options[1])
             elif isinstance(options, list):
                 self.__singleWidget.setRange(0, len(options) - 1)
         else:
-            self.__buttonClass = \
-                buttonsClass if buttonsClass == qtw.QRadioButton \
-                                or buttonsClass == qtw.QCheckBox else None
+            RB = qtw.QRadioButton
+            CB = qtw.QCheckBox
+            c = buttonsClass if (buttonsClass == RB or
+                                 buttonsClass == CB) else None
+            self.__buttonClass = c
             self.__singleWidget = qtw.QWidget(self)
             self.__groupBoxLayout = lClass(self.__singleWidget)
             self.__groupBoxLayout.setContentsMargins(3, 3, 3, 3)
@@ -104,12 +105,13 @@ class OptionList(qtw.QWidget):
 
     def setSelectedOption(self, optionId):
         """ Set the given option as selected """
+        CB = qtw.QComboBox
         if isinstance(self.__singleWidget, qtw.QWidget):
             button = self.__buttonGroup.button(optionId)
             if button is not None:
                 button.setChecked(True)
-        elif isinstance(self.__singleWidget, qtw.QComboBox) \
-                and optionId in range(self.__singleWidget.count()):
+        elif isinstance(self.__singleWidget,
+                        CB) and optionId in range(self.__singleWidget.count()):
             self.__comboBox.setCurrentIndex(optionId)
         elif isinstance(self.__singleWidget, qtw.QSlider):
             self.__singleWidget.setValue(optionId)
@@ -124,9 +126,11 @@ class DynamicWidget(qtw.QWidget):
         self.__typeParams = typeParams
 
     def __collectData(self, item):
-        if isinstance(item, qtw.QVBoxLayout) \
-                or isinstance(item, qtw.QHBoxLayout) \
-                or isinstance(item, qtw.QGridLayout):
+        VBL = qtw.QVBoxLayout
+        HBL = qtw.QHBoxLayout
+        GL = qtw.QGridLayout
+        if isinstance(item, VBL) or isinstance(item, HBL) or isinstance(item,
+                                                                        GL):
             for index in range(item.count()):
                 self.__collectData(item.itemAt(index))
         elif isinstance(item, qtw.QWidgetItem):
@@ -149,7 +153,7 @@ class DynamicWidget(qtw.QWidget):
     def setParamWidget(self, name, param):
         self.__paramsWidgets[name] = param
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def getParams(self):
         """ Return a dict with the current params specifications for all
         widget params. The param name will be used as key for each param. """
@@ -220,7 +224,7 @@ class DynamicWidgetsFactory:
                         lab = qtw.QLabel(mainWidget)
                         lab.setText(label)
                         lab.setToolTip(param.get('help', ""))
-                        layout.addWidget(lab, row, col, Qt.AlignRight)
+                        layout.addWidget(lab, row, col, qtc.Qt.AlignRight)
                         col += 1
                     layout.addWidget(widget, row, col, 1, -1)
                     row += 1
@@ -241,7 +245,7 @@ class DynamicWidgetsFactory:
                         lab = qtw.QLabel(mainWidget)
                         lab.setText(label)
                         lab.setToolTip(param.get('help', ""))
-                        layout.addWidget(lab, row, col, Qt.AlignRight)
+                        layout.addWidget(lab, row, col, qtc.Qt.AlignRight)
                         col += 1
                     layout.addWidget(widget, row, col, 1, 1)
                     col += 1

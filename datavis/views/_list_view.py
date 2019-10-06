@@ -1,34 +1,33 @@
 
-
-from PyQt5.QtWidgets import QWidget, QSplitter, QHBoxLayout, QPushButton
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
 
 from datavis.widgets import ViewPanel, DynamicWidgetsFactory, SpinSlider
-from datavis.models import EmptyTableModel, ImageModel, EmptyVolumeModel
+from datavis.models import EmptyTableModel, ImageModel
 from datavis.views import ColumnsView, ImageView, VolumeView
 
 import numpy as np
 
 
-class ImageListView(QWidget):
+class ImageListView(qtw.QWidget):
     """ View that will show a list of images. It will serve as the base class
     for other implementations basically, it will contain a left panel with the
     list, and a right panel with ImagePanel (top) and InfoPanel (bottom). """
 
     """ Signal for current item changed. The connected slots will receive 
     the item index. """
-    sigCurrentItemChanged = pyqtSignal(int)
+    sigCurrentItemChanged = qtc.pyqtSignal(int)
 
     def __init__(self, parent, model, **kwargs):
         """
         Creates an ImageListView.
-        :param parent:  (QWidget) Specifies the parent widget to which this
+        :param parent:  (qtw.QWidget) Specifies the parent widget to which this
                         ImageListView will belong. If None, then the
                         ImageListView is created with no parent.
         :param model: (TableModel) The data model
         :param kwargs: The kwargs arguments for the internal ImageView
         """
-        QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=parent)
         self._model = model
         self.currentItem = -1
         default = {'toolBar': False}
@@ -40,10 +39,11 @@ class ImageListView(QWidget):
 
     def __setupGUI(self, **kwargs):
         """ This is the standard method for the GUI creation """
-        mainLayout = QHBoxLayout(self)
+        mainLayout = qtw.QHBoxLayout(self)
         mainLayout.setSpacing(0)
         mainLayout.setContentsMargins(1, 1, 1, 1)
-        self._splitter = QSplitter(orientation=Qt.Horizontal, parent=self)
+        self._splitter = qtw.QSplitter(orientation=qtc.Qt.Horizontal, 
+                                       parent=self)
         self._leftPanel = self._createLeftPanel(**kwargs)
         self._splitter.addWidget(self._leftPanel)
         self._rightPanel = self._createRightPanel(**kwargs)
@@ -106,7 +106,7 @@ class ImageListView(QWidget):
         if cv is not None:
             cv.sigCurrentRowChanged.connect(self.onItemChanged)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def onItemChanged(self, index):
         """ Slot for sigCurrentRowChanged signal """
         if not self.currentItem == index:
@@ -190,7 +190,7 @@ class DualImageListView(ImageListView):
         """
         ImageListView.__init__(self, parent, model, **kwargs)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def __onApplyButtonClicked(self):
         """ Slot for apply button clicked """
         if self._method is not None:
@@ -237,16 +237,16 @@ class DualImageListView(ImageListView):
             factory = DynamicWidgetsFactory()
             self._dynamicWidget = factory.createWidget(self._dynamicParams)
             panel.addWidget(self._dynamicWidget, 'optionsWidget',
-                            alignment=Qt.AlignLeft)
+                            alignment=qtc.Qt.AlignLeft)
         else:
             self._dynamicWidget = None
 
-        self._applyButton = QPushButton(panel)
+        self._applyButton = qtw.QPushButton(panel)
         self._applyButton.setText('Apply')
         self._applyButton.setFixedWidth(90)
         self._applyButton.clicked.connect(self.__onApplyButtonClicked)
         panel.addWidget(self._applyButton, 'applyButton',
-                        alignment=Qt.AlignBottom)
+                        alignment=qtc.Qt.AlignBottom)
         return panel
 
     def updateImagePanel(self):
@@ -276,7 +276,7 @@ class ImageMaskListView(ImageListView):
     def __init__(self, parent, model, **kwargs):
         """
         Construct an ImageMaskListView.
-        :param parent: (QWidget) Specifies the parent widget to which this
+        :param parent: (qtw.QWidget) Specifies the parent widget to which this
                         ImageMaskListView will belong. If None, then the
                         ImageMaskListView is created with no parent.
         :param model: (TableModel) The data model
@@ -301,7 +301,7 @@ class ImageMaskListView(ImageListView):
             panel = self._rightPanel.getWidget('bottomRightPanel')
             panel.setVisible(False)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onSpinSliderValueChanged(self, value):
         """ Slot for SpinSlider value changed """
         imageView = self.__getImageView()

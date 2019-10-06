@@ -3,10 +3,8 @@
 
 from math import log10
 
-from PyQt5.QtCore import (Qt, pyqtSlot, QSize, QModelIndex, QItemSelection,
-                          QItemSelectionModel, QItemSelectionRange)
-from PyQt5.QtWidgets import (QTableView, QHeaderView, QAbstractItemView)
-from PyQt5 import QtCore
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
 
 from .. import models
 from .. import widgets
@@ -22,9 +20,9 @@ class ColumnsView(PagingView):
     items with simple paginate elements in columns view. """
 
     # For current row changed
-    sigCurrentRowChanged = QtCore.pyqtSignal(int)
+    sigCurrentRowChanged = qtc.pyqtSignal(int)
     # when the Table has been resized (oldSize, newSize)
-    sigSizeChanged = QtCore.pyqtSignal(object, object)
+    sigSizeChanged = qtc.pyqtSignal(object, object)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -51,27 +49,27 @@ class ColumnsView(PagingView):
                       displayConfig=kwargs.get('displayConfig'))
 
     def _createContentWidget(self):
-        tv = QTableView(self)
+        tv = qtw.QTableView(self)
         hHeader = HeaderView(tv)
         hHeader.setHighlightSections(False)
         hHeader.sectionClicked.connect(self.__onHeaderClicked)
         hHeader.setSectionsMovable(True)
         tv.setHorizontalHeader(hHeader)
-        tv.verticalHeader().setTextElideMode(Qt.ElideRight)
+        tv.verticalHeader().setTextElideMode(qtc.Qt.ElideRight)
         tv.setObjectName("ColumnsViewTable")
         self._defaultDelegate = tv.itemDelegate()
         self.sigSizeChanged.connect(self.__onSizeChanged)
-        tv.setSelectionBehavior(QTableView.SelectRows)
-        tv.setSelectionMode(QTableView.SingleSelection)
+        tv.setSelectionBehavior(qtw.QTableView.SelectRows)
+        tv.setSelectionMode(qtw.QTableView.SingleSelection)
         tv.setSortingEnabled(True)
-        tv.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        tv.setVerticalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
         #tv.setStyleSheet(
-        #    "QTableView#ColumnsViewTable::item:selected:!active{"
+        #    "qtw.QTableView#ColumnsViewTable::item:selected:!active{"
         #    "selection-background-color: red;}")  # palette(light);}")
 
         tv.resizeEvent = self.__tableViewResizeEvent
         tv.setModel(None)
-        tv.setFocusPolicy(Qt.NoFocus)
+        tv.setFocusPolicy(qtc.Qt.NoFocus)
         self._tableView = tv
         return tv
 
@@ -97,11 +95,11 @@ class ColumnsView(PagingView):
 
     def __tableViewResizeEvent(self, evt):
         """
-        Reimplemented to receive QTableView resize events which are passed
+        Reimplemented to receive qtw.QTableView resize events which are passed
         in the event parameter. Emits sigSizeChanged
         :param evt: The event
         """
-        QTableView.resizeEvent(self._tableView, evt)
+        qtw.QTableView.resizeEvent(self._tableView, evt)
         self.sigSizeChanged.emit(evt.oldSize(), evt.size())
 
     def __calcPageSize(self):
@@ -149,21 +147,21 @@ class ColumnsView(PagingView):
         if selModel is not None:
             pageSize = self._pagingInfo.pageSize
             m = self._pageItemModel
-            sel = QItemSelection()
+            sel = qtc.QItemSelection()
             for row in range(page * pageSize, (page + 1) * pageSize):
                 if row in self._selection:
                     sel.append(
-                        QItemSelectionRange(m.index(row % pageSize, 0),
+                        qtc.QItemSelectionRange(m.index(row % pageSize, 0),
                                             m.index(row % pageSize,
                                                     m.columnCount() - 1)))
-            allSel = QItemSelection(m.index(0, 0),
+            allSel = qtc.QItemSelection(m.index(0, 0),
                                     m.index(pageSize - 1,
                                             m.columnCount() - 1))
-            selModel.select(allSel, QItemSelectionModel.Deselect)
+            selModel.select(allSel, qtc.QItemSelectionModel.Deselect)
             if not sel.isEmpty():
-                selModel.select(sel, QItemSelectionModel.Select)
+                selModel.select(sel, qtc.QItemSelectionModel.Select)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onHeaderClicked(self, logicalIndex):
         """
         Invoked when a section is clicked.
@@ -175,7 +173,7 @@ class ColumnsView(PagingView):
             self._selection.clear()
             self.sigSelectionChanged.emit()
 
-    @pyqtSlot(object, object)
+    @qtc.pyqtSlot(object, object)
     def __onSizeChanged(self, oldSize, newSize):
         """ Invoked when the table widget is resized """
         if not oldSize.height() == newSize.height():
@@ -184,7 +182,7 @@ class ColumnsView(PagingView):
             self._resizing = False
             self.selectRow(self._currentRow)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """
         Invoked when change current page. Emits sigCurrentRowChanged signal.
@@ -199,7 +197,7 @@ class ColumnsView(PagingView):
             self.__updateSelectionInView(page - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
-    @pyqtSlot(QModelIndex, QModelIndex)
+    @qtc.pyqtSlot(qtc.QModelIndex, qtc.QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
         """ Invoked when current row change """
         if current.isValid():
@@ -212,7 +210,7 @@ class ColumnsView(PagingView):
             self.__updateSelectionInView(p.currentPage - 1)
             self.sigCurrentRowChanged.emit(self._currentRow)
 
-    @pyqtSlot(Qt.Orientation, int, int)
+    @qtc.pyqtSlot(qtc.Qt.Orientation, int, int)
     def __onHeaderDataChanged(self, orientation, first, last):
         """
         This slot is invoked whenever a header is changed.
@@ -221,8 +219,9 @@ class ColumnsView(PagingView):
         :param first:        (int) First section index
         :param last:         (int) Last section index
         """
-        if self._pageItemModel is not None and orientation == Qt.Vertical:
-            row = self._pageItemModel.headerData(0, orientation, Qt.DisplayRole)
+        if self._pageItemModel is not None and orientation == qtc.Qt.Vertical:
+            row = self._pageItemModel.headerData(0, orientation, 
+                                                 qtc.Qt.DisplayRole)
             if row < 10:
                 row = 10
             vHeader = self._tableView.verticalHeader()
@@ -230,7 +229,7 @@ class ColumnsView(PagingView):
             vHeader.setFixedWidth(w)
             vHeader.geometriesChanged.emit()
 
-    @pyqtSlot(QItemSelection, QItemSelection)
+    @qtc.pyqtSlot(qtc.QItemSelection, qtc.QItemSelection)
     def __onInternalSelectionChanged(self, selected, deselected):
         """ Invoked when the internal selection is changed """
         page = self._pagingInfo.currentPage - 1
@@ -249,30 +248,30 @@ class ColumnsView(PagingView):
 
         self.sigSelectionChanged.emit()
 
-    @pyqtSlot(set)
+    @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
         """ Invoked when the selection is changed """
         self._selection = selection
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def updatePage(self):
         """ Updates the visualization of the current page """
         self._pageItemModel.modelConfigChanged()
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def modelChanged(self):
         """Slot for model data changed notification """
         self.__updatePagingInfo()
         self._pageBar.setPagingInfo(self._pagingInfo)
 
         #  remove sort indicator from all columns
-        self._tableView.horizontalHeader().setSortIndicator(-1,
-                                                            Qt.AscendingOrder)
+        self._tableView.horizontalHeader().setSortIndicator(
+            -1, qtc.Qt.AscendingOrder)
         self.updateViewConfiguration()
         s = self._tableView.verticalHeader().defaultSectionSize()
-        self._pageItemModel.setIconSize(QSize(s, s))
+        self._pageItemModel.setIconSize(qtc.QSize(s, s))
         self.setupColumnsWidth()
 
     def setupVisibleColumns(self):
@@ -368,14 +367,14 @@ class ColumnsView(PagingView):
     def setIconSize(self, size):
         """
         Sets the icon size for renderable columns.
-        size: (width, height) or QSize
+        size: (width, height) or qtc.QSize
         """
-        if isinstance(size, QSize):
+        if isinstance(size, qtc.QSize):
             w, h = size.width(), size.height()
             self._pageItemModel.setIconSize(size)
         else:
             w, h = size
-            self._pageItemModel.setIconSize(QSize(w, h))
+            self._pageItemModel.setIconSize(qtc.QSize(w, h))
 
         config = self.getDisplayConfig()
         if config is not None:
@@ -441,8 +440,8 @@ class ColumnsView(PagingView):
         Returns a tuple (width, height), which represents
         the preferred dimensions to contain all the data
         """
-        rowHeight = self._pageItemModel.headerData(0, Qt.Vertical,
-                                                   Qt.SizeHintRole)
+        rowHeight = self._pageItemModel.headerData(0, qtc.Qt.Vertical,
+                                                   qtc.Qt.SizeHintRole)
         rowHeight = 30 if rowHeight is None else rowHeight.height()
         a = (self._pageBar.height() if self._pageBar.isVisible() else 0) + 90
         h = rowHeight * self._model.getRowsCount() + a
@@ -456,15 +455,17 @@ class ColumnsView(PagingView):
         """
         PagingView.setSelectionMode(self, selectionMode)
         if selectionMode == self.SINGLE_SELECTION:
-            self._tableView.setSelectionMode(QAbstractItemView.SingleSelection)
+            self._tableView.setSelectionMode(
+                qtw.QAbstractItemView.SingleSelection)
         elif selectionMode == self.EXTENDED_SELECTION:
             self._tableView.setSelectionMode(
-                QAbstractItemView.ExtendedSelection)
+                qtw.QAbstractItemView.ExtendedSelection)
         elif selectionMode == self.MULTI_SELECTION:
-            self._tableView.setSelectionMode(QAbstractItemView.MultiSelection)
+            self._tableView.setSelectionMode(
+                qtw.QAbstractItemView.MultiSelection)
         else:
             PagingView.setSelectionMode(self, PagingView.NO_SELECTION)
-            self._tableView.setSelectionMode(QAbstractItemView.NoSelection)
+            self._tableView.setSelectionMode(qtw.QAbstractItemView.NoSelection)
 
     def setSelectionBehavior(self, selectionBehavior):
         """
@@ -476,16 +477,18 @@ class ColumnsView(PagingView):
                         SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
         """
         if selectionBehavior == self.SELECT_ITEMS:
-            self._tableView.setSelectionBehavior(QAbstractItemView.SelectItems)
+            self._tableView.setSelectionBehavior(
+                qtw.QAbstractItemView.SelectItems)
         elif selectionBehavior == self.SELECT_COLUMNS:
             self._tableView.setSelectionBehavior(
-                QAbstractItemView.SelectColumns)
+                qtw.QAbstractItemView.SelectColumns)
         elif selectionBehavior == self.SELECT_ROWS:
-            self._tableView.setSelectionBehavior(QAbstractItemView.SelectRows)
+            self._tableView.setSelectionBehavior(
+                qtw.QAbstractItemView.SelectRows)
 
     def resizeColumnToContents(self, col=-1):
         """
-        From QTableView:
+        From qtw.QTableView:
         Resizes the given column based on the size hints of the delegate used
         to render each item in the row.
         """
@@ -496,7 +499,7 @@ class ColumnsView(PagingView):
 
     def getHorizontalHeader(self):
         """
-        From QTableView:
+        From qtw.QTableView:
         Returns the table view's horizontal header.
         """
         return self._tableView.horizontalHeader()
@@ -506,42 +509,42 @@ class ColumnsView(PagingView):
         return self._pagingInfo.pageSize
 
 
-class HeaderView(QHeaderView):
+class HeaderView(qtw.QHeaderView):
     """ HeaderView that allows to display the row indexes """
     def __init__(self, table):
-        QHeaderView.__init__(self, Qt.Horizontal, table)
+        qtw.QHeaderView.__init__(self, qtc.Qt.Horizontal, table)
         self.setSectionsClickable(True)
         self.setHighlightSections(True)
-        self.setResizeMode(QHeaderView.Interactive)
+        self.setResizeMode(qtw.QHeaderView.Interactive)
         self._vheader = table.verticalHeader()
         self._resizing = False
         self._start_position = -1
         self._start_width = -1
 
     def mouseMoveEvent(self, event):
-        """ Reimplemented from QHeaderView """
+        """ Reimplemented from qtw.QHeaderView """
         if self._resizing:
             width = event.globalX() - self._start_position + self._start_width
             if width > 0:
                 self._vheader.setFixedWidth(width)
                 self._vheader.geometriesChanged.emit()
         else:
-            QHeaderView.mouseMoveEvent(self, event)
+            qtw.QHeaderView.mouseMoveEvent(self, event)
             if 0 <= event.x() <= 3:
-                if not self.testAttribute(Qt.WA_SetCursor):
-                    self.setCursor(Qt.SplitHCursor)
+                if not self.testAttribute(qtc.Qt.WA_SetCursor):
+                    self.setCursor(qtc.Qt.SplitHCursor)
 
     def mousePressEvent(self, event):
-        """ Reimplemented from QHeaderView """
-        if not self._resizing and event.button() == Qt.LeftButton:
+        """ Reimplemented from qtw.QHeaderView """
+        if not self._resizing and event.button() == qtc.Qt.LeftButton:
             if 0 <= event.x() <= 3:
                 self._start_position = event.globalX()
                 self._start_width = self._vheader.width()
                 self._resizing = True
                 return
-        QHeaderView.mousePressEvent(self, event)
+        qtw.QHeaderView.mousePressEvent(self, event)
 
     def mouseReleaseEvent(self, event):
-        """ Reimplemented from QHeaderView """
+        """ Reimplemented from qtw.QHeaderView """
         self._resizing = False
-        QHeaderView.mouseReleaseEvent(self, event)
+        qtw.QHeaderView.mouseReleaseEvent(self, event)

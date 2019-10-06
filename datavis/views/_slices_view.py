@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, Qt
 import PyQt5.QtWidgets as qtw
+import PyQt5.QtCore as qtc
 
 from datavis.models import EmptySlicesModel
 from datavis.widgets import SpinSlider
@@ -18,7 +18,7 @@ class SlicesView(qtw.QWidget):
     but for movies (stacks of frames), this view is very useful since these are
     big images and will take much memory loading all of them at once.
     """
-    sigSliceChanged = pyqtSignal(int)  # Signal for current slice changed
+    sigSliceChanged = qtc.pyqtSignal(int)  # Signal for current slice changed
 
     def __init__(self, parent, model, **kwargs):
         """ Constructor. SlicesView use an ImageView for display the slices,
@@ -61,12 +61,12 @@ class SlicesView(qtw.QWidget):
         layout.addWidget(self._imageView)
         self._spinSlider.setMaximumWidth(400)
         l = qtw.QHBoxLayout()
-        l.addWidget(self._spinSlider, Qt.AlignCenter)
+        l.addWidget(self._spinSlider, qtc.Qt.AlignCenter)
         layout.addLayout(l)
 
         self._spinSlider.sigValueChanged.connect(self._onSliceChanged)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def _onSliceChanged(self, value):
         """ Load the slice """
         value -= 1

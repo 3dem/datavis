@@ -1,8 +1,8 @@
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QSpacerItem, QSizePolicy,
-                             QPushButton, QSpinBox, QLabel)
 import qtawesome as qta
+
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
 
 
 class PagingInfo:
@@ -92,7 +92,7 @@ class PagingInfo:
         return int(index / self.pageSize) if index >= 0 else -1
 
 
-class PageBar(QWidget):
+class PageBar(qtw.QWidget):
     """
     Paging bar tha will allow users ti navigate through pages
     """
@@ -100,67 +100,69 @@ class PageBar(QWidget):
     This signal is emitted when the current page is changed
     emit(currentPage)
     """
-    sigPageChanged = pyqtSignal(int)
+    sigPageChanged = qtc.pyqtSignal(int)
 
     """ This signal is emitted when the paging info is changed """
-    sigPagingInfoChanged = pyqtSignal()
+    sigPagingInfoChanged = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
-        :param parent: Parent QWidget
+        :param parent: Parent qtw.QWidget
         :param kwargs: pagingInfo should be passed
         """
-        QWidget.__init__(self, parent)
+        qtw.QWidget.__init__(self, parent)
         self.__setupGUI()
         self.setPagingInfo(kwargs['pagingInfo'])
 
     def __setupGUI(self):
         self.setMinimumHeight(40)
         self.setMaximumHeight(40)
-        layout = QHBoxLayout(self)
+        layout = qtw.QHBoxLayout(self)
         layout.setContentsMargins(1, 1, 1, 1)
         layout.addItem(
-            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+            qtw.QSpacerItem(40, 20, qtw.QSizePolicy.Expanding,
+                            qtw.QSizePolicy.Minimum))
 
         # Previous page button
-        self._btnPagePrev = QPushButton(self)
+        self._btnPagePrev = qtw.QPushButton(self)
         self._btnPagePrev.setIcon(qta.icon('fa.angle-left'))
         self._btnPagePrev.clicked.connect(self._onPrevPage)
         layout.addWidget(self._btnPagePrev)
 
         # Create a spinBox with the current page value
-        self._spinBox = QSpinBox(self)
-        self._spinBox.setButtonSymbols(QSpinBox.NoButtons)
+        self._spinBox = qtw.QSpinBox(self)
+        self._spinBox.setButtonSymbols(qtw.QSpinBox.NoButtons)
         self._spinBox.editingFinished.connect(
             self._onSpinBoxCurrentPageEditingFinished)
         self._spinBox.setMaximumSize(50, 25)
         self._spinBox.setMinimumSize(50, 25)
         layout.addWidget(self._spinBox)
-        self._label = QLabel(self)
+        self._label = qtw.QLabel(self)
         layout.addWidget(self._label)
 
         # Next button
-        self._btnPageNext = QPushButton(self)
+        self._btnPageNext = qtw.QPushButton(self)
         self._btnPageNext.setIcon(qta.icon('fa.angle-right'))
         self._btnPageNext.clicked.connect(self._onNextPage)
         layout.addWidget(self._btnPageNext)
 
         layout.addItem(
-            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+            qtw.QSpacerItem(40, 20, qtw.QSizePolicy.Expanding,
+                            qtw.QSizePolicy.Minimum))
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def _onPrevPage(self):
         """ Change to the previous page. """
         if self._pagingInfo.prevPage():
             self._updateCurrentPage()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def _onNextPage(self):
         """ Change to the next page. """
         if self._pagingInfo.nextPage():
             self._updateCurrentPage()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def _onSpinBoxCurrentPageEditingFinished(self):
         """
         This slot is invoked when the user edit the page number and press ENTER

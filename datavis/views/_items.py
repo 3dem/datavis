@@ -1,11 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtWidgets import QTableView, QSplitter, QVBoxLayout, QWidget
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
-from PyQt5 import QtCore
+import PyQt5.QtCore as qtc
+import PyQt5.QtWidgets as qtw
+import PyQt5.QtGui as qtg
 
 from ._paging_view import PagingView
 from ._constants import ITEMS
@@ -21,9 +19,9 @@ class ItemsView(PagingView):
     items with simple paginate elements in items view """
 
     """ Signal for current row changed """
-    sigCurrentRowChanged = QtCore.pyqtSignal(int)
+    sigCurrentRowChanged = qtc.pyqtSignal(int)
     """ Signal for size changed """
-    sigSizeChanged = QtCore.pyqtSignal()
+    sigSizeChanged = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -49,17 +47,17 @@ class ItemsView(PagingView):
         self._model = None
         self._config = None
         self._pageItemModel = None
-        self.setModel(kwargs['model'], kwargs.get('config', None))
+        self.setModel(kwargs['model'], kwargs.get('displayConfig', None))
 
     def _createContentWidget(self):
-        mainWidget = QWidget(self)
+        mainWidget = qtw.QWidget(self)
         mainWidget.setObjectName("itemsMainWidget")
-        layout = QVBoxLayout(mainWidget)
+        layout = qtw.QVBoxLayout(mainWidget)
         layout.setContentsMargins(2, 2, 2, 2)
-        self._splitter = QSplitter(self)
-        self._splitter.setOrientation(Qt.Horizontal)
-        self._itemsViewTable = QTableView(self._splitter)
-        model = QStandardItemModel(self._itemsViewTable)
+        self._splitter = qtw.QSplitter(self)
+        self._splitter.setOrientation(qtc.Qt.Horizontal)
+        self._itemsViewTable = qtw.QTableView(self._splitter)
+        model = qtg.QStandardItemModel(self._itemsViewTable)
         self._itemsViewTable.setModel(model)
         self._itemsViewTable.horizontalHeader().setHighlightSections(False)
         self._itemsViewTable.verticalHeader().setHighlightSections(False)
@@ -72,9 +70,9 @@ class ItemsView(PagingView):
         """ Updates the internal selection in the view widgets """
         if self.isMultiSelection() and self.__selectionItem is not None:
             if self._row in self._selection:
-                self.__selectionItem.setCheckState(Qt.Checked)
+                self.__selectionItem.setCheckState(qtc.Qt.Checked)
             else:
-                self.__selectionItem.setCheckState(Qt.Unchecked)
+                self.__selectionItem.setCheckState(qtc.Qt.Unchecked)
 
     def __updatePagingInfo(self):
         self._pagingInfo.numberOfItems = self._model.getRowsCount()
@@ -134,22 +132,22 @@ class ItemsView(PagingView):
         else:
             self._imageView.clear()
 
-    @pyqtSlot('QStandardItem*')
+    @qtc.pyqtSlot('QStandardItem*')
     def __onItemDataChanged(self, item):
         """
         Invoked when the item data is changed. Used for selection purposes
         """
         if item == self.__selectionItem:
             if self.isMultiSelection():
-                if item.checkState() == Qt.Checked:
+                if item.checkState() == qtc.Qt.Checked:
                     self._selection.add(self._row)
                 else:
                     self._selection.discard(self._row)
                 self.sigSelectionChanged.emit()
-            elif item.checkState() == Qt.Unchecked:
-                item.setCheckState(Qt.Checked)
+            elif item.checkState() == qtc.Qt.Unchecked:
+                item.setCheckState(qtc.Qt.Checked)
 
-    @pyqtSlot(int)
+    @qtc.pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """ Invoked when change the current page """
         self.__loadRow(page - 1)
@@ -169,40 +167,45 @@ class ItemsView(PagingView):
 
         if self.isMultiSelection():
             vLabels.append('SELECTED')
-            self.__selectionItem = QStandardItem()
+            self.__selectionItem = qtg.QStandardItem()
             self.__selectionItem.setCheckable(True)
             self.__selectionItem.setEditable(False)
             if self._selection is not None and self._row in self._selection:
-                self.__selectionItem.setCheckState(Qt.Checked)
+                self.__selectionItem.setCheckState(qtc.Qt.Checked)
             model.appendRow([self.__selectionItem])
         else:
             self.__selectionItem = None
 
         for i, colConfig in self._config.iterColumns(visible=True):
-            item = QStandardItem()
+            item = qtg.QStandardItem()
             item.setData(
                 self._pageItemModel.data(self._pageItemModel.createIndex(
-                    self._row, i)), Qt.DisplayRole)
+                    self._row, i)), qtc.Qt.DisplayRole)
             item.setEditable(False)
             model.appendRow([item])
-            label = self._pageItemModel.headerData(i, Qt.Horizontal)
+            label = self._pageItemModel.headerData(i, qtc.Qt.Horizontal)
             if isinstance(label, str) or isinstance(label, unicode):
                 vLabels.append(label)
         model.setHorizontalHeaderLabels(["Values"])
         model.setVerticalHeaderLabels(vLabels)
         self._itemsViewTable.horizontalHeader().setStretchLastSection(True)
 
-    @pyqtSlot(set)
+    @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
         """ Invoked when the selection is changed """
         self._selection = selection
         self.__updateSelectionInView()
 
-    @pyqtSlot()
+    @qtc.pyqtSlot()
     def modelChanged(self):
         """Slot for model data changed notification """
         self.__updatePagingInfo()
         self._imageView.setVisible(self._pageItemModel.hasRenderableColumn())
+        tableConfig = self._pageItemModel.getDisplayConfig()
+        indexes = [i for i, c in tableConfig.iterColumns(renderable=True)]
+
+        self.setModelColumn(indexes[0] if indexes else 0)
+        self.__loadRowImages()
         self._pageBar.setPagingInfo(self._pagingInfo)
 
     def selectRow(self, row):
@@ -277,3 +280,4 @@ class ItemsView(PagingView):
         :param column: (int) Column index. 0 is the first index.
         """
         self._column = column
+

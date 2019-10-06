@@ -1,5 +1,5 @@
 
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
 from datavis.widgets import PageBar
@@ -28,21 +28,21 @@ class PagingView(qtw.QWidget):
     This signal is emitted when the current selection is changed
     emit(selected, deselected)
     """
-    sigSelectionChanged = pyqtSignal()
+    sigSelectionChanged = qtc.pyqtSignal()
 
     # TODO: Check to document this kind of things for Sphinx
     """
     Signal emitted when change page configuration
     emit (page, pageCount, pageSize)
     """
-    sigPageConfigChanged = pyqtSignal(int, int, int)
+    sigPageConfigChanged = qtc.pyqtSignal(int, int, int)
 
     # TODO: Check to document this kind of things for Sphinx
     """
     Signal emitted when change the current page
     emit (page)
     """
-    sigPageChanged = pyqtSignal(int)
+    sigPageChanged = qtc.pyqtSignal(int)
 
     def __init__(self, parent=None, **kwargs):
         """
@@ -72,7 +72,7 @@ class PagingView(qtw.QWidget):
         and return it. """
         return None
 
-    @pyqtSlot(set)
+    @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
         """
         Invoked when the selection.

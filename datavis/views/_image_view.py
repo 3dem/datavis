@@ -50,8 +50,8 @@ class ImageView(qtw.QWidget):
                    True by default.
         autoFill:  (Bool) This property holds whether the widget background
                    is filled automatically. The color used is defined by
-                   the qtg.QPalette::Window color role from the widget's palette.
-                   False by default.
+                   the qtg.QPalette::Window color role from the widget's
+                   palette. False by default.
         hideButtons: (Bool) Hide/show the internal pg buttons. For example,
                      the button used to center an image. False by default.
         axisPos:   (Bool) The axis position.
@@ -78,6 +78,14 @@ class ImageView(qtw.QWidget):
 
         preferredSize: (list of tuples). The first element is the image size and
                        the second element is the preferred size.
+        maskCreatorColor: (QColor or str)The color for the Mask-Creator mask.
+                          Example: '#66212a55' in ARGB format
+        showMaskCreator: (bool) Show/Hide the Mask-Creator tool.
+                         Default value: False
+        maskCreatorData: (int) Initial mask values for mask-creator.
+                         Possible values: 0(default) or 1.
+        maskCreatorOp: (Boolean) Initial mask-creator operation.
+                       True: Add, False: Remove
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = None
@@ -111,23 +119,46 @@ class ImageView(qtw.QWidget):
         self._levels = kwargs.get('levels', None)
         # mask params
         self.__updatingImage = False
-        self.__setupGUI()
+        self._maskColor = kwargs.get('maskCreatorColor',
+                                     qtg.QColor('#66212a55'))  # ARGB format
+        self._maskCreatorItem = None
+        self._removeMaskPen = pg.mkPen({'color': "FFF", 'width': 1})
+        self._addMaskPen = pg.mkPen({'color': "00FF00", 'width': 1})
+        d = {
+            'pen': self._removeMaskPen
+        }
+
+        self._maskPen = PenROI((0, 0), 20, **d)
+        self._maskCreatorData = kwargs.get('maskCreatorData', 0)
+        self.__setupGUI(**kwargs)
         self.__setupImageView()
         self._maskItem = None
         self._roi = None
         self.setModel(model)
         self.setViewMask(**kwargs)
 
-    def __setupGUI(self):
+    def __setupGUI(self, **kwargs):
         """ This is the standard method for the GUI creation """
         self._mainLayout = qtw.QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
         self._imageView = pg.ImageView(parent=self, view=pg.PlotItem())
+        v = self.getViewBox()
+        v.addItem(self._maskPen)
+        self._maskPen.setAcceptedMouseButtons(qtc.Qt.NoButton)
+        self._maskPen.setAcceptHoverEvents(False)
+        self._maskPen.setZValue(0)
+        self._maskPen.setVisible(False)
+
+        scene = v.scene()
+        if scene is not None:
+            scene.sigMouseMoved.connect(self.__viewBoxMouseMoved)
+
         self.__viewRect = None
         self._imageView.installEventFilter(self)
         self._splitter = qtw.QSplitter(self)
-        self._toolBar = widgets.ActionsToolBar(self, orientation=qtc.Qt.Vertical)
+        self._toolBar = widgets.ActionsToolBar(self,
+                                               orientation=qtc.Qt.Vertical)
         self._splitter.addWidget(self._toolBar)
         self._splitter.setCollapsible(0, False)
         self._splitter.addWidget(self._imageView)
@@ -137,12 +168,9 @@ class ImageView(qtw.QWidget):
         self._labelScale = qtw.QLabel('Scale: ', displayPanel)
         hLayout = qtw.QHBoxLayout()
         hLayout.addWidget(self._labelScale)
-        self._spinBoxScale = widgets.ZoomSpinBox(displayPanel,
-                                         valueType=float,
-                                         minValue=0,
-                                         maxValue=10000,
-                                         zoomUnits=widgets.ZoomSpinBox.PERCENT,
-                                         iconSize=25)
+        self._spinBoxScale = widgets.ZoomSpinBox(
+            displayPanel, valueType=float, minValue=0, maxValue=10000,
+            zoomUnits=widgets.ZoomSpinBox.PERCENT, iconSize=25)
         self._spinBoxScale.sigValueChanged[float].connect(
             self.__onSpinBoxScaleValueChanged)
         hLayout.addWidget(self._spinBoxScale)
@@ -190,31 +218,31 @@ class ImageView(qtw.QWidget):
         actAxisOnOff.set(self._xAxisArgs['visible'])
         actAxisOnOff.sigStateChanged.connect(self.__actAxisOnOffTriggered)
         toolbar.addAction(actAxisOnOff)
+        self._actAxisOnOff = actAxisOnOff
         vLayout.addWidget(toolbar)
 
         # -- Flip --
         toolbar = qtw.QToolBar(displayPanel)
         toolbar.addWidget(qtw.QLabel('Flip ', toolbar))
-        self._actHorFlip = widgets.TriggerAction(parent=toolbar, actionName="HFlip",
-                                         text="Horizontal Flip",
-                                         icon=qta.icon('fa.long-arrow-right',
-                                                       'fa.long-arrow-left',
-                                                       options=[
-                                                           {'offset': (0, 0.2)},
-                                                           {'offset': (0, -0.2)}
-                                                       ]),
-                                         checkable=True,
-                                         slot=self.horizontalFlip)
+        self._actHorFlip = widgets.TriggerAction(
+            parent=toolbar, actionName="HFlip", text="Horizontal Flip",
+            icon=qta.icon('fa.long-arrow-right',
+                          'fa.long-arrow-left',
+                          options=[
+                              {'offset': (0, 0.2)},
+                              {'offset': (0, -0.2)}
+                          ]),
+            checkable=True, slot=self.horizontalFlip)
         toolbar.addAction(self._actHorFlip)
-        self._actVerFlip = widgets.TriggerAction(parent=toolbar, actionName="VFlip",
-                                         text="Vertical Flip",
-                                         icon=qta.icon('fa.long-arrow-up',
-                                                       'fa.long-arrow-down',
-                                                       options=[
-                                                           {'offset': (0.2, 0)},
-                                                           {'offset': (-0.2, 0)}
-                                                       ]),
-                                         checkable=True, slot=self.verticalFlip)
+        self._actVerFlip = widgets.TriggerAction(
+            parent=toolbar, actionName="VFlip", text="Vertical Flip",
+            icon=qta.icon('fa.long-arrow-up',
+                          'fa.long-arrow-down',
+                          options=[
+                              {'offset': (0.2, 0)},
+                              {'offset': (-0.2, 0)}
+                          ]),
+            checkable=True, slot=self.verticalFlip)
         toolbar.addAction(self._actVerFlip)
         vLayout.addWidget(toolbar)
 
@@ -222,12 +250,15 @@ class ImageView(qtw.QWidget):
         toolbar = qtw.QToolBar(displayPanel)
         toolbar.addWidget(qtw.QLabel('Rotate ', toolbar))
         act = widgets.TriggerAction(parent=toolbar, actionName="RRight",
-                            text="Rotate Right", faIconName="fa.rotate-right",
-                            checkable=False, slot=self.__rotateRight)
+                                    text="Rotate Right",
+                                    faIconName="fa.rotate-right",
+                                    checkable=False,
+                                    slot=self.__rotateRight)
         toolbar.addAction(act)
         act = widgets.TriggerAction(parent=toolbar, actionName="RLeft",
-                            text="Rotate Left", faIconName="fa.rotate-left",
-                            checkable=False, slot=self.__rotateLeft)
+                                    text="Rotate Left",
+                                    faIconName="fa.rotate-left",
+                                    checkable=False, slot=self.__rotateLeft)
         toolbar.addAction(act)
         vLayout.addWidget(toolbar)
 
@@ -249,9 +280,17 @@ class ImageView(qtw.QWidget):
 
         vLayout.addStretch()
         displayPanel.setFixedHeight(260)
-        actDisplay = widgets.TriggerAction(parent=self._toolBar, actionName="ADisplay",
-                                   text='Display', faIconName='fa.adjust')
+        actDisplay = widgets.TriggerAction(parent=self._toolBar,
+                                           actionName="ADisplay",
+                                           text='Display',
+                                           faIconName='fa.adjust')
         self._toolBar.addAction(actDisplay, displayPanel, exclusive=False)
+        # --Mask Creator--
+        self.__addMaskCreatorTools(self._toolBar,
+                                   kwargs.get('showMaskCreator', False),
+                                   kwargs.get('maskPenSize', 30),
+                                   kwargs.get('maskCreatorOp', False))
+        # --End-Mask Creator--
         # --File-Info--
         fileInfoPanel = self._toolBar.createPanel('fileInfoPanel')
         fileInfoPanel.setSizePolicy(qtw.QSizePolicy.Ignored,
@@ -263,13 +302,214 @@ class ImageView(qtw.QWidget):
         vLayout.addWidget(self._textEditPath)
         fileInfoPanel.setMinimumHeight(30)
 
-        actFileInfo = widgets.TriggerAction(parent=self._toolBar, actionName='FInfo',
-                                    text='File Info',
-                                    faIconName='fa.info-circle')
+        actFileInfo = widgets.TriggerAction(parent=self._toolBar,
+                                            actionName='FInfo',
+                                            text='File Info',
+                                            faIconName='fa.info-circle')
         self._toolBar.addAction(actFileInfo, fileInfoPanel, exclusive=False)
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._splitter)
+
+    def __viewBoxMouseMoved(self, pos):
+        """
+        This slot is invoked when the mouse is moved hover de View
+        :param pos: The mouse pos
+        """
+        if (self._maskCreatorItem is not None and
+                self._maskCreatorItem.isVisible() and
+                pos is not None):
+            vb = self.getViewBox()
+            pos = vb.mapSceneToView(pos)
+            size = self._maskPen.size()
+            self._maskPen.setPos(pos - size / 2)
+
+    def __addMaskCreatorTools(self, toolbar, showMaskCreator, penSize=5,
+                              add=False):
+        """ Creates the mask creator panel """
+        maskPanel = toolbar.createPanel('maskCreatorPanel')
+        layout = qtw.QVBoxLayout(maskPanel)
+        maskPanel.setSizePolicy(qtw.QSizePolicy.MinimumExpanding,
+                                qtw.QSizePolicy.Minimum)
+        tb = qtw.QToolBar(maskPanel)
+        layout.addWidget(tb)
+        tb.addWidget(qtw.QLabel("<strong>Mask:</strong>", tb))
+
+        self._actColor = widgets.TriggerAction(parent=tb, actionName='ASColor',
+                                               faIconName='fa5s.palette',
+                                               faIconColor=self._maskColor,
+                                               tooltip='Select mask color',
+                                               slot=self.__onSelectColor)
+        tb.addAction(self._actColor)
+        self._actClearMask = widgets.TriggerAction(parent=tb,
+                                                   faIconName='fa5s.broom',
+                                                   tooltip='Clear mask',
+                                                   slot=self.__clearMask)
+        tb.addAction(self._actClearMask)
+
+        self._actMaskCreatorShowHide = widgets.OnOffAction(
+            tb, toolTipOn='Hide mask', toolTipOff='Show mask')
+        self._actMaskCreatorShowHide.set(showMaskCreator)
+        self._actMaskCreatorShowHide.sigStateChanged.connect(
+            self.__onMaskCreatorShowHideTriggered)
+        tb.addAction(self._actMaskCreatorShowHide)
+        self._actMaskCreator = widgets.TriggerAction(
+            parent=toolbar, actionName='AMask', text='Mask\nCreator',
+            faIconName='fa5s.stroopwafel')
+        # pen
+        tb = qtw.QToolBar(maskPanel)
+        layout.addWidget(tb)
+        tb.addWidget(qtw.QLabel("<strong>Pen:</strong>", tb))
+        self._spinBoxMaskPen = widgets.IconSpinBox(
+            maskPanel, valueType=int, minValue=5, maxValue=10000,
+            currentValue=penSize, iconName='fa5s.pen', iconSize=16, sufix=' px')
+        self._spinBoxMaskPen.sigValueChanged[int].connect(
+            self.__onSpinBoxMaskPenValueChanged)
+        self._spinBoxMaskPen.setMinimumHeight(30)
+        tb.addWidget(self._spinBoxMaskPen)
+        # mask actions
+        tb = qtw.QToolBar(maskPanel)
+        tb.addWidget(qtw.QLabel("<strong>Action: </strong>", tb))
+        self._radioButtonAddMask = qtw.QRadioButton(text='Add', parent=tb)
+        tb.addWidget(self._radioButtonAddMask)
+        self._radioButtonRemoveMask = qtw.QRadioButton(text='Remove', parent=tb)
+        tb.addWidget(self._radioButtonRemoveMask)
+        maskPanel.setFixedHeight(140)
+        self._maskButtonGroup = qtw.QButtonGroup(tb)
+        self._maskButtonGroup.setExclusive(True)
+        self._maskButtonGroup.addButton(self._radioButtonRemoveMask)
+        self._maskButtonGroup.addButton(self._radioButtonAddMask)
+        if add:
+            self._radioButtonAddMask.setChecked(True)
+        else:
+            self._radioButtonRemoveMask.setChecked(True)
+
+        self._maskButtonGroup.buttonToggled[qtw.QAbstractButton, bool].connect(
+            self.__onActionMaskToggled)
+        layout.addWidget(tb)
+        toolbar.addAction(self._actMaskCreator, maskPanel, exclusive=False,
+                          checked=showMaskCreator)
+        self._actMaskCreator.setVisible(showMaskCreator)
+        self._maskPen.setVisible(showMaskCreator)
+        self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
+
+    def __clearMask(self):
+        """ Clear the mask """
+        if self._maskCreatorItem is not None:
+            data = self._maskCreatorItem.image
+            v = 2 if self._radioButtonRemoveMask.isChecked() else 0
+            w, h = (data.shape[1],
+                    data.shape[0])
+            for i in range(w):
+                for j in range(h):
+                    data[i][j] = v
+            self._maskCreatorItem.updateImage()
+
+    def __onSelectColor(self):
+        """ Invoked when select color action is triggered """
+        color = qtw.QColorDialog.getColor(
+            initial=self._maskColor, parent=self, title='Mask Color Selector',
+            options=qtw.QColorDialog.ShowAlphaChannel)
+        if color.isValid():
+            self._maskColor = color
+            self._actColor.setIcon(qta.icon('fa5s.palette',
+                                            color=self._maskColor))
+            if self._maskCreatorItem is None:
+                self.__createMaskItem(1 if self._maskCreatorData == 0 else 2)
+            else:
+                self._maskCreatorItem.setMaskColor(self._maskColor)
+            self._actMaskCreatorShowHide.set(True)
+
+    def __onSpinBoxMaskPenValueChanged(self, size):
+        """ Invoked when the pen size is changed """
+        bg = self._maskButtonGroup
+        self.__createMaskCreatorBrush(size)
+        pos = self._maskPen.pos()
+        oldSize = self._maskPen.size()
+        newsize = pg.Point(size, size)
+
+        self._maskPen.setSize((size, size))
+        self._maskPen.setPos(pos - (newsize-oldSize) / 2)
+
+    def __onMaskCreatorShowHideTriggered(self, state):
+        """ Invoked when action mask-creator-show-hide is triggered """
+        cursor = qtc.Qt.ArrowCursor
+        self._maskPen.setVisible(False)
+        if self._actMaskCreatorShowHide.get():
+            self._maskPen.setVisible(True)
+            if self._maskCreatorItem is None:
+                self.__createMaskItem(1 if self._maskCreatorData == 0 else 2)
+            else:
+                self.getViewBox().addItem(self._maskCreatorItem)
+            cursor = qtc.Qt.CrossCursor
+        elif self._maskCreatorItem is not None:
+            self.getViewBox().removeItem(self._maskCreatorItem)
+
+        self._imageView.setCursor(cursor)
+        # make circle pen
+        self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
+
+    def __onActionMaskToggled(self, button, checked):
+        """ Invoked que the action mask button is toggled """
+        if checked:
+            if button == self._radioButtonRemoveMask:
+                self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue())
+                self._maskPen.setPen(self._removeMaskPen)
+            else:
+                self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue())
+                self._maskPen.setPen(self._addMaskPen)
+
+    def __createMaskCreatorBrush(self, size):
+        """ Create the mask creator brush """
+        if self._maskCreatorItem is not None:
+            roi = pg.CircleROI((0, 0), size)
+            path = roi.shape()
+            k = []
+            pos = pg.Point()
+            for i in range(size):
+                r = []
+                for j in range(size):
+                    pos.setX(i)
+                    pos.setY(j)
+                    v = 1 if path.contains(pos) else 0
+                    r.append(v)
+                k.append(r)
+            kern = np.array(k)
+            self._maskCreatorItem.setDrawKernel(kern, mask=kern,
+                                                center=(int(size/2),
+                                                        int(size/2)),
+                                                mode=self.__drawMask)
+
+    def __drawMask(self, dk, image, mask, ss, ts, ev):
+        """ Function passed to ImageItem for draw mode """
+        mask = mask[ss]
+        if self._radioButtonRemoveMask.isChecked():
+            image[ts] |= 1 + mask
+        else:
+            image[ts] = image[ts] * (1 - mask)
+
+        self._maskCreatorItem.updateImage()
+
+    def __createMaskItem(self, data=0):
+        """ Create the mask item, initializing the mask with the given value """
+        imageItem = self.getImageItem()
+        w, h = (imageItem.width(), imageItem.height())
+        if w is not None and h is not None:
+            viewBox = self.getViewBox()
+
+            maskData = np.full(shape=(w, h), fill_value=data, dtype=np.int8)
+            if (self._maskCreatorItem is None or
+                    not self._maskCreatorItem.width() == w or
+                    not self._maskCreatorItem.height() == h):
+                self._maskCreatorItem = _CustomMaskItem(imageItem,
+                                                        self._maskColor,
+                                                        maskData)
+                viewBox.addItem(self._maskCreatorItem)
+            else:
+                self._maskCreatorItem.setMaskColor(self._maskColor)
+                self._maskCreatorItem.setImage(maskData)
+
+            self.__createMaskCreatorBrush(self._spinBoxMaskPen.getValue())
 
     def __setupAxis(self):
         """
@@ -349,10 +589,10 @@ class ImageView(qtw.QWidget):
     def __imageViewKeyPressEvent(self, ev):
         """ Handles the key press event """
         if ev.key() == qtc.Qt.Key_H:
-            self.__actHistOnOffChanged(True)
+            self._actHistOnOff.next()
 
         if ev.key() == qtc.Qt.Key_A:
-            self.__actAxisOnOffTriggered(True)
+            self._actAxisOnOff.next()
 
         if ev.key() == qtc.Qt.Key_E:
             ctrl = qtc.Qt.ControlModifier
@@ -380,21 +620,6 @@ class ImageView(qtw.QWidget):
         self._isHorizontalFlip = False
         self._actVerFlip.setChecked(False)
         self._actHorFlip.setChecked(False)
-
-    def __destroyGroup(self, group):
-        """
-        Reparents all items in group to group's parent item, then removes group
-        from the scene, and finally deletes it. The items' positions and
-        transformations are mapped from the group to the group's parent.
-        :param group: (QGraphicsItemGroup)
-        """
-        v = self.getViewBox()
-        scene = v.scene()
-        for item in group.childItems():
-            if item.isVisible():
-                group.removeFromGroup(item)
-                v.addItem(item)
-        scene.destroyItemGroup(group)
 
     def __groupVisibleItems(self):
         """
@@ -471,6 +696,25 @@ class ImageView(qtw.QWidget):
                 vb.removeItem(self._textItem)
             self._maskItem = None
             self._textItem = None
+
+    def __normalizeMask(self):
+        """
+        Normalize the mask by setting the pixel values to 0 and 1
+        :return: (u8bit numpy array) the mask
+        """
+        if self._maskCreatorItem is not None:
+            data = self._maskCreatorItem.image
+            w, h = (data.shape[1],
+                    data.shape[0])
+            maskData = np.zeros(shape=(w, h), dtype=np.uint8)
+            for i in range(w):
+                for j in range(h):
+                    if data[i][j] <= 1:
+                        maskData[i][j] = 0
+                    else:
+                        maskData[i][j] = 1
+            return maskData
+        return None
 
     @qtc.pyqtSlot()
     def __resetView(self):
@@ -670,6 +914,8 @@ class ImageView(qtw.QWidget):
             self.updateImageScale()
 
         self._model = imageModel
+        if self._actMaskCreatorShowHide.get():
+            self.__createMaskItem(1 if self._maskCreatorData == 0 else 2)
         self.sigScaleChanged.emit(self._scale)
 
     def updateImageScale(self):
@@ -1013,6 +1259,10 @@ class ImageView(qtw.QWidget):
         self._exporter.parameters()['antialias'] = antialias
         self._exporter.export(path)
 
+    def getMaskImage(self):
+        """ Return the mask created by the user using the Mask Creator Tools """
+        return self.__normalizeMask()
+
 
 class ImageExporter(pgImageExporter):
     """
@@ -1200,7 +1450,7 @@ class _CustomMaskItem(pg.ImageItem):
         :param imageItem: (pg.ImageItem) The image item
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (qtg.QColor)
+                          or (QColor)
         :param maskData:  (numpy array) The mask data
         """
         if imageItem is None:
@@ -1210,19 +1460,21 @@ class _CustomMaskItem(pg.ImageItem):
         self.setMaskColor(maskColor)
         self._imageItem = imageItem
         self.maskData = maskData
-        self._maskColor = maskColor
 
     def setMaskColor(self, maskColor):
         """
         Set the mask color
         :param maskColor: (str) The mask color in ARGB format.
                                 Example: '#22FF00AA'
-                          or (qtg.QColor)
+                          or (QColor)
         """
         self._maskColor = maskColor
-        c = qtg.QColor(maskColor)
-        lut = [(c.red(), c.green(), c.blue(), c.alpha()), (255, 255, 255, 0)]
-        self.setLookupTable(lut)
+        if maskColor is not None:
+            c = qtg.QColor(maskColor)
+            lut = [(c.red(), c.green(), c.blue(), c.alpha())]
+            for i in range(254):
+                lut.append((0, 0, 0, 0))
+            self.setLookupTable(lut)
 
     def getMaskColor(self):
         """ Return the mask color """
@@ -1239,7 +1491,7 @@ class _CustomMaskItem(pg.ImageItem):
 
     def setMaxBounds(self, bounds):
         """
-        :param bounds: (qtc.QRect, qtc.QRectF, or None) Specifies mask boundaries.
+        :param bounds: (QRect, QRectF, or None) Specifies mask boundaries.
                        Default is None.
         """
         pass
@@ -1385,3 +1637,9 @@ class EMImageItemDelegate(qtw.QStyledItemDelegate):
     def getTextHeight(self):
         """ The height of text """
         return self._textHeight
+
+
+class PenROI(pg.CircleROI):
+    """ Circular ROI subclass without handles """
+    def __init__(self, pos, size, **args):
+        pg.ROI.__init__(self, pos, size, **args)

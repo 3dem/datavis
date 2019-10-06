@@ -1,31 +1,26 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import numpy as np
+import pyqtgraph as pg
 
-from datavis.models import AXIS_X, AXIS_Y, AXIS_Z
-from datavis.views import MultiSliceView
-from datavis.core import ModelsFactory
-
-from test_commons import TestView
+import datavis as dv
 
 
-class TestMultiSliceView(TestView):
+class TestMultiSliceView(dv.tests.TestView):
     __title = "MultiSliceView example"
 
     def getDataPaths(self):
-        return [
-            self.getPath('resmap', 'betaGal.mrc'),
-            self.getPath("xmipp_tutorial", "volumes",
-                         "BPV_scale_filtered_windowed_110.vol")
-        ]
+        return ['']
 
     def createView(self):
-        print("File: %s" % self._path)
-        volModel = ModelsFactory.createVolumeModel(self._path)
-        msv = MultiSliceView(None,
-                             {axis: {'model': volModel.getSlicesModel(axis),
-                                     'normalize': True}
-                              for axis in [AXIS_X, AXIS_Y, AXIS_Z]})
+        data = pg.gaussianFilter(np.random.normal(size=(64, 64, 64)), (5, 5, 5))
+        volModel = dv.models.VolumeModel(data)
+        msv = dv.views.MultiSliceView(
+            None, {axis: {'model': volModel.getSlicesModel(axis),
+                          'normalize': True}
+                   for axis in [dv.models.AXIS_X, dv.models.AXIS_Y,
+                                dv.models.AXIS_Z]})
         return msv
 
 
