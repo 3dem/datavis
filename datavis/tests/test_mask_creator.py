@@ -43,25 +43,22 @@ if __name__ == '__main__':
     argParser = argparse.ArgumentParser(usage='Mask Creator',
                                         prefix_chars='--',
                                         argument_default=None)
+    argParser.add_argument('data', default=0, type=int,
+                           choices=[0, 1],
+                           help='Choose 1 to initialize the mask with all ones '
+                                'and operation remove by default')
     argParser.add_argument('--color', default='#66212a55', type=str,
-                           required=False,
-                           help=' the mask color in ARGB format.')
-    argParser.add_argument('--data', default=0, type=int,
-                           required=False, choices=[0, 1],
-                           help=' the mask values')
-    argParser.add_argument('--op', default='remove',
-                           required=False, choices=['add', 'remove'],
-                           help=' initial mask-creator operation')
-    argParser.add_argument('--pen', default=40, required=False, type=int,
-                           help=' pen size')
+                           help='The mask color in ARGB format.')
+    argParser.add_argument('--pen', default=40, type=int,
+                           help='Pen size')
 
-    print("TIP: Use --help for a more specific explanation.")
+    print("TIP: Use --help for more options.")
 
     args = argParser.parse_args()
 
     kwargs['maskCreatorColor'] = args.color
     kwargs['maskCreatorData'] = args.data
-    kwargs['maskCreatorOp'] = args.op == 'add'
+    kwargs['maskCreatorOp'] = bool(args.data)
     kwargs['maskPenSize'] = args.pen
 
-    TestMaskCreator(**kwargs).runApp()
+    TestMaskCreator(**kwargs).runApp(argv=['0'])
