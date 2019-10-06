@@ -69,15 +69,20 @@ class ImageView(qtw.QWidget):
                    image display. By default is None, so the data from the
                    pixel values will be used. Passing a different range is
                    useful for normalization of the slices in volumes.
+
+        showHandles: (boolean) Enable/Disable the ROI handles
+
+        preferredSize: (list of tuples). The first element is the image size and
+                       the second element is the preferred size.
+
+        =========================================================
+        TODO: Remove all following mask parameters and unify them
+
         maskColor: (str) The mask color (#ARGB). Example: #2200FF55
         mask:      (int) Roi type: RECT_ROI or CIRCLE_ROI(default) or
                    (numpyarray) Image mask where 0 will be painted with
                    the specified maskColor and 255 will be transparent
         maskSize:  (int) The roi radius
-        showHandles: (boolean) Enable/Disable the ROI handles
-
-        preferredSize: (list of tuples). The first element is the image size and
-                       the second element is the preferred size.
         maskCreatorColor: (QColor or str)The color for the Mask-Creator mask.
                           Example: '#66212a55' in ARGB format
         showMaskCreator: (bool) Show/Hide the Mask-Creator tool.
@@ -86,6 +91,29 @@ class ImageView(qtw.QWidget):
                          Possible values: 0(default) or 1.
         maskCreatorOp: (Boolean) Initial mask-creator operation.
                        True: Add, False: Remove
+        =========================================================
+        NEW mask related params:
+
+        maskParams  (dict) Dictionary with mask-related params. Following are
+            some possible values in this dict:
+
+            type: ROI_CIRCLE (display a circular mask from center) or
+                  ROI_RECT (display rectangular mask from center) or
+                  CONSTANT (generate a data mask with given constant value) or
+                  DATA (just provide a data mask as numpy array)
+            data: If the type is ROI_CIRCLE or ROI_RECT, it is the value of the
+                  radius of the mask. If type is CONSTANT it is the value of
+                  entire mask. Finally, if the type is DATA, this should be a
+                  numpy array with values of the mask.
+            color: (QColor or str) The color for the mask.
+                  Example: '#66212a55' in ARGB format.
+            operation: What operation will be performed in the mask
+                  NONE (the mask editor is not shown) or
+                  ADD  (add 1 values to the mask with the pen) or
+                  REMOVE (add 0 values to the mask with the pen)
+            penSize: Size of the pen to be used, only relevant when not
+                  operation is not NONE (default 50px).
+
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = None
