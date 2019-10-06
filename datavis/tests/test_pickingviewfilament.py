@@ -103,63 +103,10 @@ class TestPickerView(dv.tests.TestView):
         kwargs['removeRois'] = True
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
-        return dv.views.PickerView(None,
-                                   SimplePickerDataModel((512, 512), 10,
-                                                         kwargs.get('boxSize',
-                                                                    20)),
-                                   **kwargs)
-
-
-class SimplePickerDataModel(dv.models.PickerDataModel):
-    """ Simple picker data model with random images and filaments """
-
-    def __init__(self, imageSize, size, boxSize=40):
-        dv.models.PickerDataModel.__init__(self)
-        self._imageSize = imageSize
-        self._size = size
-        self._images = dict()
-        self._cache = {}
-        for i in range(size):
-            self.addMicrograph(self.__simulateMic(i + 1,
-                                                  random.randrange(0, 10)))
-        self.setBoxSize(boxSize)
-
-    def __simulateMic(self, micId, picks):
-        """ Return a Micrograph object with random pick coordinates """
-        w, h = self._imageSize
-        coords = [(random.randrange(0, w),
-                   random.randrange(0, h),
-                   random.randrange(0, w),
-                   random.randrange(0, h)
-                   ) for i in range(picks)]
-        return dv.models.Micrograph(micId, 'Image %d' % micId, coords)
-
-    def getData(self, micId):
-        """
-        Return the micrograph image data
-        :param micId: (int) The micrograph id
-        :return: The micrograph image data
-        """
-        if micId in self._cache:
-            data = self._cache[micId]
-        else:
-            data = pg.gaussianFilter(np.random.normal(size=self._imageSize),
-                                     (5, 5))
-            self._cache[micId] = data
-
-        return data
-
-    def getImageInfo(self, micId):
-        """
-        Return some specified info from the given image path.
-        dim : Image dimensions
-        ext : File extension
-        data_type: Image data type
-
-        :param micId:  (int) The micrograph Id
-        :return: dict
-        """
-        return {'dim': self._imageSize}
+        model = dv.tests.createPickerDataModel((512, 512), 10,
+                                               kwargs.get('boxSize', 20), 40,
+                                               True)
+        return dv.views.PickerView(None, model, **kwargs)
 
 
 if __name__ == '__main__':
