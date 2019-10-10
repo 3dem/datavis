@@ -370,6 +370,7 @@ class GalleryView(PagingView):
     def setImageItemDelegate(self, delegate):
         """ Set the ImageItemDelegate, responsible for rendering each cell """
         self._delegate = delegate
+        self.setModelColumn(self._listView.modelColumn())
 
     def getImageItemDelegate(self):
         """ Return the ImageItemDelegate """

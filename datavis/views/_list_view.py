@@ -280,13 +280,7 @@ class ImageMaskListView(ImageListView):
                         ImageMaskListView will belong. If None, then the
                         ImageMaskListView is created with no parent.
         :param model: (TableModel) The data model
-        :param kwargs:
-           - maskColor:    (str) The mask color (#ARGB). Example: #2200FF55
-           - mask:         (int) Roi type: RECT_ROI or CIRCLE_ROI(default) or
-                           (numpyarray) Image mask where 0 will be painted with
-                           the specified maskColor and 255 will be transparent
-           - maskSize:     (int) The roi size
-           - The kwargs arguments for the internal ImageView
+        :param kwargs: The kwargs arguments for the internal ImageView
         """
         ImageListView.__init__(self, parent, model, **kwargs)
 
@@ -294,8 +288,9 @@ class ImageMaskListView(ImageListView):
         spinSlider.sigValueChanged.connect(self.__onSpinSliderValueChanged)
         spinSlider.sigSliderReleased.connect(self.__onSpinSliderReleased)
         imageView = self.__getImageView()
-        mask = kwargs.get('mask')
-        if isinstance(mask, int):  # ROI MASK
+        maskParams = kwargs.get('maskParams', dict())
+        maskType = maskParams.get('type')
+        if isinstance(maskType, int):  # ROI MASK
             imageView.sigMaskSizeChanged.connect(self.__onRoiSizeChanged)
         else:
             panel = self._rightPanel.getWidget('bottomRightPanel')
