@@ -164,7 +164,7 @@ class ActionsToolBar(qtw.QWidget):
         qtw.QWidget.__init__(self, parent=parent)
 
         self._panelsDict = dict()
-        self._panelMinWidth = kwargs.get("panelMinWidth", 160)
+        self._panelMinWidth = kwargs.get("panelMinWidth", 200)
         self._panelMaxWidth = kwargs.get('panelMaxWidth', 300)
         self._orientation = kwargs.get("orientation", qtc.Qt.Vertical)
         self._buttonWidth = 0

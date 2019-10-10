@@ -149,15 +149,15 @@ class DataView(qtw.QWidget):
         self.setGeometry(0, 0, 750, 800)
 
     def __createLeftToolbar(self):
-        toolbar = ActionsToolBar(self, orientation=Qt.Vertical)
-        toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        toolbar = ActionsToolBar(self, orientation=qtc.Qt.Vertical)
+        toolbar.setToolButtonStyle(qtc.Qt.ToolButtonTextUnderIcon)
         self.__addSelectionActions(toolbar)
         self.__addColumnsPanel(toolbar)
         self.__addPlotPanel(toolbar)
         # Show/hide left Toolbar action
         self.addAction(TriggerAction(self, 'SHToolBar',
                                      slot=self.__onShowHideToolBar,
-                                     shortCut=qtg.QKeySequence(Qt.Key_T)))
+                                     shortCut=qtg.QKeySequence(qtc.Qt.Key_T)))
         return toolbar
 
     def __addSelectionActions(self, toolbar):
@@ -171,12 +171,13 @@ class DataView(qtw.QWidget):
 
         vLayout.addWidget(qtw.QLabel(parent=self._selectionPanel,
                                  text="<strong>Actions:<strong>"))
-        self._labelSelectionInfo = qtw.QLabel('Selected: 0', self._selectionPanel)
+        self._labelSelectionInfo = qtw.QLabel('Selected: 0',
+                                              self._selectionPanel)
 
         def _addActionButton(text, icon, onTriggeredFunc):
             """
-            Add an TriggerAction to the selection menu, and a qtw.QPushButton to the
-            selection panel
+            Add an TriggerAction to the selection menu, and a qtw.QPushButton to
+            the selection panel
             :param text:            (str) the action text
             :param icon:            (QIcon) the action icon
             :param onTriggeredFunc: Triggered function for the created action
@@ -191,7 +192,7 @@ class DataView(qtw.QWidget):
             b.setFixedWidth(150)
             b.clicked.connect(onTriggeredFunc)
             b.setStyleSheet("text-align:left")
-            vLayout.addWidget(b, Qt.AlignLeft)
+            vLayout.addWidget(b, qtc.Qt.AlignLeft)
             return act, b
 
         selectAllIcon = qta.icon('fa.chevron-up', 'fa.chevron-down',
@@ -237,7 +238,8 @@ class DataView(qtw.QWidget):
         vLayout = qtw.QVBoxLayout(self._columnsPanel)
         label = qtw.QLabel(parent=self._columnsPanel,
                        text="<strong>Column properties:</strong>")
-        label.setSizePolicy(qtw.QSizePolicy.MinimumExpanding, qtw.QSizePolicy.Fixed)
+        label.setSizePolicy(qtw.QSizePolicy.MinimumExpanding,
+                            qtw.QSizePolicy.Fixed)
         vLayout.addWidget(label)
         cpTable = qtw.QTableWidget(self._columnsPanel)
         cpTable.setObjectName("tableColumnProp")
@@ -245,7 +247,7 @@ class DataView(qtw.QWidget):
         cpTable.setHorizontalHeaderLabels(['', '', 'Name'])
         cpTable.setSelectionMode(qtw.QTableWidget.NoSelection)
         cpTable.setSelectionBehavior(qtw.QTableWidget.SelectRows)
-        cpTable.setFocusPolicy(Qt.NoFocus)
+        cpTable.setFocusPolicy(qtc.Qt.NoFocus)
         cpTable.setSizePolicy(qtw.QSizePolicy.Expanding,
                               qtw.QSizePolicy.MinimumExpanding)
         cpTable.itemChanged.connect(self.__onItemChanged)
@@ -274,7 +276,8 @@ class DataView(qtw.QWidget):
     def __addPlotPanel(self, toolbar):
         """ Add Plot panel to the left toolbar. """
         self._plotPanel = toolbar.createPanel('plotPanel')
-        self._plotPanel.setSizePolicy(qtw.QSizePolicy.Ignored, qtw.QSizePolicy.Ignored)
+        self._plotPanel.setSizePolicy(qtw.QSizePolicy.Ignored,
+                                      qtw.QSizePolicy.Ignored)
         vLayout = qtw.QVBoxLayout(self._plotPanel)
         self._plotConfigWidget = PlotConfigWidget(parent=self._plotPanel)
 
@@ -285,7 +288,7 @@ class DataView(qtw.QWidget):
         plotButton.setText('Plot')
         plotButton.setSizePolicy(qtw.QSizePolicy.Fixed, qtw.QSizePolicy.Fixed)
         plotButton.clicked.connect(self.__onButtonPlotClicked)
-        vLayout.addWidget(plotButton, 0, Qt.AlignLeft)
+        vLayout.addWidget(plotButton, 0, qtc.Qt.AlignLeft)
 
         self._plotPanel.setMinimumHeight(vLayout.sizeHint().height())
         self._actPlot = TriggerAction(parent=None, actionName='APlot',
@@ -464,7 +467,8 @@ class DataView(qtw.QWidget):
                     viewWidget = self.__createView(view, **kwargs)
                     viewInfo[VIEW] = viewWidget
                     if viewWidget is not None:
-                        viewWidget.setContextMenuPolicy(Qt.ActionsContextMenu)
+                        viewWidget.setContextMenuPolicy(
+                            qtc.Qt.ActionsContextMenu)
                         viewWidget.addAction(self._actSelectAll)
                         viewWidget.addAction(self._actSelectFromHere)
                         viewWidget.addAction(self._actSelectToHere)
@@ -688,16 +692,17 @@ class DataView(qtw.QWidget):
                 cpTable.setItem(row, 0, itemV)
                 cpTable.setItem(row, 1, itemR)
                 cpTable.setItem(row, 2, item)
-                flags = Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
+                flags = qtc.Qt.ItemIsUserCheckable | qtc.Qt.ItemIsEnabled
                 render = colConfig[RENDERABLE]
-                itemR.setCheckState(Qt.Checked if render else Qt.Unchecked)
-                itemR.setData(Qt.ToolTipRole, 'Render or not this column')
+                itemR.setCheckState(
+                    qtc.Qt.Checked if render else qtc.Qt.Unchecked)
+                itemR.setData(qtc.Qt.ToolTipRole, 'Render or not this column')
                 itemR.setFlags(flags)
                 g = self._viewKey == GALLERY
                 v = i in colConfig.getLabels() if g else colConfig[VISIBLE]
                 itemV.setFlags(flags)
-                itemV.setCheckState(Qt.Checked if v else Qt.Unchecked)
-                itemV.setData(Qt.ToolTipRole, 'Show/hide this column')
+                itemV.setCheckState(qtc.Qt.Checked if v else qtc.Qt.Unchecked)
+                itemV.setData(qtc.Qt.ToolTipRole, 'Show/hide this column')
                 row += 1
             cpTable.resizeColumnsToContents()
         cpTable.resizeColumnsToContents()
@@ -706,7 +711,8 @@ class DataView(qtw.QWidget):
 
     def __reverseCheckState(self, item):
         """ Reverse the check state for the given qtw.QTableWidgetItem """
-        st = Qt.Checked if item.checkState() == Qt.Unchecked else Qt.Unchecked
+        c = qtc.Qt.Checked
+        st = c if item.checkState() == qtc.Qt.Unchecked else qtc.Qt.Unchecked
         item.setCheckState(st)
 
     @qtc.pyqtSlot(qtw.QTableWidgetItem)
@@ -719,7 +725,7 @@ class DataView(qtw.QWidget):
             row, col = item.row(), item.column()
             colConfig = dispConf.getColumnConfig(row)
             if col == 0:  # visible
-                d = item.checkState() == Qt.Checked
+                d = item.checkState() == qtc.Qt.Checked
                 if self._viewKey == GALLERY:
                     method = list.append if d else list.remove
                     labels = colConfig.getLabels()
@@ -734,7 +740,7 @@ class DataView(qtw.QWidget):
                 else:
                     self.__reverseCheckState(item)
             else:  # renderable
-                r = item.checkState() == Qt.Checked
+                r = item.checkState() == qtc.Qt.Checked
                 gi = self._viewKey == GALLERY or self._viewKey == ITEMS
                 hasRender = dispConf.hasColumnConfig(renderable=True)
                 if colConfig[RENDERABLE_RO]:
@@ -746,7 +752,7 @@ class DataView(qtw.QWidget):
                                 if not cc[RENDERABLE_RO]:
                                     cc[RENDERABLE] = False
                                     it = self._tableColumnProp.item(i, col)
-                                    it.setCheckState(Qt.Unchecked)
+                                    it.setCheckState(qtc.Qt.Unchecked)
                         viewWidget.setModelColumn(row)
                 else:
                     colConfig[RENDERABLE] = r
@@ -760,7 +766,7 @@ class DataView(qtw.QWidget):
                                 if not cc[RENDERABLE_RO]:
                                     cc[RENDERABLE] = False
                                     it = self._tableColumnProp.item(i, col)
-                                    it.setCheckState(Qt.Unchecked)
+                                    it.setCheckState(qtc.Qt.Unchecked)
                         viewWidget.setModelColumn(row)
 
                 r = dispConf.hasColumnConfig(renderable=True)
@@ -835,9 +841,9 @@ class DataView(qtw.QWidget):
                 if sortColumn >= 0:
                     m = self._model
                     sortColumn = m.getColumnConfig(sortColumn).getName()
-                    if sortOrder == Qt.AscendingOrder:
+                    if sortOrder == qtc.Qt.AscendingOrder:
                         sOrder = 'ASC'
-                    elif sortOrder == Qt.DescendingOrder:
+                    elif sortOrder == qtc.Qt.DescendingOrder:
                         sOrder = 'DESC'
                 # If no section has a sort indicator the return value of
                 # sortIndicatorOrder() is undefined.
@@ -1131,8 +1137,8 @@ class DataView(qtw.QWidget):
                        or selectionMode == PagingView.SINGLE_SELECTION)
         self._actSelections.setVisible(visible)
         self._leftToolBar.setVisible(visible)
-
-        policy = Qt.NoContextMenu if not visible else Qt.ActionsContextMenu
+        c = qtc.Qt.NoContextMenu
+        policy =  c if not visible else qtc.Qt.ActionsContextMenu
 
         for viewWidget in self.getAllViews():
             viewWidget.setSelectionMode(selectionMode)

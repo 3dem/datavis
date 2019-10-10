@@ -1,4 +1,3 @@
-from PyQt5.QtCore import Qt
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
@@ -41,3 +40,6 @@ DATA = 4
 # mask operations
 ADD = 1
 REMOVE = 2
+
+# default movie size
+MOVIE_SIZE = 1000

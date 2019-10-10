@@ -348,11 +348,6 @@ class ImageView(qtw.QWidget):
                                                tooltip='Select mask color',
                                                slot=self.__onSelectColor)
         tb.addAction(self._actColor)
-        self._actClearMask = widgets.TriggerAction(parent=tb,
-                                                   faIconName='fa5s.broom',
-                                                   tooltip='Clear mask',
-                                                   slot=self.__clearMask)
-        tb.addAction(self._actClearMask)
 
         self._actMaskCreatorShowHide = widgets.OnOffAction(
             tb, toolTipOn='Hide mask', toolTipOff='Show mask')
@@ -383,7 +378,7 @@ class ImageView(qtw.QWidget):
         tb.addWidget(self._radioButtonAddMask)
         self._radioButtonRemoveMask = qtw.QRadioButton(text='Remove', parent=tb)
         tb.addWidget(self._radioButtonRemoveMask)
-        maskPanel.setFixedHeight(140)
+        maskPanel.setFixedHeight(190)
         self._maskButtonGroup = qtw.QButtonGroup(tb)
         self._maskButtonGroup.setExclusive(True)
         self._maskButtonGroup.addButton(self._radioButtonRemoveMask)
@@ -396,14 +391,26 @@ class ImageView(qtw.QWidget):
         self._maskButtonGroup.buttonToggled[qtw.QAbstractButton, bool].connect(
             self.__onActionMaskToggled)
         layout.addWidget(tb)
+
+        btn = qtw.QPushButton(parent=maskPanel, text='Invert',
+                              icon=qta.icon('fa5s.exchange-alt'))
+        btn.clicked.connect(self.__invertMask)
+        btn.setToolTip('Invert image mask')
+        layout.addWidget(btn)
+        btn = qtw.QPushButton(parent=maskPanel, text='Reset',
+                              icon=qta.icon('fa.mail-reply-all'))
+        btn.clicked.connect(self.__resetMask)
+        btn.setToolTip('Reset image mask to initial state')
+        layout.addWidget(btn)
         toolbar.addAction(self._actMaskCreator, maskPanel, exclusive=False,
                           checked=showMaskCreator)
+
         self._actMaskCreator.setVisible(showMaskCreator)
         self._maskPen.setVisible(showMaskCreator)
         self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
 
-    def __clearMask(self):
-        """ Clear the mask """
+    def __resetMask(self):
+        """ Reset the image mask """
         if isinstance(self._maskItem, _CustomMaskItem):
             data = self._maskItem.image
             v = 2 if self._maskOperation == REMOVE else 0
@@ -412,6 +419,18 @@ class ImageView(qtw.QWidget):
             for i in range(w):
                 for j in range(h):
                     data[i][j] = v
+            self._maskItem.updateImage()
+
+    def __invertMask(self):
+        """ Invert the image mask """
+        if isinstance(self._maskItem, _CustomMaskItem):
+            data = self._maskItem.image
+            v = 2 if self._maskOperation == REMOVE else 0
+            w, h = (data.shape[1],
+                    data.shape[0])
+            for i in range(w):
+                for j in range(h):
+                    data[i][j] = 2 if data[i][j] <= 1 else 1
             self._maskItem.updateImage()
 
     def __onSelectColor(self):
