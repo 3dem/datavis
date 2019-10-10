@@ -4,7 +4,8 @@ import PyQt5.QtWidgets as qtw
 
 from datavis.widgets import ViewPanel, DynamicWidgetsFactory, SpinSlider
 from datavis.models import EmptyTableModel, ImageModel
-from datavis.views import ColumnsView, ImageView, VolumeView
+from datavis.views import (ColumnsView, ImageView, VolumeView, RECT_ROI,
+                           CIRCLE_ROI)
 
 import numpy as np
 
@@ -290,7 +291,7 @@ class ImageMaskListView(ImageListView):
         imageView = self.__getImageView()
         maskParams = kwargs.get('maskParams', dict())
         maskType = maskParams.get('type')
-        if isinstance(maskType, int):  # ROI MASK
+        if maskType == CIRCLE_ROI or maskType == RECT_ROI:  # ROI MASK
             imageView.sigMaskSizeChanged.connect(self.__onRoiSizeChanged)
         else:
             panel = self._rightPanel.getWidget('bottomRightPanel')

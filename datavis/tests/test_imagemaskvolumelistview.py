@@ -24,9 +24,9 @@ class TestImageMaskVolumeListView(dv.tests.TestView):
             'color': '#334BBC23',
             'data': mask,
         }
-        slicesKwargs = {dv.models.AXIS_X: {
-            'imageViewKwargs':
-                {'maskParams': maskParams}},
+        slicesKwargs = {
+            dv.models.AXIS_X: {
+                'imageViewKwargs': {'maskParams': maskParams}},
             dv.models.AXIS_Y: {
                 'imageViewKwargs': {'maskParams': maskParams}},
             dv.models.AXIS_Z: {'imageViewKwargs': {'maskParams': maskParams}
