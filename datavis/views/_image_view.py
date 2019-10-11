@@ -134,9 +134,7 @@ class ImageView(qtw.QWidget):
         self._maskItem = None
         self._removeMaskPen = pg.mkPen({'color': "FFF", 'width': 1})
         self._addMaskPen = pg.mkPen({'color': "00FF00", 'width': 1})
-        d = {
-            'pen': self._removeMaskPen
-        }
+        d = {'pen': self._removeMaskPen}
         self._maskPen = PenROI((0, 0), 20, **d)
         self._maskData = maskParams.get('data')
         self._maskType = maskParams.get('type')
@@ -414,23 +412,14 @@ class ImageView(qtw.QWidget):
         if isinstance(self._maskItem, _CustomMaskItem):
             data = self._maskItem.image
             v = 2 if self._maskOperation == REMOVE else 0
-            w, h = (data.shape[1],
-                    data.shape[0])
-            for i in range(w):
-                for j in range(h):
-                    data[i][j] = v
+            data[...] = v
             self._maskItem.updateImage()
 
     def __invertMask(self):
         """ Invert the image mask """
         if isinstance(self._maskItem, _CustomMaskItem):
             data = self._maskItem.image
-            v = 2 if self._maskOperation == REMOVE else 0
-            w, h = (data.shape[1],
-                    data.shape[0])
-            for i in range(w):
-                for j in range(h):
-                    data[i][j] = 2 if data[i][j] <= 1 else 1
+            data[...] = 3 - data
             self._maskItem.updateImage()
 
     def __onSelectColor(self):
@@ -438,6 +427,7 @@ class ImageView(qtw.QWidget):
         color = qtw.QColorDialog.getColor(
             initial=self._maskColor, parent=self, title='Mask Color Selector',
             options=qtw.QColorDialog.ShowAlphaChannel)
+
         if color.isValid():
             self._maskColor = color
             self._actColor.setIcon(qta.icon('fa5s.palette',
@@ -446,6 +436,7 @@ class ImageView(qtw.QWidget):
                 self.__createMaskItem(self._maskData)
             else:
                 self._maskItem.setMaskColor(self._maskColor)
+
             self._actMaskCreatorShowHide.set(True)
 
     def __onSpinBoxMaskPenValueChanged(self, size):
@@ -523,8 +514,8 @@ class ImageView(qtw.QWidget):
         viewBox = self.getViewBox()
         if w is not None and h is not None:
             if isinstance(data, int):
-                data = 1 if data == 0 else 2
-                data = np.full(shape=(w, h), fill_value=data, dtype=np.int8)
+                value = 1 if data == 0 else 2
+                data = np.full(shape=(w, h), fill_value=value, dtype=np.int8)
 
             if (self._maskItem is None or
                     not self._maskItem.width() == w or
