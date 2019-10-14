@@ -1,4 +1,3 @@
-from PyQt5.QtCore import Qt
 
 PIXEL_UNITS = 1
 PERCENT_UNITS = 2
@@ -30,6 +29,17 @@ VISIBLE_UNCHECKED = 8
 RENDER_CHECKED = 9
 RENDER_UNCHECKED = 10
 
-# ROI types
+# ROI/mask types
 RECT_ROI = 0
 CIRCLE_ROI = 1
+
+# mask types
+CONSTANT = 3
+DATA = 4
+
+# mask operations
+ADD = 1
+REMOVE = 2
+
+# default movie size
+MOVIE_SIZE = 1000

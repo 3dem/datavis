@@ -147,6 +147,65 @@ class SimpleItemsModel(dv.models.SimpleTableModel):
         return dv.models.TableConfig(*cols)
 
 
+class SimpleListImageModel(dv.models.ListModel):
+    """ The SimpleListModel class is an example implementation of ListModel
+    """
+    def __init__(self, names, columnName, imgSize):
+        """
+        Create an SimpleListModel
+        :param names: (list) A list of names
+        """
+        self._names = list(names)
+        self._columnName = columnName or 'Image'
+        self._imgSize = imgSize
+        s = len(imgSize)
+        if s == 2:
+            self._mClass = dv.models.ImageModel
+        elif s == 3:
+            self._mClass = dv.models.VolumeModel
+        else:
+            raise Exception("Invalid image size. Supported values: 2 or 3.")
+
+        self._imgData = dict()
+        self._tableName = ''
+        self._tableNames = [self._tableName]
+
+    def iterColumns(self):
+        yield dv.models.ColumnInfo(self._columnName, dv.models.TYPE_STRING)
+
+    def getRowsCount(self):
+        """ Return the number of rows. """
+        return len(self._names)
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        return self._names[row]
+
+    def getData(self, row, col=0):
+        """ Return the data (array like) for the item in this row, column.
+         Used by rendering of images in a given cell of the table.
+        """
+        data = self._imgData.get(row)
+        if data is None:
+            data = pg.gaussianFilter(np.random.normal(size=self._imgSize),
+                                     [5 for i in range(len(self._imgSize))])
+            self._imgData[row] = data
+
+        return data
+
+    def getModel(self, row):
+        """ Return the model for the given row """
+
+        return self._mClass(self.getData(row))
+
+    def createDefaultConfig(self):
+        c = dv.models.ListModel.createDefaultConfig(self)
+        if len(self._imgSize) == 2:
+            cc = c[0]
+            cc[dv.models.RENDERABLE] = True
+        return c
+
+
 class SimplePickerDataModel(dv.models.PickerDataModel):
     """ Simple picker data model with random images and picks """
 
@@ -462,3 +521,14 @@ def createTableModel(imgSize):
         model.addRow(line)
 
     return model
+
+
+def createListImageModel(names, columnName, imgSize):
+    """
+     Creates an ListImageModel
+    :param names: (list) The image names
+    :param columnName: (str) The column name
+    :param imgSize: (tupple) The images size
+    :return: SimpleListImageModel
+    """
+    return SimpleListImageModel(names, columnName, imgSize)

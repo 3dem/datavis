@@ -10,7 +10,7 @@ from datavis.models import (AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ, EmptyTableModel,
                           EmptyVolumeModel, SlicesTableModel)
 from ._multislice_view import MultiSliceView
 from ._gallery import GalleryView
-from ._constants import PIXEL_UNITS, GALLERY, SLICES
+from ._constants import PIXEL_UNITS, GALLERY, SLICES, CIRCLE_ROI, RECT_ROI
 
 
 class VolumeView(qtw.QWidget):
@@ -41,13 +41,13 @@ class VolumeView(qtw.QWidget):
         self._maxCellSize = kwargs.get("maxCellSize", 300)
         self._minCellSize = kwargs.get("minCellSize", 20)
         self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
-        self._view = None
+        self._view = kwargs.get('view', GALLERY)
         self.__setupGUI(kwargs['model'],
                         kwargs.get('slicesKwargs', dict()),
                         kwargs.get('slicesMode', AXIS_XYZ),
                         kwargs.get('galleryKwargs', dict()))
         self.setModel(kwargs['model'])
-        self.setView(kwargs.get('view', GALLERY))
+        self.setView(self._view)
         self._onChangeCellSize(self._defaultCellSize)
 
     def __setupGUI(self, model, slicesKwargs, slicesMode, galleryKwargs):
@@ -230,17 +230,22 @@ class VolumeView(qtw.QWidget):
             self._multiSlicesView.setScale(zoom * 0.01)
 
         imgView = sv.getImageView()
-        mask = imgView.getMask()
-        if mask is not None:
+        maskType = imgView.getMaskType()
+        if maskType is not None:
             delegate = self._galleryView.getImageItemDelegate()
-            params = {
-                'mask': mask,
-                'maskColor': imgView.getMaskColor()
+            maskParams = {
+                'type': maskType,
+                'color': imgView.getMaskColor(),
+                'operation': None,
+                'showHandles': True
             }
-            if isinstance(mask, int):
-                params['maskSize'] = int(imgView.getMaskSize() / 2)
-                params['showHandles'] = False
-            delegate.getImageView().setViewMask(**params)
+            if maskType == CIRCLE_ROI or maskType == RECT_ROI:
+                maskParams['data'] = int(imgView.getMaskSize() / 2)
+                maskParams['showHandles'] = False
+            else:  # TODO[hv] if mask has been edited?
+                maskParams['data'] = imgView.getMaskData()
+            imgView = delegate.getImageView()
+            imgView.setImageMask(**maskParams)
 
         self._galleryView.setModel(self._slicesTableModels[axis],
                                    minMax=self._model.getMinMax())
