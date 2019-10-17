@@ -1696,3 +1696,7 @@ class PenROI(pg.CircleROI):
     """ Circular ROI subclass without handles """
     def __init__(self, pos, size, **args):
         pg.ROI.__init__(self, pos, size, **args)
+
+    def _updateHoverColor(self):
+        """ Reimplemented. Don't set yellow color """
+        pass

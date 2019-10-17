@@ -13,7 +13,7 @@ import qtawesome as qta
 from datavis.widgets import (TriggerAction, OnOffAction, DynamicWidgetsFactory)
 from datavis.models import (Coordinate, TableConfig, ImageModel)
 
-from ._image_view import ImageView
+from ._image_view import ImageView, PenROI
 from ._columns import ColumnsView
 
 
@@ -66,11 +66,10 @@ class PickerView(qtw.QWidget):
         self.__segmentROI = None
         self.__eraseList = []
         self.__eraseSize = 300
-        self.__eraseROI = pg.CircleROI((0, 0), self.__eraseSize,
-                                       pen=pg.mkPen(color="FFF",
-                                                    width=1,
-                                                    dash=[2, 2, 2]))
-        self.__eraseROI.setCursor(qtc.Qt.CrossCursor)
+        self.__eraseROI = PenROI((0, 0), self.__eraseSize,
+                                 pen=pg.mkPen(color="FFF",
+                                              width=1,
+                                              dash=[2, 2, 2]))
         self.__eraseROI.setVisible(False)
         self.__eraseROI.sigRegionChanged.connect(self.__eraseRoiChanged)
         self.__mousePressed = False
@@ -853,7 +852,7 @@ class PickerView(qtw.QWidget):
     @qtc.pyqtSlot()
     def on_actionPickCenter_triggered(self):
         """
-        Activate the pick rect ROI.
+        Activate the pick center ROI.
         Change all boxes to center ROI
         """
         self._shape = SHAPE_CENTER
@@ -871,9 +870,7 @@ class PickerView(qtw.QWidget):
         view = self._imageView.getViewBox()
         view.setMouseEnabled(True, True)
         self._clickAction = PICK
-        imgItem = self._imageView.getImageItem()
-        if imgItem is not None:
-            imgItem.setCursor(qtc.Qt.ArrowCursor)
+        self._imageView.getImageView().setCursor(qtc.Qt.ArrowCursor)
         self.__eraseROI.setVisible(False)
         self.__eraseROIText.setVisible(False)
         for roi in view.addedItems:
@@ -888,9 +885,7 @@ class PickerView(qtw.QWidget):
         view = self._imageView.getViewBox()
         view.setMouseEnabled(False, False)
         self._clickAction = ERASE
-        imgItem = self._imageView.getImageItem()
-        if imgItem is not None:
-            imgItem.setCursor(qtc.Qt.CrossCursor)
+        self._imageView.getImageView().setCursor(qtc.Qt.CrossCursor)
         for roi in view.addedItems:
             isBox = isinstance(roi, CircleROI) or isinstance(roi, pg.ROI)
             isErase = roi == self.__eraseROI
