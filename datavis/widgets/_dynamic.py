@@ -14,7 +14,7 @@ class OptionList(qtw.QWidget):
     """
     def __init__(self, parent=None, display='default', tooltip="",
                  exclusive=True, buttonsClass=qtw.QRadioButton, options=None,
-                 defaultOption=0):
+                 defaultOption=0, slot=None):
         """
         Construct an OptionList
         exclusive(bool): If true, the radio buttons will be exclusive
@@ -32,6 +32,8 @@ class OptionList(qtw.QWidget):
         :param options:      The options. A tupple if display is 'slider' or
                              str list for other display type
         :param defaultOption: (int) The default option id (index for list)
+        :param slot:         A function to be called when an option is changed
+                             FIXME[hv] Only implemented for Slider
         """
         qtw.QWidget.__init__(self, parent=parent)
         self.__buttonGroup = qtw.QButtonGroup(self)
@@ -49,6 +51,8 @@ class OptionList(qtw.QWidget):
                 self.__singleWidget.setRange(options[0], options[1])
             elif isinstance(options, list):
                 self.__singleWidget.setRange(0, len(options) - 1)
+            if slot is not None:
+                self.__singleWidget.valueChanged.connect(slot)
         else:
             RB = qtw.QRadioButton
             CB = qtw.QCheckBox
@@ -90,6 +94,8 @@ class OptionList(qtw.QWidget):
         """ Return the selected options """
         if isinstance(self.__singleWidget, qtw.QComboBox):
             return self.__singleWidget.currentData()
+        elif isinstance(self.__singleWidget, qtw.QSlider):
+            return self.__singleWidget.value()
         elif isinstance(self.__singleWidget, qtw.QWidget):
             if self.__buttonGroup.exclusive():
                 return self.__buttonGroup.checkedId()
@@ -99,22 +105,20 @@ class OptionList(qtw.QWidget):
                     if button.isChecked():
                         options.append(self.__buttonGroup.id(button))
                 return options
-        elif isinstance(self.__singleWidget, qtw.QSlider):
-            return self.__singleWidget.value()
         return None
 
     def setSelectedOption(self, optionId):
         """ Set the given option as selected """
         CB = qtw.QComboBox
-        if isinstance(self.__singleWidget, qtw.QWidget):
+        if isinstance(self.__singleWidget, qtw.QSlider):
+            self.__singleWidget.setValue(optionId)
+        elif isinstance(self.__singleWidget,
+                        CB) and optionId in range(self.__singleWidget.count()):
+            self.__singleWidget.setCurrentIndex(optionId)
+        elif isinstance(self.__singleWidget, qtw.QWidget):
             button = self.__buttonGroup.button(optionId)
             if button is not None:
                 button.setChecked(True)
-        elif isinstance(self.__singleWidget,
-                        CB) and optionId in range(self.__singleWidget.count()):
-            self.__comboBox.setCurrentIndex(optionId)
-        elif isinstance(self.__singleWidget, qtw.QSlider):
-            self.__singleWidget.setValue(optionId)
 
 
 class DynamicWidget(qtw.QWidget):
@@ -136,6 +140,7 @@ class DynamicWidget(qtw.QWidget):
         elif isinstance(item, qtw.QWidgetItem):
             widget = item.widget()
             param = self.__paramsWidgets.get(widget.objectName())
+
             if param is not None:
                 t = self.__typeParams.get(param.get('type')).get('type')
                 if isinstance(widget, qtw.QLineEdit):
@@ -283,7 +288,8 @@ class DynamicWidgetsFactory:
                                 tooltip=param.get('help', ""), exclusive=True,
                                 buttonsClass=qtw.QRadioButton,
                                 options=param.get('choices'),
-                                defaultOption=param.get('value', 0))
+                                defaultOption=param.get('value', 0),
+                                slot=param.get('slot'))
         else:
             widget = widgetClass(mainWidget)
             widget.setToolTip(param.get('help', ''))

@@ -277,6 +277,17 @@ def createPickerDataModel(imageSize, size, boxSize=40, picks=100,
     return SimplePickerDataModel(imageSize, size, boxSize, picks, filament)
 
 
+def createSimplePickerDataModel(imageSize, boxSize=40):
+    """
+    Creates an PickerDataModel with random images.
+    :param imageSize: (tupple) The image size
+    :param boxSize: (int) The box size
+    :return: (PickerDataModel)
+    """
+    return SimplePickerDataModel(imageSize=imageSize, size=0, boxSize=boxSize,
+                                 picks=0, filament=False)
+
+
 def createSlicesModel(imgSize, size):
     """
     Creates an SlicesModel, generating random images of the given image size,

@@ -99,6 +99,7 @@ class TestPickerView(dv.tests.TestView):
         kwargs['removeRois'] = True
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
+
         model = dv.tests.createPickerDataModel((512, 512), 10,
                                                kwargs.get('boxSize', 40), 150,
                                                False)

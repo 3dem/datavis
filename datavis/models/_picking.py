@@ -15,6 +15,9 @@ class Coordinate:
         self.y = y
         self.label = label
 
+    def __str__(self):
+        return "(%f, %f)" % (self.x, self.y)
+
     def set(self, x, y):
         """
         Set x and y values for this coordinate
@@ -214,6 +217,17 @@ class PickerDataModel:
         default["color"] = "#1EFF00"  # #AARRGGBB
         self._labels["Default"] = default
         self._privateLabels["D"] = default
+
+    def addPrivateLabel(self, name, color, key):
+        """
+        Add a new private label to the model.
+        :param name:  (str) The label name
+        :param color: (str) The color in ARGB format. Example: '#1EFF00'.
+        :param key:   (str) Single key to reference the label.
+                      The following keys are already in use, you must use other:
+                      'A', 'M', 'D'
+        """
+        self._privateLabels[key] = {'name': name, 'color': color}
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
