@@ -3,9 +3,8 @@
 
 import argparse
 from random import randrange
-from math import sqrt
-
-import PyQt5.QtCore as qtc
+import numpy as np
+import pyqtgraph as pg
 
 import datavis as dv
 
@@ -32,29 +31,93 @@ class TestPickerCmpView(dv.tests.TestView):
         kwargs['removeRois'] = True
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
+        kwargs['readOnly'] = True
+
         w, h = self._w, self._h
-        model = dv.tests.createSimplePickerDataModel((w, h),
-                                                     kwargs.get('boxSize', 40))
-        model.addPrivateLabel('a)', '#4c0045', 'a')
-        model.addPrivateLabel('b)', '#f94aff', 'b')
-        model.addPrivateLabel('c)', '#6a3b01', 'c')
-        model.addPrivateLabel('d)', '#ca7e22', 'd')
+        model1 = dv.tests.createSimplePickerDataModel((w, h),
+                                                      kwargs.get('boxSize', 40))
+        model2 = dv.tests.createSimplePickerDataModel((w, h),
+                                                      kwargs.get('boxSize', 40))
 
         for i in range(self._size):
-            name = 'Image #%d' % (i + 1)
-            coords = [ThresholdCoord(x, y, None, randrange(0, 100) * 0.01)
-                      for x, y in {(randrange(0, w), randrange(0, h))
-                      for i in range(randrange(1, self._picks))}]
-            s = randrange(len(coords))
+            micId = i + 1
+            name = 'Image #%d' % micId
+            coordsA = [ThresholdCoord(x, y, None, randrange(0, 100) * 0.01)
+                       for x, y in {(randrange(0, w), randrange(0, h))
+                                    for i in range(randrange(1, self._picks))}]
+            coordsB = [ThresholdCoord(x, y, None, randrange(0, 100) * 0.01)
+                       for x, y in {(randrange(0, w), randrange(0, h))
+                                    for i in range(randrange(1, self._picks))}]
+            c = ThresholdCoord(0, 0, None, randrange(0, 100) * 0.01)
+            coordsA.append(c)
+            c = ThresholdCoord(0, 0, None, randrange(0, 100) * 0.01)
+            coordsB.append(c)
+            model1.addMicrograph(dv.models.Micrograph(micId, name, coordsA))
+            model2.addMicrograph(dv.models.Micrograph(micId, name, coordsB))
 
-            coordsA = coords[:s]
-            coordsB = coords[s:]
-            markCoordinates(coordsA, coordsB, self._radius)
+        model = PickerCmpModelImpl(model1, model2)
+        pickerParams = [
+            {
+                'name': 'threshold',
+                'type': 'enum',
+                'value': 0,
+                'choices': (0, 100),
+                'label': 'Quality threshold',
+                'help': 'Quality threshold',
+                'display': 'slider',
+                'onChange': 'onParamChanged'
+            },
+            {
+                'name': 'radius',
+                'type': 'enum',
+                'value': self._radius,
+                'choices': (10, 200),
+                'label': 'Radius',
+                'help': 'Radius',
+                'display': 'slider',
+                'onChange': 'onParamChanged'
+            }
+        ]
+        kwargs['pickerParams'] = pickerParams
 
-            mic = dv.models.Micrograph(-1, name, coords)
-            model.addMicrograph(mic)
+        return dv.views.PickerView(None, model, **kwargs)
 
-        return PickerCmp(None, model, **kwargs)
+
+class PickerCmpModelImpl(dv.models.PickerCmpModel):
+    """ """
+    def __init__(self, model1, model2, boxSize=64, imageSize=(512, 512)):
+        dv.models.PickerCmpModel.__init__(self, model1, model2, boxSize=boxSize)
+        self._images = dict()
+        self._cache = {}
+        self._imageSize = imageSize
+
+    def getData(self, micId):
+        """
+        Return the micrograph image data
+        :param micId: (int) The micrograph id
+        :return: The micrograph image data
+        """
+        if micId in self._cache:
+            data = self._cache[micId]
+        else:
+            #  simulating image data
+            data = pg.gaussianFilter(np.random.normal(size=self._imageSize),
+                                     (5, 5))
+            self._cache[micId] = data
+
+        return data
+
+    def getImageInfo(self, micId):
+        """
+        Return some specified info from the given image path.
+        dim : Image dimensions
+        ext : File extension
+        data_type: Image data type
+
+        :param micId:  (int) The micrograph Id
+        :return: dict
+        """
+        return {'dim': self._imageSize}
 
 
 class ThresholdCoord(dv.models.Coordinate):
@@ -62,73 +125,6 @@ class ThresholdCoord(dv.models.Coordinate):
     def __init__(self, x, y, label="Manual", threshold=1.0):
         dv.models.Coordinate.__init__(self, x, y, label)
         self.threshold = threshold
-
-
-class PickerCmp(dv.views.PickerView):
-
-    def __init__(self, parent, model, threshold=0, **kwargs):
-        pickerParams = kwargs.get('pickerParams') or []
-        pickerParams.append([
-            {
-                'name': 'threshold',
-                'type': 'enum',
-                'value': threshold * 100,
-                'choices': (0, 100),
-                'label': 'Quality threshold',
-                'help': 'Quality threshold',
-                'display': 'slider',
-                'slot': self.__onThresoldChanged
-            }
-        ])
-        self.__threshold = threshold
-        kwargs['pickerParams'] = pickerParams
-        kwargs['readOnly'] = True
-        kwargs['coordClass'] = ThresholdCoord
-        dv.views.PickerView.__init__(self, parent, model, **kwargs)
-
-    def _showMicrograph(self, mic):
-        dv.views.PickerView._showMicrograph(self, mic)
-        self.__onPickShowHideTriggered(self._actionPickShowHide.get())
-
-    def __onThresoldChanged(self, threshold):
-        """ Invoked when the user changes the threshold value"""
-        self.__threshold = threshold * 0.01
-        for coordRoi in self._roiList:
-            roi = coordRoi.getROI()
-            roi.setVisible(coordRoi.getCoord().threshold >= self.__threshold)
-
-    @qtc.pyqtSlot(int)
-    def __onPickShowHideTriggered(self, state):
-        """ Invoked when action pick-show-hide is triggered """
-        if state:
-            self.__onThresoldChanged(self.__threshold * 100)
-        else:
-            self._showHidePickCoord(bool(state))
-
-
-def markCoordinates(listA, listB, radius):
-    """
-    Set the labels for the given list of Coordinates according to the following:
-     - a) The coordinates of A and are not close to any of B
-     - b) The coordinates of A and that are close to ones of B.
-          (color similar to a))
-     - c) Those of B that do not have close ones in A
-     - d) Those of B that are close in A (color similar to c))
-    :param listA: (list of Coordinate)
-    :param listB: (list of Coordinate)
-    :param radius: (int) Radius
-    """
-    for a in listA:
-        a.setLabel('a')  # case a)
-
-        for b in listB:
-            if b.getLabel() is None:
-                b.setLabel('c')  # case c)
-
-            d = sqrt((b.x - a.x)**2 + (b.y - a.y)**2)
-            if d <= radius:
-                a.setLabel('b')  # case b)
-                b.setLabel('d')  # case d)
 
 
 if __name__ == '__main__':
@@ -154,3 +150,5 @@ if __name__ == '__main__':
 
     TestPickerCmpView((args.width, args.height), args.images, args.box,
                       args.picks, args.radius).runApp()
+
+TestPickerCmpView((512, 512), 1, 64, 80, 64).runApp()

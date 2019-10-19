@@ -1,5 +1,6 @@
 
 import os
+from itertools import chain
 
 from ._constants import TYPE_INT, TYPE_STRING
 from ._table_models import TableModel, ColumnConfig
@@ -88,6 +89,16 @@ class Micrograph:
         """ Iterates over all coordinates in the micrograph. """
         return iter(self._coordinates)
 
+    def __contains__(self, item):
+        if item is None:
+            return False
+
+        for c in self._coordinates:
+            if c.x == item.x and c.y == item.y:
+                return True
+
+        return False
+
     def setId(self, micId):
         """ Set the micrograph Id. """
         self._micId = micId
@@ -117,6 +128,22 @@ class Micrograph:
         """ Remove all coordinates of this micrograph. """
         self._coordinates = []
 
+    def addCoordinates(self, coords):
+        """
+        Add all the coordinates present in coords
+        :param coords: (list) A coordinates list
+        """
+        self._coordinates.extend(coords)
+
+    def interception(self, mic):
+        """ Return a list with all coordinates present in both micrographs """
+        ret = []
+        for c in mic:
+            if c in self:
+                ret.append(c)
+
+        return ret
+
 
 class MicrographsTableModel(TableModel):
     """ Simple table model for use in PickerView """
@@ -127,7 +154,7 @@ class MicrographsTableModel(TableModel):
         :param columns: (list) List of ColumnInfo
         """
         self._data = []
-        self._colums = columns
+        self._columns = columns
         self._tableName = ''
         self._tableNames = []
 
@@ -136,7 +163,7 @@ class MicrographsTableModel(TableModel):
 
     def iterColumns(self):
         """ Return an iterator for model columns"""
-        return iter(self._colums)
+        return iter(self._columns)
 
     def getColumnsCount(self):
         """ Return the number of columns """
@@ -147,7 +174,7 @@ class MicrographsTableModel(TableModel):
         return len(self._data)
 
     def getValue(self, row, col):
-        if 0 <= row < len(self._data) and 0 <= col < len(self._colums):
+        if 0 <= row < len(self._data) and 0 <= col < len(self._columns):
             return self._data[row][col]
         return 0
 
@@ -165,7 +192,7 @@ class MicrographsTableModel(TableModel):
         Append a row to the end of the model
         :param row: (list) The row values.
         """
-        if isinstance(row, list) and len(row) == len(self._colums):
+        if isinstance(row, list) and len(row) == len(self._columns):
             self._data.append(row)
         else:
             raise Exception("Invalid row.")
@@ -177,12 +204,12 @@ class PickerDataModel:
     It contains a list of Micrographs and each Micrograph contains a list
     of Coordinates (x, y positions in the Micrograph).
     """
-    def __init__(self):
+    def __init__(self, boxSize=64):
         self._micrographs = dict()
         self._labels = dict()
         self._privateLabels = dict()
         self._initLabels()
-        self._boxsize = None
+        self._boxsize = boxSize
         self._lastId = 0
 
     def __len__(self):
@@ -218,7 +245,7 @@ class PickerDataModel:
         self._labels["Default"] = default
         self._privateLabels["D"] = default
 
-    def addPrivateLabel(self, name, color, key):
+    def _addLabel(self, name, color, key):
         """
         Add a new private label to the model.
         :param name:  (str) The label name
@@ -296,6 +323,113 @@ class PickerDataModel:
             micTable.appendRow([os.path.basename(mic.getPath()),
                                 len(mic), mic.getId()])
 
+        return micTable
+
+
+class PickerCmpModel(PickerDataModel):
+    """ PickerModel to handle two PickerModels """
+    def __init__(self, model1, model2, boxSize=64, radius=64, threshold=0):
+        PickerDataModel.__init__(self, boxSize=boxSize)
+        self._addLabel('a)', '#4c0045', 'a')
+        self._addLabel('b)', '#f94aff', 'b')
+        self._addLabel('c)', '#6a3b01', 'c')
+        self._addLabel('d)', '#ca7e22', 'd')
+
+        self._models = (model1, model2)
+        self._radius = radius
+        self._threshold = threshold
+
+        for micId in model1:
+            mic = model1[micId]
+            self.addMicrograph(Micrograph(micId, mic.getPath(),
+                                          list(chain(mic, model2[micId]))))
+
+    def __getitem__(self, micId):
+        mic = self._micrographs[micId]
+        mic.clear()
+
+        coordsA = self.__getVisibleCoords(self._models[0], micId)
+        coordsB = self.__getVisibleCoords(self._models[1], micId)
+
+        self._markCoordinates(coordsA, coordsB, self._radius)
+        mic.addCoordinates(coordsA)
+        mic.addCoordinates(coordsB)
+
+        return self._micrographs[micId]
+
+    def __getVisibleCoords(self, model, micId):
+        """
+        Return the visible coordinates according to the current threshold
+        :param model: (PickerModel)
+        :param micId: (int) Micrograph Id
+        """
+        ret = []
+        for c in model[micId]:
+            if c.threshold >= self._threshold:
+                ret.append(c)
+
+        return ret
+
+    def onParamChanged(self, paramName, value):
+        """
+         Function to be executed when a picker-param changes its value.
+        :param paramName: (str) The param name.
+        :param value:     The param value.
+
+        """
+        if paramName == 'radius':
+            self._radius = value
+        elif paramName == 'threshold':
+            self._threshold = value * 0.01
+
+    def _markCoordinates(self, listA, listB, radius):
+        """
+        Set the labels for the given list of Coordinates according to the following:
+         - a) The coordinates of A and are not close to any of B
+         - b) The coordinates of A and that are close to ones of B.
+              (color similar to a))
+         - c) Those of B that do not have close ones in A
+         - d) Those of B that are close in A (color similar to c))
+        :param listA: (list of Coordinate)
+        :param listB: (list of Coordinate)
+        :param radius: (int) Radius
+        """
+        if listA:
+            radius *= radius
+            for a in listA:
+                a.setLabel('a')  # case a)
+
+                for b in listB:
+                    if b.getLabel() is None:
+                        b.setLabel('c')  # case c)
+
+                    d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
+                    if d <= radius:
+                        a.setLabel('b')  # case b)
+                        b.setLabel('d')  # case d)
+        else:
+            for b in listB:
+                b.setLabel('c')  # case c)
+
+    def getMicrographsTableModel(self):
+        """ Return the TableModel that will be used to
+        display the list of micrographs.
+        """
+        micTable = MicrographsTableModel([
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('A', dataType=TYPE_INT, editable=True),
+            ColumnConfig('B', dataType=TYPE_INT, editable=True),
+            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
+        ])
+        m1, m2 = self._models
+        for micId in m1:
+            mic1 = m1[micId]
+            mic2 = m2[micId]
+
+            micTable.appendRow([os.path.basename(mic1.getPath()), len(mic1),
+                                len(mic2), len(mic1.interception(mic2)),
+                                micId])
         return micTable
 
 

@@ -296,7 +296,7 @@ class PickerView(qtw.QWidget):
 
         if pickerParams is not None:
             dFactory = DynamicWidgetsFactory()
-            dw = dFactory.createWidget(pickerParams)
+            dw = dFactory.createWidget(pickerParams, 'params')
             if dw is not None:
                 vLayout = qtw.QVBoxLayout()
                 label = qtw.QLabel(self)
@@ -304,12 +304,13 @@ class PickerView(qtw.QWidget):
                 vLayout.addWidget(label, 0, qtc.Qt.AlignLeft)
                 vLayout.addWidget(dw)
                 button = qtw.QPushButton(self)
-                button.setText("Collect")
+                button.setText("Apply")
                 button.clicked.connect(self.__collectParams)
                 button.setStyleSheet("font-weight:bold;")
                 vLayout.addWidget(button)
                 gLayout.addLayout(vLayout)
                 dw.setMinimumSize(dw.sizeHint())
+                dw.sigValueChanged.connect(self.__onPickerParamChanged)
         else:
             dw = None
 
@@ -321,6 +322,18 @@ class PickerView(qtw.QWidget):
         toolbar.addAction(actPickerROIS, boxPanel, index=0, exclusive=False,
                           checked=True)
         # End-picker operations
+
+    def __onPickerParamChanged(self, paramName, d):
+        """ Invoked when a picker-param value is changed """
+        onChange = d.pop('onChange', None)
+
+        func = getattr(self._model, onChange, None)
+        if func is not None:
+            func(paramName, **d)
+            row = self._cvImages.getCurrentRow()
+            micId = int(self._tvModel.getValue(row, self._idIndex))
+            self._currentMic = self._model[micId]
+            self._showMicrograph(self._currentMic)
 
     def __addControlsAction(self, toolbar):
         """
@@ -425,7 +438,7 @@ class PickerView(qtw.QWidget):
     def __createColumsViewModel(self):
         """ Setup the em table """
         self._tvModel = self._model.getMicrographsTableModel()
-        self._idIndex = 2
+        self._idIndex = self._tvModel.getColumnsCount() - 1
         self._nameIndex = 0
         self._coordIndex = 1
 
