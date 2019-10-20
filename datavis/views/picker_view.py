@@ -475,7 +475,7 @@ class PickerView(qtw.QWidget):
         """
         qtw.QMessageBox.critical(self, "Particle Picking", msg)
 
-    def _showMicrograph(self, mic):
+    def _showMicrograph(self, mic, fitToSize=False):
         """
         Show the an image in the ImageView
         :param mic: the ImageElem
@@ -487,7 +487,8 @@ class PickerView(qtw.QWidget):
         self._currentMic = mic
         self._currentImageDim = None
         micId = mic.getId()
-        self._imageView.setModel(ImageModel(self._model.getData(micId)))
+        self._imageView.setModel(ImageModel(self._model.getData(micId)),
+                                 fitToSize)
         self._imageView.setImageInfo(**self._model.getImageInfo(micId))
         self._createROIs()
 
@@ -725,6 +726,8 @@ class PickerView(qtw.QWidget):
                     self._clickAction == ERASE)
         if self._clickAction == ERASE:
             roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
+
+        roi.translatable = not self._readOnly
 
         return coordROI
 

@@ -328,47 +328,38 @@ class PickerDataModel:
 
 class PickerCmpModel(PickerDataModel):
     """ PickerModel to handle two PickerModels """
-    def __init__(self, model1, model2, boxSize=64, radius=64, threshold=0):
+    def __init__(self, model1, model2, boxSize=64, radius=64):
         PickerDataModel.__init__(self, boxSize=boxSize)
-        self._addLabel('a)', '#4c0045', 'a')
-        self._addLabel('b)', '#f94aff', 'b')
-        self._addLabel('c)', '#6a3b01', 'c')
-        self._addLabel('d)', '#ca7e22', 'd')
+        self._addLabel('a)', '#00ff0055', 'a')  # format RRGGBBAA
+        self._addLabel('b)', '#00ff00', 'b')
+        self._addLabel('c)', '#0000ff55', 'c')
+        self._addLabel('d)', '#0000ff', 'd')
 
         self._models = (model1, model2)
         self._radius = radius
-        self._threshold = threshold
+        self._ref = dict()
 
         for micId in model1:
             mic = model1[micId]
-            self.addMicrograph(Micrograph(micId, mic.getPath(),
-                                          list(chain(mic, model2[micId]))))
+            self.addMicrograph(Micrograph(micId, mic.getPath()))
+
+        self._defaultTableModel = None
 
     def __getitem__(self, micId):
         mic = self._micrographs[micId]
         mic.clear()
 
-        coordsA = self.__getVisibleCoords(self._models[0], micId)
-        coordsB = self.__getVisibleCoords(self._models[1], micId)
+        coordsA = self._models[0][micId]
+        coordsB = self._models[1][micId]
 
-        self._markCoordinates(coordsA, coordsB, self._radius)
+        s = self._markCoordinates(coordsA,
+                                  coordsB,
+                                  self._radius)
+        self._defaultTableModel.setValue(self._ref[micId], 3, s)
         mic.addCoordinates(coordsA)
         mic.addCoordinates(coordsB)
 
         return self._micrographs[micId]
-
-    def __getVisibleCoords(self, model, micId):
-        """
-        Return the visible coordinates according to the current threshold
-        :param model: (PickerModel)
-        :param micId: (int) Micrograph Id
-        """
-        ret = []
-        for c in model[micId]:
-            if c.threshold >= self._threshold:
-                ret.append(c)
-
-        return ret
 
     def onParamChanged(self, paramName, value):
         """
@@ -379,12 +370,11 @@ class PickerCmpModel(PickerDataModel):
         """
         if paramName == 'radius':
             self._radius = value
-        elif paramName == 'threshold':
-            self._threshold = value * 0.01
 
     def _markCoordinates(self, listA, listB, radius):
         """
-        Set the labels for the given list of Coordinates according to the following:
+        Set the labels for the given list of Coordinates according to the
+        following:
          - a) The coordinates of A and are not close to any of B
          - b) The coordinates of A and that are close to ones of B.
               (color similar to a))
@@ -393,44 +383,57 @@ class PickerCmpModel(PickerDataModel):
         :param listA: (list of Coordinate)
         :param listB: (list of Coordinate)
         :param radius: (int) Radius
+        :return : (int) Number of coordinates having a) and b) conditions
         """
-        if listA:
-            radius *= radius
-            for a in listA:
-                a.setLabel('a')  # case a)
+        c = set()
+        radius *= radius
 
-                for b in listB:
-                    if b.getLabel() is None:
-                        b.setLabel('c')  # case c)
+        for b in listB:
+            b.setLabel('c')  # case c)
 
-                    d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
-                    if d <= radius:
-                        a.setLabel('b')  # case b)
-                        b.setLabel('d')  # case d)
-        else:
+        for a in listA:
+            a.setLabel('a')  # case a)
+
             for b in listB:
-                b.setLabel('c')  # case c)
+                if b.getLabel() is None:
+                    b.setLabel('c')  # case c)
+
+                d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
+                if d <= radius:
+                    a.setLabel('b')  # case b)
+                    b.setLabel('d')  # case d)
+                    c.add(a)
+                    c.add(b)
+
+        return len(c)
 
     def getMicrographsTableModel(self):
         """ Return the TableModel that will be used to
         display the list of micrographs.
         """
-        micTable = MicrographsTableModel([
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('A', dataType=TYPE_INT, editable=True),
-            ColumnConfig('B', dataType=TYPE_INT, editable=True),
-            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
-        ])
-        m1, m2 = self._models
-        for micId in m1:
-            mic1 = m1[micId]
-            mic2 = m2[micId]
+        if self._defaultTableModel is None:
+            micTable = MicrographsTableModel([
+                ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+                ColumnConfig('A', dataType=TYPE_INT, editable=True),
+                ColumnConfig('B', dataType=TYPE_INT, editable=True),
+                ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
+                ColumnConfig('Id', dataType=TYPE_INT, editable=True,
+                             visible=False)
+            ])
+            m1, m2 = self._models
 
-            micTable.appendRow([os.path.basename(mic1.getPath()), len(mic1),
-                                len(mic2), len(mic1.interception(mic2)),
-                                micId])
-        return micTable
+            for i, micId in enumerate(m1):
+                mic1 = m1[micId]
+                mic2 = m2[micId]
+
+                s = self._markCoordinates(mic1, mic2, self._radius)
+                micTable.appendRow([os.path.basename(mic1.getPath()), len(mic1),
+                                    len(mic2), s, micId])
+                self._ref[micId] = i
+
+            self._defaultTableModel = micTable
+
+        return self._defaultTableModel
 
 
 def parseTextCoordinates(path):

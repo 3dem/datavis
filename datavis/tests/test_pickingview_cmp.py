@@ -48,14 +48,13 @@ class TestPickerCmpView(dv.tests.TestView):
             coordsB = [ThresholdCoord(x, y, None, randrange(0, 100) * 0.01)
                        for x, y in {(randrange(0, w), randrange(0, h))
                                     for i in range(randrange(1, self._picks))}]
-            c = ThresholdCoord(0, 0, None, randrange(0, 100) * 0.01)
-            coordsA.append(c)
-            c = ThresholdCoord(0, 0, None, randrange(0, 100) * 0.01)
-            coordsB.append(c)
+
             model1.addMicrograph(dv.models.Micrograph(micId, name, coordsA))
             model2.addMicrograph(dv.models.Micrograph(micId, name, coordsB))
 
-        model = PickerCmpModelImpl(model1, model2)
+        model = ThresholdPickerModel(model1, model2, boxSize=self._box,
+                                     radius=self._radius,
+                                     imageSize=(self._w, self._h))
         pickerParams = [
             {
                 'name': 'threshold',
@@ -71,7 +70,7 @@ class TestPickerCmpView(dv.tests.TestView):
                 'name': 'radius',
                 'type': 'enum',
                 'value': self._radius,
-                'choices': (10, 200),
+                'choices': (1, 200),
                 'label': 'Radius',
                 'help': 'Radius',
                 'display': 'slider',
@@ -83,13 +82,38 @@ class TestPickerCmpView(dv.tests.TestView):
         return dv.views.PickerView(None, model, **kwargs)
 
 
-class PickerCmpModelImpl(dv.models.PickerCmpModel):
+class ThresholdPickerModel(dv.models.PickerCmpModel):
     """ """
-    def __init__(self, model1, model2, boxSize=64, imageSize=(512, 512)):
-        dv.models.PickerCmpModel.__init__(self, model1, model2, boxSize=boxSize)
+    def __init__(self, model1, model2, boxSize=64, radius=64, threshold=0,
+                 imageSize=(512, 512)):
+        dv.models.PickerCmpModel.__init__(self, model1, model2, boxSize=boxSize,
+                                          radius=radius)
+        self._threshold = threshold
         self._images = dict()
         self._cache = {}
         self._imageSize = imageSize
+
+    def __getitem__(self, micId):
+        mic = dv.models.PickerCmpModel.__getitem__(self, micId)
+        self.__applyThreshold(mic)
+
+        return mic
+
+    def __applyThreshold(self, mic):
+        """
+        Apply the current threshold to the given micrograph
+        :param mic: (Micrograph) The micrograph
+        """
+        coords = list(mic)
+        mic.clear()
+        for c in coords:
+            if c.threshold >= self._threshold:
+                mic.addCoordinate(c)
+
+    def onParamChanged(self, paramName, value):
+        dv.models.PickerCmpModel.onParamChanged(self, paramName, value)
+        if paramName == 'threshold':
+            self._threshold = value * 0.01
 
     def getData(self, micId):
         """
