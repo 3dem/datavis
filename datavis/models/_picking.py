@@ -1,6 +1,6 @@
 
 import os
-from itertools import chain
+from collections import namedtuple
 
 from ._constants import TYPE_INT, TYPE_STRING
 from ._table_models import TableModel, ColumnConfig
@@ -8,39 +8,37 @@ from ._table_models import TableModel, ColumnConfig
 
 class Coordinate:
     """
-    The PPCoordinate class describes a coordinate defined in a plane
-    with X and Y axes
+    Simple class that holds values for x and y position and a optional label.
+    The label can be used to group different type of coordinates within a
+    Micrograph. Other attributes can be set dynamically.
     """
-    def __init__(self, x, y, label="Manual"):
+    def __init__(self, x, y, label="Manual", **kwargs):
+        """
+        Create a new Coordinate.
+        :param x: The X position
+        :param y: The Y position
+        :param label: A label for the coordinated, by default 'Manual'
+        :param kwargs: Other properties as key=value pairs
+        """
         self.x = x
         self.y = y
         self.label = label
+        self.set(**kwargs)
 
     def __str__(self):
         return "(%f, %f)" % (self.x, self.y)
 
-    def set(self, x, y):
+    def set(self, **kwargs):
         """
-        Set x and y values for this coordinate
-        :param x:
-        :param y:
-        :return:
+        Set different properties of this coordinates.
+        Example:
+            c = Coordinate(x, y, label='Auto')
+            c.set(x=1, y=100, label='None')
+            # ...
+            c.set(label='Auto')
         """
-        self.x = x
-        self.y = y
-
-    def setLabel(self, labelName):
-        """
-        Sets the label name
-        :param labelName: the label name
-        """
-        self.label = labelName
-
-    def getLabel(self):
-        """
-        :return: The label name
-        """
-        return self.label
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 class Micrograph:
@@ -52,34 +50,7 @@ class Micrograph:
         self._micId = micId
         self._path = path
         self._coordinates = []
-        if coordinates:
-            for c in coordinates:
-                if isinstance(c, tuple):
-                    size = len(c)
-                    if size == 2:
-                        self._coordinates.append(Coordinate(c[0], c[1],
-                                                            "Default"))
-                    elif size == 3:
-                        self._coordinates.append(
-                            Coordinate(c[0], c[1],
-                                       c[2] if not c[2] == "" else "Default"))
-                    elif size == 4:
-                        self._coordinates.append(
-                            (Coordinate(c[0], c[1], "Default"),
-                             Coordinate(c[2], c[3], "Default")))
-                    elif size == 5:
-                        t = c[4] if not c[4] == "" else "Default"
-                        self._coordinates.append((Coordinate(c[0], c[1], t),
-                                                  Coordinate(c[2], c[3], t)))
-                    else:
-                        raise Exception(
-                            "Invalid coordinate specification for :%d."
-                            % str(c))
-                elif isinstance(c, Coordinate):
-                    self._coordinates.append(c)
-                else:
-                    raise Exception("Invalid coordinate type. Only tupple or "
-                                    "Coordinate types are supported.")
+        self.addCoordinates(coordinates)
 
     def __len__(self):
         """ The length of the Micrograph is the number of coordinates. """
@@ -135,6 +106,8 @@ class Micrograph:
         """
         self._coordinates.extend(coords)
 
+    #FIXME: This function is not general enough for be here
+    # I think we should keep this class as minimal as possible
     def interception(self, mic):
         """ Return a list with all coordinates present in both micrographs """
         ret = []
@@ -206,11 +179,13 @@ class PickerDataModel:
     """
     def __init__(self, boxSize=64):
         self._micrographs = dict()
-        self._labels = dict()
-        self._privateLabels = dict()
-        self._initLabels()
         self._boxsize = boxSize
         self._lastId = 0
+        # Create a class for Coordinates Labels
+        self.Label = namedtuple('Label', ['name', 'color'])
+        self._labels = dict()
+        self._privateLabels = dict()  #FIXME: Why we need privateLabels???
+        self._initLabels()
 
     def __len__(self):
         """ The length of the model is the number of Micrographs. """
@@ -227,24 +202,19 @@ class PickerDataModel:
         """
         Initialize the labels for this PPSystem
         """
-        automatic = dict()
-        automatic["name"] = "Auto"
-        automatic["color"] = "#0012FF"  # #AARRGGBB
-        self._labels["Auto"] = automatic
-        self._privateLabels["A"] = automatic
+        auto = self.Label(name="Auto", color="#0012FF")
+        self._labels["Auto"] = auto
+        self._privateLabels["A"] = auto
 
-        manual = dict()
-        manual["name"] = "Manual"
-        manual["color"] = "#1EFF00"  # #AARRGGBB
+        manual = self.Label(name="Manual", color="#1EFF00")
         self._labels["Manual"] = manual
         self._privateLabels["M"] = manual
 
-        default = dict()
-        default["name"] = "Default"
-        default["color"] = "#1EFF00"  # #AARRGGBB
+        default = self.Label(name="Default", color="#1EFF00")
         self._labels["Default"] = default
         self._privateLabels["D"] = default
 
+    #FIXME: Why we need different key from name?
     def _addLabel(self, name, color, key):
         """
         Add a new private label to the model.
@@ -254,7 +224,7 @@ class PickerDataModel:
                       The following keys are already in use, you must use other:
                       'A', 'M', 'D'
         """
-        self._privateLabels[key] = {'name': name, 'color': color}
+        self._privateLabels[key] = self.Label(name=name, color=color)
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
@@ -291,9 +261,8 @@ class PickerDataModel:
         :param labelName: The label name
         :return: dict value
         """
-        ret = self._labels.get(labelName)
         pl = self._privateLabels
-        return ret if ret else pl.get(labelName, pl.get('D'))
+        return self._labels.get(labelName, pl.get(labelName, pl['D']))
 
     def nextId(self):
         """
@@ -436,6 +405,7 @@ class PickerCmpModel(PickerDataModel):
         return self._defaultTableModel
 
 
+# FIXME: Check if this function is need at all and remove it from here
 def parseTextCoordinates(path):
     """ Parse (x, y) coordinates from a texfile assuming
      that the first two columns on each line are x and y.

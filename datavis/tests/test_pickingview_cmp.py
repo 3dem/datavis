@@ -34,20 +34,23 @@ class TestPickerCmpView(dv.tests.TestView):
         kwargs['readOnly'] = True
 
         w, h = self._w, self._h
-        model1 = dv.tests.createSimplePickerDataModel((w, h),
-                                                      kwargs.get('boxSize', 40))
-        model2 = dv.tests.createSimplePickerDataModel((w, h),
-                                                      kwargs.get('boxSize', 40))
+        boxSize = kwargs.get('boxSize', 40)
+        model1 = dv.tests.createSimplePickerDataModel((w, h), boxSize)
+        model2 = dv.tests.createSimplePickerDataModel((w, h), boxSize)
 
         for i in range(self._size):
             micId = i + 1
             name = 'Image #%d' % micId
-            coordsA = [ThresholdCoord(x, y, None, randrange(0, 100) * 0.01)
-                       for x, y in {(randrange(0, w), randrange(0, h))
-                                    for i in range(randrange(1, self._picks))}]
-            coordsB = [ThresholdCoord(x, y, None, randrange(0, 100) * 0.01)
-                       for x, y in {(randrange(0, w), randrange(0, h))
-                                    for i in range(randrange(1, self._picks))}]
+            coordsA = [
+                dv.models.Coordinate(x, y, threshold=randrange(0, 100)*0.01)
+                for x, y in {(randrange(0, w), randrange(0, h))
+                             for i in range(randrange(1, self._picks))}
+            ]
+            coordsB = [
+                dv.models.Coordinate(x, y, threshold=randrange(0, 100) * 0.01)
+                for x, y in {(randrange(0, w), randrange(0, h))
+                             for i in range(randrange(1, self._picks))}
+            ]
 
             model1.addMicrograph(dv.models.Micrograph(micId, name, coordsA))
             model2.addMicrograph(dv.models.Micrograph(micId, name, coordsB))
@@ -142,13 +145,6 @@ class ThresholdPickerModel(dv.models.PickerCmpModel):
         :return: dict
         """
         return {'dim': self._imageSize}
-
-
-class ThresholdCoord(dv.models.Coordinate):
-    """ Coordinate with threshold quality value """
-    def __init__(self, x, y, label="Manual", threshold=1.0):
-        dv.models.Coordinate.__init__(self, x, y, label)
-        self.threshold = threshold
 
 
 if __name__ == '__main__':

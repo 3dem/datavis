@@ -31,14 +31,12 @@ FILAMENT_MODE = 1
 
 class PickerView(qtw.QWidget):
 
-    def __init__(self, parent, model, coordClass=Coordinate, **kwargs):
+    def __init__(self, parent, model, **kwargs):
         """
         Constructor
 
         :param parent:  Reference to the parent widget
         :param model:  (datavis.models.PickerDataModel) The input picker model
-        :param coordClass (class) The class to be used for coordinate object
-                                  creation.
         :param kwargs:
             - UI config params.
 
@@ -52,8 +50,6 @@ class PickerView(qtw.QWidget):
         self._readOnly = kwargs.get('readOnly', False)
         self._handleSize = 8
         self.__pickerMode = kwargs.get('pickerMode', FILAMENT_MODE)
-        self.__coordClass = coordClass
-
         self._currentMic = None
         self._currentImageDim = None
         self._roiList = []
@@ -157,12 +153,9 @@ class PickerView(qtw.QWidget):
         Enable/Disable those widgets related to read-only mode
         """
         e = not self._readOnly
-        if hasattr(self, '_actionPick'):
-            self._actionPick.setEnabled(e)
-        if hasattr(self, '_actionErase'):
-            self._actionErase.setEnabled(e)
-        if hasattr(self, '_actionPickSegment'):
-            self._actionPickSegment.setEnabled(e)
+        for attrName in ['_actionPick', '_actionErase', '_actionPickSegment']:
+            if hasattr(self, attrName):
+                getattr(self, attrName).setEnabled(e)
         self._spinBoxBoxSize.setEnabled(e)
 
     def __addMicrographsAction(self, toolbar, **kwargs):
@@ -401,14 +394,6 @@ class PickerView(qtw.QWidget):
             self._controlTable.setItem(rows, col, item)
             col += 1
 
-    # def __addMicToTable(self, mic):
-    #     """
-    #     Add an image to the internal view widget.
-    #     """
-    #     self._tvModel.appendRow([os.path.basename(mic.getPath()), len(mic),
-    #                              mic.getId()])
-    #     self._cvImages.modelChanged()
-
     def _showHidePickCoord(self, visible):
         """ Show or hide the pick coordinates for the current micrograph """
         for roi in self._roiList:
@@ -457,16 +442,6 @@ class PickerView(qtw.QWidget):
         """
         # FIXME: Check how this will be used in practice
         raise Exception('Not implemented!')
-        # if path:
-        #     try:
-        #         imgElem = Micrograph(-1,
-        #                              path,
-        #                              coord)
-        #         self._model.addMicrograph(imgElem)
-        #         self.__addMicToTable(imgElem)
-        #     except:
-        #         print(sys.exc_info())
-        #         self._showError(sys.exc_info()[2])
 
     def _showError(self, msg):
         """
@@ -534,22 +509,6 @@ class PickerView(qtw.QWidget):
         # FIXME: Check how this will be used in practice
         raise Exception('Not implemented!')
 
-        # _, ext = os.path.splitext(path)
-        #
-        # if ext == '.box':
-        #     self._loadMicCoordinates(path, parserFunc=parseTextCoordinates,
-        #                              clear=not kwargs.get("appendCoord", False),
-        #                              showMic=kwargs.get("showMic", True))
-        # else:
-        #     c = kwargs.get("coord", None)
-        #     if c is None:
-        #         coord = None
-        #     else:
-        #         coord = parseTextCoordinates(c) \
-        #             if isinstance(c, str) or isinstance(c, unicode) else c
-        #
-        #     self.__openImageFile(path, coord)
-
     def _makePen(self, labelName, width=1):
         """
         Make the Pen for labelName
@@ -559,7 +518,7 @@ class PickerView(qtw.QWidget):
         label = self._model.getLabel(labelName)
 
         if label:
-            return pg.mkPen(color=label["color"], width=width)
+            return pg.mkPen(color=label.color, width=width)
 
         return pg.mkPen(color="#1EFF00", width=width)
 
@@ -583,8 +542,8 @@ class PickerView(qtw.QWidget):
                     0 <= y - r <= bounds.height()):
                 if self.__pickerMode == DEFAULT_MODE:
                     # Create coordinate with event click coordinates and add it
-                    coord = self.__coordClass(pos.x(), pos.y(),
-                                              self.__currentLabelName)
+                    coord = Coordinate(pos.x(), pos.y(),
+                                       label=self.__currentLabelName)
                     self._currentMic.addCoordinate(coord)
                     self._roiList.append(self._createCoordROI(coord))
                     if self._tvModel is not None:
@@ -601,15 +560,14 @@ class PickerView(qtw.QWidget):
                     self.__eraseROIText.setPos(pos)
                     self.__eraseROIText.setText("angle=")
                     self.__eraseROIText.setVisible(True)
+
                 elif not self.__segPos == pos:  # filament mode
-                    coord1 = self.__coordClass(self.__segPos.x(),
-                                               self.__segPos.y(),
-                                               self.__currentLabelName)
-                    coord2 = self.__coordClass(pos.x(), pos.y(),
-                                               self.__currentLabelName)
-                    coord = (coord1, coord2)
+                    coord = Coordinate(self.__segPos.x(), self.__segPos.y(),
+                                       label=self.__currentLabelName,
+                                       x2=pos.x(), y2=pos.y())
                     self._currentMic.addCoordinate(coord)
                     self._roiList.append(self._createCoordROI(coord))
+
                     if self._tvModel is not None:
                         r = self._cvImages.getCurrentRow()
                         self._tvModel.setValue(r, self._coordIndex,
@@ -644,33 +602,9 @@ class PickerView(qtw.QWidget):
         This function will take into account the selected ROI shape
         and other global properties.
         """
-        if self.__pickerMode == FILAMENT_MODE and isinstance(coord, tuple):
-                p1, p2 = coord[0], coord[1]
-                if (isinstance(p1, self.__coordClass) and
-                        isinstance(p2, self.__coordClass)):
-                    label = p1.getLabel()
-                else:
-                    raise Exception("Invalid coordinates type for picker mode")
-        elif (self.__pickerMode == DEFAULT_MODE and
-              isinstance(coord, self.__coordClass)):
-            label = coord.getLabel()
-        elif self.__pickerMode == DEFAULT_MODE and isinstance(coord, tuple):
-            x, y = (coord[0], coord[1])
-            if (isinstance(x, self.__coordClass) or
-                    isinstance(y, self.__coordClass)):
-                raise Exception("Invalid coordinate type for picker mode")
-            label = self.__currentLabelName
-            coord = self.__coordClass(coord[0], coord[1],
-                                      self.__currentLabelName)
-        else:
-            raise Exception("Invalid coordinates for picker mode")
-
-        roiDict = {
-            # 'centered': True,
-            # 'aspectLocked': self.aspectLocked,
-            'pen': self._makePen(label, 2)
-        }
+        roiDict = {'pen': self._makePen(coord.label, 2)}
         size = self._model.getBoxSize()
+
         if self.__pickerMode == DEFAULT_MODE:
             if self._actionPickCenter.isChecked():
                 roiClass = pg.ScatterPlotItem
@@ -1035,8 +969,8 @@ class PickerView(qtw.QWidget):
             pos = roi.pos()
             size = roi.size()
             if roi.coordinate is not None:
-                roi.coordinate.set(int(pos.x() + size[0]/2.0),
-                                   int(pos.y() + size[1]/2.0))
+                roi.coordinate.set(x=int(pos.x() + size[0]/2.0),
+                                   y=int(pos.y() + size[1]/2.0))
         else:  # filament mode
             self.__updateFilemantText(roi.angle(), roi.size()[0], roi.pos())
             self.__eraseROIText.setVisible(True)
@@ -1053,15 +987,14 @@ class PickerView(qtw.QWidget):
             pos = roi.pos()
             size = roi.size()
             if roi.coordinate is not None:
-                roi.coordinate.set(int(pos.x() + size[0] / 2.0),
-                                   int(pos.y() + size[1] / 2.0))
+                roi.coordinate.set(x=int(pos.x() + size[0] / 2.0),
+                                   y=int(pos.y() + size[1] / 2.0))
         else:  # filament mode
             viewBox = self._imageView.getViewBox()
             pos1 = viewBox.mapSceneToView(roi.getSceneHandlePositions(0)[1])
             pos2 = viewBox.mapSceneToView(roi.getSceneHandlePositions(1)[1])
-            coord1, coord2 = roi.coordinate
-            coord1.set(pos1.x(), pos1.y())
-            coord2.set(pos2.x(), pos2.y())
+            coord = roi.coordinate
+            coord.set(x=pos1.x(), y=pos1.y(), x2=pos2.x(), y2=pos2.y())
             if isinstance(roi, pg.ROI):
                 width = roi.size().y()
                 if not width == self._model.getBoxSize():
@@ -1098,16 +1031,23 @@ class MicrographItem(qtg.QStandardItem):
         return self._micrograph
 
 
+def isFilament(coord):
+    """ Helper function to check if the coord is a filament.
+    Returns true if coords has 'x2' and 'y2' attributes.
+    """
+    return all(hasattr(coord, a) for a in ['x2', 'y2'])
+
+
 class CoordROI:
     """ Class to match between ROI objects and corresponding coordinate """
     def __init__(self, coord, boxSize, roiClass, handleSize, **kwargs):
         # Lets compute the left-upper corner for the ROI
         if roiClass == pg.ScatterPlotItem:
             self._roi = pg.ScatterPlotItem(pos=[(coord.x, coord.y)], **kwargs)
-        elif isinstance(coord, tuple):  # filament coordinates (Coord1, Coord2)
-            pos1, pos2 = coord[0], coord[1]
-            self._roi = self.__createFilament((pos1.x, pos1.y),
-                                              (pos2.x, pos2.y),
+
+        elif isFilament(coord):
+            self._roi = self.__createFilament((coord.x, coord.y),
+                                              (coord.x2, coord.y2),
                                               boxSize, roiClass,
                                               handleSize, **kwargs)
         else:
@@ -1179,10 +1119,9 @@ class CoordROI:
         """
         if isinstance(self._roi, pg.ROI):
             coord = self._roi.coordinate
-            if isinstance(coord, tuple):  # filament
-                c1, c2 = coord
-                pos1 = pg.Point(c1.x, c1.y)
-                pos2 = pg.Point(c2.x, c2.y)
+            if isFilament(coord):
+                pos1 = pg.Point(coord.x, coord.y)
+                pos2 = pg.Point(coord.x2, coord.x2)
                 pos, size, angle = self.__calcFilamentSize(pos1, pos2, size)
                 self._roi.setPos(pos, update=False, finish=False)
                 self._roi.setSize(size, update=False, finish=False)

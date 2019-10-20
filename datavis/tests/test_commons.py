@@ -225,13 +225,15 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         """ Return a Micrograph object with random pick coordinates """
         w, h = self._imageSize
         if filament:
-            coords = [(randrange(0, w),
-                       randrange(0, h),
-                       randrange(0, w),
-                       randrange(0, h)) for i in range(picks)]
+            coords = [
+                dv.models.Coordinate(randrange(0, w), randrange(0, h),
+                                     x2=randrange(0, w), y2=randrange(0, h))
+                for i in range(picks)]
         else:
-            coords = [(randrange(0, w),
-                       randrange(0, h)) for i in range(picks)]
+            coords = [
+                dv.models.Coordinate(randrange(0, w), randrange(0, h))
+                for i in range(picks)
+            ]
 
         return dv.models.Micrograph(micId, 'Image %d' % micId, coords)
 
