@@ -50,7 +50,8 @@ class Micrograph:
         self._micId = micId
         self._path = path
         self._coordinates = []
-        self.addCoordinates(coordinates)
+        if coordinates:
+            self.addCoordinates(coordinates)
 
     def __len__(self):
         """ The length of the Micrograph is the number of coordinates. """
