@@ -66,8 +66,7 @@ class TestPickerCmpView(dv.tests.TestView):
                 'choices': (0, 100),
                 'label': 'Quality threshold',
                 'help': 'Quality threshold',
-                'display': 'slider',
-                'onChange': 'onParamChanged'
+                'display': 'slider'
             },
             {
                 'name': 'radius',
@@ -76,11 +75,11 @@ class TestPickerCmpView(dv.tests.TestView):
                 'choices': (1, 200),
                 'label': 'Radius',
                 'help': 'Radius',
-                'display': 'slider',
-                'onChange': 'onParamChanged'
+                'display': 'slider'
             }
         ]
         kwargs['pickerParams'] = pickerParams
+        kwargs['paramsFunc'] = model.onParamChanged
 
         return dv.views.PickerView(None, model, **kwargs)
 

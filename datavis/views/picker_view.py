@@ -1,4 +1,5 @@
 
+import collections
 from math import cos, sin
 from numpy import pi
 
@@ -10,7 +11,7 @@ import pyqtgraph as pg
 import qtawesome as qta
 
 
-from datavis.widgets import (TriggerAction, OnOffAction, DynamicWidgetsFactory)
+from datavis.widgets import (TriggerAction, OnOffAction, ParamsContainer)
 from datavis.models import (Coordinate, TableConfig, ImageModel)
 
 from ._image_view import ImageView, PenROI
@@ -42,7 +43,9 @@ class PickerView(qtw.QWidget):
 
             - sources :     (dict) dict with tuples (mic-path, coordinates-path)
                             (mic-path, list) where list contains the coordinates
-            - pickerParams: (dict) The picker parameters specification
+            - pickerParams: The picker parameters specification
+            - paramsFunc:   (collections.Callable) The function to be invoked
+                            when a picker param value is changed
         """
         qtw.QWidget.__init__(self, parent)
         self._model = model
@@ -50,6 +53,7 @@ class PickerView(qtw.QWidget):
         self._readOnly = kwargs.get('readOnly', False)
         self._handleSize = 8
         self.__pickerMode = kwargs.get('pickerMode', FILAMENT_MODE)
+        self._paramsFunc = kwargs.get('paramsFunc')
         self._currentMic = None
         self._currentImageDim = None
         self._roiList = []
@@ -288,8 +292,8 @@ class PickerView(qtw.QWidget):
         # Creating picker params widgets
 
         if pickerParams is not None:
-            dFactory = DynamicWidgetsFactory()
-            dw = dFactory.createWidget(pickerParams, 'params')
+            dw = ParamsContainer(parent=boxPanel, name='pickerParams',
+                                 specification=pickerParams)
             if dw is not None:
                 vLayout = qtw.QVBoxLayout()
                 label = qtw.QLabel(self)
@@ -316,13 +320,11 @@ class PickerView(qtw.QWidget):
                           checked=True)
         # End-picker operations
 
-    def __onPickerParamChanged(self, paramName, d):
+    def __onPickerParamChanged(self, paramName, value):
         """ Invoked when a picker-param value is changed """
-        onChange = d.pop('onChange', None)
 
-        func = getattr(self._model, onChange, None)
-        if func is not None:
-            func(paramName, **d)
+        if isinstance(self._paramsFunc, collections.Callable):
+            self._paramsFunc(paramName, value)
             row = self._cvImages.getCurrentRow()
             micId = int(self._tvModel.getValue(row, self._idIndex))
             self._currentMic = self._model[micId]
@@ -516,7 +518,6 @@ class PickerView(qtw.QWidget):
         :return: pg.makePen
         """
         label = self._model.getLabel(labelName)
-
         if label:
             return pg.mkPen(color=label.color, width=width)
 

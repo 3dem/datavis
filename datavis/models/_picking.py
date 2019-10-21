@@ -107,17 +107,6 @@ class Micrograph:
         """
         self._coordinates.extend(coords)
 
-    #FIXME: This function is not general enough for be here
-    # I think we should keep this class as minimal as possible
-    def interception(self, mic):
-        """ Return a list with all coordinates present in both micrographs """
-        ret = []
-        for c in mic:
-            if c in self:
-                ret.append(c)
-
-        return ret
-
 
 class MicrographsTableModel(TableModel):
     """ Simple table model for use in PickerView """
@@ -185,7 +174,6 @@ class PickerDataModel:
         # Create a class for Coordinates Labels
         self.Label = namedtuple('Label', ['name', 'color'])
         self._labels = dict()
-        self._privateLabels = dict()  #FIXME: Why we need privateLabels???
         self._initLabels()
 
     def __len__(self):
@@ -201,31 +189,19 @@ class PickerDataModel:
 
     def _initLabels(self):
         """
-        Initialize the labels for this PPSystem
+        Initialize the labels for this PickerModel
         """
         auto = self.Label(name="Auto", color="#0012FF")
         self._labels["Auto"] = auto
-        self._privateLabels["A"] = auto
+        self._labels["A"] = auto
 
         manual = self.Label(name="Manual", color="#1EFF00")
         self._labels["Manual"] = manual
-        self._privateLabels["M"] = manual
+        self._labels["M"] = manual
 
         default = self.Label(name="Default", color="#1EFF00")
         self._labels["Default"] = default
-        self._privateLabels["D"] = default
-
-    #FIXME: Why we need different key from name?
-    def _addLabel(self, name, color, key):
-        """
-        Add a new private label to the model.
-        :param name:  (str) The label name
-        :param color: (str) The color in ARGB format. Example: '#1EFF00'.
-        :param key:   (str) Single key to reference the label.
-                      The following keys are already in use, you must use other:
-                      'A', 'M', 'D'
-        """
-        self._privateLabels[key] = self.Label(name=name, color=color)
+        self._labels["D"] = default
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
@@ -262,8 +238,7 @@ class PickerDataModel:
         :param labelName: The label name
         :return: dict value
         """
-        pl = self._privateLabels
-        return self._labels.get(labelName, pl.get(labelName, pl['D']))
+        return self._labels.get(labelName, self._labels['D'])
 
     def nextId(self):
         """
@@ -300,10 +275,11 @@ class PickerCmpModel(PickerDataModel):
     """ PickerModel to handle two PickerModels """
     def __init__(self, model1, model2, boxSize=64, radius=64):
         PickerDataModel.__init__(self, boxSize=boxSize)
-        self._addLabel('a)', '#00ff0055', 'a')  # format RRGGBBAA
-        self._addLabel('b)', '#00ff00', 'b')
-        self._addLabel('c)', '#0000ff55', 'c')
-        self._addLabel('d)', '#0000ff', 'd')
+        # format RRGGBBAA
+        self._labels['a'] = self.Label(name="a", color="#00ff0055")
+        self._labels['b'] = self.Label(name="b", color="#00ff00")
+        self._labels['c'] = self.Label(name="c", color="#0000ff55")
+        self._labels['d'] = self.Label(name="d", color="#0000ff")
 
         self._models = (model1, model2)
         self._radius = radius
@@ -359,19 +335,17 @@ class PickerCmpModel(PickerDataModel):
         radius *= radius
 
         for b in listB:
-            b.setLabel('c')  # case c)
+            b.set(label='c')  # case c)
 
         for a in listA:
-            a.setLabel('a')  # case a)
+            a.set(label='a')  # case a)
 
             for b in listB:
-                if b.getLabel() is None:
-                    b.setLabel('c')  # case c)
 
                 d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
                 if d <= radius:
-                    a.setLabel('b')  # case b)
-                    b.setLabel('d')  # case d)
+                    a.set(label='b')  # case b)
+                    b.set(label='d')  # case d)
                     c.add(a)
                     c.add(b)
 

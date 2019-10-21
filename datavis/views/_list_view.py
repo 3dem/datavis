@@ -2,7 +2,7 @@
 import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
-from datavis.widgets import ViewPanel, DynamicWidgetsFactory, SpinSlider
+from datavis.widgets import ViewPanel, SpinSlider, ParamsContainer
 from datavis.models import EmptyTableModel, ImageModel
 from datavis.views import (ColumnsView, ImageView, VolumeView, RECT_ROI,
                            CIRCLE_ROI)
@@ -198,8 +198,8 @@ class DualImageListView(ImageListView):
             if self._dynamicParams is None:
                 self._method()
             else:
-                if self._dynamicWidget is not None:
-                    self._dynamicParams = self._dynamicWidget.getParams()
+                if self._paramsContainer is not None:
+                    self._dynamicParams = self._paramsContainer.getParams()
                 self._method(self._dynamicParams)
 
     def _createTopRightPanel(self, **kwargs):
@@ -224,10 +224,10 @@ class DualImageListView(ImageListView):
         return panel
 
     def _createBottomRightPanel(self, **kwargs):
-        """ Creates a dynamic widget from the given 'options' param.
+        """ Creates a ParamsContainer widget from the given 'options' param.
         The dynamic widget should be accessed using the 'optionsWidget' key.
         :param kwargs:
-          - options:   (dict) Dynamic widget options
+          - options: params options. See ParamsContainer specifications
           - method:  Function to invoke when the apply button is clicked
         """
         self._dynamicParams = kwargs.get('options')
@@ -235,12 +235,12 @@ class DualImageListView(ImageListView):
 
         panel = ViewPanel(self, layoutType=ViewPanel.VERTICAL)
         if self._dynamicParams is not None:
-            factory = DynamicWidgetsFactory()
-            self._dynamicWidget = factory.createWidget(self._dynamicParams)
-            panel.addWidget(self._dynamicWidget, 'optionsWidget',
+            self._paramsContainer = ParamsContainer(
+                parent=panel, name='params', specification=self._dynamicParams)
+            panel.addWidget(self._paramsContainer, 'optionsWidget',
                             alignment=qtc.Qt.AlignLeft)
         else:
-            self._dynamicWidget = None
+            self._paramsContainer = None
 
         self._applyButton = qtw.QPushButton(panel)
         self._applyButton.setText('Apply')
