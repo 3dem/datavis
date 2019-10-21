@@ -16,6 +16,8 @@ class ParamWidget(qtw.QWidget):
     def __init__(self, param, parent=None):
         qtw.QWidget.__init__(self, parent=parent)
         self._param = param
+        self._sizePolicy = qtw.QSizePolicy(qtw.QSizePolicy.Expanding,
+                                           qtw.QSizePolicy.Minimum)
         self.setObjectName(param.name)  # the name is mandatory
         self.setToolTip(param.help)
 
@@ -134,6 +136,9 @@ class TextWidget(ParamWidget):
         self._lineEdit = qtw.QLineEdit(parent=self)
         layout.addWidget(self._lineEdit)
         self.setLayout(layout)
+        value = getattr(param, 'value', None)
+        if value is not None:
+            self.set(value)
         self._lineEdit.returnPressed.connect(self.__onReturnPressed)
 
     def __onReturnPressed(self):
@@ -153,6 +158,8 @@ class NumericWidget(ParamWidget):
         layout = qtw.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         pType = param.type
+
+
         if pType == dv.models.PARAM_TYPE_INT:
             val = qtg.QIntValidator()
             self._type = int
@@ -172,6 +179,7 @@ class NumericWidget(ParamWidget):
             value = getattr(param, 'value', minValue)
             widget = dv.widgets.SpinSlider(parent=self, currentValue=value,
                                            minValue=range[0], maxValue=range[1])
+            widget.setValue(value)
             widget.sigValueChanged.connect(self.__onValueChanged)
             self.get = lambda : widget.getValue()
             self.set = lambda value: widget.setValue(value)
@@ -179,8 +187,11 @@ class NumericWidget(ParamWidget):
             widget = qtw.QLineEdit(parent=self)
             widget.setValidator(val)
             widget.setFixedWidth(80)
+            value = getattr(param, 'value', None)
+            if value is not None:
+                widget.setText(str(value))
             widget.returnPressed.connect(self.__onReturnPressed)
-            self.get = lambda : self._type(widget.text())
+            self.get = lambda : self.__getNumeric(widget.text())
             self.set = lambda value: widget.setValue(str(value))
 
         layout.addWidget(widget)
@@ -192,13 +203,10 @@ class NumericWidget(ParamWidget):
     def __onValueChanged(self, value):
         self.emitValueChanged(value)
 
-    # def set(self, value):
-    #     self._lineEdit.setText(str(value))
-
-    # def get(self):
-    #     t = self._lineEdit.text()
-    #     #FIXME: What is the purpose of this validation?
-    #     return 0 if t in ["", ".", "+", "-", '-.', '+.'] else self._type(t)
+    def __getNumeric(self, value):
+         #FIXME: What is the purpose of this validation?
+         invalid = ["", ".", "+", "-", '-.', '+.']
+         return None if value in invalid else self._type(value)
 
 
 class BoolWidget(ParamWidget):
@@ -280,8 +288,10 @@ class FormWidget(qtw.QWidget):
         row = layout.rowCount()
         for r, params in enumerate(form):
             for col, param in enumerate(params):
-                label = qtw.QLabel(param.label, parent=self)
-                layout.addWidget(label, row+r, 2*col, qtc.Qt.AlignRight)
+                # Only the special case of button does not require extra label
+                if param.type != dv.models.PARAM_TYPE_BUTTON:
+                    label = qtw.QLabel(param.label, parent=self)
+                    layout.addWidget(label, row+r, 2*col, qtc.Qt.AlignRight)
                 widget = self.__createParamWidget(param)
                 layout.addWidget(widget, row+r, 2*col+1) #, 1, -1)
                 if param.help:
