@@ -23,3 +23,20 @@ EDITABLE = 'editable'
 EDITABLE_RO = 'editableReadOnly'
 DESCRIPTION = 'description'
 LABELS = 'labels'
+
+# PickerParam related constants
+PARAM_TYPE_STRING = 'string'
+PARAM_TYPE_FLOAT = 'float'
+PARAM_TYPE_INT = 'int'
+PARAM_TYPE_ENUM = 'enum'
+PARAM_TYPE_BOOL = 'bool'
+PARAM_TYPE_BUTTON = 'button'
+
+PARAM_DISPLAY_DEFAULT = 'default'
+# Valid for enum type
+PARAM_DISPLAY_COMBO = 'combo'
+PARAM_DISPLAY_HLIST = 'hlist'
+PARAM_DISPLAY_VLIST = 'vlist'
+# Valid for int or float with range
+PARAM_DISPLAY_SLIDER = 'slider'
+
