@@ -14,11 +14,12 @@ import datavis as dv
 app = qtw.QApplication(sys.argv)
 
 win = qtw.QMainWindow()
-win.resize(800, 800)
+win.resize(500, 300)
 
 Param = dv.models.Param
 
 name = Param('name', dv.models.PARAM_TYPE_STRING, label='Name',
+             value='Pepe',
              help='Enter your name.')
 
 surname = Param('surname', dv.models.PARAM_TYPE_STRING, label='Surname',
@@ -44,7 +45,7 @@ scale = Param('scale', dv.models.PARAM_TYPE_FLOAT, label='Scale',
               range=(0., 1), help='Just to show a float value with slider')
 
 conditions = Param('conditions', dv.models.PARAM_TYPE_BOOL,
-                   label='Agree on Terms and Conditions?',
+                   label='Agree on \nTerms and Conditions?',
                    value=True)
 
 submit = Param('submit', dv.models.PARAM_TYPE_BUTTON,
