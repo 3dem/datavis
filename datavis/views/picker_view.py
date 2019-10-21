@@ -11,7 +11,7 @@ import pyqtgraph as pg
 import qtawesome as qta
 
 
-from datavis.widgets import (TriggerAction, OnOffAction, ParamsContainer)
+from datavis.widgets import (TriggerAction, OnOffAction, FormWidget)
 from datavis.models import (Coordinate, TableConfig, ImageModel)
 
 from ._image_view import ImageView, PenROI
@@ -123,7 +123,7 @@ class PickerView(qtw.QWidget):
 
         self.__addControlsAction(imgViewToolBar)
         self.__addMicrographsAction(imgViewToolBar, **kwargs)
-        self.__addPickerToolAction(imgViewToolBar, kwargs.get('pickerParams'))
+        self.__addPickerToolAction(imgViewToolBar, self._model.getParams())
 
         self.setWindowTitle("Picker")
         qtc.QMetaObject.connectSlotsByName(self)
@@ -292,22 +292,15 @@ class PickerView(qtw.QWidget):
         # Creating picker params widgets
 
         if pickerParams is not None:
-            dw = ParamsContainer(parent=boxPanel, name='pickerParams',
-                                 specification=pickerParams)
-            if dw is not None:
-                vLayout = qtw.QVBoxLayout()
-                label = qtw.QLabel(self)
-                label.setText("<strong>Params:</strong>")
-                vLayout.addWidget(label, 0, qtc.Qt.AlignLeft)
-                vLayout.addWidget(dw)
-                button = qtw.QPushButton(self)
-                button.setText("Apply")
-                button.clicked.connect(self.__collectParams)
-                button.setStyleSheet("font-weight:bold;")
-                vLayout.addWidget(button)
-                gLayout.addLayout(vLayout)
-                dw.setMinimumSize(dw.sizeHint())
-                dw.sigValueChanged.connect(self.__onPickerParamChanged)
+            dw = FormWidget(pickerParams, parent=boxPanel, name='pickerParams')
+            vLayout = qtw.QVBoxLayout()
+            label = qtw.QLabel(self)
+            label.setText("<strong>Params:</strong>")
+            vLayout.addWidget(label, 0, qtc.Qt.AlignLeft)
+            vLayout.addWidget(dw)
+            gLayout.addLayout(vLayout)
+            dw.setMinimumSize(dw.sizeHint())
+            dw.sigValueChanged.connect(self.__onPickerParamChanged)
         else:
             dw = None
 
@@ -550,7 +543,7 @@ class PickerView(qtw.QWidget):
                     if self._tvModel is not None:
                         r = self._cvImages.getCurrentRow()
                         self._tvModel.setValue(r, self._coordIndex,
-                                               len(self._currentMic))
+                                          len(self._currentMic))
                         self._cvImages.updatePage()
                 elif self.__segmentROI is None:  # filament mode
                     self.__segPos = pos
@@ -572,7 +565,7 @@ class PickerView(qtw.QWidget):
                     if self._tvModel is not None:
                         r = self._cvImages.getCurrentRow()
                         self._tvModel.setValue(r, self._coordIndex,
-                                               len(self._currentMic))
+                                          len(self._currentMic))
                         self._cvImages.updatePage()
                     viewBox.removeItem(self.__segmentROI)
                     self.__segmentROI = None  # TODO[hv] delete, memory leak???
@@ -840,11 +833,6 @@ class PickerView(qtw.QWidget):
         self._shape = SHAPE_CENTER
         self._destroyROIs()
         self._createROIs()
-
-    @qtc.pyqtSlot()
-    def __collectParams(self):
-        if self.__paramsWidget is not None:
-            print(self.__paramsWidget.getParams())
 
     @qtc.pyqtSlot()
     def __onPickTriggered(self):

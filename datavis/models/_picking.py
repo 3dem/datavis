@@ -2,7 +2,7 @@
 import os
 from collections import namedtuple
 
-from ._constants import TYPE_INT, TYPE_STRING
+from ._constants import *
 from ._table_models import TableModel, ColumnConfig
 
 
@@ -27,6 +27,12 @@ class Coordinate:
 
     def __str__(self):
         return "(%f, %f)" % (self.x, self.y)
+
+    def __eq__(self, other):
+        """ Equality comparison between coordinates,
+        based on x, y position only.
+        """
+        return other and self.x == other.x and self.y == other.y
 
     def set(self, **kwargs):
         """
@@ -62,14 +68,7 @@ class Micrograph:
         return iter(self._coordinates)
 
     def __contains__(self, item):
-        if item is None:
-            return False
-
-        for c in self._coordinates:
-            if c.x == item.x and c.y == item.y:
-                return True
-
-        return False
+        return any(item == c for c in self)
 
     def setId(self, micId):
         """ Set the micrograph Id. """
@@ -175,6 +174,7 @@ class PickerDataModel:
         self.Label = namedtuple('Label', ['name', 'color'])
         self._labels = dict()
         self._initLabels()
+        self._paramsForm = self._createParams()
 
     def __len__(self):
         """ The length of the model is the number of Micrographs. """
@@ -255,6 +255,16 @@ class PickerDataModel:
         """
         raise Exception('Not implemented')
 
+    def getParams(self):
+        """
+        Return the parameters Form.
+        """
+        return self._paramsForm
+
+    def _createParams(self):
+        """ Return the list of parameters that will be used by GUI. """
+        return None
+
     def getMicrographsTableModel(self):
         """ Return the TableModel that will be used to
         display the list of micrographs.
@@ -301,7 +311,7 @@ class PickerCmpModel(PickerDataModel):
         s = self._markCoordinates(coordsA,
                                   coordsB,
                                   self._radius)
-        self._defaultTableModel.setValue(self._ref[micId], 3, s)
+        self._defaultTableModel.set(self._ref[micId], 3, s)
         mic.addCoordinates(coordsA)
         mic.addCoordinates(coordsB)
 
