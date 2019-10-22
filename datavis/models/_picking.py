@@ -34,6 +34,9 @@ class Coordinate:
         """
         return other and self.x == other.x and self.y == other.y
 
+    def __hash__(self):
+        return hash((self.x, self.y))
+
     def set(self, **kwargs):
         """
         Set different properties of this coordinates.
@@ -311,7 +314,7 @@ class PickerCmpModel(PickerDataModel):
         s = self._markCoordinates(coordsA,
                                   coordsB,
                                   self._radius)
-        self._defaultTableModel.set(self._ref[micId], 3, s)
+        self._defaultTableModel.setValue(self._ref[micId], 3, s)
         mic.addCoordinates(coordsA)
         mic.addCoordinates(coordsB)
 
