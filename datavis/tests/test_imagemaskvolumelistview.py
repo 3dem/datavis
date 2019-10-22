@@ -34,11 +34,10 @@ class TestImageMaskVolumeListView(dv.tests.TestView):
         }
         model = dv.tests.createListImageModel(
             ['volume %d' % i for i in range(8)], 'Volume', (64, 64, 64))
-        return dv.views.VolumeListView(
-            None, model, slicesKwargs=slicesKwargs,
-            slicesMode=dv.models.AXIS_XYZ)
+        return dv.views.VolumeListView(model,
+                                       slicesKwargs=slicesKwargs,
+                                       slicesMode=dv.models.AXIS_XYZ)
 
 
 if __name__ == '__main__':
     TestImageMaskVolumeListView().runApp()
-TestImageMaskVolumeListView().runApp()

@@ -13,7 +13,7 @@ class TestVolumeListView(dv.tests.TestView):
     def createView(self):
         model = dv.tests.createListImageModel(
             ['volume %d' % i for i in range(8)], 'Volume', (64, 64, 64))
-        return dv.views.VolumeListView(None, model)
+        return dv.views.VolumeListView(model)
 
 
 if __name__ == '__main__':

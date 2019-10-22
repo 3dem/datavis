@@ -11,12 +11,15 @@ class MyPickerDataModel(dv.tests.SimplePickerDataModel):
     def _createParams(self):
         Param = dv.models.Param
         threshold = Param('threshold', 'float', value=0.55,
-                          label='Quality threshold', help='If this is...bla bla bla')
+                          label='Quality threshold',
+                          help='If this is...bla bla bla')
         thresholdBool = Param('threshold', 'bool', value=True,
-                          label='Quality checked', help='If this is a boolean param')
+                              label='Quality checked',
+                              help='If this is a boolean param')
 
         threshold2 = Param('threshold2', 'float', value=0.67,
-                          label='Quality', help='If this is...bla bla bla')
+                           label='Quality', help='If this is...bla bla bla')
+
         threshold3 = Param('threshold3', 'float', value=14.55,
                            label='Quality threshold2',
                            help='If this is a boolean param')
@@ -30,7 +33,7 @@ class MyPickerDataModel(dv.tests.SimplePickerDataModel):
                            help='Showing more text')
 
         threshold6 = Param('threshold6', 'float', value=1.5,
-                          label='Another float',
+                           label='Another float',
                            help='Just another float example')
 
         picking = Param('picking', 'enum', value=1,

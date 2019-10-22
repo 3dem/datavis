@@ -33,8 +33,9 @@ class TestRoiMaskVolumeListView(dv.tests.TestView):
         }
         model = dv.tests.createListImageModel(
             ['volume %d' % i for i in range(8)], 'Volume', (64, 64, 64))
-        return dv.views.VolumeListView(
-            None, model, slicesKwargs=slicesKwargs, slicesMode=self._mode)
+        return dv.views.VolumeListView(model,
+                                       slicesKwargs=slicesKwargs,
+                                       slicesMode=self._mode)
 
 
 if __name__ == '__main__':
