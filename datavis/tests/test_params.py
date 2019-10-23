@@ -34,15 +34,16 @@ job = Param('job', dv.models.PARAM_TYPE_ENUM, label='Job',
             choices=['Student', 'Unemployed', 'Academic', 'Industry', 'Other'])
 
 happy = Param('happy', dv.models.PARAM_TYPE_INT, label='Happiness',
-              range=(1,10), value=5,
+              range=(1, 10), value=5,
               help='Select how happy you are in a scale from 1 to 10')
+
+scale = Param('scale', dv.models.PARAM_TYPE_FLOAT, value=0.5, range=(0., 1),
+              label='Scale', help='Just to show a float value with slider')
 
 hobby = Param('hobby', dv.models.PARAM_TYPE_ENUM, label='Hobby',
               choices=['Sports', 'Paiting', 'Literature', 'Other'],
               display=dv.models.PARAM_DISPLAY_VLIST, value=1)
 
-scale = Param('scale', dv.models.PARAM_TYPE_FLOAT, label='Scale',
-              range=(0., 1), help='Just to show a float value with slider')
 
 conditions = Param('conditions', dv.models.PARAM_TYPE_BOOL,
                    label='Agree on \nTerms and Conditions?',

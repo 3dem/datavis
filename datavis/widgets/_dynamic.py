@@ -8,6 +8,7 @@ import datavis as dv
 # TODO: Review methods, global variables, documentation, etc
 # In the whole file
 
+
 class ParamWidget(qtw.QWidget):
     """ Base class for all Params-Widgets """
     #  Signal emitted when the param value is changed.
@@ -49,7 +50,6 @@ class OptionsWidget(ParamWidget):
         """
         ParamWidget.__init__(self, param, parent=parent)
         display = param.display
-        tooltip = param.help
         self._value = getattr(param, 'value', 0)
         layout = qtw.QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -64,7 +64,7 @@ class OptionsWidget(ParamWidget):
 
     def __createList(self, param):
         listWidget = qtw.QWidget(self)
-        group =qtw.QButtonGroup(self)
+        group = qtw.QButtonGroup(self)
         group.setExclusive(True)
 
         if param.display == dv.models.PARAM_DISPLAY_HLIST:
@@ -76,18 +76,21 @@ class OptionsWidget(ParamWidget):
                             % param.display)
 
         layout.setContentsMargins(3, 3, 3, 3)
+        butttonList = []
         for i, opt in enumerate(param.choices):
             rb = qtw.QRadioButton(opt)
             rb.setChecked(self._value == i)
             group.addButton(rb, i)
             layout.addWidget(rb)
+            butttonList.append(rb)
 
         listWidget.setLayout(layout)
         group.buttonClicked[int].connect(self.__onSelectionChanged)
 
         # Define how to set a new value for this case
         def set(value):
-            pass
+            butttonList[value].setChecked(True)
+
         self.__setValue = set
 
         return listWidget
@@ -159,7 +162,6 @@ class NumericWidget(ParamWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         pType = param.type
 
-
         if pType == dv.models.PARAM_TYPE_INT:
             val = qtg.QIntValidator()
             self._type = int
@@ -181,7 +183,7 @@ class NumericWidget(ParamWidget):
                                            minValue=range[0], maxValue=range[1])
             widget.setValue(value)
             widget.sigValueChanged.connect(self.__onValueChanged)
-            self.get = lambda : widget.getValue()
+            self.get = lambda: widget.getValue()
             self.set = lambda value: widget.setValue(value)
         else:
             widget = qtw.QLineEdit(parent=self)

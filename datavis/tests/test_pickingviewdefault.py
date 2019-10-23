@@ -18,7 +18,8 @@ class MyPickerDataModel(dv.tests.SimplePickerDataModel):
                               help='If this is a boolean param')
 
         threshold2 = Param('threshold2', 'float', value=0.67,
-                           label='Quality', help='If this is...bla bla bla')
+                           display='slider', range=(0, 1.0),
+                           label='Slider quality', help='Select value')
 
         threshold3 = Param('threshold3', 'float', value=14.55,
                            label='Quality threshold2',

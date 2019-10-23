@@ -62,6 +62,7 @@ class SpinSlider(qtw.QWidget):
         slider.setRange(self.__float2int(minValue),
                         self.__float2int(maxValue))
         slider.setValue(self.__float2int(currentValue))
+        slider.setMinimumWidth(80)
 
         # SpinBox
         # spinBox = qtw.QSpinBox(self)
