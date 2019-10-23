@@ -32,6 +32,9 @@ FILAMENT_MODE = 1
 
 class PickerView(qtw.QWidget):
 
+    """ Signal emitted when any of the PickerModel parameters have changed. """
+    sigPickerParamChanged = qtc.pyqtSignal(int, str, object)
+
     def __init__(self, parent, model, **kwargs):
         """
         Constructor
@@ -39,13 +42,6 @@ class PickerView(qtw.QWidget):
         :param parent:  Reference to the parent widget
         :param model:  (datavis.models.PickerDataModel) The input picker model
         :param kwargs:
-            - UI config params.
-
-            - sources :     (dict) dict with tuples (mic-path, coordinates-path)
-                            (mic-path, list) where list contains the coordinates
-            - pickerParams: The picker parameters specification
-            - paramsFunc:   (collections.Callable) The function to be invoked
-                            when a picker param value is changed
         """
         qtw.QWidget.__init__(self, parent)
         self._model = model
@@ -53,44 +49,37 @@ class PickerView(qtw.QWidget):
         self._readOnly = kwargs.get('readOnly', False)
         self._handleSize = 8
         self.__pickerMode = kwargs.get('pickerMode', FILAMENT_MODE)
-        self._paramsFunc = kwargs.get('paramsFunc')
+        self._roiAspectLocked = kwargs.get("roiAspectLocked", True)
+        self._roiCentered = kwargs.get("roiCentered", True)
+
         self._currentMic = None
         self._currentImageDim = None
+        self.__segmentROI = None
+        self.__mousePressed = False
+
         self._roiList = []
-        self._roiAspectLocked = True
-        self._roiCentered = True
-        self._shape = SHAPE_RECT
         self._clickAction = PICK
 
+        if self.__pickerMode == DEFAULT_MODE:
+            self._shape = kwargs.get('shape', SHAPE_CIRCLE)
+        elif self.__pickerMode == FILAMENT_MODE:
+            self._shape = SHAPE_SEGMENT
+        else:
+            raise Exception("Unknown picking mode '%s'" % self.__pickerMode)
+
         self.__setupGUI(**kwargs)
-        self.__setup(**kwargs)
 
         self._spinBoxBoxSize.editingFinished.connect(
             self._boxSizeEditingFinished)
 
         self._setupViewBox()
-        self.__segmentROI = None
-        self.__eraseList = []
-        self.__eraseSize = 300
-        self.__eraseROI = PenROI((0, 0), self.__eraseSize,
-                                 pen=pg.mkPen(color="FFF",
-                                              width=1,
-                                              dash=[2, 2, 2]))
-        self.__eraseROI.setVisible(False)
-        self.__eraseROI.sigRegionChanged.connect(self.__eraseRoiChanged)
-        self._imageView.getViewBox().addItem(self.__eraseROI)
-
-        self.__eraseROIText = pg.TextItem(text="", color=(220, 220, 0),
-                                          fill=pg.mkBrush(color=(0, 0, 0, 128)))
-        self.__eraseROIText.setVisible(False)
-        self._imageView.getViewBox().addItem(self.__eraseROIText)
-        self.__mousePressed = False
+        self.__setupErase()
 
         cols = list(self._tvModel.iterColumns())
         self._cvImages.setModel(self._tvModel, TableConfig(*cols))
         self._cvImages.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
-        self._cvImages.sigCurrentRowChanged.connect(
-            self.__onCurrentRowChanged)
+        self._cvImages.sigCurrentRowChanged.connect(self.__onCurrentRowChanged)
+
         # By default select the first micrograph in the list
         if self._tvModel.getRowsCount() > 0:
             self._cvImages.selectRow(0)
@@ -125,42 +114,35 @@ class PickerView(qtw.QWidget):
         self.__addMicrographsAction(imgViewToolBar, **kwargs)
         self.__addPickerToolAction(imgViewToolBar, self._model.getParams())
 
+        self._spinBoxBoxSize.setValue(self._model.getBoxSize())
+
         self.setWindowTitle("Picker")
-        qtc.QMetaObject.connectSlotsByName(self)
 
-    def __setup(self, **kwargs):
-        """ Configure the PickerView. """
-        v = kwargs.get("removeRois", True)
-        if self.__pickerMode == DEFAULT_MODE:
-            self._actionErase.setEnabled(v)
-        self._roiAspectLocked = kwargs.get("roiAspectLocked", True)
-        self._roiCentered = kwargs.get("roiCentered", True)
-        filament = self.__pickerMode == FILAMENT_MODE
-        self._shape = SHAPE_SEGMENT if filament else kwargs.get('shape',
-                                                                SHAPE_RECT)
-        if self._shape == SHAPE_RECT:
-            self._actionPickRect.setChecked(True)
-        elif self._shape == SHAPE_CIRCLE:
-            self._actionPickEllipse.setChecked(True)
-        elif self._shape == SHAPE_SEGMENT:
-            self._actionPickSegment.setChecked(True)
+    def __setupErase(self):
+        self.__eraseList = []
+        self.__eraseSize = 300
 
-        if self._model is None:
-            size = kwargs.get("boxSize", 100)
-        else:
-            size = self._model.getBoxSize()
+        roi = PenROI((0, 0), self.__eraseSize,
+                     pen=pg.mkPen(color="FFF", width=1, dash=[2, 2, 2]))
+        roi.setVisible(False)
+        roi.sigRegionChanged.connect(self.__eraseRoiChanged)
+        self._imageView.getViewBox().addItem(roi)
+        self.__eraseROI = roi
 
-        self._spinBoxBoxSize.setValue(size)
+        roiText = pg.TextItem(text="", color=(220, 220, 0),
+                              fill=pg.mkBrush(color=(0, 0, 0, 128)))
+        roiText.setVisible(False)
+        self._imageView.getViewBox().addItem(roiText)
+        self.__eraseROIText = roiText
+
 
     def _validateReadOnlyWidgets(self):
-        """
-        Enable/Disable those widgets related to read-only mode
-        """
-        e = not self._readOnly
-        for attrName in ['_actionPick', '_actionErase', '_actionPickSegment']:
+        """ Enable/Disable those widgets related to read-only mode. """
+        enabled = not self._readOnly
+        for attrName in ['_actionPick', '_actionErase', '_actionPickSegment',
+                         '_spinBoxBoxSize', '_actionPick', '_actionErase']:
             if hasattr(self, attrName):
-                getattr(self, attrName).setEnabled(e)
-        self._spinBoxBoxSize.setEnabled(e)
+                getattr(self, attrName).setEnabled(enabled)
 
     def __addMicrographsAction(self, toolbar, **kwargs):
         """
@@ -209,7 +191,7 @@ class PickerView(qtw.QWidget):
         self._actionPick = TriggerAction(
             parent=self, actionName='actionPick', faIconName='fa5s.crosshairs',
             checkable=True, tooltip='Pick',
-            shortCut=qtg.QKeySequence(qtc.Qt.Key_P),
+            shortCut=qtg.QKeySequence(qtc.Qt.Key_1),
             slot=self.__onPickTriggered)
         self._actGroupPickErase.addAction(self._actionPick)
         self._actionPick.setChecked(True)
@@ -220,7 +202,7 @@ class PickerView(qtw.QWidget):
             self._actionErase = TriggerAction(
                 parent=self, actionName='actionErase',
                 faIconName='fa5s.eraser', checkable=True, tooltip='Erase',
-                shortCut=qtg.QKeySequence(qtc.Qt.Key_E),
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_2),
                 slot=self.__onEraseTriggered)
             self._actGroupPickErase.addAction(self._actionErase)
             self._imageView.addAction(self._actionErase)
@@ -237,42 +219,43 @@ class PickerView(qtw.QWidget):
         tb.addWidget(self._spinBoxBoxSize)
         tb.addSeparator()
 
+        def _action(name, iconName, checked=False, tooltip='', **kwargs):
+            a = TriggerAction(parent=self, actionName=name,
+                              faIconName=iconName, checkable=True,
+                              tooltip=tooltip, **kwargs)
+            a.setChecked(checked)
+            tb.addAction(a)
+            self._imageView.addAction(a)
+            return a
+
+        def _shapeAction(name, iconName, shape, **kwargs):
+            a = _action(name, iconName, checked=(self._shape == shape),
+                        slot=lambda: self.__onPickShapeChanged(shape),
+                        **kwargs)
+            self._actionGroupPick.addAction(a)
+            return a
+
         tb.addWidget(qtw.QLabel("  Shape", tb))
+
         if self.__pickerMode == DEFAULT_MODE:
-            self._actionPickRect = TriggerAction(
-                parent=self, actionName='actionPickRect',
-                faIconName='fa5.square', checkable=True, tooltip='Rect',
-                shortCut=qtg.QKeySequence(qtc.Qt.Key_R))
-            self._actionPickRect.setChecked(True)
+            self._actionPickRect = _shapeAction(
+                'actionPickRect', 'fa5.square', SHAPE_RECT,
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_3))
 
-            self._actionPickEllipse = TriggerAction(
-                parent=self, actionName='actionPickEllipse',
-                faIconName='fa5.circle', checkable=True, tooltip='Circle',
-                shortCut=qtg.QKeySequence(qtc.Qt.Key_C))
-            self._actionPickEllipse.setChecked(False)
-            tb.addAction(self._actionPickRect)
-            tb.addAction(self._actionPickEllipse)
-            self._actionGroupPick.addAction(self._actionPickRect)
-            self._actionGroupPick.addAction(self._actionPickEllipse)
-            self._imageView.addAction(self._actionPickRect)
-            self._imageView.addAction(self._actionPickEllipse)
+            self._actionPickEllipse = _shapeAction(
+                'actionPickEllipse', 'fa5.circle', SHAPE_CIRCLE,
+                shortcut=qtg.QKeySequence(qtc.Qt.Key_4))  # FIXME: Not working
         else:
-            self._actionPickSegment = TriggerAction(
-                parent=self, actionName='actionPickSegment',
-                faIconName='fa5s.arrows-alt-h', checkable=True,
-                tooltip='Segment', shortCut=qtg.QKeySequence(qtc.Qt.Key_S))
-            self._actionPickSegment.setChecked(True)
-            tb.addAction(self._actionPickSegment)
-            self._actionGroupPick.addAction(self._actionPickSegment)
-            self._imageView.addAction(self._actionPickSegment)
+            self._actionPickSegment = _shapeAction(
+                'actionPickSegment', 'fa5s.arrows-alt-h', SHAPE_SEGMENT,
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_3))
 
-        self._actionPickCenter = TriggerAction(
-            parent=self, actionName='actionPickCenter',
-            faIconName='fa5s.circle', checkable=True,
-            tooltip='Center', shortCut=qtg.QKeySequence(qtc.Qt.Key_D),
-            options=[{'scale_factor': 0.25}]
-        )
-        self._actionPickCenter.setChecked(False)
+        self._actionPickCenter = _shapeAction(
+            'actionPickCenter', 'fa5s.circle', SHAPE_CENTER,
+            shortcut=qtg.QKeySequence(qtc.Qt.Key_5),  # FIXME: Not working
+            options=[{'scale_factor': 0.25}])
+
+        tb.addSeparator()
 
         self._actionPickShowHide = OnOffAction(
             tb, toolTipOn='Hide coordinates', toolTipOff='Show coordinates',
@@ -280,16 +263,10 @@ class PickerView(qtw.QWidget):
         self._actionPickShowHide.set(True)
         self._actionPickShowHide.sigStateChanged.connect(
             self.__onPickShowHideTriggered)
-
-        tb.addAction(self._actionPickCenter)
-        tb.addSeparator()
         tb.addAction(self._actionPickShowHide)
-
-        self._imageView.addAction(self._actionPickCenter)
         self._imageView.addAction(self._actionPickShowHide)
-        gLayout.addWidget(tb)
 
-        # Creating picker params widgets
+        gLayout.addWidget(tb)
 
         if pickerParams is not None:
             dw = FormWidget(pickerParams, parent=boxPanel, name='pickerParams')
@@ -315,13 +292,11 @@ class PickerView(qtw.QWidget):
 
     def __onPickerParamChanged(self, paramName, value):
         """ Invoked when a picker-param value is changed """
-
-        if isinstance(self._paramsFunc, collections.Callable):
-            self._paramsFunc(paramName, value)
-            row = self._cvImages.getCurrentRow()
-            micId = int(self._tvModel.getValue(row, self._idIndex))
-            self._currentMic = self._model[micId]
-            self._showMicrograph(self._currentMic)
+        row = self._cvImages.getCurrentRow()
+        micId = int(self._tvModel.getValue(row, self._idIndex))
+        # self._currentMic = self._model[micId]
+        # self._showMicrograph(self._currentMic)
+        self.sigPickerParamChanged.emit(micId, paramName, value)
 
     def __addControlsAction(self, toolbar):
         """
@@ -382,22 +357,13 @@ class PickerView(qtw.QWidget):
         """ Add a row to controls table """
         rows = self._controlTable.rowCount()
         self._controlTable.setRowCount(rows + 1)
-        col = 0
-        for v in row:
+        for col, v in enumerate(row):
             item = v[0]
             item.setFlags(v[1])
             self._controlTable.setItem(rows, col, item)
-            col += 1
-
-    def _showHidePickCoord(self, visible):
-        """ Show or hide the pick coordinates for the current micrograph """
-        for roi in self._roiList:
-            roi.getROI().setVisible(visible)
 
     def __updateEraseTextPos(self):
-        """
-        Update the erase text position according to the erase-roi.
-        """
+        """ Update the erase text position according to the erase-roi. """
         pos = self.__eraseROI.pos()
         size = self.__eraseROI.size()
         rect2 = self.__eraseROIText.boundingRect()
@@ -672,9 +638,7 @@ class PickerView(qtw.QWidget):
         view.removeItem(roi)
 
     def _setupViewBox(self):
-        """
-        Configures the View Widget for self.pageBar
-        """
+        """ Configures the View Widget for self.pageBar """
         v = self._imageView.getViewBox()
 
         if v:
@@ -800,39 +764,44 @@ class PickerView(qtw.QWidget):
                     self.__updateFilemantText(-angle, d.x(), self.__segPos)
                     self.__eraseROIText.setVisible(True)
 
-    @qtc.pyqtSlot()
-    def on_actionPickEllipse_triggered(self):
-        """ Activate the coordinates to ellipse ROI. """
-        self._shape = SHAPE_CIRCLE
+    def __onPickShapeChanged(self, newShape):
+        self._shape = newShape
         self._destroyROIs()
         self._createROIs()
 
-    @qtc.pyqtSlot()
-    def on_actionPickSegment_triggered(self):
-        """ Activate the coordinates to filament ROI. """
-        self._shape = SHAPE_SEGMENT
-        self._destroyROIs()
-        self._createROIs()
-
-    @qtc.pyqtSlot()
-    def on_actionPickRect_triggered(self):
-        """
-        Activate the pick rect ROI.
-        Change all boxes to rect ROI
-        """
-        self._shape = SHAPE_RECT
-        self._destroyROIs()
-        self._createROIs()
-
-    @qtc.pyqtSlot()
-    def on_actionPickCenter_triggered(self):
-        """
-        Activate the pick center ROI.
-        Change all boxes to center ROI
-        """
-        self._shape = SHAPE_CENTER
-        self._destroyROIs()
-        self._createROIs()
+    # @qtc.pyqtSlot()
+    # def on_actionPickEllipse_triggered(self):
+    #     """ Activate the coordinates to ellipse ROI. """
+    #     self._shape = SHAPE_CIRCLE
+    #     self._destroyROIs()
+    #     self._createROIs()
+    #
+    # @qtc.pyqtSlot()
+    # def on_actionPickSegment_triggered(self):
+    #     """ Activate the coordinates to filament ROI. """
+    #     self._shape = SHAPE_SEGMENT
+    #     self._destroyROIs()
+    #     self._createROIs()
+    #
+    # @qtc.pyqtSlot()
+    # def on_actionPickRect_triggered(self):
+    #     """
+    #     Activate the pick rect ROI.
+    #     Change all boxes to rect ROI
+    #     """
+    #     self._shape = SHAPE_RECT
+    #     self._destroyROIs()
+    #     self._createROIs()
+    #
+    # @qtc.pyqtSlot()
+    # def on_actionPickCenter_triggered(self):
+    #     """
+    #     Activate the pick center ROI.
+    #     Change all boxes to center ROI
+    #     """
+    #     self._shape = SHAPE_CENTER
+    #     self._destroyROIs()
+    #     self._createROIs()
 
     @qtc.pyqtSlot()
     def __onPickTriggered(self):
@@ -866,7 +835,9 @@ class PickerView(qtw.QWidget):
     @qtc.pyqtSlot(int)
     def __onPickShowHideTriggered(self, state):
         """ Invoked when action pick-show-hide is triggered """
-        self._showHidePickCoord(bool(state))
+        visible = bool(state)
+        for roi in self._roiList:
+            roi.getROI().setVisible(visible)
 
     @qtc.pyqtSlot(int)
     def __onCurrentRowChanged(self, row):
