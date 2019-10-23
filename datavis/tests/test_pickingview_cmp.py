@@ -58,28 +58,6 @@ class TestPickerCmpView(dv.tests.TestView):
         model = ThresholdPickerModel(model1, model2, boxSize=self._box,
                                      radius=self._radius,
                                      imageSize=(self._w, self._h))
-        pickerParams = [
-            {
-                'name': 'threshold',
-                'type': 'enum',
-                'value': 0,
-                'choices': (0, 100),
-                'label': 'Quality threshold',
-                'help': 'Quality threshold',
-                'display': 'slider'
-            },
-            {
-                'name': 'radius',
-                'type': 'enum',
-                'value': self._radius,
-                'choices': (1, 200),
-                'label': 'Radius',
-                'help': 'Radius',
-                'display': 'slider'
-            }
-        ]
-        kwargs['pickerParams'] = pickerParams
-        kwargs['paramsFunc'] = model.onParamChanged
 
         return dv.views.PickerView(None, model, **kwargs)
 
@@ -144,6 +122,30 @@ class ThresholdPickerModel(dv.models.PickerCmpModel):
         :return: dict
         """
         return {'dim': self._imageSize}
+
+    def getParams(self):
+        pickerParams = [
+            {
+                'name': 'threshold',
+                'type': 'float',
+                'value': 0,
+                'range': (0., 1),
+                'label': 'Quality threshold',
+                'help': 'Quality threshold',
+                'display': 'slider'
+            },
+            {
+                'name': 'radius',
+                'type': 'int',
+                'value': self._radius,
+                'range': (1, int(self._imageSize[0]/3)),
+                'label': 'Radius',
+                'help': 'Radius',
+                'display': 'slider'
+            }
+        ]
+
+        return dv.models.Form.load(pickerParams)
 
 
 if __name__ == '__main__':

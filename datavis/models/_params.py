@@ -40,6 +40,11 @@ class Param:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    @staticmethod
+    def load(paramDict):
+        """ Create a new Param from the dict description. See __init__. """
+        return Param(paramDict['name'], paramDict['type'], **paramDict)
+
 
 class Form:
     """
@@ -89,4 +94,23 @@ class Form:
     def __getitem__(self, paramName):
         """ Return the param with this name. """
         return self._paramsDict[paramName]
+
+    @staticmethod
+    def load(paramDictList):
+        """
+        Create a new Form from the description provided by the paramsList.
+        :param paramDictList: A list of dicts, describing each param.
+            Each entry of the list will be a row. Multiple params can be
+            grouped into the same row by using another list.
+        :return: A new Form instance.
+        """
+        paramList = []
+
+        for item in paramDictList:
+            if isinstance(item, list):
+                paramList.append([Param.load(d) for d in item])
+            else:
+                paramList.append([Param.load(item)])
+
+        return Form(paramList)
 
