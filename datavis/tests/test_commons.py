@@ -216,26 +216,23 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         self._images = dict()
         self._cache = {}
         for i in range(size):
-            self.addMicrograph(self.__simulateMic(i + 1,
-                                                  randrange(0, picks),
-                                                  filament))
+            mic = dv.models.Micrograph(micId=i+1)
+            self.addMicrograph(mic)
+            self.addCoordinates(mic.getId(),
+                                self.__getRandomCoords(picks, filament))
         self.setBoxSize(boxSize)
 
-    def __simulateMic(self, micId, picks, filament):
+    def __getRandomCoords(self, picks, filament):
         """ Return a Micrograph object with random pick coordinates """
         w, h = self._imageSize
-        if filament:
-            coords = [
-                dv.models.Coordinate(randrange(0, w), randrange(0, h),
-                                     x2=randrange(0, w), y2=randrange(0, h))
-                for i in range(picks)]
-        else:
-            coords = [
-                dv.models.Coordinate(randrange(0, w), randrange(0, h))
-                for i in range(picks)
-            ]
+        n = randrange(0, picks)
 
-        return dv.models.Micrograph(micId, 'Image %d' % micId, coords)
+        def _randomCoord():
+            x, y = randrange(0, w), randrange(0, h)
+            kwargs = {'x2': randrange(0, w), 'y2': randrange(0, h)} if filament else {}
+            return dv.models.Coordinate(x, y, **kwargs)
+
+        return [_randomCoord() for _ in range(n)]
 
     def getData(self, micId):
         """
@@ -243,14 +240,11 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         :param micId: (int) The micrograph id
         :return: The micrograph image data
         """
-        if micId in self._cache:
-            data = self._cache[micId]
-        else:
-            data = pg.gaussianFilter(np.random.normal(size=self._imageSize),
-                                     (5, 5))
-            self._cache[micId] = data
+        if micId not in self._cache:
+            self._cache[micId] = pg.gaussianFilter(
+                np.random.normal(size=self._imageSize), (5, 5))
 
-        return data
+        return self._cache[micId]
 
     def getImageInfo(self, micId):
         """

@@ -75,13 +75,14 @@ class PickerView(qtw.QWidget):
         self._setupViewBox()
         self.__setupErase()
 
-        cols = list(self._tvModel.iterColumns())
-        self._cvImages.setModel(self._tvModel, TableConfig(*cols))
+        cols = list(self._model.iterColumns())
+        print("cols: %s" % len(cols))
+        self._cvImages.setModel(self._model, TableConfig(*cols))
         self._cvImages.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
         self._cvImages.sigCurrentRowChanged.connect(self.__onCurrentRowChanged)
 
         # By default select the first micrograph in the list
-        if self._tvModel.getRowsCount() > 0:
+        if self._model.getRowsCount() > 0:
             self._cvImages.selectRow(0)
 
         self._validateReadOnlyWidgets()
@@ -135,7 +136,6 @@ class PickerView(qtw.QWidget):
         self._imageView.getViewBox().addItem(roiText)
         self.__eraseROIText = roiText
 
-
     def _validateReadOnlyWidgets(self):
         """ Enable/Disable those widgets related to read-only mode. """
         enabled = not self._readOnly
@@ -156,9 +156,7 @@ class PickerView(qtw.QWidget):
         micPanel.setGeometry(0, 0, 200, micPanel.height())
         verticalLayout = qtw.QVBoxLayout(micPanel)
         verticalLayout.setContentsMargins(0, 0, 0, 0)
-        cvImages = ColumnsView(micPanel,
-                               model=self._model.getMicrographsTableModel(),
-                               **kwargs)
+        cvImages = ColumnsView(micPanel, model=self._model, **kwargs)
         cvImages.setObjectName("columnsViewImages")
         verticalLayout.addWidget(cvImages)
         # keep reference to cvImages
@@ -292,8 +290,7 @@ class PickerView(qtw.QWidget):
 
     def __onPickerParamChanged(self, paramName, value):
         """ Invoked when a picker-param value is changed """
-        row = self._cvImages.getCurrentRow()
-        micId = int(self._tvModel.getValue(row, self._idIndex))
+        micId = self._model.getMicrographByIndex(self._cvImages.getCurrentRow())
         # self._currentMic = self._model[micId]
         # self._showMicrograph(self._currentMic)
         self.sigPickerParamChanged.emit(micId, paramName, value)
@@ -376,15 +373,16 @@ class PickerView(qtw.QWidget):
         if roi:
             self._destroyCoordROI(roi)
             self._roiList.remove(roi.parent)  # remove the coordROI
-            self._currentMic.removeCoordinate(roi.coordinate)
+            self._model.removeCoordinates(self._currentMic.getId(),
+                                          [roi.coordinate])
             row = self._cvImages.getCurrentRow() % self._cvImages.getPageSize()
-            self._tvModel.setValue(row, self._coordIndex, len(self._currentMic))
+            # TODO: Notify deletion
+            # self._tvModel.setValue(row, self._coordIndex, len(self._currentMic))
             self._cvImages.updatePage()
 
     def __createColumsViewModel(self):
         """ Setup the em table """
-        self._tvModel = self._model.getMicrographsTableModel()
-        self._idIndex = self._tvModel.getColumnsCount() - 1
+        self._idIndex = self._model.getColumnsCount() - 1
         self._nameIndex = 0
         self._coordIndex = 1
 
@@ -438,11 +436,11 @@ class PickerView(qtw.QWidget):
             self._roiList = []
 
     def _createROIs(self):
-        """ Create the ROIs for current micrograph
-        """
-        # Create new ROIs and add to the list
-        self._roiList = [self._createCoordROI(coord)
-                         for coord in self._currentMic]
+        """ Create the ROIs for current micrograph """
+        self._roiList = [
+            self._createCoordROI(coord)
+            for coord in self._model.iterCoordinates(self._currentMic.getId())
+        ]
 
     def _updateROIs(self):
         """ Update all ROIs that need to be shown in the current micrographs.
@@ -486,58 +484,49 @@ class PickerView(qtw.QWidget):
         """ Invoked when the user clicks on the ViewBox
         (ImageView contains a ViewBox).
         """
+        pick = event.button() == qtc.Qt.LeftButton and self._clickAction == PICK
+        if self._readOnly or not pick:
+            return
+
         if self._currentMic is None:
-            print("not selected micrograph....")
-        elif self._readOnly:
-            pass
-        elif event.button() == qtc.Qt.LeftButton and self._clickAction == PICK:
-            viewBox = self._imageView.getViewBox()
-            pos = viewBox.mapToView(event.pos())
-            bounds = self._imageView.getImageItem().boundingRect()
-            r = self._spinBoxBoxSize.value() / 2
-            x, y = pos.x(), pos.y()
-            if (0 <= x + r <= bounds.width() and
-                    0 <= x - r <= bounds.width() and
-                    0 <= y + r <= bounds.height() and
-                    0 <= y - r <= bounds.height()):
-                if self.__pickerMode == DEFAULT_MODE:
-                    # Create coordinate with event click coordinates and add it
-                    coord = Coordinate(pos.x(), pos.y(),
-                                       label=self.__currentLabelName)
-                    self._currentMic.addCoordinate(coord)
-                    self._roiList.append(self._createCoordROI(coord))
-                    if self._tvModel is not None:
-                        r = self._cvImages.getCurrentRow()
-                        self._tvModel.setValue(r, self._coordIndex,
-                                          len(self._currentMic))
-                        self._cvImages.updatePage()
-                elif self.__segmentROI is None:  # filament mode
-                    self.__segPos = pos
-                    self.__segmentROI = pg.LineSegmentROI(
-                        [(pos.x(), pos.y()), (pos.x(), pos.y())],
-                        pen=self._makePen(self.__currentLabelName, 2))
-                    viewBox.addItem(self.__segmentROI)
-                    self.__eraseROIText.setPos(pos)
-                    self.__eraseROIText.setText("angle=")
-                    self.__eraseROIText.setVisible(True)
+            print("not selected micrograph....")  # Fixme: can this happens?
+            return
 
-                elif not self.__segPos == pos:  # filament mode
-                    coord = Coordinate(self.__segPos.x(), self.__segPos.y(),
-                                       label=self.__currentLabelName,
-                                       x2=pos.x(), y2=pos.y())
-                    self._currentMic.addCoordinate(coord)
-                    self._roiList.append(self._createCoordROI(coord))
+        viewBox = self._imageView.getViewBox()
+        pos = viewBox.mapToView(event.pos())
+        bounds = self._imageView.getImageItem().boundingRect()
+        r = self._spinBoxBoxSize.value() / 2
+        x, y = pos.x(), pos.y()
+        w, h = bounds.width(), bounds.height()
 
-                    if self._tvModel is not None:
-                        r = self._cvImages.getCurrentRow()
-                        self._tvModel.setValue(r, self._coordIndex,
-                                          len(self._currentMic))
-                        self._cvImages.updatePage()
-                    viewBox.removeItem(self.__segmentROI)
-                    self.__segmentROI = None  # TODO[hv] delete, memory leak???
-                    self.__eraseROIText.setVisible(False)
-            else:
-                print('point out')
+        if not (0 <= x + r <= w and 0 <= x - r <= w and
+                0 <= y + r <= h and 0 <= y - r <= h):
+            return  # Point out
+
+        def _addCoord(x, y, **kwargs):
+            # Create coordinate with event click coordinates and add it
+            coord = Coordinate(x, y, label=self.__currentLabelName, **kwargs)
+            self._roiList.append(self._createCoordROI(coord))
+            self._model.addCoordinates(self._currentMic.getId(), [coord])
+            self._cvImages.updatePage()
+
+        if self.__pickerMode == DEFAULT_MODE:
+            _addCoord(x, y)
+
+        elif self.__segmentROI is None:  # filament mode
+            self.__segPos = pos
+            self.__segmentROI = pg.LineSegmentROI(
+                [(x, y), (x, y)], pen=self._makePen(self.__currentLabelName, 2))
+            viewBox.addItem(self.__segmentROI)
+            self.__eraseROIText.setPos(pos)
+            self.__eraseROIText.setText("angle=")
+            self.__eraseROIText.setVisible(True)
+
+        elif not self.__segPos == pos:  # filament mode
+            _addCoord(self.__segPos.x(), self.__segPos.y(), x2=x, y2=y)
+            viewBox.removeItem(self.__segmentROI)
+            self.__segmentROI = None  # TODO[hv] delete, memory leak???
+            self.__eraseROIText.setVisible(False)
 
     def _updateBoxSize(self, newBoxSize):
         """ Update the box size to be used. """
@@ -547,9 +536,7 @@ class PickerView(qtw.QWidget):
             self.__eraseROIText.setVisible(False)
 
     def _getSelectedPen(self):
-        """
-        :return: The selected pen(PPSystem label depending)
-        """
+        """ Return the selected pen(PPSystem label depending) """
         btn = self._buttonGroup.checkedButton()
 
         if btn:
@@ -708,7 +695,9 @@ class PickerView(qtw.QWidget):
                         for item in self.__eraseList:
                             self._roiList.remove(item.parent)
                             self._destroyCoordROI(item)
-                            self._currentMic.removeCoordinate(item.coordinate)
+                            self._model.removeCoordinates(
+                                self._currentMic.getId(), [item.coordinate])
+                            self._cvImages.updatePage()
                         self.__eraseList = []
                     else:
                         self.__eraseROIText.setVisible(False)
@@ -842,12 +831,10 @@ class PickerView(qtw.QWidget):
     @qtc.pyqtSlot(int)
     def __onCurrentRowChanged(self, row):
         """ Invoked when current row change in micrographs list """
-        micId = int(self._tvModel.getValue(row, self._idIndex))
-        mic = self._currentMic
-        currentId = mic.getId() if mic is not None else -5
+        mic = self._model.getMicrographByIndex(row)
         try:
-            if micId > 0 and not micId == currentId:
-                self._showMicrograph(self._model[micId])
+            if mic != self._currentMic:
+                self._showMicrograph(mic)
         except RuntimeError as ex:
             self._showError(ex.message)
 
@@ -910,12 +897,13 @@ class PickerView(qtw.QWidget):
                 if rem or shape.contains(pos):
                     item.setVisible(False)
                     self.__eraseList.append(item)
-                    if self._tvModel is not None:
-                        r = self._cvImages.getCurrentRow()
-                        self._tvModel.setValue(
-                            r, self._coordIndex,
-                            len(self._currentMic) - len(self.__eraseList))
-                        self._cvImages.updatePage()
+                    # TODO: Notify the model about changes?
+                    # if self._tvModel is not None:
+                    #     r = self._cvImages.getCurrentRow()
+                    #     self._tvModel.setValue(
+                    #         r, self._coordIndex,
+                    #         len(self._currentMic) - len(self.__eraseList))
+                    #     self._cvImages.updatePage()
 
     @qtc.pyqtSlot(object)
     def _roiRegionChanged(self, roi):

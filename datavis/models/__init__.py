@@ -7,4 +7,4 @@ from ._table_models import (TableModel, SlicesTableModel, ColumnInfo, ListModel,
                             TableConfig, ColumnConfig, EmptyTableModel,
                             SimpleTableModel)
 from ._picking import (Micrograph, Coordinate, PickerDataModel, PickerCmpModel,
-                       MicrographsTableModel, parseTextCoordinates)
+                       parseTextCoordinates)
