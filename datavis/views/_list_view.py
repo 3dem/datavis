@@ -2,7 +2,7 @@
 import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
-from datavis.widgets import ViewPanel, SpinSlider, ParamsContainer
+from datavis.widgets import ViewPanel, SpinSlider
 from datavis.models import EmptyTableModel, ImageModel
 from datavis.views import (ColumnsView, ImageView, VolumeView, RECT_ROI,
                            CIRCLE_ROI)
@@ -234,13 +234,14 @@ class DualImageListView(ImageListView):
         self._method = kwargs.get('method')
 
         panel = ViewPanel(self, layoutType=ViewPanel.VERTICAL)
-        if self._dynamicParams is not None:
-            self._paramsContainer = ParamsContainer(
-                parent=panel, name='params', specification=self._dynamicParams)
-            panel.addWidget(self._paramsContainer, 'optionsWidget',
-                            alignment=qtc.Qt.AlignLeft)
-        else:
-            self._paramsContainer = None
+        #if self._dynamicParams is not None:
+        #    self._paramsContainer = ParamsContainer(
+        #        parent=panel, name='params', specification=self._dynamicParams)
+        #    panel.addWidget(self._paramsContainer, 'optionsWidget',
+        #                    alignment=qtc.Qt.AlignLeft)
+        #else:
+        #    self._paramsContainer = None
+        self._paramsContainer = None
 
         self._applyButton = qtw.QPushButton(panel)
         self._applyButton.setText('Apply')
