@@ -159,9 +159,9 @@ class PickerDataModel(TableModel):
 
     def addMicrograph(self, mic):
         """ Add a new micrograph to the model.
-        mic:   (Micrograph) A Micrograph instance. If the micrograph ID is -1
-               then a new ID will be assigned to the micrograph.
-        Raise Exception if mic is not instance of Micrograph
+        :param mic: (Micrograph) A Micrograph instance. If the micrograph ID is -1
+        then a new ID will be assigned to the micrograph.
+        :raise Raise Exception if mic is not instance of Micrograph
         """
         if not isinstance(mic, Micrograph):
             raise Exception("Invalid micrograph instance.")
@@ -227,11 +227,14 @@ class PickerDataModel(TableModel):
     def addCoordinates(self, micId, coords):
         """
         Add coordinates to a given micrograph.
+
         :param micId: The micrograph identifier.
         :param coords: An iterable with the coordinates that will be added.
-        :returns PickerModel.Result object with information about the changes
-            in the model after this action. In subclasses this info might be
-            more relevant.
+
+        :return: PickerModel.Result object with information about the changes
+        in the model after this action. In subclasses this info might be
+        more relevant.
+
         """
         self._getCoordsList(micId).extend(coords)
         # Only notify changes in the coordinates that are not these already added
@@ -241,8 +244,8 @@ class PickerDataModel(TableModel):
         """
         Remove coordinate from a given micrograph.
         :returns PickerModel.Result object with information about the changes
-            in the model after this action. In subclasses this info might be
-            more relevant.
+        in the model after this action. In subclasses this info might be
+        more relevant.
         """
         micCoords = self._getCoordsList(micId)
         for c in coords:
