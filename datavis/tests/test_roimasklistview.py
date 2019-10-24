@@ -19,7 +19,7 @@ class TestRoiMaskListView(dv.tests.TestView):
         }
         model = dv.tests.createListImageModel(
             ['image %d' % i for i in range(10)], 'Image', (1024, 1024))
-        return dv.views.ImageMaskListView(None, model, maskParams=maskParams)
+        return dv.views.ImageMaskListView(model, maskParams=maskParams)
 
 
 if __name__ == '__main__':

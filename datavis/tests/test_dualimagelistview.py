@@ -1,9 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import numpy as np
-import pyqtgraph as pg
-
 import datavis as dv
 
 
@@ -14,90 +11,51 @@ class TestDualImageListView(dv.tests.TestView):
         return ['']
 
     def createView(self):
-        tool_params1 = [
-            [
-                {
-                    'name': 'threshold',
-                    'type': 'float',
-                    'value': 0.55,
-                    'label': 'Quality threshold',
-                    'help': 'If this is ... bla bla bla',
-                    'display': 'default'
-                },
-                {
-                    'name': 'thresholdBool',
-                    'type': 'bool',
-                    'value': True,
-                    'label': 'Quality checked',
-                    'help': 'If this is a boolean param'
-                }
-            ],
-            [
-                {
-                    'name': 'threshold543',
-                    'type': 'float',
-                    'value': 0.67,
-                    'label': 'Quality',
-                    'help': 'If this is ... bla bla bla',
-                    'display': 'default'
-                },
-                {
-                    'name': 'threshold',
-                    'type': 'float',
-                    'value': 14.55,
-                    'label': 'Quality threshold2',
-                    'help': 'If this is ... bla bla bla',
-                    'display': 'default'
-                }
-            ],
-            {
-                'name': 'threshold2',
-                'type': 'string',
-                'value': 'Explanation text',
-                'label': 'Threshold ex',
-                'help': 'If this is ... bla bla bla 2',
-                'display': 'default'
-            },
-            {
-                'name': 'text',
-                'type': 'string',
-                'value': 'Text example',
-                'label': 'Text',
-                'help': 'If this is ... bla bla bla for text'
-            },
-            {
-                'name': 'threshold4',
-                'type': 'float',
-                'value': 1.5,
-                'label': 'Quality',
-                'help': 'If this is ... bla bla bla for quality'
-            },
-            {
-                'name': 'picking-method',
-                'type': 'enum',  # or 'int' or 'string' or 'enum',
-                'choices': ['LoG', 'Swarm', 'SVM'],
-                'value': 1,  # values in enum are int, in this case it is 'LoG'
-                'label': 'Picking method',
-                'help': 'Select the picking strategy that you want to use. ',
-                # display should be optional, for most params, a textbox is the
-                # default
-                # for enum, a combobox is the default, other options could be
-                # sliders
-                'display': 'combo'  # or 'combo' or 'vlist' or 'hlist' or
-                # 'slider'
-            },
-            {
-                'name': 'threshold3',
-                'type': 'bool',
-                'value': True,
-                'label': 'Checked',
-                'help': 'If this is a boolean param'
-            }
-        ]
+        Param = dv.models.Param
+        threshold = Param('threshold', 'float', value=0.55,
+                          label='Quality threshold',
+                          help='If this is...bla bla bla')
+        thresholdBool = Param('threshold', 'bool', value=True,
+                              label='Quality checked',
+                              help='If this is a boolean param')
+
+        threshold2 = Param('threshold2', 'float', value=0.67,
+                           label='Quality', help='If this is...bla bla bla')
+
+        threshold3 = Param('threshold3', 'float', value=14.55,
+                           label='Quality threshold2',
+                           help='If this is a boolean param')
+
+        threshold4 = Param('threshold4', 'string', value='Explanation text',
+                           label='Threshold ex',
+                           help='Showing some explanation in a text')
+
+        threshold5 = Param('threshold5', 'string', value='Another text',
+                           label='Another text example',
+                           help='Showing more text')
+
+        threshold6 = Param('threshold6', 'float', value=1.5,
+                           label='Another float',
+                           help='Just another float example')
+
+        picking = Param('picking', 'enum', value=1,
+                        choices=['LoG', 'Swarm', 'SVM'],
+                        label='Picking method', display='combo',
+                        help='Select the picking strategy that you want to use.')
+
+        apply = Param('apply', 'button', label='Pick Again')
+
+        form = dv.models.Form([
+            [threshold, thresholdBool],
+            [threshold2, threshold3],
+            threshold4,
+            threshold5,
+            threshold6,
+            [picking, apply]
+        ])
         model = dv.tests.createListImageModel(
             ['image %d' % i for i in range(10)], 'Image', (512, 512))
-        return dv.views.DualImageListView(
-            None, model, options=tool_params1, method=printFunc)
+        return dv.views.DualImageListView(model, form=form, method=printFunc)
 
 
 def printFunc(*args):

@@ -34,6 +34,9 @@ class Coordinate:
         """
         return other and self.x == other.x and self.y == other.y
 
+    def __hash__(self):
+        return hash((self.x, self.y))
+
     def set(self, **kwargs):
         """
         Set different properties of this coordinates.
@@ -52,20 +55,15 @@ class Micrograph:
     Micrograph is the base element managed by the PickerDataModel class
     (See PickerDataModel documentation).
     """
-    def __init__(self, micId, path, coordinates=None):
+    def __init__(self, micId=None, path=None):
         self._micId = micId
         self._path = path
+        # This should be accessed only from PickerModel
         self._coordinates = []
-        if coordinates:
-            self.addCoordinates(coordinates)
 
     def __len__(self):
         """ The length of the Micrograph is the number of coordinates. """
         return len(self._coordinates)
-
-    def __iter__(self):
-        """ Iterates over all coordinates in the micrograph. """
-        return iter(self._coordinates)
 
     def __contains__(self, item):
         return any(item == c for c in self)
@@ -86,106 +84,54 @@ class Micrograph:
         """ Returns the path of the micrograph. """
         return self._path
 
-    def addCoordinate(self, coord):
-        """ Add a new coordinate to this micrograph. """
-        self._coordinates.append(coord)
 
-    def removeCoordinate(self, ppCoord):
-        """ Remove the coordinate from the list. """
-        if ppCoord and self._coordinates:
-            self._coordinates.remove(ppCoord)
-
-    def clear(self):
-        """ Remove all coordinates of this micrograph. """
-        self._coordinates = []
-
-    def addCoordinates(self, coords):
-        """
-        Add all the coordinates present in coords
-        :param coords: (list) A coordinates list
-        """
-        self._coordinates.extend(coords)
-
-
-class MicrographsTableModel(TableModel):
-    """ Simple table model for use in PickerView """
-
-    def __init__(self, columns=[]):
-        """
-        Construct an _TableModel object
-        :param columns: (list) List of ColumnInfo
-        """
-        self._data = []
-        self._columns = columns
-        self._tableName = ''
-        self._tableNames = []
-
-    def _loadTable(self, tableName):
-        pass
-
-    def iterColumns(self):
-        """ Return an iterator for model columns"""
-        return iter(self._columns)
-
-    def getColumnsCount(self):
-        """ Return the number of columns """
-        return len(self._columns)
-
-    def getRowsCount(self):
-        """ Return the number of rows """
-        return len(self._data)
-
-    def getValue(self, row, col):
-        if 0 <= row < len(self._data) and 0 <= col < len(self._columns):
-            return self._data[row][col]
-        return 0
-
-    def setValue(self, row, col, value):
-        """
-        Set the value for the given row and column
-        :param row:    (int) row index.
-        :param col:    (int) column index.
-        :param value:  The value
-        """
-        self._data[row][col] = value
-
-    def appendRow(self, row):
-        """
-        Append a row to the end of the model
-        :param row: (list) The row values.
-        """
-        if isinstance(row, list) and len(row) == len(self._columns):
-            self._data.append(row)
-        else:
-            raise Exception("Invalid row.")
-
-
-class PickerDataModel:
+class PickerDataModel(TableModel):
     """
     This class stores the basic information to the particle picking data.
     It contains a list of Micrographs and each Micrograph contains a list
     of Coordinates (x, y positions in the Micrograph).
     """
+    class Result:
+        """
+        Simple result object (although it might be more complex in the future)
+        to notify about changes in the data model after an external action
+        """
+        def __init__(self, currentMicChanged=False, currentCoordsChanged=False,
+                     tableModelChanged=False):
+            self.currentMicChanged = currentMicChanged
+            self.currentCoordsChanged = currentCoordsChanged
+            self.tableModelChanged = tableModelChanged
+
     def __init__(self, boxSize=64):
-        self._micrographs = dict()
+        # Allow access to micrographs both by id and by index
+        self._micList = []
+        self._micDict = {}
         self._boxsize = boxSize
         self._lastId = 0
+
         # Create a class for Coordinates Labels
         self.Label = namedtuple('Label', ['name', 'color'])
         self._labels = dict()
         self._initLabels()
-        self._paramsForm = self._createParams()
+
+        # Properties for TableModel
+        self._columns = self.getColumns()
+        self._tableName = ''
+        self._tableNames = []
 
     def __len__(self):
         """ The length of the model is the number of Micrographs. """
-        return len(self._micrographs)
+        return len(self._micList)
 
     def __iter__(self):
         """ Iterate over all Micrographs in the model. """
-        return iter(self._micrographs)
+        return iter(self._micList)
 
-    def __getitem__(self, micId):
-        return self._micrographs[micId]
+    def getMicrograph(self, micId):
+        return self._micDict[micId]
+
+    def getMicrographByIndex(self, micIndex):
+        return self._micList[micIndex]
 
     def _initLabels(self):
         """
@@ -220,10 +166,11 @@ class PickerDataModel:
         if not isinstance(mic, Micrograph):
             raise Exception("Invalid micrograph instance.")
 
-        if mic.getId() == -1:
+        if mic.getId() is None:
             mic.setId(self.nextId())
 
-        self._micrographs[mic.getId()] = mic
+        self._micList.append(mic)
+        self._micDict[mic.getId()] = mic
 
     def getLabels(self):
         """
@@ -257,28 +204,121 @@ class PickerDataModel:
 
     def getParams(self):
         """
-        Return the parameters Form.
+        Return the parameters Form that can be used by the
+        GUI to create widgets for each parameter. The GUI will
+        then notify the model about changes in these parameters
+        caused by user inputs.
         """
-        return self._paramsForm
-
-    def _createParams(self):
-        """ Return the list of parameters that will be used by GUI. """
         return None
 
-    def getMicrographsTableModel(self):
-        """ Return the TableModel that will be used to
-        display the list of micrographs.
+    def _getCoordsList(self, micId):
+        """ Return the coordinates list of a given micrograph. """
+        return self.getMicrograph(micId)._coordinates
+
+    def iterCoordinates(self, micId):
+        """ Iterate over the micrograph coordinates.
+        This iteration can yield a subset of the total coordinates depending
+        on parameters such as threshold, or associate different labels
+        to the coordinates.
         """
-        micTable = MicrographsTableModel([
+        for coord in self._getCoordsList(micId):
+            yield coord
+
+    def addCoordinates(self, micId, coords):
+        """
+        Add coordinates to a given micrograph.
+        :param micId: The micrograph identifier.
+        :param coords: An iterable with the coordinates that will be added.
+        :returns PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
+        """
+        self._getCoordsList(micId).extend(coords)
+        # Only notify changes in the coordinates that are not these already added
+        return self.Result(currentCoordsChanged=False)
+
+    def removeCoordinates(self, micId, coords):
+        """
+        Remove coordinate from a given micrograph.
+        :returns PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
+        """
+        micCoords = self._getCoordsList(micId)
+        for c in coords:
+            if c in micCoords:
+                micCoords.remove(c)
+        # Only notify changes in the coordinates that are not these already removed
+        return self.Result(currentCoordsChanged=False)
+
+    def clearMicrograph(self, micId):
+        """ Remove all coordinates of this micrograph. """
+        self._getCoordsList(micId)[:] = []
+        return self.Result()
+
+    def selectMicrograph(self, newMicId):
+        """
+        While interacting with the GUI, usually there is a micrograph
+        selected. By calling this method, the GUI notifies that the
+        selected micrographs was changed. The model can respond to
+        this change if necessary.
+        """
+        return self.Result(currentMicChanged=True,
+                           currentCoordsChanged=True)
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        """
+        By calling this method, the model is notified about changes
+        in one of the parameters. This method should be re-implemented
+        in subclasses that want to react to changes in parameters.
+        :param paramInfo: object that contains information about
+            the parameters:
+            - paramInfo.name: the name of the parameter
+            - paramInfo.value: the value of the parameter
+            - paramInfo.getValues(): method to request all
+        :returns Result instance responding back the impact of the
+            changes regarding to the selected micrographs, the coordinates
+            and the table with overall information.
+        """
+        return self.Result()
+
+    # --------------- Methods required by TableModel ---------------------------
+
+    def _loadTable(self, tableName):
+        pass
+
+    def iterColumns(self):
+        """ Return an iterator for model columns"""
+        return iter(self._columns)
+
+    def getColumnsCount(self):
+        """ Return the number of columns """
+        return len(self._columns)
+
+    def getRowsCount(self):
+        """ Return the number of rows """
+        return len(self)  # Number of micrographs
+
+    def getColumns(self):
+        """ Return a Column list that will be used to display micrographs. """
+        return [
             ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
             ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
-        ])
-        for micId, mic in self._micrographs.items():
-            micTable.appendRow([os.path.basename(mic.getPath()),
-                                len(mic), mic.getId()])
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+        ]
 
-        return micTable
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        mic = self.getMicrographByIndex(row)
+
+        if col == 0:  # Name
+            return 'Micrograph %02d' % mic.getId()
+        elif col == 1:  # Coordinates
+            return len(mic)
+        elif col == 2:  # Id
+            return mic.getId()
+        else:
+            raise Exception("Invalid column value '%s'" % col)
 
 
 class PickerCmpModel(PickerDataModel):
@@ -295,14 +335,8 @@ class PickerCmpModel(PickerDataModel):
         self._radius = radius
         self._ref = dict()
 
-        for micId in model1:
-            mic = model1[micId]
-            self.addMicrograph(Micrograph(micId, mic.getPath()))
-
-        self._defaultTableModel = None
-
     def __getitem__(self, micId):
-        mic = self._micrographs[micId]
+        mic = self._micDict[micId]
         mic.clear()
 
         coordsA = self._models[0][micId]
@@ -311,11 +345,11 @@ class PickerCmpModel(PickerDataModel):
         s = self._markCoordinates(coordsA,
                                   coordsB,
                                   self._radius)
-        self._defaultTableModel.set(self._ref[micId], 3, s)
+        self._defaultTableModel.setValue(self._ref[micId], 3, s)
         mic.addCoordinates(coordsA)
         mic.addCoordinates(coordsB)
 
-        return self._micrographs[micId]
+        return self._micDict[micId]
 
     def onParamChanged(self, paramName, value):
         """
@@ -361,10 +395,14 @@ class PickerCmpModel(PickerDataModel):
 
         return len(c)
 
-    def getMicrographsTableModel(self):
-        """ Return the TableModel that will be used to
-        display the list of micrographs.
-        """
+    def getColumns(self):
+        """ Return a Column list that will be used to display micrographs. """
+        return [
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
+        ]
+
         if self._defaultTableModel is None:
             micTable = MicrographsTableModel([
                 ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
@@ -388,6 +426,19 @@ class PickerCmpModel(PickerDataModel):
             self._defaultTableModel = micTable
 
         return self._defaultTableModel
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        mic = self.getMicrographByIndex(row)
+
+        if col == 0:  # Id
+            return mic.getId()
+        elif col == 1:  # Name
+            return os.path.basename(mic.getPath())
+        elif col == 2:  # Coordinates
+            return len(mic)
+        else:
+            raise Exception("Invalid column value '%s'" % col)
 
 
 # FIXME: Check if this function is need at all and remove it from here

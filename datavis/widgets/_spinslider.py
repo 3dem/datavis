@@ -1,4 +1,5 @@
 
+import numpy as np
 import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
@@ -9,7 +10,7 @@ class SpinSlider(qtw.QWidget):
     be synchronized.
     """
     """ Emitted when the spin value is changed. """
-    sigValueChanged = qtc.pyqtSignal(int)
+    sigValueChanged = qtc.pyqtSignal(object)
     """ Emitted when the user releases the slider."""
     sigSliderReleased = qtc.pyqtSignal()
 
@@ -19,9 +20,9 @@ class SpinSlider(qtw.QWidget):
         :param parent:
         :param kwargs:
             text:         (str) Optional text to be used as label of the Widget
-            minValue:     (int) The minimum value to be shown
-            maxValue:     (int) The maxium value to be shown
-            currentValue: (int) The currentValue
+            minValue:     (int/float) The minimum value to be shown
+            maxValue:     (int/float) The maximum value to be shown
+            currentValue: (int/float) The currentValue
         """
         qtw.QWidget.__init__(self, parent=parent)
 
@@ -29,6 +30,22 @@ class SpinSlider(qtw.QWidget):
         minValue = kwargs['minValue']  # this is mandatory
         maxValue = kwargs['maxValue']  # this is mandatory
         currentValue = kwargs.get('currentValue', minValue)
+
+        if any(isinstance(v, float) for v in [minValue, maxValue, currentValue]):
+            distance = float(maxValue) - float(minValue)
+            step = kwargs.get('step', distance/100.)
+            self.__float2int = lambda f: round((f - minValue) / step)
+            self.__int2float = lambda i: minValue + float(i) * step
+            spinBox = qtw.QDoubleSpinBox(self)
+            spinBox.setSingleStep(step)
+            spinBox.setDecimals(3)
+            self._type = float
+        else:
+            # No conversion is needed
+            self.__float2int = lambda f: f
+            self.__int2float = lambda i: i
+            spinBox = qtw.QSpinBox(self)
+            self._type = int
 
         # First the label
         label = qtw.QLabel(self)
@@ -42,11 +59,13 @@ class SpinSlider(qtw.QWidget):
         #sp.setHeightForWidth(slider.sizePolicy().hasHeightForWidth())
         slider.setSizePolicy(sp)
         slider.setOrientation(qtc.Qt.Horizontal)
-        slider.setRange(minValue, maxValue)
-        slider.setValue(currentValue)
+        slider.setRange(self.__float2int(minValue),
+                        self.__float2int(maxValue))
+        slider.setValue(self.__float2int(currentValue))
+        slider.setMinimumWidth(80)
 
         # SpinBox
-        spinBox = qtw.QSpinBox(self)
+        # spinBox = qtw.QSpinBox(self)
         spinBox.setRange(minValue, maxValue)
         spinBox.setValue(currentValue)
 
@@ -70,26 +89,24 @@ class SpinSlider(qtw.QWidget):
         self._spinBox = spinBox
         self._label = label
 
-    @qtc.pyqtSlot(int, object)
-    def _onValueChanged(self, newIndex, widgetToUpdate):
+    def _onValueChanged(self, widgetToUpdate, value, signalValue=None):
         """ Either the slider or the spinbox changed the
         value. Let's update the other one and emit the signal.
         """
         widgetToUpdate.blockSignals(True)
-        widgetToUpdate.setValue(newIndex)
+        widgetToUpdate.setValue(value)
         widgetToUpdate.blockSignals(False)
+        self.sigValueChanged.emit(signalValue or value)
 
-        self.sigValueChanged.emit(newIndex)
-
-    @qtc.pyqtSlot(int)
     def _onSpinBoxChanged(self, value):
         """ Invoked when change the spinbox value """
-        self._onValueChanged(value, self._slider)
+        self._onValueChanged(self._slider, self.__float2int(value), value)
 
     @qtc.pyqtSlot(int)
     def _onSliderChange(self, value):
         """ Invoked when change the spinbox value """
-        self._onValueChanged(value, self._spinBox)
+        self._onValueChanged(self._spinBox,
+                             self.__int2float(value))
 
     def _onSliderReleased(self):
         """ Invoked when the slider is released """
@@ -99,13 +116,13 @@ class SpinSlider(qtw.QWidget):
         """ Return the current value.
         (Same in both the slider and the spinbox).
         """
-        return self._slider.value()
+        return self._spinBox.value()
 
     def setValue(self, value):
         """ Set a new value. """
-        self._slider.setValue(value)
+        self._spinBox.setValue(value)
 
-    def setRange(self, minimum, maximum):
+    def setRange(self, minValue, maxValue):
         """
         Set the minimum and maximum values
         :param minimum: (int) The minimum possible value
@@ -113,15 +130,16 @@ class SpinSlider(qtw.QWidget):
         """
         self._slider.blockSignals(True)
         self._spinBox.blockSignals(True)
-        self._slider.setRange(minimum, maximum)
-        self._spinBox.setRange(minimum, maximum)
+        self._slider.setRange(self.__float2int(minValue),
+                              self.__float2int(maxValue))
+        self._spinBox.setRange(minValue, maxValue)
         self._slider.blockSignals(False)
         self._spinBox.blockSignals(False)
 
     def getRange(self):
         """ Return a tuple (minimum, maximum) values
         """
-        return self._slider.minimum(), self._slider.maximum()
+        return self._spinBox.minimum(), self._spinBox.maximum()
 
     def setText(self, text):
         """
