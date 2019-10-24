@@ -76,7 +76,6 @@ class PickerView(qtw.QWidget):
         self.__setupErase()
 
         cols = list(self._model.iterColumns())
-        print("cols: %s" % len(cols))
         self._cvImages.setModel(self._model, TableConfig(*cols))
         self._cvImages.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
         self._cvImages.sigCurrentRowChanged.connect(self.__onCurrentRowChanged)
@@ -368,17 +367,36 @@ class PickerView(qtw.QWidget):
         self.__eraseROIText.setPos(pos.x() + size[0] / 2 - rect2.width(),
                                    pos.y() + size[0] / 2)
 
-    def __removeROI(self, roi):
-        """ This slot is invoked when the user clicks on a ROI. """
-        if roi:
+    def _destroyROIs(self):
+        """ Remove and destroy all ROIs. """
+        if self._roiList:
+            for coordROI in self._roiList:
+                self._destroyCoordROI(coordROI.getROI())
+            self._roiList[:] = []
+
+    def _createROIs(self):
+        """ Create the ROIs for current micrograph """
+        self._roiList = [
+            self._createCoordROI(coord)
+            for coord in self._model.iterCoordinates(self._currentMic.getId())
+        ]
+
+    def __removeCoordinateROIs(self, roiList):
+        """
+        This function is called when the user remove coordinates
+        by double-clicking or by using the Eraser. The existing ROIs
+        will be destroyed and the action will be notified to the
+        picking model.
+        :param roiList: list of ROIs thats need to be deleted
+        """
+        for roi in roiList:
             self._destroyCoordROI(roi)
             self._roiList.remove(roi.parent)  # remove the coordROI
-            self._model.removeCoordinates(self._currentMic.getId(),
-                                          [roi.coordinate])
-            row = self._cvImages.getCurrentRow() % self._cvImages.getPageSize()
-            # TODO: Notify deletion
-            # self._tvModel.setValue(row, self._coordIndex, len(self._currentMic))
-            self._cvImages.updatePage()
+
+        result = self._model.removeCoordinates(
+            self._currentMic.getId(), [roi.coordinate for roi in roiList])
+        result.tableModelChanged = True
+        self.__handleModelResult(result)
 
     def __createColumsViewModel(self):
         """ Setup the em table """
@@ -409,7 +427,7 @@ class PickerView(qtw.QWidget):
         """
         qtw.QMessageBox.critical(self, "Particle Picking", msg)
 
-    def _showMicrograph(self, mic, fitToSize=False):
+    def _showMicrograph(self, fitToSize=False):
         """
         Show the an image in the ImageView
         :param mic: the ImageElem
@@ -418,38 +436,28 @@ class PickerView(qtw.QWidget):
         self.__eraseROIText.setVisible(False)
         self._destroyROIs()
         self._imageView.clear()
-        self._currentMic = mic
-        self._currentImageDim = None
-        micId = mic.getId()
-        self._imageView.setModel(ImageModel(self._model.getData(micId)),
-                                 fitToSize)
+        micId = self._currentMic.getId()
+        imgModel = ImageModel(self._model.getData(micId))
+        self._imageView.setModel(imgModel, fitToSize)
         self._imageView.setImageInfo(**self._model.getImageInfo(micId))
         self._createROIs()
 
-    def _destroyROIs(self):
+    def _updateROIs(self, clear=False):
         """
-        Remove and destroy all ROIs from the pageBar
+        Update all ROIs that need to be shown in the current micrograph.
+        :param clear If True, all ROIs will be removed and created again
+            If false, then the size will be updated.
         """
-        if self._roiList:
-            for coordROI in self._roiList:
-                self._destroyCoordROI(coordROI.getROI())
-            self._roiList = []
+        if not self._roiList:
+            return
 
-    def _createROIs(self):
-        """ Create the ROIs for current micrograph """
-        self._roiList = [
-            self._createCoordROI(coord)
-            for coord in self._model.iterCoordinates(self._currentMic.getId())
-        ]
-
-    def _updateROIs(self):
-        """ Update all ROIs that need to be shown in the current micrographs.
-        Remove first the old ones and then create new ones.
-        """
-        if self._roiList:
+        if clear:
+            self._destroyROIs()
+            self._createROIs()
+        else:
             size = self._model.getBoxSize()
             for coordROI in self._roiList:
-                coordROI.updateSize(size)
+                coordROI.updateSize(size)  # FIXME: Update shape?
 
     def _openFile(self, path, **kwargs):
         """
@@ -507,8 +515,9 @@ class PickerView(qtw.QWidget):
             # Create coordinate with event click coordinates and add it
             coord = Coordinate(x, y, label=self.__currentLabelName, **kwargs)
             self._roiList.append(self._createCoordROI(coord))
-            self._model.addCoordinates(self._currentMic.getId(), [coord])
-            self._cvImages.updatePage()
+            result = self._model.addCoordinates(self._currentMic.getId(),
+                                                [coord])
+            self.__handleModelResult(result)
 
         if self.__pickerMode == DEFAULT_MODE:
             _addCoord(x, y)
@@ -593,7 +602,7 @@ class PickerView(qtw.QWidget):
             def __mouseDoubleClickEvent(ev):
                 mouseDoubleClickEvent(ev)
                 if self._clickAction == PICK:
-                    self.__removeROI(roi)
+                    self.__removeCoordinateROIs([roi])
 
             roi.mouseDoubleClickEvent = __mouseDoubleClickEvent
             roi.hoverEnterEvent = __hoverEnterEvent
@@ -692,12 +701,7 @@ class PickerView(qtw.QWidget):
                         return
                     self.__mousePressed = False
                     if self._clickAction == ERASE:
-                        for item in self.__eraseList:
-                            self._roiList.remove(item.parent)
-                            self._destroyCoordROI(item)
-                            self._model.removeCoordinates(
-                                self._currentMic.getId(), [item.coordinate])
-                            self._cvImages.updatePage()
+                        self.__removeCoordinateROIs(self.__eraseList)
                         self.__eraseList = []
                     else:
                         self.__eraseROIText.setVisible(False)
@@ -753,44 +757,21 @@ class PickerView(qtw.QWidget):
                     self.__updateFilemantText(-angle, d.x(), self.__segPos)
                     self.__eraseROIText.setVisible(True)
 
+    def __handleModelResult(self, result):
+        """ Refresh different components depending on the result
+        from the action of the model.
+        """
+        if result.tableModelChanged:
+            self._cvImages.updatePage()
+
+        if result.currentMicChanged:
+            self._showMicrograph()  # This already update coordiantes
+        elif result.currentCoordsChanged:
+            self._updateROIs(clear=True)
+
     def __onPickShapeChanged(self, newShape):
         self._shape = newShape
-        self._destroyROIs()
-        self._createROIs()
-
-    # @qtc.pyqtSlot()
-    # def on_actionPickEllipse_triggered(self):
-    #     """ Activate the coordinates to ellipse ROI. """
-    #     self._shape = SHAPE_CIRCLE
-    #     self._destroyROIs()
-    #     self._createROIs()
-    #
-    # @qtc.pyqtSlot()
-    # def on_actionPickSegment_triggered(self):
-    #     """ Activate the coordinates to filament ROI. """
-    #     self._shape = SHAPE_SEGMENT
-    #     self._destroyROIs()
-    #     self._createROIs()
-    #
-    # @qtc.pyqtSlot()
-    # def on_actionPickRect_triggered(self):
-    #     """
-    #     Activate the pick rect ROI.
-    #     Change all boxes to rect ROI
-    #     """
-    #     self._shape = SHAPE_RECT
-    #     self._destroyROIs()
-    #     self._createROIs()
-    #
-    # @qtc.pyqtSlot()
-    # def on_actionPickCenter_triggered(self):
-    #     """
-    #     Activate the pick center ROI.
-    #     Change all boxes to center ROI
-    #     """
-    #     self._shape = SHAPE_CENTER
-    #     self._destroyROIs()
-    #     self._createROIs()
+        self._updateROIs(clear=True)  # FIXME: Change for updateShape???
 
     @qtc.pyqtSlot()
     def __onPickTriggered(self):
@@ -834,7 +815,10 @@ class PickerView(qtw.QWidget):
         mic = self._model.getMicrographByIndex(row)
         try:
             if mic != self._currentMic:
-                self._showMicrograph(mic)
+                self._currentMic = mic
+                self._currentImageDim = None
+                result = self._model.selectMicrograph(mic.getId())
+                self.__handleModelResult(result)
         except RuntimeError as ex:
             self._showError(ex.message)
 
@@ -897,21 +881,13 @@ class PickerView(qtw.QWidget):
                 if rem or shape.contains(pos):
                     item.setVisible(False)
                     self.__eraseList.append(item)
-                    # TODO: Notify the model about changes?
-                    # if self._tvModel is not None:
-                    #     r = self._cvImages.getCurrentRow()
-                    #     self._tvModel.setValue(
-                    #         r, self._coordIndex,
-                    #         len(self._currentMic) - len(self.__eraseList))
-                    #     self._cvImages.updatePage()
 
     @qtc.pyqtSlot(object)
     def _roiRegionChanged(self, roi):
         """
         Handler invoked when the roi region is changed.
-        For example:
-           When the user stops dragging the ROI (or one of its handles)
-           or if the ROI is changed programatically.
+        For example when the user stops dragging the ROI
+        (or one of its handles) or if the ROI is changed programatically.
         """
         if self.__pickerMode == DEFAULT_MODE:
             pos = roi.pos()

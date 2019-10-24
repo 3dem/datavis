@@ -91,13 +91,24 @@ class PickerDataModel(TableModel):
     It contains a list of Micrographs and each Micrograph contains a list
     of Coordinates (x, y positions in the Micrograph).
     """
+    class Result:
+        """
+        Simple result object (although it might be more complex in the future)
+        to notify about changes in the data model after an external action
+        """
+        def __init__(self, currentMicChanged=False, currentCoordsChanged=False,
+                     tableModelChanged=False):
+            self.currentMicChanged = currentMicChanged
+            self.currentCoordsChanged = currentCoordsChanged
+            self.tableModelChanged = tableModelChanged
+
     def __init__(self, boxSize=64):
         # Allow access to micrographs both by id and by index
         self._micList = []
         self._micDict = {}
-
         self._boxsize = boxSize
         self._lastId = 0
+
         # Create a class for Coordinates Labels
         self.Label = namedtuple('Label', ['name', 'color'])
         self._labels = dict()
@@ -191,30 +202,18 @@ class PickerDataModel(TableModel):
         """
         raise Exception('Not implemented')
 
+    def getParams(self):
+        """
+        Return the parameters Form that can be used by the
+        GUI to create widgets for each parameter. The GUI will
+        then notify the model about changes in these parameters
+        caused by user inputs.
+        """
+        return None
+
     def _getCoordsList(self, micId):
         """ Return the coordinates list of a given micrograph. """
         return self.getMicrograph(micId)._coordinates
-
-    def getCoordinates(self, micId, coords):
-        """ Return the coordinates from a given micrographs.
-        The model can change the labels base on current parameter values
-        for each coordinate.
-        """
-        return iter(self._getCoordsList(micId))
-
-    def addCoordinates(self, micId, coords):
-        """
-        Add coordinates to a given micrograph.
-        :param micId: The micrograph identifier.
-        :param coords: An iterable with the coordinates that will be added.
-        """
-        self._getCoordsList(micId).extend(coords)
-
-    def removeCoordinates(self, micId, coords):
-        """ Remove coordinate from a given micrograph."""
-        micCoords = self._getCoordsList(micId)
-        for c in coords:
-            micCoords.remove(c)
 
     def iterCoordinates(self, micId):
         """ Iterate over the micrograph coordinates.
@@ -225,15 +224,62 @@ class PickerDataModel(TableModel):
         for coord in self._getCoordsList(micId):
             yield coord
 
+    def addCoordinates(self, micId, coords):
+        """
+        Add coordinates to a given micrograph.
+        :param micId: The micrograph identifier.
+        :param coords: An iterable with the coordinates that will be added.
+        :returns PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
+        """
+        self._getCoordsList(micId).extend(coords)
+        # Only notify changes in the coordinates that are not these already added
+        return self.Result(currentCoordsChanged=False)
+
+    def removeCoordinates(self, micId, coords):
+        """
+        Remove coordinate from a given micrograph.
+        :returns PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
+        """
+        micCoords = self._getCoordsList(micId)
+        for c in coords:
+            micCoords.remove(c)
+        # Only notify changes in the coordinates that are not these already removed
+        return self.Result(currentCoordsChanged=False)
+
     def clearMicrograph(self, micId):
         """ Remove all coordinates of this micrograph. """
         self._getCoordsList(micId)[:] = []
+        return self.Result()
 
-    def getParams(self):
+    def selectMicrograph(self, newMicId):
         """
-        Return the parameters Form.
+        While interacting with the GUI, usually there is a micrograph
+        selected. By calling this method, the GUI notifies that the
+        selected micrographs was changed. The model can respond to
+        this change if necessary.
         """
-        return None
+        return self.Result(currentMicChanged=True,
+                           currentCoordsChanged=True)
+
+    def changeParam(self, paramInfo):
+        """
+        By calling this method, the model is notified about changes
+        in one of the parameters. This method should be re-implemented
+        in subclasses that want to react to changes in parameters.
+        :param paramInfo: object that contains information about
+            the parameters:
+            - paramInfo.name: the name of the parameter
+            - paramInfo.value: the value of the parameter
+            - paramInfo.getValues(): method to request all
+        :returns Result instance responding back the impact of the
+            changes regarding to the selected micrographs, the coordinates
+            and the table with overall information.
+        """
+        return self.Result()
 
     # --------------- Methods required by TableModel ---------------------------
 
