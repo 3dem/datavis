@@ -377,7 +377,7 @@ class PickerView(qtw.QWidget):
     def _createROIs(self):
         """ Create the ROIs for current micrograph """
         self._roiList = [
-            self._createCoordROI(coord)
+            self._createRoiHandler(coord)
             for coord in self._model.iterCoordinates(self._currentMic.getId())
         ]
 
@@ -514,7 +514,7 @@ class PickerView(qtw.QWidget):
         def _addCoord(x, y, **kwargs):
             # Create coordinate with event click coordinates and add it
             coord = Coordinate(x, y, label=self.__currentLabelName, **kwargs)
-            self._roiList.append(self._createCoordROI(coord))
+            self._roiList.append(self._createRoiHandler(coord))
             result = self._model.addCoordinates(self._currentMic.getId(),
                                                 [coord])
             self.__handleModelResult(result)
@@ -553,51 +553,35 @@ class PickerView(qtw.QWidget):
 
         return pg.mkPen(0, 9)
 
-    def _createCoordROI(self, coord):
+    def _onRoiDoubleClick(self, roi):
+        if self._clickAction == PICK:
+            self.__removeCoordinateROIs([roi])
+
+    def _createRoiHandler(self, coord):
         """ Create the RoiHandler for a given coordinate.
         This function will take into account the selected ROI shape
         and other global properties.
         """
-        roiDict = {'pen': self._makePen(coord.label, 2)}
-        size = self._model.getBoxSize()
-        roiHandler = RoiHandler(coord, self._shape, size, self._handleSize, **roiDict)
+        roiDict = {
+            'pen': self._makePen(coord.label, 2)
+        }
+        kwargs = {
+            'size': self._model.getBoxSize(),
+            'handleSize': self._handleSize,
+            'visible': self._actionPickShowHide.get(),
+            'readOnly': self._readOnly,
+            'clickAction': self._clickAction,
+            'onRoiDoubleClick': self._onRoiDoubleClick,
+            'signals': {
+                'sigRegionChanged': self._roiRegionChanged,
+                'sigRegionChangeFinished': self._roiRegionChangeFinished
+            }
+        }
+        RoiHandlerClass = FilamentRoiHandler if isFilament(coord) else RoiHandler
+        roiHandler = RoiHandlerClass(coord, self._shape, roiDict, **kwargs)
         roi = roiHandler.getROI()
-
-        # Connect some slots we are interested in
-        roi.setAcceptedMouseButtons(qtc.Qt.LeftButton)
-        if not isinstance(roi, pg.ScatterPlotItem):
-            roi.setAcceptHoverEvents(True)
-            mouseDoubleClickEvent = roi.mouseDoubleClickEvent
-            hoverEnterEvent = roi.hoverEnterEvent
-            hoverLeaveEvent = roi.hoverLeaveEvent
-
-            def __hoverEnterEvent(ev):
-                hoverEnterEvent(ev)
-                self.__showHandlers(roi, True)
-
-            def __hoverLeaveEvent(ev):
-                hoverLeaveEvent(ev)
-                self.__showHandlers(roi, False)
-
-            def __mouseDoubleClickEvent(ev):
-                mouseDoubleClickEvent(ev)
-                if self._clickAction == PICK:
-                    self.__removeCoordinateROIs([roi])
-
-            roi.mouseDoubleClickEvent = __mouseDoubleClickEvent
-            roi.hoverEnterEvent = __hoverEnterEvent
-            roi.hoverLeaveEvent = __hoverLeaveEvent
-            roi.sigRegionChanged.connect(self._roiRegionChanged)
-            roi.sigRegionChangeFinished.connect(self._roiRegionChangeFinished)
-
-        roi.setVisible(self._actionPickShowHide.get())
         self._imageView.getViewBox().addItem(roi)
-        roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable,
-                    self._clickAction == ERASE)
-        if self._clickAction == ERASE:
-            roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
 
-        roi.translatable = not self._readOnly
 
         return roiHandler
 
@@ -947,28 +931,66 @@ class RoiHandler:
     Helper class that creates the appropriated ROI according
     to the shape of a given coordinate.
     """
-    def __init__(self, coord, shape, size, handleSize, **kwargs):
+    def __init__(self, coord, shape, roiDict, **kwargs):
         self._shape = shape
-        self._roi = self._createRoi(coord, shape, size, handleSize, **kwargs)
+        self._roi = self._createRoi(coord, shape, roiDict, **kwargs)
         self._roi.coordinate = coord
         self._roi.parent = self
+        self._signals = kwargs.get('signals', {})
+        self._setupRoi(self._roi, **kwargs)
 
-    def _createRoi(self, coord, shape, size, handleSize, **kwargs):
+    def _createRoi(self, coord, shape, roiDict, **kwargs):
         """ Create the required ROI. """
         x, y = coord.x, coord.y
+        size = kwargs['size']
+
         if shape == SHAPE_CENTER:
-            kwargs['symbol'] = 'o'
+            roiDict['symbol'] = 'o'
             color = qtg.QColor(kwargs['pen'].color())
-            kwargs['brush'] = qtg.QBrush(color)
-            kwargs['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
+            roiDict['brush'] = qtg.QBrush(color)
+            roiDict['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
             # TODO: Check if ScatterPlotItem is the best one for this case
-            return pg.ScatterPlotItem(pos=[(x, y)], **kwargs)
+            return pg.ScatterPlotItem(pos=[(x, y)], **roiDict)
 
         RoiClass = CircleROI if shape == SHAPE_CIRCLE else pg.ROI
         half = size / 2
         x -= half
         y -= half
-        return RoiClass((x, y), (size, size), **kwargs)
+        return RoiClass((x, y), (size, size), **roiDict)
+
+    def _setupRoi(self, roi, **kwargs):
+        erase = kwargs['clickAction'] == ERASE
+        # Connect some slots we are interested in
+        roi.setAcceptedMouseButtons(qtc.Qt.LeftButton)
+        roi.setAcceptHoverEvents(True)
+        mouseDoubleClickEvent = roi.mouseDoubleClickEvent
+        hoverEnterEvent = roi.hoverEnterEvent
+        hoverLeaveEvent = roi.hoverLeaveEvent
+
+        def __hoverEnterEvent(ev):
+            hoverEnterEvent(ev)
+            self._showHideHandlers('show')
+
+        def __hoverLeaveEvent(ev):
+            hoverLeaveEvent(ev)
+            self._showHideHandlers('hide')
+
+        def __mouseDoubleClickEvent(ev):
+            mouseDoubleClickEvent(ev)
+            kwargs['onRoiDoubleClick'](roi)
+
+        roi.mouseDoubleClickEvent = __mouseDoubleClickEvent
+        if self._shape != SHAPE_CENTER:
+            roi.hoverEnterEvent = __hoverEnterEvent
+            roi.hoverLeaveEvent = __hoverLeaveEvent
+
+        self.__connectSignals(roi)
+        roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, erase)
+        if erase:
+            roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
+
+        roi.setVisible(kwargs['visible'])
+        roi.translatable = not kwargs['readOnly']
 
     def getCoord(self):
         """ Return the internal coordinate. """
@@ -977,12 +999,10 @@ class RoiHandler:
     def getROI(self):
         return self._roi
 
-    def showHandlers(self, show=True):
+    def _showHideHandlers(self, funcName='show'):
         """ Show or hide the ROI handlers. """
-        if self._roi and not isinstance(self._roi, pg.ScatterPlotItem):
-            funcName = 'show' if show else 'hide'
-            for h in self._roi.getHandles():
-                getattr(h, funcName)()  # show/hide
+        for h in self._roi.getHandles():
+            getattr(h, funcName)()  # show/hide
 
     def updateSize(self, size):
         """
@@ -998,11 +1018,18 @@ class RoiHandler:
         x, y = coord.x - half, coord.y - half
         self._roi.setPos((x, y), update=False, finish=False)
 
+    def __connectSignals(self, roi):
+        for signalName, slot in self._signals.items():
+            getattr(roi, signalName).connect(slot)
+
+    def __disconnectSignals(self, roi):
+        for signalName, slot in self._signals.items():
+            getattr(roi, signalName).disconnect(slot)
+
 
 class FilamentRoiHandler(RoiHandler):
-    """
-    RoiHandler subclass that deals with filaments.
-    """
+    """ RoiHandler subclass that deals with filaments. """
+
     def __calcFilamentSize(self, pos1, pos2, width):
         """
         Calculate the filament size (width x height)
@@ -1017,20 +1044,21 @@ class FilamentRoiHandler(RoiHandler):
             angle = 0
         ra = -angle * pi / 180.
         c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
-        pos1 = pos1 + c
+        pos1 += c
 
         return pos1, pg.Point(d.length(), width), -angle
 
-    def _createRoi(self, coord, shape, size, handleSize, **kwargs):
+    def _createRoi(self, coord, shape, roiDict, **kwargs):
         """ Create a line or filament according to the given shape. """
         point1 = coord.x, coord.y
         point2 = coord.y2, coord.y2
         if shape == SHAPE_CENTER:
-            return pg.LineSegmentROI([point1, point2], **kwargs)
+            return pg.LineSegmentROI([point1, point2], **roiDict)
 
-        pos, size, angle = self.__calcFilamentSize(point1, point2, size)
-        roi = pg.ROI(pos, size=size, angle=angle, **kwargs)
-        roi.handleSize = handleSize
+        pos, size, angle = self.__calcFilamentSize(point1, point2,
+                                                   kwargs['size'])
+        roi = pg.ROI(pos, size=size, angle=angle, **roiDict)
+        roi.handleSize = kwargs['handleSize']
         roi.addScaleRotateHandle([0, 0.5], [1, 0.5])
         roi.addScaleRotateHandle([1, 0.5], [0, 0.5])
         roi.addScaleHandle([1, 0], [1, 1])
