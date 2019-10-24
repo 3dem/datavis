@@ -554,34 +554,14 @@ class PickerView(qtw.QWidget):
         return pg.mkPen(0, 9)
 
     def _createCoordROI(self, coord):
-        """ Create the CoordROI for a given coordinate.
+        """ Create the RoiHandler for a given coordinate.
         This function will take into account the selected ROI shape
         and other global properties.
         """
         roiDict = {'pen': self._makePen(coord.label, 2)}
         size = self._model.getBoxSize()
-
-        if self.__pickerMode == DEFAULT_MODE:
-            if self._actionPickCenter.isChecked():
-                roiClass = pg.ScatterPlotItem
-                roiDict['symbol'] = 'o'
-                color = qtg.QColor(roiDict['pen'].color())
-                roiDict['brush'] = qtg.QBrush(color)
-                roiDict['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
-                size = 3
-            else:
-                if self._shape == SHAPE_RECT:
-                    roiClass = pg.ROI
-                elif self._shape == SHAPE_CIRCLE:
-                    roiClass = CircleROI
-                else:
-                    raise Exception("Unknown shape value: %s" % self._shape)
-        else:  # picker-mode : filament
-            pickCenter = self._actionPickCenter.isChecked()
-            roiClass = pg.LineSegmentROI if pickCenter else pg.ROI
-
-        coordROI = CoordROI(coord, size, roiClass, self._handleSize, **roiDict)
-        roi = coordROI.getROI()
+        roiHandler = RoiHandler(coord, self._shape, size, self._handleSize, **roiDict)
+        roi = roiHandler.getROI()
 
         # Connect some slots we are interested in
         roi.setAcceptedMouseButtons(qtc.Qt.LeftButton)
@@ -619,7 +599,7 @@ class PickerView(qtw.QWidget):
 
         roi.translatable = not self._readOnly
 
-        return coordROI
+        return roiHandler
 
     def _destroyCoordROI(self, roi):
         """ Remove a ROI from the view, from our list and
@@ -962,65 +942,33 @@ def isFilament(coord):
     return all(hasattr(coord, a) for a in ['x2', 'y2'])
 
 
-class CoordROI:
-    """ Class to match between ROI objects and corresponding coordinate """
-    def __init__(self, coord, boxSize, roiClass, handleSize, **kwargs):
-        # Lets compute the left-upper corner for the ROI
-        if roiClass == pg.ScatterPlotItem:
-            self._roi = pg.ScatterPlotItem(pos=[(coord.x, coord.y)], **kwargs)
-
-        elif isFilament(coord):
-            self._roi = self.__createFilament((coord.x, coord.y),
-                                              (coord.x2, coord.y2),
-                                              boxSize, roiClass,
-                                              handleSize, **kwargs)
-        else:
-            half = boxSize / 2
-            x = coord.x - half
-            y = coord.y - half
-            self._roi = roiClass((x, y), (boxSize, boxSize), **kwargs)
-
-        # Set a reference to the corresponding coordinate
+class RoiHandler:
+    """
+    Helper class that creates the appropriated ROI according
+    to the shape of a given coordinate.
+    """
+    def __init__(self, coord, shape, size, handleSize, **kwargs):
+        self._shape = shape
+        self._roi = self._createRoi(coord, shape, size, handleSize, **kwargs)
         self._roi.coordinate = coord
         self._roi.parent = self
 
-    def __calcFilamentSize(self, pos1, pos2, width):
-        """
-        Calculate the filament size (width x height)
-        :param pos1:  (pg.Point) Fist point
-        :param pos2:  (pg.Point) Second point
-        :param width: (int) The new size
-        :return:      (pg.Point, pg.Point, float) A Tuple (pos, size, angle)
-        """
-        d = pg.Point(pos2) - pg.Point(pos1)
-        angle = pg.Point(1, 0).angle(d)
-        if angle is None:
-            angle = 0
-        ra = -angle * pi / 180.
-        c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
-        pos1 = pos1 + c
+    def _createRoi(self, coord, shape, size, handleSize, **kwargs):
+        """ Create the required ROI. """
+        x, y = coord.x, coord.y
+        if shape == SHAPE_CENTER:
+            kwargs['symbol'] = 'o'
+            color = qtg.QColor(kwargs['pen'].color())
+            kwargs['brush'] = qtg.QBrush(color)
+            kwargs['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
+            # TODO: Check if ScatterPlotItem is the best one for this case
+            return pg.ScatterPlotItem(pos=[(x, y)], **kwargs)
 
-        return pos1, pg.Point(d.length(), width), -angle
-
-    def __createFilament(self, pos1, pos2, width, roiClass, handleSize,
-                         **kwargs):
-        """
-        Create a line or filament according to the given roi class:
-        pg.LineSegmentROI or pg.ROI
-        """
-        if roiClass == pg.ROI:
-            pos, size, angle = self.__calcFilamentSize(pos1, pos2, width)
-            seg = pg.ROI(pos, size=size, angle=angle, **kwargs)
-            seg.handleSize = handleSize
-            seg.addScaleRotateHandle([0, 0.5], [1, 0.5])
-            seg.addScaleRotateHandle([1, 0.5], [0, 0.5])
-            seg.addScaleHandle([1, 0], [1, 1])
-            seg.addScaleHandle([0, 1], [0, 0])
-            seg.addScaleHandle([0.5, 1], [0.5, 0.5])
-        else:
-            seg = pg.LineSegmentROI([pos1, pos2], **kwargs)
-
-        return seg
+        RoiClass = CircleROI if shape == SHAPE_CIRCLE else pg.ROI
+        half = size / 2
+        x -= half
+        y -= half
+        return RoiClass((x, y), (size, size), **kwargs)
 
     def getCoord(self):
         """ Return the internal coordinate. """
@@ -1041,22 +989,72 @@ class CoordROI:
         Update the roi size
         :param size: (int) The new size
         """
-        if isinstance(self._roi, pg.ROI):
-            coord = self._roi.coordinate
-            if isFilament(coord):
-                pos1 = pg.Point(coord.x, coord.y)
-                pos2 = pg.Point(coord.x2, coord.x2)
-                pos, size, angle = self.__calcFilamentSize(pos1, pos2, size)
-                self._roi.setPos(pos, update=False, finish=False)
-                self._roi.setSize(size, update=False, finish=False)
-                self._roi.setAngle(angle, update=False, finish=False)
-                self._roi.stateChanged(False)
-            else:  # CIRCLE or RECT
-                self._roi.setSize((size, size), update=False, finish=False)
-                half = size / 2
-                x = self._roi.coordinate.x - half
-                y = self._roi.coordinate.y - half
-                self._roi.setPos((x, y), update=False, finish=False)
+        if self._shape == SHAPE_CENTER:
+            return  # No size update required in this case
+
+        coord = self._roi.coordinate
+        self._roi.setSize((size, size), update=False, finish=False)
+        half = size / 2
+        x, y = coord.x - half, coord.y - half
+        self._roi.setPos((x, y), update=False, finish=False)
+
+
+class FilamentRoiHandler(RoiHandler):
+    """
+    RoiHandler subclass that deals with filaments.
+    """
+    def __calcFilamentSize(self, pos1, pos2, width):
+        """
+        Calculate the filament size (width x height)
+        :param pos1:  (pg.Point) Fist point
+        :param pos2:  (pg.Point) Second point
+        :param width: (int) The new size
+        :return:      (pg.Point, pg.Point, float) A Tuple (pos, size, angle)
+        """
+        d = pg.Point(pos2) - pg.Point(pos1)
+        angle = pg.Point(1, 0).angle(d)
+        if angle is None:
+            angle = 0
+        ra = -angle * pi / 180.
+        c = pg.Point(width / 2. * sin(ra), -width / 2. * cos(ra))
+        pos1 = pos1 + c
+
+        return pos1, pg.Point(d.length(), width), -angle
+
+    def _createRoi(self, coord, shape, size, handleSize, **kwargs):
+        """ Create a line or filament according to the given shape. """
+        point1 = coord.x, coord.y
+        point2 = coord.y2, coord.y2
+        if shape == SHAPE_CENTER:
+            return pg.LineSegmentROI([point1, point2], **kwargs)
+
+        pos, size, angle = self.__calcFilamentSize(point1, point2, size)
+        roi = pg.ROI(pos, size=size, angle=angle, **kwargs)
+        roi.handleSize = handleSize
+        roi.addScaleRotateHandle([0, 0.5], [1, 0.5])
+        roi.addScaleRotateHandle([1, 0.5], [0, 0.5])
+        roi.addScaleHandle([1, 0], [1, 1])
+        roi.addScaleHandle([0, 1], [0, 0])
+        roi.addScaleHandle([0.5, 1], [0.5, 0.5])
+
+        return roi
+
+    def updateSize(self, size):
+        """
+        Update the roi size
+        :param size: (int) The new size
+        """
+        if self._shape == SHAPE_CENTER:
+            return
+
+        coord = self._roi.coordinate
+        point1 = coord.x, coord.y
+        point2 = coord.x2, coord.x2
+        pos, size, angle = self.__calcFilamentSize(point1, point2, size)
+        self._roi.setPos(pos, update=False, finish=False)
+        self._roi.setSize(size, update=False, finish=False)
+        self._roi.setAngle(angle, update=False, finish=False)
+        self._roi.stateChanged(False)
 
 
 class CircleROI(pg.CircleROI):
