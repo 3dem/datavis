@@ -246,7 +246,8 @@ class PickerDataModel(TableModel):
         """
         micCoords = self._getCoordsList(micId)
         for c in coords:
-            micCoords.remove(c)
+            if c in micCoords:
+                micCoords.remove(c)
         # Only notify changes in the coordinates that are not these already removed
         return self.Result(currentCoordsChanged=False)
 

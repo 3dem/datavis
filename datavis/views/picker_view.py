@@ -67,6 +67,8 @@ class PickerView(qtw.QWidget):
         else:
             raise Exception("Unknown picking mode '%s'" % self.__pickerMode)
 
+        self._isFilament = self.__pickerMode == FILAMENT_MODE
+
         self.__setupGUI(**kwargs)
 
         self._spinBoxBoxSize.editingFinished.connect(
@@ -293,6 +295,7 @@ class PickerView(qtw.QWidget):
         # self._currentMic = self._model[micId]
         # self._showMicrograph(self._currentMic)
         self.sigPickerParamChanged.emit(micId, paramName, value)
+        self._model.changeParam(param)
 
     def __addControlsAction(self, toolbar):
         """
@@ -367,35 +370,73 @@ class PickerView(qtw.QWidget):
         self.__eraseROIText.setPos(pos.x() + size[0] / 2 - rect2.width(),
                                    pos.y() + size[0] / 2)
 
-    def _destroyROIs(self):
-        """ Remove and destroy all ROIs. """
-        if self._roiList:
-            for coordROI in self._roiList:
-                self._destroyCoordROI(coordROI.getROI())
+
+
+    def _onRoiDoubleClick(self, roi):
+        if self._clickAction == PICK:
+            self.__removeCoordinates([roi])
+
+    def _createRoiHandlers(self, coords=None, clear=True):
+        """
+        Create the one RoiHandler for each coordinate and append to the
+        current list.
+        :param coords: iterable over the input coordinates.
+            If None, use the coordinates for current micrograph
+        :param clear: If True, the current list will be cleared first, if not
+            new RoiHandlers will be added
+        """
+        if clear:
             self._roiList[:] = []
 
-    def _createROIs(self):
-        """ Create the ROIs for current micrograph """
-        self._roiList = [
-            self._createRoiHandler(coord)
-            for coord in self._model.iterCoordinates(self._currentMic.getId())
-        ]
+        if coords is None:
+            coords = self._model.iterCoordinates(self._currentMic.getId())
 
-    def __removeCoordinateROIs(self, roiList):
+        kwargs = {
+            'size': self._model.getBoxSize(),
+            'handleSize': self._handleSize,
+            'visible': self._actionPickShowHide.get(),
+            'readOnly': self._readOnly,
+            'clickAction': self._clickAction,
+            'onRoiDoubleClick': self._onRoiDoubleClick,
+            'signals': {
+                'sigRegionChanged': self._roiRegionChanged,
+                'sigRegionChangeFinished': self._roiRegionChangeFinished
+            }
+        }
+        RoiHandlerClass = FilamentRoiHandler if self._isFilament else RoiHandler
+        viewBox = self._imageView.getViewBox()
+
+        for coord in coords:
+            roiDict = {
+                'pen': self._makePen(coord.label, 2)
+            }
+            roiHandler = RoiHandlerClass(coord, self._shape, roiDict, **kwargs)
+            viewBox.addItem(roiHandler.getROI())
+            self._roiList.append(roiHandler)
+
+    def _destroyRoiHandlers(self, roiHandlerList=None):
         """
         This function is called when the user remove coordinates
         by double-clicking or by using the Eraser. The existing ROIs
         will be destroyed and the action will be notified to the
         picking model.
-        :param roiList: list of ROIs thats need to be deleted
+        :param roiHandlerList: list of RoiHandles that need to be deleted.
         """
-        for roi in roiList:
-            self._destroyCoordROI(roi)
+        if roiHandlerList is None:
+            roiHandlerList = list(self._roiList)
+        viewBox = self._imageView.getViewBox()
+
+        for roiHandler in roiHandlerList:
+            roi = roiHandler.getROI()
+            roiHandler.disconnectSignals(roi)
+            viewBox.removeItem(roi)
             self._roiList.remove(roi.parent)  # remove the coordROI
 
+    def __removeCoordinates(self, roiList):
         result = self._model.removeCoordinates(
             self._currentMic.getId(), [roi.coordinate for roi in roiList])
         result.tableModelChanged = True
+        self._destroyRoiHandlers([roi.parent for roi in roiList])
         self.__handleModelResult(result)
 
     def __createColumsViewModel(self):
@@ -434,13 +475,13 @@ class PickerView(qtw.QWidget):
         """
         self.__eraseROI.setVisible(False)
         self.__eraseROIText.setVisible(False)
-        self._destroyROIs()
+        self._destroyRoiHandlers()
         self._imageView.clear()
         micId = self._currentMic.getId()
         imgModel = ImageModel(self._model.getData(micId))
         self._imageView.setModel(imgModel, fitToSize)
         self._imageView.setImageInfo(**self._model.getImageInfo(micId))
-        self._createROIs()
+        self._createRoiHandlers()
 
     def _updateROIs(self, clear=False):
         """
@@ -452,12 +493,12 @@ class PickerView(qtw.QWidget):
             return
 
         if clear:
-            self._destroyROIs()
-            self._createROIs()
+            self._destroyRoiHandlers()
+            self._createRoiHandlers()
         else:
             size = self._model.getBoxSize()
-            for coordROI in self._roiList:
-                coordROI.updateSize(size)  # FIXME: Update shape?
+            for roiHandler in self._roiList:
+                roiHandler.updateSize(size)  # FIXME: Update shape?
 
     def _openFile(self, path, **kwargs):
         """
@@ -513,10 +554,10 @@ class PickerView(qtw.QWidget):
 
         def _addCoord(x, y, **kwargs):
             # Create coordinate with event click coordinates and add it
-            coord = Coordinate(x, y, label=self.__currentLabelName, **kwargs)
-            self._roiList.append(self._createRoiHandler(coord))
-            result = self._model.addCoordinates(self._currentMic.getId(),
-                                                [coord])
+            coordList = [Coordinate(x, y, label=self.__currentLabelName,
+                                    **kwargs)]
+            self._createRoiHandlers(coords=coordList, clear=False)
+            result = self._model.addCoordinates(self._currentMic.getId(), coordList)
             self.__handleModelResult(result)
 
         if self.__pickerMode == DEFAULT_MODE:
@@ -552,50 +593,6 @@ class PickerView(qtw.QWidget):
             return pg.mkPen(color=self._model.getLabel(btn.text())["color"])
 
         return pg.mkPen(0, 9)
-
-    def _onRoiDoubleClick(self, roi):
-        if self._clickAction == PICK:
-            self.__removeCoordinateROIs([roi])
-
-    def _createRoiHandler(self, coord):
-        """ Create the RoiHandler for a given coordinate.
-        This function will take into account the selected ROI shape
-        and other global properties.
-        """
-        roiDict = {
-            'pen': self._makePen(coord.label, 2)
-        }
-        kwargs = {
-            'size': self._model.getBoxSize(),
-            'handleSize': self._handleSize,
-            'visible': self._actionPickShowHide.get(),
-            'readOnly': self._readOnly,
-            'clickAction': self._clickAction,
-            'onRoiDoubleClick': self._onRoiDoubleClick,
-            'signals': {
-                'sigRegionChanged': self._roiRegionChanged,
-                'sigRegionChangeFinished': self._roiRegionChangeFinished
-            }
-        }
-        RoiHandlerClass = FilamentRoiHandler if isFilament(coord) else RoiHandler
-        roiHandler = RoiHandlerClass(coord, self._shape, roiDict, **kwargs)
-        roi = roiHandler.getROI()
-        self._imageView.getViewBox().addItem(roi)
-
-
-        return roiHandler
-
-    def _destroyCoordROI(self, roi):
-        """ Remove a ROI from the view, from our list and
-        disconnect all related slots.
-        """
-        # Disconnect from roi the slots.
-        if not isinstance(roi, pg.ScatterPlotItem):
-            roi.sigRegionChanged.disconnect(self._roiRegionChanged)
-            roi.sigRegionChangeFinished.disconnect(
-                self._roiRegionChangeFinished)
-        view = self._imageView.getViewBox()
-        view.removeItem(roi)
 
     def _setupViewBox(self):
         """ Configures the View Widget for self.pageBar """
@@ -665,7 +662,7 @@ class PickerView(qtw.QWidget):
                         return
                     self.__mousePressed = False
                     if self._clickAction == ERASE:
-                        self.__removeCoordinateROIs(self.__eraseList)
+                        self.__removeCoordinates(self.__eraseList)
                         self.__eraseList = []
                     else:
                         self.__eraseROIText.setVisible(False)
@@ -946,7 +943,7 @@ class RoiHandler:
 
         if shape == SHAPE_CENTER:
             roiDict['symbol'] = 'o'
-            color = qtg.QColor(kwargs['pen'].color())
+            color = qtg.QColor(roiDict['pen'].color())
             roiDict['brush'] = qtg.QBrush(color)
             roiDict['pen'] = pg.mkPen({'color': "FFF", 'width': 1})
             # TODO: Check if ScatterPlotItem is the best one for this case
@@ -983,8 +980,8 @@ class RoiHandler:
         if self._shape != SHAPE_CENTER:
             roi.hoverEnterEvent = __hoverEnterEvent
             roi.hoverLeaveEvent = __hoverLeaveEvent
+            self.connectSignals(roi)
 
-        self.__connectSignals(roi)
         roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, erase)
         if erase:
             roi.setAcceptedMouseButtons(qtc.Qt.NoButton)
@@ -1018,11 +1015,11 @@ class RoiHandler:
         x, y = coord.x - half, coord.y - half
         self._roi.setPos((x, y), update=False, finish=False)
 
-    def __connectSignals(self, roi):
+    def connectSignals(self, roi):
         for signalName, slot in self._signals.items():
             getattr(roi, signalName).connect(slot)
 
-    def __disconnectSignals(self, roi):
+    def disconnectSignals(self, roi):
         for signalName, slot in self._signals.items():
             getattr(roi, signalName).disconnect(slot)
 
