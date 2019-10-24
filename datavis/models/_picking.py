@@ -234,7 +234,6 @@ class PickerDataModel(TableModel):
         :return: PickerModel.Result object with information about the changes
         in the model after this action. In subclasses this info might be
         more relevant.
-
         """
         self._getCoordsList(micId).extend(coords)
         # Only notify changes in the coordinates that are not these already added
@@ -242,8 +241,13 @@ class PickerDataModel(TableModel):
 
     def removeCoordinates(self, micId, coords):
         """
-        Remove coordinate from a given micrograph.
-        :returns PickerModel.Result object with information about the changes
+        Remove coordinates from a given micrograph.
+
+        :param micId: micrograph ID
+        :param coords: coordinates iterable that will be removed from
+        the micrograph
+
+        :return: PickerModel.Result object with information about the changes
         in the model after this action. In subclasses this info might be
         more relevant.
         """
@@ -255,7 +259,7 @@ class PickerDataModel(TableModel):
         return self.Result(currentCoordsChanged=False)
 
     def clearMicrograph(self, micId):
-        """ Remove all coordinates of this micrograph. """
+        """ Remove all coordinates from this micrograph. """
         self._getCoordsList(micId)[:] = []
         return self.Result()
 
@@ -274,14 +278,14 @@ class PickerDataModel(TableModel):
         By calling this method, the model is notified about changes
         in one of the parameters. This method should be re-implemented
         in subclasses that want to react to changes in parameters.
-        :param paramInfo: object that contains information about
-            the parameters:
-            - paramInfo.name: the name of the parameter
-            - paramInfo.value: the value of the parameter
-            - paramInfo.getValues(): method to request all
-        :returns Result instance responding back the impact of the
-            changes regarding to the selected micrographs, the coordinates
-            and the table with overall information.
+
+        :param micId: micrograph ID
+        :param paramName: name of the parameter that generated the change
+        :param paramValue: current value of the parameter
+        :param getValuesFunc: function that will return all values as dict
+        :return: Result instance responding back the impact of the
+        changes regarding to the selected micrographs, the coordinates
+        and the table with overall information.
         """
         return self.Result()
 

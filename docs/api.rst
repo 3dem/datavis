@@ -1,10 +1,9 @@
-Python API
+datavis API
 ==========
 
-Getting started with Crawler is easy.
-The main class you need to care about is crawler.main.Crawler
+About this
 
-datavis.models
+models
 --------------
 
 .. automodule:: datavis.models
@@ -13,4 +12,4 @@ datavis.models
 .. autoclass:: datavis.models.PickerDataModel
    :members:
 
-   
+
