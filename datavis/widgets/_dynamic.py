@@ -255,7 +255,7 @@ class ButtonWidget(ParamWidget):
         pass
 
     def get(self):
-        return True
+        return False
 
 
 class FormWidget(qtw.QWidget):

@@ -96,8 +96,6 @@ class SpinSlider(qtw.QWidget):
         widgetToUpdate.blockSignals(True)
         widgetToUpdate.setValue(value)
         widgetToUpdate.blockSignals(False)
-
-        print("value: %s" % value)
         self.sigValueChanged.emit(signalValue or value)
 
     def _onSpinBoxChanged(self, value):
