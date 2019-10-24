@@ -115,7 +115,7 @@ class PickerDataModel(TableModel):
         self._initLabels()
 
         # Properties for TableModel
-        self._columns = self._createColumns()
+        self._columns = self.getColumns()
         self._tableName = ''
         self._tableNames = []
 
@@ -266,7 +266,7 @@ class PickerDataModel(TableModel):
         return self.Result(currentMicChanged=True,
                            currentCoordsChanged=True)
 
-    def changeParam(self, paramInfo):
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
         """
         By calling this method, the model is notified about changes
         in one of the parameters. This method should be re-implemented
@@ -299,7 +299,7 @@ class PickerDataModel(TableModel):
         """ Return the number of rows """
         return len(self)  # Number of micrographs
 
-    def _createColumns(self):
+    def getColumns(self):
         """ Return a Column list that will be used to display micrographs. """
         return [
             ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
@@ -395,7 +395,7 @@ class PickerCmpModel(PickerDataModel):
 
         return len(c)
 
-    def _createColumns(self):
+    def getColumns(self):
         """ Return a Column list that will be used to display micrographs. """
         return [
             ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),

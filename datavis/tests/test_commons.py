@@ -5,7 +5,7 @@ import os
 import sys
 import unittest
 import numpy as np
-from random import randrange
+from random import randrange, uniform
 import pyqtgraph as pg
 
 import PyQt5.QtWidgets as qtw
@@ -214,23 +214,28 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         self._imageSize = imageSize
         self._size = size
         self._images = dict()
+        self._picks = picks
+        self._filament = filament
         self._cache = {}
         for i in range(size):
             mic = dv.models.Micrograph(micId=i+1)
             self.addMicrograph(mic)
-            self.addCoordinates(mic.getId(),
-                                self.__getRandomCoords(picks, filament))
+            self.pickRandomly(mic.getId())
         self.setBoxSize(boxSize)
 
-    def __getRandomCoords(self, picks, filament):
+    def pickRandomly(self, micId, n=None):
+        """ Pick a random number of particles just for testing. """
+        n = n or randrange(0, self._picks)
+        self.clearMicrograph(micId)
+        self.addCoordinates(micId, self.__getRandomCoords(n))
+
+    def __getRandomCoords(self, n):
         """ Return a Micrograph object with random pick coordinates """
         w, h = self._imageSize
-        n = randrange(0, picks)
-
         def _randomCoord():
             x, y = randrange(0, w), randrange(0, h)
-            kwargs = {'x2': randrange(0, w), 'y2': randrange(0, h)} if filament else {}
-            return dv.models.Coordinate(x, y, **kwargs)
+            kwargs = {'x2': randrange(0, w), 'y2': randrange(0, h)} if self._filament else {}
+            return dv.models.Coordinate(x, y, score=uniform(0, 1), **kwargs)
 
         return [_randomCoord() for _ in range(n)]
 

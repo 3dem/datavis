@@ -2,56 +2,97 @@
 # -*- coding: utf-8 -*-
 
 import datavis as dv
+from datavis.models import ColumnConfig, TYPE_STRING, TYPE_INT
 
 
 class MyPickerDataModel(dv.tests.SimplePickerDataModel):
     def __init__(self, *args, **kwargs):
         dv.tests.SimplePickerDataModel.__init__(self, *args, **kwargs)
+        self._scoreThreshold = 0.5
+        # Modify 'Auto' label to set red color
+        self._labels['A'] = self._labels['A']._replace(color='#FF0000')
+        self._showBelow = True
 
-    def _createParams(self):
+    def getParams(self):
         Param = dv.models.Param
-        threshold = Param('threshold', 'float', value=0.55,
-                          label='Quality threshold',
-                          help='If this is...bla bla bla')
-        thresholdBool = Param('threshold', 'bool', value=True,
-                              label='Quality checked',
-                              help='If this is a boolean param')
-
-        threshold2 = Param('threshold2', 'float', value=0.67,
+        scoreThreshold = Param('scoreThreshold', 'float', value=0.5,
                            display='slider', range=(0, 1.0),
-                           label='Slider quality', help='Select value')
+                           label='Score threshold',
+                               help='Display coordinates with score above '
+                                    'this value.')
 
-        threshold3 = Param('threshold3', 'float', value=14.55,
-                           label='Quality threshold2',
-                           help='If this is a boolean param')
+        showBelow = Param('showBelow', 'bool', value=self._showBelow,
+                          label='Show coordinates below?')
 
-        threshold4 = Param('threshold4', 'string', value='Explanation text',
-                           label='Threshold ex',
-                           help='Showing some explanation in a text')
+        nParam = Param('n', 'int', value=100,
+                           label='Particles:',
+                           help='Number of particles that you will pick randomly'
+                                'from the current micrograph.')
 
-        threshold5 = Param('threshold5', 'string', value='Another text',
-                           label='Another text example',
-                           help='Showing more text')
-
-        threshold6 = Param('threshold6', 'float', value=1.5,
-                           label='Another float',
-                           help='Just another float example')
-
-        picking = Param('picking', 'enum', value=1,
-                        choices=['LoG', 'Swarm', 'SVM'],
-                        label='Picking method', display='combo',
-                        help='Select the picking strategy that you want to use.')
-
-        apply = Param('apply', 'button', label='Pick Again')
+        clear = Param('clear', 'button', label='Clear coordinates')
+        pick = Param('pick', 'button', label='Pick Again')
 
         return dv.models.Form([
-            [threshold, thresholdBool],
-            [threshold2, threshold3],
-            threshold4,
-            threshold5,
-            threshold6,
-            [picking, apply]
+            [scoreThreshold, showBelow],
+            [pick, nParam],
+            clear
         ])
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        # Most cases here will modify the current coordinates
+        r = self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+        if paramName in ['pick', 'n']:
+            values = getValuesFunc()
+            self.pickRandomly(micId, n=values['n'])
+        elif paramName == 'scoreThreshold':
+            self._scoreThreshold = getValuesFunc()['scoreThreshold']
+        elif paramName == 'clear':
+            self.clearMicrograph(micId)
+        elif paramName == 'showBelow':
+            self._showBelow = getValuesFunc()['showBelow']
+        else:
+            r = self.Result()  # No modification
+
+        return r
+
+    def iterCoordinates(self, micId):
+        # Re-implement this to show only these above the threshold
+        # or with a different color (label)
+        for coord in self._getCoordsList(micId):
+            good = coord.score > self._scoreThreshold
+            coord.label = 'M' if good else 'A'
+            if good or self._showBelow:
+                yield coord
+
+    def getColumns(self):
+        """ Return a Column list that will be used to display micrographs. """
+        return [
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('Coords', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Coords < Threshold', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+        ]
+
+    def __coordsBelow(self, micId):
+        return len([c for c in self._getCoordsList(micId)
+                    if c.score < self._scoreThreshold])
+
+    def getValue(self, row, col):
+        # Re-implement this to show only these above the threshold
+        mic = self.getMicrographByIndex(row)
+        micId = mic.getId()
+
+        if col == 0:  # Name
+            return 'Micrograph %02d' % micId
+        elif col == 1:  # Coordinates
+            return len(mic) - self.__coordsBelow(micId)
+        elif col == 2:  # Coordinates below threshold
+            return self.__coordsBelow(micId)
+        elif col == 3:  # Id
+            return mic.getId()
+        else:
+            raise Exception("Invalid column value '%s'" % col)
 
 
 class TestPickerView(dv.tests.TestView):

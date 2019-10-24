@@ -268,19 +268,19 @@ class PickerView(qtw.QWidget):
         gLayout.addWidget(tb)
 
         if pickerParams is not None:
-            dw = FormWidget(pickerParams, parent=boxPanel, name='pickerParams')
+            fw = FormWidget(pickerParams, parent=boxPanel, name='pickerParams')
             vLayout = qtw.QVBoxLayout()
             label = qtw.QLabel(self)
             label.setText("<strong>Params:</strong>")
             vLayout.addWidget(label, 0, qtc.Qt.AlignLeft)
-            vLayout.addWidget(dw)
+            vLayout.addWidget(fw)
             gLayout.addLayout(vLayout)
-            dw.setMinimumSize(dw.sizeHint())
-            dw.sigValueChanged.connect(self.__onPickerParamChanged)
+            fw.setMinimumSize(fw.sizeHint())
+            fw.sigValueChanged.connect(self.__onPickerParamChanged)
         else:
-            dw = None
+            fw = None
 
-        self.__paramsWidget = dw
+        self.__formWidget = fw
         sh = gLayout.totalSizeHint()
         boxPanel.setFixedHeight(sh.height())
         toolbar.setPanelMinSize(sh.width())
@@ -291,11 +291,11 @@ class PickerView(qtw.QWidget):
 
     def __onPickerParamChanged(self, paramName, value):
         """ Invoked when a picker-param value is changed """
-        micId = self._model.getMicrographByIndex(self._cvImages.getCurrentRow())
-        # self._currentMic = self._model[micId]
-        # self._showMicrograph(self._currentMic)
+        micId = self._currentMic.getId()
         self.sigPickerParamChanged.emit(micId, paramName, value)
-        self._model.changeParam(param)
+        result = self._model.changeParam(micId, paramName, value,
+                                         self.__formWidget.getParamValues)
+        self.__handleModelResult(result)
 
     def __addControlsAction(self, toolbar):
         """
@@ -933,7 +933,11 @@ class RoiHandler:
         self._roi = self._createRoi(coord, shape, roiDict, **kwargs)
         self._roi.coordinate = coord
         self._roi.parent = self
-        self._signals = kwargs.get('signals', {})
+        # Ignore the signals for center shape
+        if self._shape != SHAPE_CENTER:
+            self._signals = kwargs.get('signals', {})
+        else:
+            self._signals = {}
         self._setupRoi(self._roi, **kwargs)
 
     def _createRoi(self, coord, shape, roiDict, **kwargs):
@@ -980,7 +984,8 @@ class RoiHandler:
         if self._shape != SHAPE_CENTER:
             roi.hoverEnterEvent = __hoverEnterEvent
             roi.hoverLeaveEvent = __hoverLeaveEvent
-            self.connectSignals(roi)
+
+        self.connectSignals(roi)
 
         roi.setFlag(qtw.QGraphicsItem.ItemIsSelectable, erase)
         if erase:
