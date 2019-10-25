@@ -1,18 +1,20 @@
 
-Welcome to datavis/emvis's documentation!
+Welcome to datavis and emvis!
 =========================================
 
 .. toctree::
-   :caption: User Guide
+    :maxdepth: 2
+    :caption: Guide
 
-   install
-   support
-   cookbook
+    install
+    support
+    cookbook
 
 .. toctree::
-   :caption: Programmer Reference
+    :maxdepth: 2
+    :caption: Reference
 
-   cli
-   api
+    api/datavis
+    api/emvis
 
 

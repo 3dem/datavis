@@ -86,17 +86,23 @@ class Micrograph:
 
 
 class PickerDataModel(TableModel):
+    """ Handles information about Coordinates and Micrographs.
+
+    The PickerDataModel class contais a set of micrographs, where each
+    micrograph contains a set of coordinates. Coordinates are essentially
+    (x, y) position and can also have a given label. Labels are created by
+    the PickerDataModel and will be used to classify different types of
+    coordinates (e.g based on quality).
     """
-    This class stores the basic information to the particle picking data.
-    It contains a list of Micrographs and each Micrograph contains a list
-    of Coordinates (x, y positions in the Micrograph).
-    """
+
     class Result:
         """
         Simple result object (although it might be more complex in the future)
         to notify about changes in the data model after an external action
         """
-        def __init__(self, currentMicChanged=False, currentCoordsChanged=False,
+        def __init__(self,
+                     currentMicChanged=False,
+                     currentCoordsChanged=False,
                      tableModelChanged=False):
             self.currentMicChanged = currentMicChanged
             self.currentCoordsChanged = currentCoordsChanged
@@ -128,15 +134,15 @@ class PickerDataModel(TableModel):
         return iter(self._micList)
 
     def getMicrograph(self, micId):
+        """ Returns the micrograph with the given ID. """
         return self._micDict[micId]
 
     def getMicrographByIndex(self, micIndex):
+        """ Return the micrograph at this given index. """
         return self._micList[micIndex]
 
     def _initLabels(self):
-        """
-        Initialize the labels for this PickerModel
-        """
+        """ Initialize the labels for this PickerModel. """
         auto = self.Label(name="Auto", color="#0012FF")
         self._labels["Auto"] = auto
         self._labels["A"] = auto
@@ -159,7 +165,9 @@ class PickerDataModel(TableModel):
 
     def addMicrograph(self, mic):
         """ Add a new micrograph to the model.
-        :param mic: (Micrograph) A Micrograph instance. If the micrograph ID is -1
+
+        Args:
+            mic: New (Micrograph) A Micrograph instance. If the micrograph ID is -1
         then a new ID will be assigned to the micrograph.
         :raise Raise Exception if mic is not instance of Micrograph
         """
@@ -167,47 +175,47 @@ class PickerDataModel(TableModel):
             raise Exception("Invalid micrograph instance.")
 
         if mic.getId() is None:
-            mic.setId(self.nextId())
+            mic.setId(self._nextId())
 
         self._micList.append(mic)
         self._micDict[mic.getId()] = mic
 
     def getLabels(self):
-        """
+        """ Return the existing
         :return:The labels for this PPSystem
         """
         return self._labels
 
     def getLabel(self, labelName):
-        """
-        Returns the label with name=labelName in Labels list (first) or Private
-        Labels list
-        :param labelName: The label name
-        :return: dict value
-        """
+        """ Returns the label with this given labelName. """
         return self._labels.get(labelName, self._labels['D'])
 
-    def nextId(self):
-        """
-        Generates the next id.
-        """
+    def _nextId(self):
+        """ Generates the next id. """
         self._lastId += 1
         return self._lastId
 
     def getData(self, micId):
-        """
-        Return the micrograph image data
-        :param micId: (int) The micrograph id
-        :return: The micrograph image data
+        """ Return a numpy array with this micrograph binary data.
+
+        Args:
+            micId: The micrograph ID
+
+        Returns:
+            A 2D numpy array with the micrograph data.
         """
         raise Exception('Not implemented')
 
     def getParams(self):
-        """
-        Return the parameters Form that can be used by the
+        """ Return a Form instance with parameters used by the picker.
+
+        This method will be used by that can be used by the
         GUI to create widgets for each parameter. The GUI will
         then notify the model about changes in these parameters
         caused by user inputs.
+
+        See also:
+            :class:`Form <datavis.models.Form>`
         """
         return None
 
@@ -217,6 +225,7 @@ class PickerDataModel(TableModel):
 
     def iterCoordinates(self, micId):
         """ Iterate over the micrograph coordinates.
+
         This iteration can yield a subset of the total coordinates depending
         on parameters such as threshold, or associate different labels
         to the coordinates.
@@ -225,31 +234,32 @@ class PickerDataModel(TableModel):
             yield coord
 
     def addCoordinates(self, micId, coords):
-        """
-        Add coordinates to a given micrograph.
+        """ Add coordinates to a given micrograph.
 
-        :param micId: The micrograph identifier.
-        :param coords: An iterable with the coordinates that will be added.
+        Args:
+            micId: The micrograph identifier.
+            coords: An iterable with the coordinates that will be added.
 
-        :return: PickerModel.Result object with information about the changes
-        in the model after this action. In subclasses this info might be
-        more relevant.
+        Returns:
+            PickerModel.Result object with information about the changes in the
+            model after this action. The returning object is more relevant in
+            subclasses.
         """
         self._getCoordsList(micId).extend(coords)
         # Only notify changes in the coordinates that are not these already added
         return self.Result(currentCoordsChanged=False)
 
     def removeCoordinates(self, micId, coords):
-        """
-        Remove coordinates from a given micrograph.
+        """ Remove coordinates from a given micrograph.
 
-        :param micId: micrograph ID
-        :param coords: coordinates iterable that will be removed from
-        the micrograph
+        Args:
+            micId: The micrograph ID.
+            coords: An iterable over the input coordinates.
 
-        :return: PickerModel.Result object with information about the changes
-        in the model after this action. In subclasses this info might be
-        more relevant.
+        Returns:
+            PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
         """
         micCoords = self._getCoordsList(micId)
         for c in coords:
@@ -264,7 +274,8 @@ class PickerDataModel(TableModel):
         return self.Result()
 
     def selectMicrograph(self, newMicId):
-        """
+        """ Select a new micrograph as 'active'.
+
         While interacting with the GUI, usually there is a micrograph
         selected. By calling this method, the GUI notifies that the
         selected micrographs was changed. The model can respond to
@@ -274,18 +285,22 @@ class PickerDataModel(TableModel):
                            currentCoordsChanged=True)
 
     def changeParam(self, micId, paramName, paramValue, getValuesFunc):
-        """
+        """ Notify the picker model about changes in the parameters.
+
         By calling this method, the model is notified about changes
         in one of the parameters. This method should be re-implemented
         in subclasses that want to react to changes in parameters.
 
-        :param micId: micrograph ID
-        :param paramName: name of the parameter that generated the change
-        :param paramValue: current value of the parameter
-        :param getValuesFunc: function that will return all values as dict
-        :return: Result instance responding back the impact of the
-        changes regarding to the selected micrographs, the coordinates
-        and the table with overall information.
+        Args:
+            micId: micrograph ID
+            paramName: name of the parameter that generated the change
+            paramValue: current value of the parameter
+            getValuesFunc: function that will return all values as dict
+
+        Returns:
+            PickerModel.Result instance responding back the impact of the
+            changes regarding to the selected micrographs, the coordinates
+            and the table with overall information.
         """
         return self.Result()
 
@@ -299,11 +314,12 @@ class PickerDataModel(TableModel):
         return iter(self._columns)
 
     def getColumnsCount(self):
-        """ Return the number of columns """
+        """ Return the number of columns for displaying the micrographs table.
+        """
         return len(self._columns)
 
     def getRowsCount(self):
-        """ Return the number of rows """
+        """ Return the number of rows (i.e the number of micrographs). """
         return len(self)  # Number of micrographs
 
     def getColumns(self):
@@ -315,7 +331,8 @@ class PickerDataModel(TableModel):
         ]
 
     def getValue(self, row, col):
-        """ Return the value of the item in this row, column. """
+        """ Return the value in this (row, column) from the micrographs table.
+        """
         mic = self.getMicrographByIndex(row)
 
         if col == 0:  # Name
