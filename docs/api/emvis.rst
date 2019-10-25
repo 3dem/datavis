@@ -9,4 +9,3 @@ Contents:
 
     widgets/index
     views/index
-    emvis/index

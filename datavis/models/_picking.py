@@ -104,6 +104,19 @@ class PickerDataModel(TableModel):
                      currentMicChanged=False,
                      currentCoordsChanged=False,
                      tableModelChanged=False):
+            """ Create a new instance with the provided values.
+
+            This class is used as the return of many methods from the
+            PickerDataModel to notify back the underlying data that has changed
+            after the operation.
+
+            Args:
+                currentMicChanged: True if the data of the micrograph changed.
+                currentCoordsChanged: True if the coordinates of the current
+                    micrograph changed
+                tableModelChanged: True if the whole table with micrographs
+                    info changed and should be reloaded.
+            """
             self.currentMicChanged = currentMicChanged
             self.currentCoordsChanged = currentCoordsChanged
             self.tableModelChanged = tableModelChanged
@@ -164,12 +177,16 @@ class PickerDataModel(TableModel):
         return self._boxsize
 
     def addMicrograph(self, mic):
-        """ Add a new micrograph to the model.
+        """ Add a new :class:`Micrograph <datavis.models.Micrograph>`
+        to the model.
 
         Args:
-            mic: New (Micrograph) A Micrograph instance. If the micrograph ID is -1
-        then a new ID will be assigned to the micrograph.
-        :raise Raise Exception if mic is not instance of Micrograph
+            mic: Input Micrograph to be added.
+                If the micrograph ID is -1 then a new ID will be assigned to
+                the micrograph.
+
+        Raises:
+            Exception if the input is not an instance of Micrograph.
         """
         if not isinstance(mic, Micrograph):
             raise Exception("Invalid micrograph instance.")
@@ -181,13 +198,11 @@ class PickerDataModel(TableModel):
         self._micDict[mic.getId()] = mic
 
     def getLabels(self):
-        """ Return the existing
-        :return:The labels for this PPSystem
-        """
+        """ Return the existing Coordinate's labels defined by this model. """
         return self._labels
 
     def getLabel(self, labelName):
-        """ Returns the label with this given labelName. """
+        """ Returns the label with this labelName. """
         return self._labels.get(labelName, self._labels['D'])
 
     def _nextId(self):
@@ -207,15 +222,13 @@ class PickerDataModel(TableModel):
         raise Exception('Not implemented')
 
     def getParams(self):
-        """ Return a Form instance with parameters used by the picker.
+        """ Return a :class:`Form <datavis.models.Form>`
+        instance with parameters used by the picker.
 
         This method will be used by that can be used by the
         GUI to create widgets for each parameter. The GUI will
         then notify the model about changes in these parameters
         caused by user inputs.
-
-        See also:
-            :class:`Form <datavis.models.Form>`
         """
         return None
 
@@ -241,9 +254,7 @@ class PickerDataModel(TableModel):
             coords: An iterable with the coordinates that will be added.
 
         Returns:
-            PickerModel.Result object with information about the changes in the
-            model after this action. The returning object is more relevant in
-            subclasses.
+            :class:`Result <datavis.models.PickerDataModel.Result>` instance
         """
         self._getCoordsList(micId).extend(coords)
         # Only notify changes in the coordinates that are not these already added
@@ -257,9 +268,8 @@ class PickerDataModel(TableModel):
             coords: An iterable over the input coordinates.
 
         Returns:
-            PickerModel.Result object with information about the changes
-            in the model after this action. In subclasses this info might be
-            more relevant.
+            :class:`Result <datavis.models.PickerDataModel.Result>`
+            instance.
         """
         micCoords = self._getCoordsList(micId)
         for c in coords:
@@ -269,7 +279,11 @@ class PickerDataModel(TableModel):
         return self.Result(currentCoordsChanged=False)
 
     def clearMicrograph(self, micId):
-        """ Remove all coordinates from this micrograph. """
+        """ Remove all coordinates from this micrograph.
+
+        Returns:
+            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+        """
         self._getCoordsList(micId)[:] = []
         return self.Result()
 
@@ -280,6 +294,9 @@ class PickerDataModel(TableModel):
         selected. By calling this method, the GUI notifies that the
         selected micrographs was changed. The model can respond to
         this change if necessary.
+
+        Returns:
+            :class:`Result <datavis.models.PickerDataModel.Result>` instance
         """
         return self.Result(currentMicChanged=True,
                            currentCoordsChanged=True)
@@ -298,9 +315,8 @@ class PickerDataModel(TableModel):
             getValuesFunc: function that will return all values as dict
 
         Returns:
-            PickerModel.Result instance responding back the impact of the
-            changes regarding to the selected micrographs, the coordinates
-            and the table with overall information.
+            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+
         """
         return self.Result()
 

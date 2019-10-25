@@ -20,80 +20,87 @@ from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
 
 
 class ImageView(qtw.QWidget):
-    """ The ImageView widget provides functionality for display images and
-    performing basic operations over the view, such as: rotations, zoom, flips,
-    move, levels. """
+    """ This widget provides functionality for displaying images.
 
-    """ Signal emitted when the image scale is changed """
+    This class also allows to perform basic display operations over the
+    data that is being displayed such as: rotations, zoom, drag and flips,
+    among others.
+    """
+
+    """ Signal emitted when the image scale changed """
     sigScaleChanged = qtc.pyqtSignal(float)
 
-    """ Signal for roi mask size changed"""
+    """ Signal emitted when the mask ROI size changed"""
     sigMaskSizeChanged = qtc.pyqtSignal(int)
 
     def __init__(self, parent, model=None, **kwargs):
-        """
-        By default, ImageView show a toolbar for image operations.
-        **Arguments**
-        parent :   (qtw.QWidget) Specifies the parent widget to which this
+        """ Create a new ImageView instance.
+
+        Args:
+            parent: (QWidget) Is the parent widget to which this
                    ImageView will belong. If None, then the ImageView is
                    created with no parent.
-        toolBar:   (Bool) If specified, this will be used to set visible the
-                   ToolBar. By default, the toolbar is visible.
-        roi:       (Bool) If specified, this will be used to set visible the
-                   ROI button. False by default.
-        menu:      (Bool) If specified, this will be used to set visible the
-                   Menu button. False by default.
-        histogram: (Bool) If specified, this will be used to set visible the
-                   Menu button. True by default.
-        fit:       (Bool) If specified, this will be used to automatically
-                   auto-range the image whenever the view is resized.
-                   True by default.
-        autoFill:  (Bool) This property holds whether the widget background
-                   is filled automatically. The color used is defined by
-                   the qtg.QPalette::Window color role from the widget's
-                   palette. False by default.
-        hideButtons: (Bool) Hide/show the internal pg buttons. For example,
-                     the button used to center an image. False by default.
-        axisPos:   (Bool) The axis position.
-                   Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
-                   AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
-        axisColor  (str) The axis color. Example: '#00FFAF'
-        axis:      (Bool) Show/hide de view's axes
-        labelX:    (dict) Dictionary with label properties, like CSS style, text
-                   Keys for dict:
-                      - labelStyle: (dict) CSS style. Example:
-                                          {'color': '#FFF', 'font-size': '14pt'}
-                      - labelText:  (str) The label text
-        labelY:    Same as labelY.
-        levels:    (min, max) Pass the min and max range that will be used for
-                   image display. By default is None, so the data from the
-                   pixel values will be used. Passing a different range is
-                   useful for normalization of the slices in volumes.
+            model: ImageModel that will be used to fetch the image data.
 
-        preferredSize: (list of tuples). The first element is the image size and
-                       the second element is the preferred size.
+        Keyword Args:
+            toolBar:  Bool value to specify if showing or hiding the toolbar.
+                By default, the toolbar is visible.
 
-        maskParams  (dict) Dictionary with mask-related params. Following are
-            some possible values in this dict:
+            roi:       (Bool) If specified, this will be used to set visible the
+                       ROI button. False by default.
+            menu:      (Bool) If specified, this will be used to set visible the
+                       Menu button. False by default.
+            histogram: (Bool) If specified, this will be used to set visible the
+                       Menu button. True by default.
+            fit:       (Bool) If specified, this will be used to automatically
+                       auto-range the image whenever the view is resized.
+                       True by default.
+            autoFill:  (Bool) This property holds whether the widget background
+                       is filled automatically. The color used is defined by
+                       the qtg.QPalette::Window color role from the widget's
+                       palette. False by default.
+            hideButtons: (Bool) Hide/show the internal pg buttons. For example,
+                         the button used to center an image. False by default.
+            axisPos:   (Bool) The axis position.
+                       Possible values:  AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
+                       AXIS_BOTTOM_RIGHT, AXIS_BOTTOM_LEFT
+            axisColor  (str) The axis color. Example: '#00FFAF'
+            axis:      (Bool) Show/hide de view's axes
+            labelX:    (dict) Dictionary with label properties, like CSS style:
 
-            type: ROI_CIRCLE (display a circular mask from center) or
-                  ROI_RECT (display rectangular mask from center) or
-                  CONSTANT (generate a data mask with given constant value) or
-                  DATA (just provide a data mask as numpy array)
-            data: If the type is ROI_CIRCLE or ROI_RECT, it is the value of the
-                  radius of the mask. If type is CONSTANT it is the value of
-                  entire mask. Finally, if the type is DATA, this should be a
-                  numpy array with values of the mask.
-            color: (QColor or str) The color for the mask.
-                  Example: '#66212a55' in ARGB format.
-            operation: What operation will be performed in the mask
-                  NONE (the mask editor is not shown) or
-                  ADD  (add 1 values to the mask with the pen) or
-                  REMOVE (add 0 values to the mask with the pen)
-            penSize: Size of the pen to be used, only relevant when not
-                  operation is not NONE (default 50px).
-            showHandles: (boolean) Enable/Disable the ROI handles
+                        * labelStyle: (dict) CSS style. Example:
+                            {'color': '#FFF', 'font-size': '14pt'}
+                        * labelText:  (str) The label text
+            labelY:    Same as labelX.
+            levels:    (min, max) Pass the min and max range that will be used for
+                       image display. By default is None, so the data from the
+                       pixel values will be used. Passing a different range is
+                       useful for normalization of the slices in volumes.
+            preferredSize: (list of tuples). The first element is the image size and
+                           the second element is the preferred size.
 
+            maskParams Dictionary with mask-related params. Following are
+                some possible values in this dict:
+
+                * type:
+
+                    * ROI_CIRCLE (display a circular mask from center) or
+                    * ROI_RECT (display rectangular mask from center) or
+                    * CONSTANT (generate a data mask with given constant value) or
+                    * DATA (just provide a data mask as numpy array)
+                * data: If the type is ROI_CIRCLE or ROI_RECT, it is the value of the
+                    radius of the mask. If type is CONSTANT it is the value of
+                    entire mask. Finally, if the type is DATA, this should be a
+                    numpy array with values of the mask.
+                * color: (QColor or str) The color for the mask.
+                    Example: '#66212a55' in ARGB format.
+                * operation: What operation will be performed in the mask
+                    * NONE (the mask editor is not shown) or
+                    * ADD  (add 1 values to the mask with the pen) or
+                    * REMOVE (add 0 values to the mask with the pen)
+                * penSize: Size of the pen to be used, only relevant when not
+                    operation is not NONE (default 50px).
+                * showHandles: (boolean) Enable/Disable the ROI handles
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = None
@@ -845,21 +852,22 @@ class ImageView(qtw.QWidget):
             self._maskItem.setMaskColor(qtg.QColor(color))
 
     def setImageMask(self, **kwargs):
-        """
-        Set the mask to use in this ImageView. If mask=None, the current mask
-        will be removed.
-        :param kwargs:
-         - type:    ROI_CIRCLE (display a circular mask from center) or
+        """ Set the mask to use in this ImageView.
+
+        If mask=None, the current mask will be removed.
+
+        Keyword Args:
+            type:   ROI_CIRCLE (display a circular mask from center) or
                     ROI_RECT (display rectangular mask from center) or
                     CONSTANT (generate a data mask with given constant value) or
                     DATA (just provide a data mask as numpy array)
-         - color:   (str or QColor) The color in #ARGB format.
+            color:  (str or QColor) The color in #ARGB format.
                     Example: #22AAFF00. Default value: '#2200FF55'
-         - data:    If the type is ROI_CIRCLE or ROI_RECT, it is the value of
+            data:   If the type is ROI_CIRCLE or ROI_RECT, it is the value of
                     the radius of the mask. If type is CONSTANT it is the value
                     of entire mask. Finally, if the type is DATA, this should be
                     a numpy array with values of the mask.
-         - showHandles: (boolean) Enable/Disable the ROI handles
+            showHandles: (boolean) Enable/Disable the ROI handles
         """
         self.__removeMask()  # remove previous mask
         self._maskColor = qtg.QColor(kwargs.get('color', '#2200FF55'))
@@ -901,19 +909,21 @@ class ImageView(qtw.QWidget):
                 self.__createMaskItem(self._maskData)
 
     def setAxisOrientation(self, orientation):
-        """
-        Sets the axis orientation for this ImageView.
-        Possible values are:
-            AXIS_TOP_LEFT :axis in top-left
-            AXIS_TOP_RIGHT :axis in top-right
-            AXIS_BOTTOM_RIGHT :axis in bottom-right
-            AXIS_BOTTOM_LEFT :axis in bottom-left
+        """ Sets the axis orientation for this ImageView.
+
+        Args:
+            orientation: Orientation of the axis. Possible values are:
+
+            * AXIS_TOP_LEFT: axis in top-left
+            * AXIS_TOP_RIGHT: axis in top-right
+            * AXIS_BOTTOM_RIGHT: axis in bottom-right
+            * AXIS_BOTTOM_LEFT: axis in bottom-left
          """
         self._axisPos = orientation
         self.__setupAxis()
 
     def getViewBox(self):
-        """ Return the pyqtgraph.ViewBox """
+        """ Return the pyqtgraph.ViewBox. """
         view = self._imageView.getView()
         if isinstance(view, pg.PlotItem):
             view = view.getViewBox()
@@ -924,9 +934,10 @@ class ImageView(qtw.QWidget):
         return self._imageView
 
     def setModel(self, imageModel, fitToSize=True):
-        """
-        Set the image model to be used for this ImageView
-        :param imageModel: (datavis.models.ImageModel) The image model
+        """ Set the image model to be used for this ImageView.
+
+        Args:
+            imageModel: Input :class:`ImageModel <datavis.models.ImageModel>`
         """
         dim = (0, 0) if self._model is None else self._model.getDim()
         self.clear()
@@ -974,12 +985,14 @@ class ImageView(qtw.QWidget):
 
     def setLevels(self, levels):
         """ Set levels for the display. """
+        # FIXME: The image display should not be updated after the
+        #   change in the display levels?
         self._levels = levels
 
     @qtc.pyqtSlot()
     def imageModelChanged(self):
-        """
-        Call this function when the image model has been modified externally.
+        """ Call this function when the image model has been modified externally.
+
         In this case, the ImageView will need to be notified so that the view
         can be updated.
         """
@@ -993,8 +1006,7 @@ class ImageView(qtw.QWidget):
         self.__updatingImage = False
 
     def setViewRect(self, rect):
-        """
-        Set the current view rect
+        """ Set the current view rect
         :param rect: (qtc.QRect) The view rect
         """
         self._imageView.getView().setRange(rect=rect, padding=0.0)
@@ -1025,10 +1037,7 @@ class ImageView(qtw.QWidget):
 
     @qtc.pyqtSlot()
     def horizontalFlip(self):
-        """
-        Realize a horizontally transformation-flip.
-        Does not modify the image.
-        """
+        """ Flip the image horizontally (Image data is not modified). """
         imgItem = self._imageView.getImageItem()
         if imgItem is not None:
             self._oddFlips = not self._oddFlips
@@ -1044,10 +1053,7 @@ class ImageView(qtw.QWidget):
 
     @qtc.pyqtSlot()
     def verticalFlip(self):
-        """
-        Realize a vertically transformation-flip.
-        Does not modify the image.
-        """
+        """ Flips the image vertically. (Image data is not modified). """
         imgItem = self._imageView.getImageItem()
         if imgItem is not None:
             transform = imgItem.transform()
@@ -1082,37 +1088,25 @@ class ImageView(qtw.QWidget):
         return self._model is None
 
     def showToolBar(self, visible=True):
-        """
-        Show or hide the tool bar
-        :param visible: (Bool) Visible state
-        """
+        """ Show or hide the tool bar. """
         self._toolBar.setVisible(visible)
 
     def showMenuButton(self, visible=True):
-        """
-        Show or hide the menu button
-        :param visible: (Bool) Visible state
-        """
+        """ Show or hide the menu button. """
         self._imageView.ui.menuBtn.setVisible(visible)
 
     def showRoiButton(self, visible=True):
-        """
-        Show or hide the ROI button
-        :param visible: (Bool) Visible state
-        """
+        """ Show or hide the ROI button. """
         self._imageView.ui.menuBtn.setVisible(visible)
 
     def showHistogram(self, visible=True):
-        """
-        Show or hide the histogram widget
-        :param visible: (Bool) Visible state
-        """
+        """ Show or hide the histogram widget. """
         self._imageView.ui.histogram.setVisible(visible)
 
     def setImageInfo(self, **kwargs):
-        """
-        Sets the image info that will be displayed.
-        **kwargs:
+        """ Set the image info that will be displayed.
+
+        Keyword Args:
             text:     (str) if passed, it will be used as the info
                       to be displayed, if not, other arguments are considered
             path :    (str) the image path
@@ -1131,7 +1125,7 @@ class ImageView(qtw.QWidget):
         self._textEditPath.setText(text)
 
     def getViewRect(self):
-        """ Returns the view rect area """
+        """ Returns the view rect area. """
         view = self.getViewBox()
 
         return view.viewRect()
@@ -1173,7 +1167,7 @@ class ImageView(qtw.QWidget):
         return self._imageView.getImageItem()
 
     def getToolBar(self):
-        """ Getter for left toolbar """
+        """ Get the left side toolbar. """
         return self._toolBar
 
     def getPreferredSize(self):
@@ -1181,8 +1175,8 @@ class ImageView(qtw.QWidget):
         dimensions to contain all the image """
         if self._model is None:
             return 800, 600
-        hw = self._imageView.ui.histogram.item.width() \
-            if self._showHistogram else 0
+        w = self._imageView.ui.histogram.item.width()
+        hw = w if self._showHistogram else 0
 
         plot = self._imageView.getView()
         dim = self._model.getDim()
@@ -1209,12 +1203,15 @@ class ImageView(qtw.QWidget):
         return width + self._toolBar.width(), height
 
     def eventFilter(self, obj, event):
-        """
-        Filters events if this object has been installed as an event filter for
-        the watched object
-        :param obj: watched object
-        :param event: event
-        :return: True if this object has been installed, False i.o.c
+        """ Filters events if this object has been installed as an event filter
+        for the watched object.
+
+        Args:
+            obj: watched object
+            event: event
+
+        Returns:
+            True if this object has been installed, False otherwise.
         """
         t = event.type()
         if t == qtc.QEvent.KeyPress:
@@ -1224,13 +1221,14 @@ class ImageView(qtw.QWidget):
         return qtw.QWidget.eventFilter(self, obj, event)
 
     def getScale(self):
-        """ Return the image scale """
+        """ Return the image scale. """
         return self.__calcImageScale()
 
     def setScale(self, scale):
-        """
-         Set de image scale
-        :param scale: (float) The image scale
+        """ Set de image scale.
+
+        Args:
+            scale: (float) The image scale.
         """
         viewBox = self.getViewBox()
         if scale == 0:
@@ -1321,7 +1319,7 @@ class ImageView(qtw.QWidget):
 
 class ImageExporter(pgImageExporter):
     """
-    The ImageExporter class provides functionality for export an scene rect to
+    The ImageExporter class provides functionality to export an scene rect to
     image file. The exact set of image formats supported will depend on qtc.Qt
     libraries. However, common formats such as PNG, JPG, and TIFF are almost
     always available.

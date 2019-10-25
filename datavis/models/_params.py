@@ -5,8 +5,8 @@ from ._constants import *
 class Param:
     """ Define basic properties of a parameter to be used in different contexts.
 
-    This class is used by :class:`PickerModel <datavis.models.PickerModel>` class
-    to define parameters that can be changed by the user in the GUI.
+    This class is used by :class:`PickerDataModel <datavis.models.PickerDataModel>`
+    class to define parameters that can be changed by the user in the GUI.
     """
     def __init__(self, paramName: str, paramType: str, **kwargs):
         """ Create a new instance.
@@ -66,12 +66,10 @@ class Param:
 
 
 class Form:
-    """ Simple container of several params with some layout.
+    """ Simple container of several params with a given layout. """
 
-    This class acts as a container of several parameters.
-    """
     def __init__(self, paramsList):
-        """ Create a new instance of Form.
+        """ Create a new Form instance.
 
         Args:
             paramsList: the parameters list that specify how they the params
@@ -79,11 +77,12 @@ class Form:
                 placed in a separated row. A list of params can be used to
                 group many params in the same row.
 
-        Examples:
-            f = Form([param1,
-                      param2,
-                      [param3, param4, param5]
-                     ])
+        Examples: ::
+
+                f = Form([param1,
+                          param2,
+                          [param3, param4, param5]
+                         ])
         """
         self._paramsDict = {}
         self._paramsList = []
@@ -118,7 +117,7 @@ class Form:
 
     @staticmethod
     def load(paramDictList):
-        """ Create a new Form from the description provided by the paramsList.
+        """ Creates a new Form from the description from a list of dict.
 
         Args:
             paramDictList: A list of dicts, describing each param.
@@ -127,6 +126,31 @@ class Form:
 
         Returns:
             A new :class:`Form <datavis.models.Form>` instance.
+
+        Examples: ::
+
+                pickerParams = [
+                    {
+                        'name': 'threshold',
+                        'type': 'float',
+                        'value': 0,
+                        'range': (0., 1),
+                        'label': 'Quality threshold',
+                        'help': 'Quality threshold',
+                        'display': 'slider'
+                    },
+                    {
+                        'name': 'radius',
+                        'type': 'int',
+                        'value': self._radius,
+                        'range': (1, int(self._imageSize[0]/3)),
+                        'label': 'Radius',
+                        'help': 'Radius',
+                        'display': 'slider'
+                    }
+                ]
+
+                form = dv.models.Form.load(pickerParams)
         """
         paramList = []
 

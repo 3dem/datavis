@@ -7,7 +7,7 @@ ImageView
 .. autoclass:: datavis.views.ImageView
     :members:
 
-    .. automethod:: datavis.models.Param.__init__
+    .. automethod:: datavis.views.ImageView.__init__
 
 SlicesView
 ----------

@@ -15,5 +15,8 @@ Micrograph
 PickerDataModel
 ---------------
 .. autoclass:: datavis.models.PickerDataModel
-   :members:
+    :members:
+
+    .. automethod:: datavis.models.PickerDataModel.Result.__init__
+
 
