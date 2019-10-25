@@ -4,25 +4,35 @@ import numpy as np
 
 
 class ImageModel:
-    """ Class required by some widgets that will query properties
-    about the underlying image data.
+    """ Base model class that represents 2D or 3D image binary data.
+
+    This model is used by several views to display 2D images such as:
+    micrographs, particles, averages or volume 2D slices. It provides
+    access methods to enable visualization of the underlying data.
     """
 
     def __init__(self, data=None, location=None):
+        """ Create a new ImageModel, optioanlly providing data array or location.
+
+        Args:
+            data: An initial numpy array can be provided.
+            location: (index, path) tuple representing the location of the data.
+        """
         self._data = self._dim = self._minmax = None
         self._location = location
         self.setData(data)
 
     def getDim(self):
-        """ Return the dimensions of the model.
-            (x, y)    for 2D.
-            (x, y, n) for 2D slices.
-            (x, y, z) for 3D volumes.
+        """ Return the dimensions of the model as a tuple:
+
+            * (x, y)    for 2D.
+            * (x, y, n) for 2D slices.
+            * (x, y, z) for 3D volumes.
         """
         return self._dim
 
     def getMinMax(self):
-        """ Return the minumun and maximum value of the image data. """
+        """ Return the minimum and maximum values of the data (can be None). """
         if self._data is None:
             return None
 
@@ -43,7 +53,11 @@ class ImageModel:
                                                      self._data.shape[0])
 
     def setData(self, data):
-        """ Setter for image data """
+        """ Set new underlying data.
+
+        Args:
+             data: Input 2D array-like object (e.g numpy array).
+        """
         self._data = data
         # Reset min-max cached value
         self._minmax = None
@@ -60,9 +74,10 @@ class ImageModel:
 
 
 class SlicesModel(ImageModel):
-    """ Model dealing with N 2D slices, usually a 3D volume or a stack
+    """ This model deals with N 2D arrays, usually a 3D volume or a stack
     of 2D images.
     """
+
     def _setDim(self):
         if self._data is not None:
             if len(self._data.shape) != 3:
@@ -72,8 +87,14 @@ class SlicesModel(ImageModel):
             self._dim = x, y, n
 
     def getData(self, i=-1):
-        """ Return a 2D array of the slice data. i should be in -1 or (0, n-1).
-        -1 is a special case for returning the whole data array.
+        """ Return a 2D array of the slice data.
+
+        Args:
+            i: Slice index, it should be -1 or in (0, n-1) range.
+               -1 is a special case for returning the whole data array.
+
+        Returns:
+            2D array of the requested slice.
         """
         if i == -1 or self._data is None:
             return self._data
@@ -85,16 +106,26 @@ class SlicesModel(ImageModel):
         return self._data[i]
 
     def getImageModel(self, i):
-        """
-        Creates an ImageModel for the given slice index. i should be in (1, n).
+        """ Creates an :class:`ImageModel <datavis.models.ImageModel>`
+        representing the slice at index i.
+
+        Args:
+            i: Slice index, it should be in (0, n-1) range.
+
+        Returns:
+            A new :class:`ImageModel <datavis.models.ImageModel>` instance
+            representing the given slice.
         """
         return ImageModel(data=self.getData(i))
 
 
 class VolumeModel(ImageModel):
+    """ Model for 3D volume data.
+
+    Data represents a 3D array-like data array. 2D slices can be accessed
+    through 3 axis: AXIS_X, AXIS_Y or AXIS_Z
     """
-    Model for volume data manipulation.
-    """
+
     def _setDim(self):
         if self._data is not None:
             if len(self._data.shape) != 3:
@@ -104,10 +135,14 @@ class VolumeModel(ImageModel):
             self._dim = x, y, z
 
     def getSlicesModel(self, axis):
-        """
-        Creates an SlicesModel for the given axis.
-        :param axis:  (int) axis should be AXIS_X, AXIS_Y or AXIS_Z
-        :return:      (SlicesModel)
+        """ Creates a :class:`SlicesModel <datavis.models.SlicesModel>`
+        representing the data from a given axis:
+
+        Args:
+            axis: Should be AXIS_X, AXIS_Y or AXIS_Z
+
+        Returns:
+            A new :class:`SlicesModel <datavis.models.SlicesModel>` instance.
         """
         if self._data is None:
             return None
@@ -124,11 +159,15 @@ class VolumeModel(ImageModel):
 
         return SlicesModel(data)
 
-    # FIXME: I think we should go from more general to specific
-    # so here I think it should be axis, i
-    def getSliceData(self, i, axis):
-        """ Return a 2D array of the slice data. i should be in (0, axis_n -1).
-        axis should be AXIS_X, AXIS_Y or AXIS_Z
+    def getSliceData(self, axis, i):
+        """ Return a 2D array of the slice data.
+
+        Args:
+            axis: should be AXIS_X, AXIS_Y or AXIS_Z
+            i: should be in (0, axis_n -1).
+
+        Returns:
+            2D array of the requested slice in the given axis.
         """
         if self._data is None:
             return None
@@ -146,31 +185,33 @@ class VolumeModel(ImageModel):
         else:
             raise Exception("Axis should be one of: AXIS_X, AXIS_Y, AXIS_Z")
 
-    # FIXME: I think we should go from more general to specific
-    # so here I think it should be axis, i
-    def getSliceImageModel(self, i, axis):
-        """
-        Creates an ImageModel for the given slice index and axis.
-        :param i:     (int) The image index. i should be in (1, axis-n)
-        :param axis:  (int) axis should be AXIS_X, AXIS_Y or AXIS_Z
-        :return:      (ImageModel)
-        """
-        sliceData = self.getSliceData(i, axis)
+    def getSliceImageModel(self, axis, i):
+        """ Return an :class:`ImageModel <datavis.models.ImageModel>` for
+        the requested slice in the given axis.
 
+        Args:
+            axis: should be AXIS_X, AXIS_Y or AXIS_Z
+            i: should be in (0, axis_n -1).
+
+        Returns:
+            :class:`ImageModel <datavis.models.ImageModel>` instance of the
+            requested slice in the given axis.
+        """
+        sliceData = self.getSliceData(axis, i)
         return None if sliceData is None else ImageModel(data=sliceData)
 
 
 class EmptySlicesModel(SlicesModel):
-    """
-    The EmptySlicesModel represents an empty slices model.
-    """
+    """ Represents an empty slices model. """
+
     def __init__(self):
         data = np.arange(8).reshape((2, 2, 2))
         SlicesModel.__init__(self, data)
 
 
 class EmptyVolumeModel(VolumeModel):
-    """ The EmptyVolumeModel represents an empty volume model."""
+    """ Represents an empty volume model."""
+
     def __init__(self):
         data = np.arange(8).reshape((2, 2, 2))
         VolumeModel.__init__(self, data)
