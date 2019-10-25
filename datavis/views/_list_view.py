@@ -2,7 +2,7 @@
 import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
-from datavis.widgets import ViewPanel, DynamicWidgetsFactory, SpinSlider
+from datavis.widgets import ViewPanel, SpinSlider, FormWidget
 from datavis.models import EmptyTableModel, ImageModel
 from datavis.views import (ColumnsView, ImageView, VolumeView, RECT_ROI,
                            CIRCLE_ROI)
@@ -12,14 +12,14 @@ import numpy as np
 
 class ImageListView(qtw.QWidget):
     """ View that will show a list of images. It will serve as the base class
-    for other implementations basically, it will contain a left panel with the
+    for other implementations. Basically, it will contain a left panel with the
     list, and a right panel with ImagePanel (top) and InfoPanel (bottom). """
 
     """ Signal for current item changed. The connected slots will receive 
     the item index. """
     sigCurrentItemChanged = qtc.pyqtSignal(int)
 
-    def __init__(self, parent, model, **kwargs):
+    def __init__(self, model, parent=None, **kwargs):
         """
         Creates an ImageListView.
         :param parent:  (qtw.QWidget) Specifies the parent widget to which this
@@ -140,14 +140,14 @@ class ImageListView(qtw.QWidget):
 
 class VolumeListView(ImageListView):
     """ View that will show a list of volume images """
-    def __init__(self, parent, model, **kwargs):
+    def __init__(self, model, parent=None, **kwargs):
         """
         Construct a VolumeListView
         :param parent: The parent widget
         :param model:  (TableModel) The volume list model
         :param kwargs: The kwargs arguments for the VolumeView widget
         """
-        ImageListView.__init__(self, parent, model, **kwargs)
+        ImageListView.__init__(self, model, parent=parent, **kwargs)
 
     def __getVolumeView(self):
         panel = self._rightPanel.getWidget('topRightPanel')
@@ -180,7 +180,7 @@ class DualImageListView(ImageListView):
     """ View that will show a list of images. The ImagePanel contains two
     ImageView:  (Left) original image that is load from the input list.
     (Right) the same image after some modification is applied """
-    def __init__(self, parent, model, **kwargs):
+    def __init__(self, model, parent=None, **kwargs):
         """
         Construct an DualImageListView.
         :param parent: The parent widget
@@ -189,18 +189,18 @@ class DualImageListView(ImageListView):
           - options:   (dict) Dynamic widget options
           - method:    Function to invoke when the apply button is clicked
         """
-        ImageListView.__init__(self, parent, model, **kwargs)
+        ImageListView.__init__(self, model, parent=parent, **kwargs)
 
     @qtc.pyqtSlot()
     def __onApplyButtonClicked(self):
         """ Slot for apply button clicked """
         if self._method is not None:
-            if self._dynamicParams is None:
+            if self._paramsForm is None:
                 self._method()
             else:
-                if self._dynamicWidget is not None:
-                    self._dynamicParams = self._dynamicWidget.getParams()
-                self._method(self._dynamicParams)
+                if self._formWidget is not None:
+                    self._paramsForm = self._formWidget.getParams()
+                self._method(self._paramsForm)
 
     def _createTopRightPanel(self, **kwargs):
         """Build the top right panel: ViewPanel with two ImageView widgets
@@ -224,23 +224,23 @@ class DualImageListView(ImageListView):
         return panel
 
     def _createBottomRightPanel(self, **kwargs):
-        """ Creates a dynamic widget from the given 'options' param.
+        """ Creates a FormWidget from the given 'options' param.
         The dynamic widget should be accessed using the 'optionsWidget' key.
         :param kwargs:
-          - options:   (dict) Dynamic widget options
+          - options: params options. See FormWidget specifications
           - method:  Function to invoke when the apply button is clicked
         """
-        self._dynamicParams = kwargs.get('options')
+        self._paramsForm = kwargs.get('form', None)
         self._method = kwargs.get('method')
 
         panel = ViewPanel(self, layoutType=ViewPanel.VERTICAL)
-        if self._dynamicParams is not None:
-            factory = DynamicWidgetsFactory()
-            self._dynamicWidget = factory.createWidget(self._dynamicParams)
-            panel.addWidget(self._dynamicWidget, 'optionsWidget',
+        if self._paramsForm is not None:
+            self._formWidget = FormWidget(self._paramsForm,
+                                          parent=panel, name='params')
+            panel.addWidget(self._formWidget, 'optionsWidget',
                             alignment=qtc.Qt.AlignLeft)
         else:
-            self._dynamicWidget = None
+            self._formWidget = None
 
         self._applyButton = qtw.QPushButton(panel)
         self._applyButton.setText('Apply')
@@ -274,7 +274,7 @@ class ImageMaskListView(ImageListView):
     """ View that will show a list of images. The ImagePanel contains a circular
     or rectangular mask. """
 
-    def __init__(self, parent, model, **kwargs):
+    def __init__(self, model, parent=None, **kwargs):
         """
         Construct an ImageMaskListView.
         :param parent: (qtw.QWidget) Specifies the parent widget to which this
@@ -283,7 +283,7 @@ class ImageMaskListView(ImageListView):
         :param model: (TableModel) The data model
         :param kwargs: The kwargs arguments for the internal ImageView
         """
-        ImageListView.__init__(self, parent, model, **kwargs)
+        ImageListView.__init__(self, model, parent=parent, **kwargs)
 
         spinSlider = self.__getSpinSlider()
         spinSlider.sigValueChanged.connect(self.__onSpinSliderValueChanged)

@@ -1,90 +1,99 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import random
-import numpy as np
-import pyqtgraph as pg
-
 import datavis as dv
+from datavis.models import ColumnConfig, TYPE_STRING, TYPE_INT
 
 
-tool_params1 = [
-    [
-        {
-            'name': 'threshold',
-            'type': 'float',
-            'value': 0.55,
-            'label': 'Quality threshold',
-            'help': 'If this is ... bla bla bla',
-            'display': 'default'
-        },
-        {
-            'name': 'thresholdBool',
-            'type': 'bool',
-            'value': True,
-            'label': 'Quality checked',
-            'help': 'If this is a boolean param'
-        }
-    ],
-    [
-        {
-            'name': 'threshold543',
-            'type': 'float',
-            'value': 0.67,
-            'label': 'Quality',
-            'help': 'If this is ... bla bla bla',
-            'display': 'default'
-        },
-        {
-            'name': 'threshold',
-            'type': 'float',
-            'value': 14.55,
-            'label': 'Quality threshold2',
-            'help': 'If this is ... bla bla bla',
-            'display': 'default'
-        }
-    ],
-    {
-        'name': 'threshold2',
-        'type': 'string',
-        'value': 'Explanation text',
-        'label': 'Threshold ex',
-        'help': 'If this is ... bla bla bla 2',
-        'display': 'default'
-    },
-    {
-        'name': 'text',
-        'type': 'string',
-        'value': 'Text example',
-        'label': 'Text',
-        'help': 'If this is ... bla bla bla for text'
-    },
-    {
-        'name': 'threshold4',
-        'type': 'float',
-        'value': 1.5,
-        'label': 'Quality',
-        'help': 'If this is ... bla bla bla for quality'
-    },
-    {
-      'name': 'picking-method',
-      'type': 'enum',  # or 'int' or 'string' or 'enum',
-      'choices': ['LoG', 'Swarm', 'SVM'],
-      'value': 1,  # values in enum are int, in this case it is 'LoG'
-      'label': 'Picking method',
-      'help': 'Select the picking strategy that you want to use. ',
-      # display should be optional, for most params, a textbox is the default
-      # for enum, a combobox is the default, other options could be sliders
-      'display': 'combo'  # or 'combo' or 'vlist' or 'hlist' or 'slider'
-    },
-    {
-        'name': 'threshold3',
-        'type': 'bool',
-        'value': True,
-        'label': 'Checked',
-        'help': 'If this is a boolean param'
-    }
-]
+class MyPickerDataModel(dv.tests.SimplePickerDataModel):
+    def __init__(self, *args, **kwargs):
+        dv.tests.SimplePickerDataModel.__init__(self, *args, **kwargs)
+        self._scoreThreshold = 0.5
+        # Modify 'Auto' label to set red color
+        self._labels['A'] = self._labels['A']._replace(color='#FF0000')
+        self._showBelow = True
+
+    def getParams(self):
+        Param = dv.models.Param
+        scoreThreshold = Param('scoreThreshold', 'float', value=0.5,
+                               display='slider', range=(0, 1.0),
+                               label='Score threshold',
+                               help='Display coordinates with score above '
+                                    'this value.')
+
+        showBelow = Param('showBelow', 'bool', value=self._showBelow,
+                          label='Show coordinates below?')
+
+        nParam = Param('n', 'int', value=100,
+                       label='Particles:',
+                       help='Number of particles that you will pick randomly'
+                            ' from the current micrograph.')
+
+        clear = Param('clear', 'button', label='Clear coordinates')
+        pick = Param('pick', 'button', label='Pick Again')
+
+        return dv.models.Form([
+            [scoreThreshold, showBelow],
+            [pick, nParam],
+            clear
+        ])
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        # Most cases here will modify the current coordinates
+        r = self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+        if paramName in ['pick', 'n']:
+            values = getValuesFunc()
+            self.pickRandomly(micId, n=values['n'])
+        elif paramName == 'scoreThreshold':
+            self._scoreThreshold = getValuesFunc()['scoreThreshold']
+        elif paramName == 'clear':
+            self.clearMicrograph(micId)
+        elif paramName == 'showBelow':
+            self._showBelow = getValuesFunc()['showBelow']
+        else:
+            r = self.Result()  # No modification
+
+        return r
+
+    def iterCoordinates(self, micId):
+        # Re-implement this to show only these above the threshold
+        # or with a different color (label)
+        for coord in self._getCoordsList(micId):
+            good = coord.score > self._scoreThreshold
+            coord.label = 'M' if good else 'A'
+            if good or self._showBelow:
+                yield coord
+
+    def getColumns(self):
+        """ Return a Column list that will be used to display micrographs. """
+        return [
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=False),
+            ColumnConfig('Coords', dataType=TYPE_INT, editable=False),
+            ColumnConfig('Coords < Threshold', dataType=TYPE_INT,
+                         editable=False),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=False, visible=False)
+        ]
+
+    def __coordsBelow(self, micId):
+        return len([c for c in self._getCoordsList(micId)
+                    if c.score < self._scoreThreshold])
+
+    def getValue(self, row, col):
+        # Re-implement this to show only these above the threshold
+        mic = self.getMicrographByIndex(row)
+        micId = mic.getId()
+
+        if col == 0:  # Name
+            return 'Micrograph %02d' % micId
+        elif col == 1:  # Coordinates
+            return len(mic) - self.__coordsBelow(micId)
+        elif col == 2:  # Coordinates below threshold
+            return self.__coordsBelow(micId)
+        elif col == 3:  # Id
+            return mic.getId()
+        else:
+            raise Exception("Invalid column value '%s'" % col)
 
 
 class TestPickerView(dv.tests.TestView):
@@ -96,16 +105,14 @@ class TestPickerView(dv.tests.TestView):
     def createView(self):
         kwargs = dict()
         kwargs['selectionMode'] = dv.views.PagingView.SINGLE_SELECTION
-        kwargs['pickerParams'] = tool_params1
         kwargs['boxSize'] = 20
         kwargs['pickerMode'] = dv.views.FILAMENT_MODE
         kwargs['shape'] = dv.views.SHAPE_CIRCLE
         kwargs['removeRois'] = True
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
-        model = dv.tests.createPickerDataModel((512, 512), 10,
-                                               kwargs.get('boxSize', 20), 40,
-                                               True)
+
+        model = MyPickerDataModel((1024, 1024), 10, 20, 150, True)
         return dv.views.PickerView(None, model, **kwargs)
 
 

@@ -1,42 +1,54 @@
 
 import os
+from collections import namedtuple
+from itertools import chain
 
-from ._constants import TYPE_INT, TYPE_STRING
+from ._constants import *
 from ._table_models import TableModel, ColumnConfig
-
+from ._params import Param, Form
 
 class Coordinate:
     """
-    The PPCoordinate class describes a coordinate defined in a plane
-    with X and Y axes
+    Simple class that holds values for x and y position and a optional label.
+    The label can be used to group different type of coordinates within a
+    Micrograph. Other attributes can be set dynamically.
     """
-    def __init__(self, x, y, label="Manual"):
+    def __init__(self, x, y, label="Manual", **kwargs):
+        """
+        Create a new Coordinate.
+        :param x: The X position
+        :param y: The Y position
+        :param label: A label for the coordinated, by default 'Manual'
+        :param kwargs: Other properties as key=value pairs
+        """
         self.x = x
         self.y = y
         self.label = label
+        self.set(**kwargs)
 
-    def set(self, x, y):
-        """
-        Set x and y values for this coordinate
-        :param x:
-        :param y:
-        :return:
-        """
-        self.x = x
-        self.y = y
+    def __str__(self):
+        return "(%f, %f)" % (self.x, self.y)
 
-    def setLabel(self, labelName):
+    def __eq__(self, other):
+        """ Equality comparison between coordinates,
+        based on x, y position only.
         """
-        Sets the label name
-        :param labelName: the label name
-        """
-        self.label = labelName
+        return other and self.x == other.x and self.y == other.y
 
-    def getLabel(self):
+    def __hash__(self):
+        return hash((self.x, self.y))
+
+    def set(self, **kwargs):
         """
-        :return: The label name
+        Set different properties of this coordinates.
+        Example:
+            c = Coordinate(x, y, label='Auto')
+            c.set(x=1, y=100, label='None')
+            # ...
+            c.set(label='Auto')
         """
-        return self.label
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 class Micrograph:
@@ -44,46 +56,18 @@ class Micrograph:
     Micrograph is the base element managed by the PickerDataModel class
     (See PickerDataModel documentation).
     """
-    def __init__(self, micId, path, coordinates=None):
+    def __init__(self, micId=None, path=None):
         self._micId = micId
         self._path = path
+        # This should be accessed only from PickerModel
         self._coordinates = []
-        if coordinates:
-            for c in coordinates:
-                if isinstance(c, tuple):
-                    size = len(c)
-                    if size == 2:
-                        self._coordinates.append(Coordinate(c[0], c[1],
-                                                            "Default"))
-                    elif size == 3:
-                        self._coordinates.append(
-                            Coordinate(c[0], c[1],
-                                       c[2] if not c[2] == "" else "Default"))
-                    elif size == 4:
-                        self._coordinates.append(
-                            (Coordinate(c[0], c[1], "Default"),
-                             Coordinate(c[2], c[3], "Default")))
-                    elif size == 5:
-                        t = c[4] if not c[4] == "" else "Default"
-                        self._coordinates.append((Coordinate(c[0], c[1], t),
-                                                  Coordinate(c[2], c[3], t)))
-                    else:
-                        raise Exception(
-                            "Invalid coordinate specification for :%d."
-                            % str(c))
-                elif isinstance(c, Coordinate):
-                    self._coordinates.append(c)
-                else:
-                    raise Exception("Invalid coordinate type. Only tupple or "
-                                    "Coordinate types are supported.")
 
     def __len__(self):
         """ The length of the Micrograph is the number of coordinates. """
         return len(self._coordinates)
 
-    def __iter__(self):
-        """ Iterates over all coordinates in the micrograph. """
-        return iter(self._coordinates)
+    def __contains__(self, item):
+        return any(item == c for c in self)
 
     def setId(self, micId):
         """ Set the micrograph Id. """
@@ -101,119 +85,79 @@ class Micrograph:
         """ Returns the path of the micrograph. """
         return self._path
 
-    def addCoordinate(self, coord):
-        """ Add a new coordinate to this micrograph. """
-        self._coordinates.append(coord)
 
-    def removeCoordinate(self, ppCoord):
-        """ Remove the coordinate from the list. """
-        if ppCoord and self._coordinates:
-            self._coordinates.remove(ppCoord)
-
-    def clear(self):
-        """ Remove all coordinates of this micrograph. """
-        self._coordinates = []
-
-
-class MicrographsTableModel(TableModel):
-    """ Simple table model for use in PickerView """
-
-    def __init__(self, columns=[]):
-        """
-        Construct an _TableModel object
-        :param columns: (list) List of ColumnInfo
-        """
-        self._data = []
-        self._colums = columns
-        self._tableName = ''
-        self._tableNames = []
-
-    def _loadTable(self, tableName):
-        pass
-
-    def iterColumns(self):
-        """ Return an iterator for model columns"""
-        return iter(self._colums)
-
-    def getColumnsCount(self):
-        """ Return the number of columns """
-        return len(self._columns)
-
-    def getRowsCount(self):
-        """ Return the number of rows """
-        return len(self._data)
-
-    def getValue(self, row, col):
-        if 0 <= row < len(self._data) and 0 <= col < len(self._colums):
-            return self._data[row][col]
-        return 0
-
-    def setValue(self, row, col, value):
-        """
-        Set the value for the given row and column
-        :param row:    (int) row index.
-        :param col:    (int) column index.
-        :param value:  The value
-        """
-        self._data[row][col] = value
-
-    def appendRow(self, row):
-        """
-        Append a row to the end of the model
-        :param row: (list) The row values.
-        """
-        if isinstance(row, list) and len(row) == len(self._colums):
-            self._data.append(row)
-        else:
-            raise Exception("Invalid row.")
-
-
-class PickerDataModel:
+class PickerDataModel(TableModel):
     """
     This class stores the basic information to the particle picking data.
     It contains a list of Micrographs and each Micrograph contains a list
     of Coordinates (x, y positions in the Micrograph).
     """
-    def __init__(self):
-        self._micrographs = dict()
-        self._labels = dict()
-        self._privateLabels = dict()
-        self._initLabels()
-        self._boxsize = None
+    class Result:
+        """
+        Simple result object (although it might be more complex in the future)
+        to notify about changes in the data model after an external action
+        """
+        def __init__(self, currentMicChanged=False, currentCoordsChanged=False,
+                     tableModelChanged=False):
+            self.currentMicChanged = currentMicChanged
+            self.currentCoordsChanged = currentCoordsChanged
+            self.tableModelChanged = tableModelChanged
+
+    def __init__(self, boxSize=64):
+        # Allow access to micrographs both by id and by index
+        self._micList = []
+        self._micDict = {}
+        self._boxsize = boxSize
         self._lastId = 0
+
+        # Create a class for Coordinates Labels
+        self.Label = namedtuple('Label', ['name', 'color'])
+        self._labels = dict()
+        self._initLabels()
+
+        # Properties for TableModel
+        self._columns = self.getColumns()
+        self._tableName = ''
+        self._tableNames = []
 
     def __len__(self):
         """ The length of the model is the number of Micrographs. """
-        return len(self._micrographs)
+        return len(self._micList)
 
     def __iter__(self):
         """ Iterate over all Micrographs in the model. """
-        return iter(self._micrographs)
-
-    def __getitem__(self, micId):
-        return self._micrographs[micId]
+        return iter(self._micList)
 
     def _initLabels(self):
         """
-        Initialize the labels for this PPSystem
+        Initialize the labels for this PickerModel
         """
-        automatic = dict()
-        automatic["name"] = "Auto"
-        automatic["color"] = "#0012FF"  # #AARRGGBB
-        self._labels["Auto"] = automatic
-        self._privateLabels["A"] = automatic
+        auto = self.Label(name="Auto", color="#0012FF")
+        self._labels["Auto"] = auto
+        self._labels["A"] = auto
 
-        manual = dict()
-        manual["name"] = "Manual"
-        manual["color"] = "#1EFF00"  # #AARRGGBB
+        manual = self.Label(name="Manual", color="#1EFF00")
         self._labels["Manual"] = manual
-        self._privateLabels["M"] = manual
+        self._labels["M"] = manual
 
-        default = dict()
-        default["name"] = "Default"
-        default["color"] = "#1EFF00"  # #AARRGGBB
+        default = self.Label(name="Default", color="#1EFF00")
         self._labels["Default"] = default
-        self._privateLabels["D"] = default
+        self._labels["D"] = default
+
+    def createCoordinate(self, x, y, label, **kwargs):
+        """
+        Return a Coordinate object. This is the preferred way to create
+        Coordinates objects, ensuring that the object contains all
+        the additional properties related to the model.
+        Subclasses should implement this method
+        """
+        return Coordinate(0, 0, 'M', **kwargs)
+
+    def getMicrograph(self, micId):
+        return self._micDict[micId]
+
+    def getMicrographByIndex(self, micIndex):
+        return self._micList[micIndex]
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
@@ -232,10 +176,11 @@ class PickerDataModel:
         if not isinstance(mic, Micrograph):
             raise Exception("Invalid micrograph instance.")
 
-        if mic.getId() == -1:
+        if mic.getId() is None:
             mic.setId(self.nextId())
 
-        self._micrographs[mic.getId()] = mic
+        self._micList.append(mic)
+        self._micDict[mic.getId()] = mic
 
     def getLabels(self):
         """
@@ -250,9 +195,7 @@ class PickerDataModel:
         :param labelName: The label name
         :return: dict value
         """
-        ret = self._labels.get(labelName)
-        pl = self._privateLabels
-        return ret if ret else pl.get(labelName, pl.get('D'))
+        return self._labels.get(labelName, self._labels['D'])
 
     def nextId(self):
         """
@@ -269,22 +212,275 @@ class PickerDataModel:
         """
         raise Exception('Not implemented')
 
-    def getMicrographsTableModel(self):
-        """ Return the TableModel that will be used to
-        display the list of micrographs.
+    def getParams(self):
         """
-        micTable = MicrographsTableModel([
+        Return the parameters Form that can be used by the
+        GUI to create widgets for each parameter. The GUI will
+        then notify the model about changes in these parameters
+        caused by user inputs.
+        """
+        return None
+
+    def _getCoordsList(self, micId):
+        """ Return the coordinates list of a given micrograph. """
+        return self.getMicrograph(micId)._coordinates
+
+    def iterCoordinates(self, micId):
+        """ Iterate over the micrograph coordinates.
+        This iteration can yield a subset of the total coordinates depending
+        on parameters such as threshold, or associate different labels
+        to the coordinates.
+        """
+        for coord in self._getCoordsList(micId):
+            yield coord
+
+    def addCoordinates(self, micId, coords):
+        """
+        Add coordinates to a given micrograph.
+        :param micId: The micrograph identifier.
+        :param coords: An iterable with the coordinates that will be added.
+        :returns PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
+        """
+        self._getCoordsList(micId).extend(coords)
+        # Only notify changes in the coordinates that are not these
+        # already added
+        return self.Result(currentCoordsChanged=False)
+
+    def removeCoordinates(self, micId, coords):
+        """
+        Remove coordinate from a given micrograph.
+        :returns PickerModel.Result object with information about the changes
+            in the model after this action. In subclasses this info might be
+            more relevant.
+        """
+        micCoords = self._getCoordsList(micId)
+        for c in coords:
+            if c in micCoords:
+                micCoords.remove(c)
+        # Only notify changes in the coordinates that are not these
+        # already removed
+        return self.Result(currentCoordsChanged=False)
+
+    def clearMicrograph(self, micId):
+        """ Remove all coordinates of this micrograph. """
+        self._getCoordsList(micId)[:] = []
+        return self.Result()
+
+    def selectMicrograph(self, newMicId):
+        """
+        While interacting with the GUI, usually there is a micrograph
+        selected. By calling this method, the GUI notifies that the
+        selected micrographs was changed. The model can respond to
+        this change if necessary.
+        """
+        return self.Result(currentMicChanged=True,
+                           currentCoordsChanged=True)
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        """
+        By calling this method, the model is notified about changes
+        in one of the parameters. This method should be re-implemented
+        in subclasses that want to react to changes in parameters.
+        :param paramInfo: object that contains information about
+            the parameters:
+            - paramInfo.name: the name of the parameter
+            - paramInfo.value: the value of the parameter
+            - paramInfo.getValues(): method to request all
+        :returns Result instance responding back the impact of the
+            changes regarding to the selected micrographs, the coordinates
+            and the table with overall information.
+        """
+        return self.Result()
+
+    def getImageInfo(self, micId):
+        """
+        Return some specified info from the given image path.
+        dim : Image dimensions
+        ext : File extension
+        data_type: Image data type
+
+        :param micId:  (int) The micrograph Id
+        :return: dict
+        """
+        return {}
+
+    # --------------- Methods required by TableModel ---------------------------
+
+    def _loadTable(self, tableName):
+        pass
+
+    def iterColumns(self):
+        """ Return an iterator for model columns"""
+        return iter(self._columns)
+
+    def getColumnsCount(self):
+        """ Return the number of columns """
+        return len(self._columns)
+
+    def getRowsCount(self):
+        """ Return the number of rows """
+        return len(self)  # Number of micrographs
+
+    def getColumns(self):
+        """ Return a Column list that will be used to display micrographs. """
+        return [
             ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
             ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+        ]
+
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        mic = self.getMicrographByIndex(row)
+
+        if col == 0:  # Name
+            return 'Micrograph %02d' % mic.getId()
+        elif col == 1:  # Coordinates
+            return len(mic)
+        elif col == 2:  # Id
+            return mic.getId()
+        else:
+            raise Exception("Invalid column value '%s'" % col)
+
+
+class PickerCmpModel(PickerDataModel):
+    """ PickerModel to handle two PickerModels """
+    def __init__(self, model1, model2, boxSize=64, radius=64):
+        PickerDataModel.__init__(self, boxSize=boxSize)
+        # format RRGGBBAA
+        self._labels['a'] = self.Label(name="a", color="#00ff0055")
+        self._labels['b'] = self.Label(name="b", color="#00ff00")
+        self._labels['c'] = self.Label(name="c", color="#0000ff55")
+        self._labels['d'] = self.Label(name="d", color="#0000ff")
+
+        self._models = (model1, model2)
+        self._radius = radius
+        self._union = dict()
+        self.markAll()
+
+    def __getitem__(self, micId):
+        return self._models[0].getMicrograph(micId)
+
+    def _getCoordsList(self, micId):
+        """ Return the coordinates list of a given micrograph. """
+        c1 = self._models[0].getMicrograph(micId)._coordinates
+        c2 = self._models[1].getMicrograph(micId)._coordinates
+        return chain(c1, c2)
+
+    def _markCoordinates(self, listA, listB, radius):
+        """
+        Set the labels for the given list of Coordinates according to the
+        following:
+         - a) The coordinates of A and are not close to any of B
+         - b) The coordinates of A and that are close to ones of B.
+              (color similar to a))
+         - c) Those of B that do not have close ones in A
+         - d) Those of B that are close in A (color similar to c))
+        :param listA: (list of Coordinate)
+        :param listB: (list of Coordinate)
+        :param radius: (int) Radius
+        :return : (int) Number of coordinates having a) and b) conditions
+        """
+        c = set()
+        radius *= radius
+
+        for b in listB:
+            b.set(label='c')  # case c)
+
+        for a in listA:
+            a.set(label='a')  # case a)
+
+            for b in listB:
+
+                d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
+                if d <= radius:
+                    a.set(label='b')  # case b)
+                    b.set(label='d')  # case d)
+                    c.add(a)
+                    c.add(b)
+
+        return len(c)
+
+    def getMicrographByIndex(self, micIndex):
+        return self._models[0].getMicrographByIndex(micIndex)
+
+    def getParams(self):
+        proximityRadius = Param('proximityRadius', 'int', value=40,
+                                display='slider', range=(0, 100),
+                                label='Proximity radius',
+                                help='Proximity radius.')
+
+        return Form([proximityRadius])
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        # Most cases here will modify the current coordinates
+        r = self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+        if paramName == 'proximityRadius':
+            self._radius = paramValue
+            self.markAll()
+        else:
+            r = self.Result()  # No modification
+
+        return r
+
+    def clearMicrograph(self, micId):
+        for m in self._models:
+            m.clearMicrograph(micId)
+
+        self._union[micId] = 0
+        return self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+    def markAll(self):
+        """
+        Set label colors to all micrograph in the models
+        """
+        a, b = self._models
+        for mic in a:
+            micId = mic.getId()
+            c = self._markCoordinates(mic._coordinates,
+                                      b.getMicrograph(micId)._coordinates,
+                                      self._radius)
+            self._union[micId] = c
+
+    def iterCoordinates(self, micId):
+        # Re-implement this to show only these above the threshold
+        # or with a different color (label)
+        for coord in self._getCoordsList(micId):
+            yield coord
+
+    def getColumns(self):
+        """ Return a Column list that will be used to display micrographs. """
+        return [
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('A', dataType=TYPE_INT, editable=True),
+            ColumnConfig('B', dataType=TYPE_INT, editable=True),
+            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
             ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
-        ])
-        for micId, mic in self._micrographs.items():
-            micTable.appendRow([os.path.basename(mic.getPath()),
-                                len(mic), mic.getId()])
+        ]
 
-        return micTable
+    def getValue(self, row, col):
+        """ Return the value of the item in this row, column. """
+        mic = self.getMicrographByIndex(row)
+        micId = mic.getId()
+
+        if col == 0:  # Name
+            return os.path.basename(mic.getPath())
+        elif col == 1:  # 'A' coordinates
+            return len(self._models[0].getMicrograph(micId))
+        elif col == 2:  # 'B' coordinates
+            return len(self._models[1].getMicrograph(micId))
+        elif col == 3:  # 'AnB' coordinates
+            return self._union.get(micId, 0)
+        elif col == 4:  # 'Id'
+            return mic.getId()
+        else:
+            raise Exception("Invalid column value '%s'" % col)
 
 
+# FIXME: Check if this function is need at all and remove it from here
 def parseTextCoordinates(path):
     """ Parse (x, y) coordinates from a texfile assuming
      that the first two columns on each line are x and y.

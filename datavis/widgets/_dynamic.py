@@ -3,322 +3,332 @@ import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 import PyQt5.QtGui as qtg
 
+import datavis as dv
 
 # TODO: Review methods, global variables, documentation, etc
 # In the whole file
 
-class OptionList(qtw.QWidget):
+
+class ParamWidget(qtw.QWidget):
+    """ Base class for all Params-Widgets """
+    #  Signal emitted when the param value is changed.
+    sigValueChanged = qtc.pyqtSignal(str, object)  # (paramName, value)
+
+    def __init__(self, param, parent=None):
+        qtw.QWidget.__init__(self, parent=parent)
+        self._param = param
+        self._sizePolicy = qtw.QSizePolicy(qtw.QSizePolicy.Expanding,
+                                           qtw.QSizePolicy.Minimum)
+        self.setObjectName(param.name)  # the name is mandatory
+        self.setToolTip(param.help)
+
+    def set(self, value):
+        """ Set the param value. Need to be reimplemented in subclasses. """
+        raise Exception("Not implemented yet.")
+
+    def get(self):
+        """ Return the param value for this widget. Need to be reimplemented in
+        subclasses """
+        raise Exception("Not implemented yet.")
+
+    def emitValueChanged(self, paramValue):
+        self.sigValueChanged.emit(self._param.name, paramValue)
+
+
+class OptionsWidget(ParamWidget):
     """
-    The OptionList provides a means of presenting a list of options to the user.
+    The OptionsWidget provides a means of presenting a list of options to the user.
     The display param specify how the options will be displayed.
     """
-    def __init__(self, parent=None, display='default', tooltip="",
-                 exclusive=True, buttonsClass=qtw.QRadioButton, options=None,
-                 defaultOption=0):
+    def __init__(self, param, parent=None):
         """
-        Construct an OptionList
+        Construct an OptionsWidget
         exclusive(bool): If true, the radio buttons will be exclusive
         buttonsClass:
+        :param param:        The Param that will be mapped to this widget
         :param parent:       The QObject parent for this widget
-        :param display:      (str) The display type for options
-                             ('vlist': vertical, 'hlist': horizontal,
-                             'combo': show options in combobox,
-                             'slider': show options in slider)
-        :param tooltip:      (str) A tooltip for this widget
-        :param exclusive:    (bool) Set the options as 'exclusives' if display
-                             is 'vlist' or 'hlist'
-        :param buttonsClass: (QRadioButton or QCheckBox) The button class for
-                             the options if display is 'vlist' or 'hlist'
-        :param options:      The options. A tupple if display is 'slider' or
-                             str list for other display type
-        :param defaultOption: (int) The default option id (index for list)
         """
-        qtw.QWidget.__init__(self, parent=parent)
-        self.__buttonGroup = qtw.QButtonGroup(self)
-        self.__buttonGroup.setExclusive(exclusive)
-        lClass = qtw.QVBoxLayout if display == 'vlist' else qtw.QHBoxLayout
-        self.__mainLayout = lClass(self)
-        self.__mainLayout.setContentsMargins(0, 0, 0, 0)
-        self.__singleWidget = None  # may be combobox or slider
-        if display == 'combo' or display == 'default':
-            self.__singleWidget = qtw.QComboBox(self)
-            self.__buttonClass = None
-        elif display == 'slider':
-            self.__singleWidget = qtw.QSlider(qtc.Qt.Horizontal, self)
-            if isinstance(options, tuple):
-                self.__singleWidget.setRange(options[0], options[1])
-            elif isinstance(options, list):
-                self.__singleWidget.setRange(0, len(options) - 1)
+        ParamWidget.__init__(self, param, parent=parent)
+        display = param.display
+        self._value = getattr(param, 'value', 0)
+        layout = qtw.QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        if display in [dv.models.PARAM_DISPLAY_VLIST,
+                       dv.models.PARAM_DISPLAY_HLIST]:
+            layout.addWidget(self.__createList(param))
         else:
-            RB = qtw.QRadioButton
-            CB = qtw.QCheckBox
-            c = buttonsClass if (buttonsClass == RB or
-                                 buttonsClass == CB) else None
-            self.__buttonClass = c
-            self.__singleWidget = qtw.QWidget(self)
-            self.__groupBoxLayout = lClass(self.__singleWidget)
-            self.__groupBoxLayout.setContentsMargins(3, 3, 3, 3)
+            layout.addWidget(self.__createCombo(param))
 
-        if not isinstance(self.__singleWidget, qtw.QSlider):
-            for index, option in enumerate(options):
-                self.addOption(option, index)
+        self.setLayout(layout)
 
-        if self.__singleWidget is not None:
-            self.__singleWidget.setToolTip(tooltip)
-            self.__mainLayout.addWidget(self.__singleWidget)
-            self.setSelectedOption(defaultOption)
+    def __createList(self, param):
+        listWidget = qtw.QWidget(self)
+        group = qtw.QButtonGroup(self)
+        group.setExclusive(True)
 
-    def addOption(self, name, optionId, checked=False):
+        if param.display == dv.models.PARAM_DISPLAY_HLIST:
+            layout = qtw.QHBoxLayout()
+        elif param.display == dv.models.PARAM_DISPLAY_VLIST:
+            layout = qtw.QVBoxLayout()
+        else:
+            raise Exception('Unknown display %s for enum type'
+                            % param.display)
+
+        layout.setContentsMargins(3, 3, 3, 3)
+        butttonList = []
+        for i, opt in enumerate(param.choices):
+            rb = qtw.QRadioButton(opt)
+            rb.setChecked(self._value == i)
+            group.addButton(rb, i)
+            layout.addWidget(rb)
+            butttonList.append(rb)
+
+        listWidget.setLayout(layout)
+        group.buttonClicked[int].connect(self.__onSelectionChanged)
+
+        # Define how to set a new value for this case
+        def set(value):
+            butttonList[value].setChecked(True)
+
+        self.__setValue = set
+
+        return listWidget
+
+    def __createCombo(self, param):
+        combo = qtw.QComboBox(self)
+        for i, opt in enumerate(param.choices):
+            combo.addItem(opt, i)
+        combo.currentIndexChanged.connect(self.__onSelectionChanged)
+        self.__buttonClass = None
+
+        # Define how to set a new value for this case
+        def set(value):
+            combo.setCurrentIndex(value)
+        self.__setValue = set
+
+        return combo
+
+    def __onSelectionChanged(self, index):
         """
-        Add an option
-        :param name:      (str) The option name
-        :param optionId:  (int) The option id
-        :param checked:   (bool) Checked value if the option list is represented
-                          by a RadioButton list
+        Invoked when the selected item changed (either in combo or list)
+        :param index: (int) The new selected index
         """
-        if self.__buttonClass is not None \
-                and isinstance(self.__singleWidget, qtw.QWidget):
-            button = self.__buttonClass(self)
-            button.setText(name)
-            self.__buttonGroup.addButton(button, optionId)
-            button.setChecked(checked)
-            self.__groupBoxLayout.addWidget(button)
-        elif isinstance(self.__singleWidget, qtw.QComboBox):
-            self.__singleWidget.addItem(name, optionId)
+        self._value = index
+        self.emitValueChanged(index)
 
-    def getSelectedOptions(self):
-        """ Return the selected options """
-        if isinstance(self.__singleWidget, qtw.QComboBox):
-            return self.__singleWidget.currentData()
-        elif isinstance(self.__singleWidget, qtw.QWidget):
-            if self.__buttonGroup.exclusive():
-                return self.__buttonGroup.checkedId()
-            else:
-                options = []
-                for button in self.__buttonGroup.buttons():
-                    if button.isChecked():
-                        options.append(self.__buttonGroup.id(button))
-                return options
-        elif isinstance(self.__singleWidget, qtw.QSlider):
-            return self.__singleWidget.value()
-        return None
+    def get(self):
+        return self._value
 
-    def setSelectedOption(self, optionId):
+    def set(self, value):
         """ Set the given option as selected """
-        CB = qtw.QComboBox
-        if isinstance(self.__singleWidget, qtw.QWidget):
-            button = self.__buttonGroup.button(optionId)
-            if button is not None:
-                button.setChecked(True)
-        elif isinstance(self.__singleWidget,
-                        CB) and optionId in range(self.__singleWidget.count()):
-            self.__comboBox.setCurrentIndex(optionId)
-        elif isinstance(self.__singleWidget, qtw.QSlider):
-            self.__singleWidget.setValue(optionId)
+        n = len(self._param.choices)
+        if value < 0 or value >= n:
+            raise Exception("Invalid index '%d', value should be "
+                            "between 0 and %d" % (value, n))
+
+        self.__setValue(value)
 
 
-class DynamicWidget(qtw.QWidget):
-    """ The base class for dynamic widgets """
-    def __init__(self, parent=None, typeParams=None):
-        qtw.QWidget.__init__(self, parent=parent)
-        self.setLayout(qtw.QGridLayout())
-        self.__paramsWidgets = dict()
-        self.__typeParams = typeParams
+class TextWidget(ParamWidget):
+    """ """
+    def __init__(self, param, parent=None):
+        ParamWidget.__init__(self, param, parent=parent)
+        layout = qtw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._lineEdit = qtw.QLineEdit(parent=self)
+        layout.addWidget(self._lineEdit)
+        self.setLayout(layout)
+        value = getattr(param, 'value', None)
+        if value is not None:
+            self.set(value)
+        self._lineEdit.returnPressed.connect(self.__onReturnPressed)
 
-    def __collectData(self, item):
-        VBL = qtw.QVBoxLayout
-        HBL = qtw.QHBoxLayout
-        GL = qtw.QGridLayout
-        if isinstance(item, VBL) or isinstance(item, HBL) or isinstance(item,
-                                                                        GL):
-            for index in range(item.count()):
-                self.__collectData(item.itemAt(index))
-        elif isinstance(item, qtw.QWidgetItem):
-            widget = item.widget()
-            param = self.__paramsWidgets.get(widget.objectName())
-            if param is not None:
-                t = self.__typeParams.get(param.get('type')).get('type')
-                if isinstance(widget, qtw.QLineEdit):
-                    if t is not None:
-                        text = widget.text()
-                        if text in ["", ".", "+", "-"]:
-                            text = 0
-                        param['value'] = t(text)
-                elif isinstance(widget, qtw.QCheckBox) and t == bool:
-                    # other case may be checkbox for enum: On,Off
-                    param['value'] = widget.isChecked()
-                elif isinstance(widget, OptionList):
-                    param['value'] = widget.getSelectedOptions()
+    def __onReturnPressed(self):
+        self.emitValueChanged(self.get())
 
-    def setParamWidget(self, name, param):
-        self.__paramsWidgets[name] = param
+    def set(self, value):
+        self._lineEdit.setText(str(value))
 
-    @qtc.pyqtSlot()
-    def getParams(self):
-        """ Return a dict with the current params specifications for all
-        widget params. The param name will be used as key for each param. """
-        self.__collectData(self.layout())
-        return self.__paramsWidgets
+    def get(self):
+        return self._lineEdit.text()
 
 
-class DynamicWidgetsFactory:
-    """ Factory class to centralize the creation of widgets, using a dynamic
-    widget specification.
-     """
+class NumericWidget(ParamWidget):
+    """ """
+    def __init__(self, param, parent=None):
+        ParamWidget.__init__(self, param, parent=parent)
+        layout = qtw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        pType = param.type
 
-    def __init__(self):
-        self.__typeParams = {
-            'float': {
-                'type': float,
-                'display': {
-                    'default': qtw.QLineEdit
-                },
-                'validator': qtg.QDoubleValidator
-            },
-            'int': {
-                'type': int,
-                'display': {
-                    'default': qtw.QLineEdit
-                },
-                'validator': qtg.QIntValidator
-            },
-            'string': {
-                'type': str,
-                'display': {
-                    'default': qtw.QLineEdit
-                }
-            },
-            'bool': {
-                'type': bool,
-                'display': {
-                    'default': qtw.QCheckBox
-                }
-            },
-            'enum': {
-                'display': {
-                    'default': OptionList,
-                    'vlist': OptionList,
-                    'hlist': OptionList,
-                    'slider': qtw.QSlider,
-                    'combo': OptionList
-                }
-            }
-        }
-
-    def __addVParamsWidgets(self, mainWidget, params):
-        """ Add the widgets created from params to the given QGridLayout """
-        layout = mainWidget.layout()
-        row = layout.rowCount()
-        for param in params:
-            if isinstance(param, list):
-                col = 0
-                row, col = self.__addHParamsWidgets(mainWidget, layout, param,
-                                                    row, col)
-                row += 1
-            else:
-                col = 0
-                widget = self.__createParamWidget(mainWidget, param)
-                if widget is not None:
-                    label = param.get('label')
-                    if label is not None:
-                        lab = qtw.QLabel(mainWidget)
-                        lab.setText(label)
-                        lab.setToolTip(param.get('help', ""))
-                        layout.addWidget(lab, row, col, qtc.Qt.AlignRight)
-                        col += 1
-                    layout.addWidget(widget, row, col, 1, -1)
-                    row += 1
-
-    def __addHParamsWidgets(self, mainWidget, layout, params, row, col):
-        """
-        Add the params to the given layout in the row "row" from
-        the column "col"
-        """
-        for param in params:
-            if isinstance(param, list):
-                row, col = self.__addHParamsWidgets(layout, param, row, col)
-            elif isinstance(param, dict):
-                widget = self.__createParamWidget(mainWidget, param)
-                if widget is not None:
-                    label = param.get('label')
-                    if label is not None:
-                        lab = qtw.QLabel(mainWidget)
-                        lab.setText(label)
-                        lab.setToolTip(param.get('help', ""))
-                        layout.addWidget(lab, row, col, qtc.Qt.AlignRight)
-                        col += 1
-                    layout.addWidget(widget, row, col, 1, 1)
-                    col += 1
-        return row, col
-
-    def __createParamWidget(self, mainWidget, param):
-        """
-        Creates the corresponding widget from the given param.
-        """
-        if not isinstance(param, dict):
-            return None
-
-        widgetName = param.get('name')
-        if widgetName is None:
-            return None  # rise exception??
-
-        valueType = param.get('type')
-        if valueType is None:
-            return None  # rise exception??
-
-        paramDef = self.__typeParams.get(valueType)
-
-        if paramDef is None:
-            return None  # rise exception??
-
-        display = paramDef.get('display')
-        widgetClass = display.get(param.get('display', 'default'))
-
-        if widgetClass is None:
-            return None  # rise exception??
-
-        if valueType == 'enum':
-            widget = OptionList(parent=mainWidget,
-                                display=param.get('display', 'default'),
-                                tooltip=param.get('help', ""), exclusive=True,
-                                buttonsClass=qtw.QRadioButton,
-                                options=param.get('choices'),
-                                defaultOption=param.get('value', 0))
+        if pType == dv.models.PARAM_TYPE_INT:
+            val = qtg.QIntValidator()
+            self._type = int
+        elif pType == dv.models.PARAM_TYPE_FLOAT:
+            loc = qtc.QLocale.c()
+            loc.setNumberOptions(qtc.QLocale.RejectGroupSeparator)
+            val = qtg.QDoubleValidator()
+            val.setLocale(loc)
+            self._type = float
         else:
-            widget = widgetClass(mainWidget)
-            widget.setToolTip(param.get('help', ''))
-            self.__setParamValue(widget, param.get('value'))
+            raise Exception('Invalid type %s' % pType)
 
-        widget.setObjectName(widgetName)
+        range = getattr(param, 'range', None)
 
-        mainWidget.setParamWidget(widgetName, param)
+        if range is not None:
+            minValue, maxValue = range
+            value = getattr(param, 'value', minValue)
+            widget = dv.widgets.SpinSlider(parent=self, currentValue=value,
+                                           minValue=range[0], maxValue=range[1])
+            widget.setValue(value)
+            widget.sigValueChanged.connect(self.__onValueChanged)
+            self.get = lambda: widget.getValue()
+            self.set = lambda value: widget.setValue(value)
+        else:
+            widget = qtw.QLineEdit(parent=self)
+            widget.setValidator(val)
+            widget.setFixedWidth(80)
+            value = getattr(param, 'value', None)
+            if value is not None:
+                widget.setText(str(value))
+            widget.returnPressed.connect(self.__onReturnPressed)
+            self.get = lambda : self.__getNumeric(widget.text())
+            self.set = lambda value: widget.setValue(str(value))
 
-        if widgetClass == qtw.QLineEdit:
-            # widget.setClearButtonEnabled(True)
-            validatorClass = paramDef.get('validator')
-            if validatorClass is not None:
-                val = validatorClass()
-                if validatorClass == qtg.QDoubleValidator:
-                    loc = qtc.QLocale.c()
-                    loc.setNumberOptions(qtc.QLocale.RejectGroupSeparator)
-                    val.setLocale(loc)
-                widget.setValidator(val)
-            if valueType == 'float' or valueType == 'int':
-                widget.setFixedWidth(80)
+        layout.addWidget(widget)
+        self.setLayout(layout)
 
+    def __onReturnPressed(self):
+        self.emitValueChanged(self.get())
+
+    def __onValueChanged(self, value):
+        self.emitValueChanged(value)
+
+    def __getNumeric(self, value):
+         #FIXME: What is the purpose of this validation?
+         invalid = ["", ".", "+", "-", '-.', '+.']
+         return None if value in invalid else self._type(value)
+
+
+class BoolWidget(ParamWidget):
+    """ ParamWidget subclass that wraps a Param with 'bool' type. """
+    def __init__(self, param, parent=None):
+        ParamWidget.__init__(self, param, parent=parent)
+        layout = qtw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._checkBox = qtw.QCheckBox(parent=self)
+        self._checkBox.setChecked(bool(getattr(param, 'value', False)))
+        layout.addWidget(self._checkBox)
+        self.setLayout(layout)
+
+        self._checkBox.stateChanged.connect(self.__onCheckStateChanged)
+
+    def __onCheckStateChanged(self, state):
+        self.emitValueChanged(state == qtc.Qt.Checked)
+
+    def set(self, value):
+        self._checkBox.setChecked(bool(value))
+
+    def get(self):
+        return self._checkBox.isChecked()
+
+
+class ButtonWidget(ParamWidget):
+    """ ParamWidget subclass that wraps a Param with 'button' type. """
+    def __init__(self, param, parent=None):
+        ParamWidget.__init__(self, param, parent=parent)
+        layout = qtw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        btn = qtw.QPushButton(param.label, parent=self)
+        if param.help:
+            btn.setToolTip(param.help)
+
+        layout.addWidget(btn)
+        self.setLayout(layout)
+        btn.clicked.connect(self.__onClicked)
+
+    def __onClicked(self):
+        self.emitValueChanged(True)  # just to notify
+
+    def set(self, value):
+        pass
+
+    def get(self):
+        return False
+
+
+class FormWidget(qtw.QWidget):
+    """ The base class for dynamic widgets """
+    sigValueChanged = qtc.pyqtSignal(str, object)
+
+    # Map between the Param type and the associated Widget class
+    CLASSES_DICT = {
+        dv.models.PARAM_TYPE_ENUM: OptionsWidget,
+        dv.models.PARAM_TYPE_BOOL: BoolWidget,
+        dv.models.PARAM_TYPE_INT: NumericWidget,
+        dv.models.PARAM_TYPE_FLOAT: NumericWidget,
+        dv.models.PARAM_TYPE_BUTTON: ButtonWidget,
+    }
+
+    def __init__(self, form, parent=None, name=''):
+        """
+        Construct an FormWidget object
+        :param form: Form instance with the definition of the params
+        :param parent:  The parent widget
+        :param name:    (str) The container name # FIXME: Is this useful?
+        """
+        qtw.QWidget.__init__(self, parent=parent)
+        self.setObjectName(name)
+        self.setLayout(qtw.QGridLayout())
+        self._widgetsDict = dict()
+        self.__createFormWidgets(form)
+
+    def __createFormWidgets(self, form):
+        """ Add the widgets created from params to the given QGridLayout """
+        layout = self.layout()
+        row = layout.rowCount()
+        for r, params in enumerate(form):
+            for col, param in enumerate(params):
+                # Only the special case of button does not require extra label
+                if param.type != dv.models.PARAM_TYPE_BUTTON:
+                    label = qtw.QLabel(param.label, parent=self)
+                    layout.addWidget(label, row+r, 2*col, qtc.Qt.AlignRight)
+                widget = self.__createParamWidget(param)
+                layout.addWidget(widget, row+r, 2*col+1) #, 1, -1)
+                if param.help:
+                    label.setToolTip(param.help)
+                    widget.setToolTip(param.help)
+
+    def __createParamWidget(self, param):
+        """ Creates the corresponding widget from the given param. """
+        if not param.name or not param.type or not param.label:
+            raise Exception("Invalid param, empty name, type or label!")
+
+        # Get the widget class associated to the given Param type
+        # by default create a NumericWidget
+        WidgetClass = self.CLASSES_DICT.get(param.type, TextWidget)
+        widget = WidgetClass(param, parent=self)
+        self._widgetsDict[param.name] = widget
+        widget.sigValueChanged.connect(self._onChildChanged)
         return widget
 
-    def __setParamValue(self, widget, value):
-        """ Set the widget value"""
-        if isinstance(widget, qtw.QLineEdit):
-            widget.setText(str(value))
-        elif isinstance(widget, qtw.QCheckBox) and isinstance(value, bool):
-            widget.setChecked(value)
+    def getParamValues(self):
+        """ Return a dict with the value of each of the input params.
+         The key of each item will be the param's name and the value
+         the current value from the GUI.
+        """
+        values = {}
+        for key, widget in self._widgetsDict.items():
+            values[key] = widget.get()
+        return values
 
-    def createWidget(self, specification):
-        """ Creates the widget for de given specification """
-        if isinstance(specification, list) and len(specification) > 0:
-            widget = DynamicWidget(typeParams=self.__typeParams)
-            self.__addVParamsWidgets(widget, specification)
-            return widget
-        return None
+    def _onChildChanged(self, paramName, value):
+        """
+         Connect this slot for child param changed notification.
+         Emits sigValueChanged signal.
+
+        :param paramName: (str) the param name
+        :param value:     the data value.
+        """
+        self.sigValueChanged.emit(paramName, value)

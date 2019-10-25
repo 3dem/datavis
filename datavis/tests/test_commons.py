@@ -5,7 +5,7 @@ import os
 import sys
 import unittest
 import numpy as np
-from random import randrange
+from random import randrange, uniform
 import pyqtgraph as pg
 
 import PyQt5.QtWidgets as qtw
@@ -188,7 +188,7 @@ class SimpleListImageModel(dv.models.ListModel):
         data = self._imgData.get(row)
         if data is None:
             data = pg.gaussianFilter(np.random.normal(size=self._imgSize),
-                                     [5 for i in range(len(self._imgSize))])
+                                     [5 for _ in range(len(self._imgSize))])
             self._imgData[row] = data
 
         return data
@@ -214,26 +214,40 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         self._imageSize = imageSize
         self._size = size
         self._images = dict()
+        self._picks = picks
+        self._filament = filament
         self._cache = {}
         for i in range(size):
-            self.addMicrograph(self.__simulateMic(i + 1,
-                                                  randrange(0, picks),
-                                                  filament))
+            mic = dv.models.Micrograph(micId=i+1, path='Micrograph %d' % (i+1))
+            self.addMicrograph(mic)
+            self.pickRandomly(mic.getId())
         self.setBoxSize(boxSize)
 
-    def __simulateMic(self, micId, picks, filament):
+    def __getRandomCoords(self, n):
         """ Return a Micrograph object with random pick coordinates """
         w, h = self._imageSize
-        if filament:
-            coords = [(randrange(0, w),
-                       randrange(0, h),
-                       randrange(0, w),
-                       randrange(0, h)) for i in range(picks)]
-        else:
-            coords = [(randrange(0, w),
-                       randrange(0, h)) for i in range(picks)]
 
-        return dv.models.Micrograph(micId, 'Image %d' % micId, coords)
+        def _randomCoord():
+            x, y = randrange(0, w), randrange(0, h)
+            kwargs = {
+                'x2': randrange(0, w), 'y2':
+                    randrange(0, h)} if self._filament else {}
+
+            return dv.models.Coordinate(x, y, score=uniform(0, 1), **kwargs)
+
+        return [_randomCoord() for _ in range(n)]
+
+    def createCoordinate(self, x, y, label, **kwargs):
+        if 'score' not in kwargs:
+            kwargs['score'] = 1
+        c = dv.models.Coordinate(x, y, label, **kwargs)
+        return c
+
+    def pickRandomly(self, micId, n=None):
+        """ Pick a random number of particles just for testing. """
+        n = n or randrange(0, self._picks)
+        self.clearMicrograph(micId)
+        self.addCoordinates(micId, self.__getRandomCoords(n))
 
     def getData(self, micId):
         """
@@ -241,14 +255,11 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         :param micId: (int) The micrograph id
         :return: The micrograph image data
         """
-        if micId in self._cache:
-            data = self._cache[micId]
-        else:
-            data = pg.gaussianFilter(np.random.normal(size=self._imageSize),
-                                     (5, 5))
-            self._cache[micId] = data
+        if micId not in self._cache:
+            self._cache[micId] = pg.gaussianFilter(
+                np.random.normal(size=self._imageSize), (5, 5))
 
-        return data
+        return self._cache[micId]
 
     def getImageInfo(self, micId):
         """
@@ -275,6 +286,19 @@ def createPickerDataModel(imageSize, size, boxSize=40, picks=100,
     :return: (PickerDataModel)
     """
     return SimplePickerDataModel(imageSize, size, boxSize, picks, filament)
+
+
+def createSimplePickerDataModel(imageSize, size=0, boxSize=40, picks=0,
+                                filament=False):
+    """
+    Creates an PickerDataModel with random images.
+    :param imageSize: (tupple) The image size
+    :param boxSize: (int) The box size
+    :return: (PickerDataModel)
+    """
+    return SimplePickerDataModel(imageSize=imageSize, size=size,
+                                 boxSize=boxSize, picks=picks,
+                                 filament=filament)
 
 
 def createSlicesModel(imgSize, size):
