@@ -1,10 +1,11 @@
 
 import os
 from collections import namedtuple
+from itertools import chain
 
 from ._constants import *
 from ._table_models import TableModel, ColumnConfig
-
+from ._params import Param, Form
 
 class Coordinate:
     """
@@ -168,6 +169,21 @@ class PickerDataModel(TableModel):
         self._labels["Default"] = default
         self._labels["D"] = default
 
+    def createCoordinate(self, x, y, label, **kwargs):
+        """
+        Return a Coordinate object. This is the preferred way to create
+        Coordinates objects, ensuring that the object contains all
+        the additional properties related to the model.
+        Subclasses should implement this method
+        """
+        return Coordinate(0, 0, 'M', **kwargs)
+
+    def getMicrograph(self, micId):
+        return self._micDict[micId]
+
+    def getMicrographByIndex(self, micIndex):
+        return self._micList[micIndex]
+
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
         self._boxsize = newSizeX
@@ -257,7 +273,8 @@ class PickerDataModel(TableModel):
             :class:`Result <datavis.models.PickerDataModel.Result>` instance
         """
         self._getCoordsList(micId).extend(coords)
-        # Only notify changes in the coordinates that are not these already added
+        # Only notify changes in the coordinates that are not these
+        # already added
         return self.Result(currentCoordsChanged=False)
 
     def removeCoordinates(self, micId, coords):
@@ -275,7 +292,8 @@ class PickerDataModel(TableModel):
         for c in coords:
             if c in micCoords:
                 micCoords.remove(c)
-        # Only notify changes in the coordinates that are not these already removed
+        # Only notify changes in the coordinates that are not these
+        # already removed
         return self.Result(currentCoordsChanged=False)
 
     def clearMicrograph(self, micId):
@@ -319,6 +337,18 @@ class PickerDataModel(TableModel):
 
         """
         return self.Result()
+
+    def getImageInfo(self, micId):
+        """
+        Return some specified info from the given image path.
+        dim : Image dimensions
+        ext : File extension
+        data_type: Image data type
+
+        :param micId:  (int) The micrograph Id
+        :return: dict
+        """
+        return {}
 
     # --------------- Methods required by TableModel ---------------------------
 
@@ -373,33 +403,17 @@ class PickerCmpModel(PickerDataModel):
 
         self._models = (model1, model2)
         self._radius = radius
-        self._ref = dict()
+        self._union = dict()
+        self.markAll()
 
     def __getitem__(self, micId):
-        mic = self._micDict[micId]
-        mic.clear()
+        return self._models[0].getMicrograph(micId)
 
-        coordsA = self._models[0][micId]
-        coordsB = self._models[1][micId]
-
-        s = self._markCoordinates(coordsA,
-                                  coordsB,
-                                  self._radius)
-        self._defaultTableModel.setValue(self._ref[micId], 3, s)
-        mic.addCoordinates(coordsA)
-        mic.addCoordinates(coordsB)
-
-        return self._micDict[micId]
-
-    def onParamChanged(self, paramName, value):
-        """
-         Function to be executed when a picker-param changes its value.
-        :param paramName: (str) The param name.
-        :param value:     The param value.
-
-        """
-        if paramName == 'radius':
-            self._radius = value
+    def _getCoordsList(self, micId):
+        """ Return the coordinates list of a given micrograph. """
+        c1 = self._models[0].getMicrograph(micId)._coordinates
+        c2 = self._models[1].getMicrograph(micId)._coordinates
+        return chain(c1, c2)
 
     def _markCoordinates(self, listA, listB, radius):
         """
@@ -435,48 +449,79 @@ class PickerCmpModel(PickerDataModel):
 
         return len(c)
 
+    def getMicrographByIndex(self, micIndex):
+        return self._models[0].getMicrographByIndex(micIndex)
+
+    def getParams(self):
+        proximityRadius = Param('proximityRadius', 'int', value=40,
+                                display='slider', range=(0, 100),
+                                label='Proximity radius',
+                                help='Proximity radius.')
+
+        return Form([proximityRadius])
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        # Most cases here will modify the current coordinates
+        r = self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+        if paramName == 'proximityRadius':
+            self._radius = paramValue
+            self.markAll()
+        else:
+            r = self.Result()  # No modification
+
+        return r
+
+    def clearMicrograph(self, micId):
+        for m in self._models:
+            m.clearMicrograph(micId)
+
+        self._union[micId] = 0
+        return self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+    def markAll(self):
+        """
+        Set label colors to all micrograph in the models
+        """
+        a, b = self._models
+        for mic in a:
+            micId = mic.getId()
+            c = self._markCoordinates(mic._coordinates,
+                                      b.getMicrograph(micId)._coordinates,
+                                      self._radius)
+            self._union[micId] = c
+
+    def iterCoordinates(self, micId):
+        # Re-implement this to show only these above the threshold
+        # or with a different color (label)
+        for coord in self._getCoordsList(micId):
+            yield coord
+
     def getColumns(self):
         """ Return a Column list that will be used to display micrographs. """
         return [
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
             ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
+            ColumnConfig('A', dataType=TYPE_INT, editable=True),
+            ColumnConfig('B', dataType=TYPE_INT, editable=True),
+            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
         ]
-
-        if self._defaultTableModel is None:
-            micTable = MicrographsTableModel([
-                ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-                ColumnConfig('A', dataType=TYPE_INT, editable=True),
-                ColumnConfig('B', dataType=TYPE_INT, editable=True),
-                ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
-                ColumnConfig('Id', dataType=TYPE_INT, editable=True,
-                             visible=False)
-            ])
-            m1, m2 = self._models
-
-            for i, micId in enumerate(m1):
-                mic1 = m1[micId]
-                mic2 = m2[micId]
-
-                s = self._markCoordinates(mic1, mic2, self._radius)
-                micTable.appendRow([os.path.basename(mic1.getPath()), len(mic1),
-                                    len(mic2), s, micId])
-                self._ref[micId] = i
-
-            self._defaultTableModel = micTable
-
-        return self._defaultTableModel
 
     def getValue(self, row, col):
         """ Return the value of the item in this row, column. """
         mic = self.getMicrographByIndex(row)
+        micId = mic.getId()
 
-        if col == 0:  # Id
-            return mic.getId()
-        elif col == 1:  # Name
+        if col == 0:  # Name
             return os.path.basename(mic.getPath())
-        elif col == 2:  # Coordinates
-            return len(mic)
+        elif col == 1:  # 'A' coordinates
+            return len(self._models[0].getMicrograph(micId))
+        elif col == 2:  # 'B' coordinates
+            return len(self._models[1].getMicrograph(micId))
+        elif col == 3:  # 'AnB' coordinates
+            return self._union.get(micId, 0)
+        elif col == 4:  # 'Id'
+            return mic.getId()
         else:
             raise Exception("Invalid column value '%s'" % col)
 

@@ -370,10 +370,8 @@ class PickerView(qtw.QWidget):
         self.__eraseROIText.setPos(pos.x() + size[0] / 2 - rect2.width(),
                                    pos.y() + size[0] / 2)
 
-
-
     def _onRoiDoubleClick(self, roi):
-        if self._clickAction == PICK:
+        if self._clickAction == PICK and not self._readOnly:
             self.__removeCoordinates([roi])
 
     def _createRoiHandlers(self, coords=None, clear=True):
@@ -449,6 +447,8 @@ class PickerView(qtw.QWidget):
         """ Show or hide the ROI handlers. """
         if not isinstance(roi, pg.ScatterPlotItem):
             funcName = 'show' if show else 'hide'
+            l = roi.getHandles()
+
             for h in roi.getHandles():
                 getattr(h, funcName)()  # show/hide
 
@@ -489,9 +489,6 @@ class PickerView(qtw.QWidget):
         :param clear If True, all ROIs will be removed and created again
             If false, then the size will be updated.
         """
-        if not self._roiList:
-            return
-
         if clear:
             self._destroyRoiHandlers()
             self._createRoiHandlers()
@@ -554,10 +551,12 @@ class PickerView(qtw.QWidget):
 
         def _addCoord(x, y, **kwargs):
             # Create coordinate with event click coordinates and add it
-            coordList = [Coordinate(x, y, label=self.__currentLabelName,
-                                    **kwargs)]
+            coordList = [self._model.createCoordinate(
+                x, y, label=self.__currentLabelName, **kwargs)]
             self._createRoiHandlers(coords=coordList, clear=False)
-            result = self._model.addCoordinates(self._currentMic.getId(), coordList)
+            result = self._model.addCoordinates(self._currentMic.getId(),
+                                                coordList)
+            result.tableModelChanged = True
             self.__handleModelResult(result)
 
         if self.__pickerMode == DEFAULT_MODE:
@@ -582,7 +581,7 @@ class PickerView(qtw.QWidget):
         """ Update the box size to be used. """
         if newBoxSize != self._model.getBoxSize():
             self._model.setBoxSize(newBoxSize)
-            self._updateROIs()
+            self._updateROIs(False)
             self.__eraseROIText.setVisible(False)
 
     def _getSelectedPen(self):
@@ -712,6 +711,7 @@ class PickerView(qtw.QWidget):
             elif self._clickAction == PICK and self.__segmentROI is not None:
                 handler = self.__segmentROI.getHandles()[1]
                 handler.movePoint(origPos)
+
                 d = pg.Point(pos) - pg.Point(self.__segPos)
                 angle = pg.Point(1, 0).angle(d)
                 if angle is not None:
@@ -727,6 +727,7 @@ class PickerView(qtw.QWidget):
 
         if result.currentMicChanged:
             self._showMicrograph()  # This already update coordiantes
+
         elif result.currentCoordsChanged:
             self._updateROIs(clear=True)
 
@@ -1053,7 +1054,8 @@ class FilamentRoiHandler(RoiHandler):
     def _createRoi(self, coord, shape, roiDict, **kwargs):
         """ Create a line or filament according to the given shape. """
         point1 = coord.x, coord.y
-        point2 = coord.y2, coord.y2
+        point2 = coord.x2, coord.y2
+
         if shape == SHAPE_CENTER:
             return pg.LineSegmentROI([point1, point2], **roiDict)
 
@@ -1061,11 +1063,16 @@ class FilamentRoiHandler(RoiHandler):
                                                    kwargs['size'])
         roi = pg.ROI(pos, size=size, angle=angle, **roiDict)
         roi.handleSize = kwargs['handleSize']
-        roi.addScaleRotateHandle([0, 0.5], [1, 0.5])
-        roi.addScaleRotateHandle([1, 0.5], [0, 0.5])
-        roi.addScaleHandle([1, 0], [1, 1])
-        roi.addScaleHandle([0, 1], [0, 0])
-        roi.addScaleHandle([0.5, 1], [0.5, 0.5])
+        h = roi.addScaleRotateHandle([0, 0.5], [1, 0.5])
+        h.hide()
+        h = roi.addScaleRotateHandle([1, 0.5], [0, 0.5])
+        h.hide()
+        h = roi.addScaleHandle([1, 0], [1, 1])
+        h.hide()
+        h = roi.addScaleHandle([0, 1], [0, 0])
+        h.hide()
+        h = roi.addScaleHandle([0.5, 1], [0.5, 0.5])
+        h.hide()
 
         return roi
 
@@ -1079,7 +1086,7 @@ class FilamentRoiHandler(RoiHandler):
 
         coord = self._roi.coordinate
         point1 = coord.x, coord.y
-        point2 = coord.x2, coord.x2
+        point2 = coord.x2, coord.y2
         pos, size, angle = self.__calcFilamentSize(point1, point2, size)
         self._roi.setPos(pos, update=False, finish=False)
         self._roi.setSize(size, update=False, finish=False)

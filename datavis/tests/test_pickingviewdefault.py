@@ -16,8 +16,8 @@ class MyPickerDataModel(dv.tests.SimplePickerDataModel):
     def getParams(self):
         Param = dv.models.Param
         scoreThreshold = Param('scoreThreshold', 'float', value=0.5,
-                           display='slider', range=(0, 1.0),
-                           label='Score threshold',
+                               display='slider', range=(0, 1.0),
+                               label='Score threshold',
                                help='Display coordinates with score above '
                                     'this value.')
 
@@ -25,9 +25,9 @@ class MyPickerDataModel(dv.tests.SimplePickerDataModel):
                           label='Show coordinates below?')
 
         nParam = Param('n', 'int', value=100,
-                           label='Particles:',
-                           help='Number of particles that you will pick randomly'
-                                'from the current micrograph.')
+                       label='Particles:',
+                       help='Number of particles that you will pick randomly'
+                            ' from the current micrograph.')
 
         clear = Param('clear', 'button', label='Clear coordinates')
         pick = Param('pick', 'button', label='Pick Again')
@@ -68,10 +68,11 @@ class MyPickerDataModel(dv.tests.SimplePickerDataModel):
     def getColumns(self):
         """ Return a Column list that will be used to display micrographs. """
         return [
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('Coords', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Coords < Threshold', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=False),
+            ColumnConfig('Coords', dataType=TYPE_INT, editable=False),
+            ColumnConfig('Coords < Threshold', dataType=TYPE_INT,
+                         editable=False),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=False, visible=False)
         ]
 
     def __coordsBelow(self, micId):
