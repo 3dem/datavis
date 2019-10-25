@@ -2,11 +2,118 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-from random import randrange
-import numpy as np
-import pyqtgraph as pg
 
 import datavis as dv
+from datavis.models import ColumnConfig, TYPE_INT, TYPE_STRING
+
+
+class MyPickerDataModel(dv.models.PickerCmpModel):
+    def __init__(self, *args, **kwargs):
+        dv.models.PickerCmpModel.__init__(self, *args, **kwargs)
+        self._scoreThreshold = 0.5
+        # Modify 'Auto' label to set red color
+        self._labels['B'] = self.Label(name='B', color='#FF0000')
+        self._showBelow = True
+
+    def __coordsBelow(self, micId):
+        return len([c for c in self._getCoordsList(micId)
+                    if c.score < self._scoreThreshold])
+
+    def getParams(self):
+        Param = dv.models.Param
+        scoreThreshold = Param('scoreThreshold', 'float', value=0.5,
+                               display='slider', range=(0, 1.0),
+                               label='Score threshold',
+                               help='Display coordinates with score above '
+                                    'this value.')
+
+        proximityRadius = Param('proximityRadius', 'int', value=40,
+                                display='slider', range=(0, 100),
+                                label='Proximity radius',
+                                help='Proximity radius.')
+
+        showBelow = Param('showBelow', 'bool', value=self._showBelow,
+                          label='Show coordinates below?')
+
+        nParam = Param('n', 'int', value=100,
+                       label='Particles:',
+                       help='Number of particles that you will pick randomly'
+                            ' from the current micrograph.')
+
+        clear = Param('clear', 'button', label='Clear coordinates')
+        pick = Param('pick', 'button', label='Pick Again')
+
+        return dv.models.Form([
+            [scoreThreshold, showBelow],
+            [proximityRadius, nParam],
+            pick,
+            clear
+        ])
+
+    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+        # Most cases here will modify the current coordinates
+        r = self.Result(currentCoordsChanged=True, tableModelChanged=True)
+
+        if paramName in ['pick', 'n']:
+            values = getValuesFunc()
+            self._models[0].pickRandomly(micId, n=values['n'])
+            self._models[1].pickRandomly(micId, n=values['n'])
+            self.markAll()
+        elif paramName == 'scoreThreshold':
+            self._scoreThreshold = getValuesFunc()['scoreThreshold']
+        elif paramName == 'clear':
+            self.clearMicrograph(micId)
+        elif paramName == 'showBelow':
+            self._showBelow = getValuesFunc()['showBelow']
+        else:
+            r = dv.models.PickerCmpModel.changeParam(self, micId, paramName,
+                                                     paramValue, getValuesFunc)
+        return r
+
+    def iterCoordinates(self, micId):
+        # Re-implement this to show only these above the threshold
+        # or with a different color (label)
+        for coord in self._getCoordsList(micId):
+            good = coord.score > self._scoreThreshold
+            if good or self._showBelow:
+                yield coord
+
+    def getRowsCount(self):
+        return self._models[0].getRowsCount()
+
+    def getData(self, micId):
+        return self._models[0].getData(micId)
+
+    def getImageInfo(self, micId):
+        return self._models[0].getImageInfo(micId)
+
+    def getValue(self, row, col):
+        mic = self.getMicrographByIndex(row)
+        micId = mic.getId()
+
+        if col == 0:  # Name
+            return mic.getPath()
+        elif col == 1:  # 'A' coordinates
+            return len(self._models[0].getMicrograph(micId))
+        elif col == 2:  # 'B' coordinates
+            return len(self._models[1].getMicrograph(micId))
+        elif col == 3:  # 'AnB' coordinates
+            return dv.models.PickerCmpModel.getValue(self, row, col)
+        elif col == 4:  # Coordinates
+            mic2 = self._models[1].getMicrographByIndex(row)
+            return len(mic2) + len(mic) - self.__coordsBelow(micId)
+        else:
+            raise Exception("Invalid column value '%s'" % col)
+
+    def getColumns(self):
+        return [
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
+            ColumnConfig('A', dataType=TYPE_INT, editable=True),
+            ColumnConfig('B', dataType=TYPE_INT, editable=True),
+            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Coords < Threshold', dataType=TYPE_INT,
+                         editable=False)
+        ]
 
 
 class TestPickerCmpView(dv.tests.TestView):
@@ -35,117 +142,15 @@ class TestPickerCmpView(dv.tests.TestView):
 
         w, h = self._w, self._h
         boxSize = kwargs.get('boxSize', 40)
-        model1 = dv.tests.createSimplePickerDataModel((w, h), boxSize)
-        model2 = dv.tests.createSimplePickerDataModel((w, h), boxSize)
+        model1 = dv.tests.createSimplePickerDataModel((w, h), self._size,
+                                                      boxSize, self._picks)
+        model2 = dv.tests.createSimplePickerDataModel((w, h), self._size,
+                                                      boxSize, self._picks)
 
-        for i in range(self._size):
-            micId = i + 1
-            name = 'Image #%d' % micId
-            coordsA = [
-                dv.models.Coordinate(x, y, threshold=randrange(0, 100)*0.01)
-                for x, y in {(randrange(0, w), randrange(0, h))
-                             for i in range(randrange(1, self._picks))}
-            ]
-            coordsB = [
-                dv.models.Coordinate(x, y, threshold=randrange(0, 100) * 0.01)
-                for x, y in {(randrange(0, w), randrange(0, h))
-                             for i in range(randrange(1, self._picks))}
-            ]
-
-            model1.addMicrograph(dv.models.Micrograph(micId, name, coordsA))
-            model2.addMicrograph(dv.models.Micrograph(micId, name, coordsB))
-
-        model = ThresholdPickerModel(model1, model2, boxSize=self._box,
-                                     radius=self._radius,
-                                     imageSize=(self._w, self._h))
+        model = MyPickerDataModel(model1, model2, boxSize=self._box,
+                                  radius=self._radius)
 
         return dv.views.PickerView(None, model, **kwargs)
-
-
-class ThresholdPickerModel(dv.models.PickerCmpModel):
-    """ """
-    def __init__(self, model1, model2, boxSize=64, radius=64, threshold=0,
-                 imageSize=(512, 512)):
-        dv.models.PickerCmpModel.__init__(self, model1, model2, boxSize=boxSize,
-                                          radius=radius)
-        self._threshold = threshold
-        self._images = dict()
-        self._cache = {}
-        self._imageSize = imageSize
-
-    def __getitem__(self, micId):
-        mic = dv.models.PickerCmpModel.__getitem__(self, micId)
-        self.__applyThreshold(mic)
-
-        return mic
-
-    def __applyThreshold(self, mic):
-        """
-        Apply the current threshold to the given micrograph
-        :param mic: (Micrograph) The micrograph
-        """
-        coords = list(mic)
-        mic.clear()
-        for c in coords:
-            if c.threshold >= self._threshold:
-                mic.addCoordinate(c)
-
-    def onParamChanged(self, paramName, value):
-        dv.models.PickerCmpModel.onParamChanged(self, paramName, value)
-        if paramName == 'threshold':
-            self._threshold = value * 0.01
-
-    def getData(self, micId):
-        """
-        Return the micrograph image data
-        :param micId: (int) The micrograph id
-        :return: The micrograph image data
-        """
-        if micId in self._cache:
-            data = self._cache[micId]
-        else:
-            #  simulating image data
-            data = pg.gaussianFilter(np.random.normal(size=self._imageSize),
-                                     (5, 5))
-            self._cache[micId] = data
-
-        return data
-
-    def getImageInfo(self, micId):
-        """
-        Return some specified info from the given image path.
-        dim : Image dimensions
-        ext : File extension
-        data_type: Image data type
-
-        :param micId:  (int) The micrograph Id
-        :return: dict
-        """
-        return {'dim': self._imageSize}
-
-    def getParams(self):
-        pickerParams = [
-            {
-                'name': 'threshold',
-                'type': 'float',
-                'value': 0,
-                'range': (0., 1),
-                'label': 'Quality threshold',
-                'help': 'Quality threshold',
-                'display': 'slider'
-            },
-            {
-                'name': 'radius',
-                'type': 'int',
-                'value': self._radius,
-                'range': (1, int(self._imageSize[0]/3)),
-                'label': 'Radius',
-                'help': 'Radius',
-                'display': 'slider'
-            }
-        ]
-
-        return dv.models.Form.load(pickerParams)
 
 
 if __name__ == '__main__':
