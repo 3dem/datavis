@@ -65,12 +65,13 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.0',  # Required
+    version='0.0.1',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#summary
-    description='Web application for monitoring EM results',  # Required
+    description='Visualization tools for Scientific Data analysis '
+                '(e.g Images and Tables)',  # Required
 
     # This is an optional longer description of your project that represents
     # the body of text which users will see when they visit PyPI.
@@ -90,11 +91,13 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='J.M. De la Rosa Trevin',  # Optional
+    author='J.M. De la Rosa Trevin,'
+           'Pedro Hernandez Viga',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='delarosatrevin@scilifelab.se',  # Optional
+    author_email='delarosatrevin@scilifelab.se, '
+                 'phviga2015@gmail.com',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
@@ -141,8 +144,7 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    # TODO: we need to add also the dependency of emcore
-    install_requires=['QtPy', 'QtAwesome', 'pyqtgraph',
+    install_requires=['QtPy', 'QtAwesome', 'pyqtgraph', 'PyQt5',
                       'numpy', 'matplotlib',
                       'Pillow'],  # Optional
 
