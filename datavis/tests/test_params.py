@@ -56,9 +56,7 @@ form = dv.models.Form([[name, surname],
                        [gender, age, happy],
                        [job, hobby, scale],
                        [conditions, submit]
-])
-
-
+                       ])
 
 centralWidget = dv.widgets.FormWidget(form, parent=None)
 

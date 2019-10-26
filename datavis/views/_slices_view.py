@@ -66,7 +66,6 @@ class SlicesView(qtw.QWidget):
 
         self._spinSlider.sigValueChanged.connect(self._onSliceChanged)
 
-    @qtc.pyqtSlot(int)
     def _onSliceChanged(self, value):
         """ Load the slice """
         value -= 1
