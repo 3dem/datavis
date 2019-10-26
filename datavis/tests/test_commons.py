@@ -321,7 +321,8 @@ def getPythonCodeExample():
            "            self._cache[micId] = pg.gaussianFilter(\n" \
            "                np.random.normal(size=self._imageSize), (5, 5))\n" \
            "\n" \
-           "        return self._cache[micId]"
+           "        return self._cache[micId]" \
+           ""
 
 
 def getJsonTextExample():

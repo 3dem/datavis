@@ -258,8 +258,11 @@ class TextView(qtw.QPlainTextEdit):
         self._highlighter = None
 
         self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
-        self.updateRequest.connect(self.updateLineNumberAreaWidth)
+        self.updateRequest.connect(self.updateLineNumberArea)
         self.cursorPositionChanged.connect(self.highlightCurrentLine)
+
+        self.updateLineNumberAreaWidth(0)
+        self.highlightCurrentLine()
 
     def setHighlighter(self, highlighter):
         """ Set the document highlighter """
@@ -327,11 +330,11 @@ class TextView(qtw.QPlainTextEdit):
 
     def updateLineNumberArea(self, rect, dy):
         if dy:
-            self.lineNumberArea.scroll(0, dy)
+            self._lineNumberArea.scroll(0, dy)
         else:
-            self.lineNumberArea.update(0, rect.y(),
-                                       self.lineNumberArea.width(),
-                                       rect.height())
+            self._lineNumberArea.update(0, rect.y(),
+                                        self._lineNumberArea.width(),
+                                        rect.height())
 
         if rect.contains(self.viewport().rect()):
             self.updateLineNumberAreaWidth(0)
