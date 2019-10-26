@@ -297,7 +297,7 @@ class ImageMaskListView(ImageListView):
             panel = self._rightPanel.getWidget('bottomRightPanel')
             panel.setVisible(False)
 
-    @qtc.pyqtSlot(int)
+    @qtc.pyqtSlot(object)
     def __onSpinSliderValueChanged(self, value):
         """ Slot for SpinSlider value changed """
         imageView = self.__getImageView()
