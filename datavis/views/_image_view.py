@@ -20,7 +20,8 @@ from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
 
 
 class ImageView(qtw.QWidget):
-    """ This widget provides functionality for displaying images.
+    """ This widget provides functionality for displaying images provided by a
+    :class:`ImageModel <datavis.models.ImageModel>`.
 
     This class also allows to perform basic display operations over the
     data that is being displayed such as: rotations, zoom, drag and flips,
@@ -72,26 +73,25 @@ class ImageView(qtw.QWidget):
                             {'color': '#FFF', 'font-size': '14pt'}
                         * labelText:  (str) The label text
             labelY:    Same as labelX.
-            levels:    (min, max) Pass the min and max range that will be used for
-                       image display. By default is None, so the data from the
-                       pixel values will be used. Passing a different range is
-                       useful for normalization of the slices in volumes.
-            preferredSize: (list of tuples). The first element is the image size and
-                           the second element is the preferred size.
+            levels:    (min, max) Pass the min and max range that will be used
+                       for image display. By default is None, so the data from
+                       the pixel values will be used. Passing a different range
+                       is useful for normalization of the slices in volumes.
+            preferredSize: (list of tuples). The first element is the image size
+                           and the second element is the preferred size.
 
-            maskParams Dictionary with mask-related params. Following are
+            maskParams: Dictionary with mask-related params. Following are
                 some possible values in this dict:
 
                 * type:
-
                     * ROI_CIRCLE (display a circular mask from center) or
                     * ROI_RECT (display rectangular mask from center) or
-                    * CONSTANT (generate a data mask with given constant value) or
-                    * DATA (just provide a data mask as numpy array)
-                * data: If the type is ROI_CIRCLE or ROI_RECT, it is the value of the
-                    radius of the mask. If type is CONSTANT it is the value of
-                    entire mask. Finally, if the type is DATA, this should be a
-                    numpy array with values of the mask.
+                    * CONSTANT (generate data mask with given constant value) or
+                    * DATA (just provide data mask as numpy array)
+                * data: If the type is ROI_CIRCLE or ROI_RECT, it is the value
+                    of the radius of the mask. If type is CONSTANT it is the
+                    value of entire mask. Finally, if the type is DATA, this
+                    should be a numpy array with values of the mask.
                 * color: (QColor or str) The color for the mask.
                     Example: '#66212a55' in ARGB format.
                 * operation: What operation will be performed in the mask
@@ -154,7 +154,7 @@ class ImageView(qtw.QWidget):
         self.setModel(model)
 
     def __setupGUI(self):
-        """ This is the standard method for the GUI creation """
+        """ This is the internal method for the GUI creation """
         self._mainLayout = qtw.QHBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -326,8 +326,9 @@ class ImageView(qtw.QWidget):
 
     def __viewBoxMouseMoved(self, pos):
         """
-        This slot is invoked when the mouse is moved hover de View
-        :param pos: The mouse pos
+        This slot is invoked when the mouse is moved hover the pyqtgraph.ViewBox
+        Args:
+            pos: The mouse pos
         """
         if (self._maskItem is not None and
                 self._maskItem.isVisible() and
@@ -415,7 +416,7 @@ class ImageView(qtw.QWidget):
         self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
 
     def __resetMask(self):
-        """ Reset the image mask """
+        """ Reset the image mask according to the mask operation """
         if isinstance(self._maskItem, _CustomMaskItem):
             data = self._maskItem.image
             v = 2 if self._maskOperation == REMOVE else 0
@@ -423,14 +424,15 @@ class ImageView(qtw.QWidget):
             self._maskItem.updateImage()
 
     def __invertMask(self):
-        """ Invert the image mask """
+        """ Invert the image mask data"""
         if isinstance(self._maskItem, _CustomMaskItem):
             data = self._maskItem.image
             data[...] = 3 - data
             self._maskItem.updateImage()
 
     def __onSelectColor(self):
-        """ Invoked when select color action is triggered """
+        """ Invoked when select color action is triggered. Show a QColorDialog
+        for color selection """
         color = qtw.QColorDialog.getColor(
             initial=self._maskColor, parent=self, title='Mask Color Selector',
             options=qtw.QColorDialog.ShowAlphaChannel)
@@ -447,7 +449,8 @@ class ImageView(qtw.QWidget):
             self._actMaskCreatorShowHide.set(True)
 
     def __onSpinBoxMaskPenValueChanged(self, size):
-        """ Invoked when the pen size is changed """
+        """ Invoked when the spinbox pen size is changed. Resize the pen and
+        creates a new mask brush """
         self.__createMaskCreatorBrush(size)
         pos = self._maskPen.pos()
         oldSize = self._maskPen.size()
@@ -457,7 +460,8 @@ class ImageView(qtw.QWidget):
         self._maskPen.setPos(pos - (newsize-oldSize) / 2)
 
     def __onMaskCreatorShowHideTriggered(self, state):
-        """ Invoked when action mask-creator-show-hide is triggered """
+        """ Invoked when action mask-creator-show-hide is triggered.
+        Show or hide the image mask """
         cursor = qtc.Qt.ArrowCursor
         self._maskPen.setVisible(False)
         if self._actMaskCreatorShowHide.get():
@@ -475,7 +479,8 @@ class ImageView(qtw.QWidget):
         self.__onSpinBoxMaskPenValueChanged(self._spinBoxMaskPen.getValue())
 
     def __onActionMaskToggled(self, button, checked):
-        """ Invoked que the action mask button is toggled """
+        """ Invoked when the action mask button is toggled. Creates a new mask
+        brush according to the current mask operation (ADD or REMOVE) """
         if checked:
             if button == self._radioButtonRemoveMask:
                 pen = self._removeMaskPen
@@ -505,7 +510,8 @@ class ImageView(qtw.QWidget):
                                          mode=self.__drawMask)
 
     def __drawMask(self, dk, image, mask, ss, ts, ev):
-        """ Function passed to ImageItem for draw mode """
+        """ Function passed to pyqtgraph.ImageItem for draw mode.
+        For more information, you can see pyqtgraph.ImageItem.setDrawKernel """
         mask = mask[ss]
         if self._radioButtonAddMask.isChecked():
             image[ts] |= 1 + mask
@@ -515,7 +521,11 @@ class ImageView(qtw.QWidget):
         self._maskItem.updateImage()
 
     def __createMaskItem(self, data=0):
-        """ Create the mask item, initializing the mask with the given value """
+        """ Create the mask item, initializing the mask with the given value.
+
+        Args:
+            data: int or numpy array
+        """
         imageItem = self.getImageItem()
         w, h = (imageItem.width(), imageItem.height())
         viewBox = self.getViewBox()
@@ -602,8 +612,13 @@ class ImageView(qtw.QWidget):
     def __getPreferredImageSize(self, width, height):
         """
         Return the preferred image size for the given size
-        :param width: (int)
-        :param height: (int)
+
+        Args:
+            width: (int)
+            height: (int)
+
+        Returns:
+            A tupple, representing the preferred size
         """
         size = max(width, height)
         if size < self._sizePref[0]:
@@ -651,12 +666,10 @@ class ImageView(qtw.QWidget):
         self._actVerFlip.setChecked(False)
         self._actHorFlip.setChecked(False)
 
-    def __groupVisibleItems(self):
+    def __getVisibleItemsBoundingRect(self):
         """
-        Groups all visible items into a new QGraphicsItemGroup.
-        :param axis: (boolean) if True then inserts the visible axis items
-                               into the group.
-        :return: (QGraphicsItemGroup)
+        Return the bounding rectangle of all visible items.
+        Returns: (QRectF)
         """
         v = self.getViewBox()
         scene = v.scene()
@@ -671,7 +684,10 @@ class ImageView(qtw.QWidget):
         return boundingRect
 
     def __calcImageScale(self):
-        """ Return the image scale """
+        """ Calculate the image scale
+
+        Returns: (float) the image scale
+        """
         viewBox = self.getViewBox()
         bounds = viewBox.rect()
         vr = viewBox.viewRect()
@@ -681,7 +697,7 @@ class ImageView(qtw.QWidget):
         return scale
 
     def __onRoiRegionChanged(self, roi):
-        """ Slot for roi region changed """
+        """ Slot for roi mask region changed """
         self.__updateMaskTextPos()
         width = roi.boundingRect().width()
         b = self._imageView.getImageItem().boundingRect()
@@ -694,6 +710,8 @@ class ImageView(qtw.QWidget):
         self._textItem.setVisible(True)
 
     def __onRoiRegionChangedStarted(self, o):
+        """
+        Slot for roi mask region changed started. """
         self.__updateMaskTextPos()
         self._textItem.setVisible(True)
 
@@ -730,7 +748,8 @@ class ImageView(qtw.QWidget):
     def __normalizeMask(self):
         """
         Normalize the mask by setting the pixel values to 0 and 1
-        :return: (u8bit numpy array) the mask
+
+        Returns: (u8bit numpy array) the mask
         """
         if self._maskItem is not None:
             data = self._maskItem.image
@@ -757,17 +776,20 @@ class ImageView(qtw.QWidget):
 
     @qtc.pyqtSlot(int)
     def __actAxisTriggered(self, state):
-        """ This slot is invoked when the action histogram is triggered """
+        """ This slot is invoked when the action histogram is triggered.
+        Sets the axis orientation """
         self.setAxisOrientation(state)
 
     @qtc.pyqtSlot(int)
     def __actHistOnOffChanged(self, state):
-        """ This slot is invoked when the action histogram is triggered """
+        """ This slot is invoked when the action histogram is triggered.
+        Show or hide the  histogram widget """
         self._imageView.ui.histogram.setVisible(bool(state))
 
     @qtc.pyqtSlot(int)
     def __actAxisOnOffTriggered(self, state):
-        """ This slot is invoked when the action histogram is triggered """
+        """ This slot is invoked when the action axis-on-off is triggered.
+        Show or hide the axis """
         self._yAxisArgs['visible'] = self._xAxisArgs['visible'] = bool(state)
         self.__setupAxis()
 
@@ -784,13 +806,18 @@ class ImageView(qtw.QWidget):
     @qtc.pyqtSlot(float)
     def __onSpinBoxScaleValueChanged(self, value):
         """
-        This slot is invoked when the spinbox value for image scale is changed
+        This slot is invoked when the spinbox value for image scale is changed.
+        Set the given scale to this ImageView
         """
         self.setScale(value * 0.01)
 
     @qtc.pyqtSlot(object)
     def __onImageScaleChanged(self, view):
-        """ Invoked when the image scale has changed """
+        """ Invoked when the image scale has changed. This slot is connected to
+        the sigTransformChanged pyqtgraph.ViewBox used for the internal
+        pyqtgraph.ImageView. Update the spinbox image scale and emits
+        sigScaleChanged
+        """
 
         if not self.__updatingImage:
             self.__viewRect = self.getViewRect()
@@ -802,8 +829,10 @@ class ImageView(qtw.QWidget):
 
     def setRoiMaskSize(self, size):
         """
-        Set size for the roi mask
-        :param size: (int) The roi size
+        Sets the size to the roi mask. If the ROI mask has been configured,
+        then sets a new size to the roi mask.
+        Args:
+            size: (int) The roi size
         """
         if isinstance(self._maskItem, _MaskItem):
             width = self._roi.boundingRect().width()
@@ -817,17 +846,16 @@ class ImageView(qtw.QWidget):
                 self._textItem.setVisible(False)
 
     def setRoiMaskSizeVisible(self, visible):
-        """ Show or hide the TextItem used for the roi mask size """
+        """ Show or hide the TextItem used to display the roi mask size """
         self._textItem.setVisible(visible)
 
     def getMask(self):
-        """ Return mask """
+        """ Return the current image mask data """
         return self._maskItem.getMask() if self._maskItem else self._maskData
 
     def getMaskSize(self):
-        """
-        Return the mask size
-        """
+        """ Return the image mask size. This function si valid only if a roi
+        mask has been configured and return None in other case """
         if self._roi:
             return int(self._roi.boundingRect().width())
         return None
@@ -844,9 +872,11 @@ class ImageView(qtw.QWidget):
 
     def setMaskColor(self, color):
         """
-        Set the mask color
-        :param color: (str) The color in #ARGB format. Example: #22AAFF00
-                      or (qtg.QColor)
+        Set the mask color.
+
+        Args:
+            color: (str) The color in #ARGB format. Example: #22AAFF00
+                         or (qtg.QColor)
         """
         if self._maskItem:
             self._maskItem.setMaskColor(qtg.QColor(color))
@@ -923,7 +953,8 @@ class ImageView(qtw.QWidget):
         self.__setupAxis()
 
     def getViewBox(self):
-        """ Return the pyqtgraph.ViewBox. """
+        """ Return the pyqtgraph.ViewBox used for the internal
+        pyqtgraph.ImageView. See pyqtgraph.ImageView"""
         view = self._imageView.getView()
         if isinstance(view, pg.PlotItem):
             view = view.getViewBox()
@@ -979,19 +1010,20 @@ class ImageView(qtw.QWidget):
         self.sigScaleChanged.emit(self._scale)
 
     def updateImageScale(self):
-        """ Update the image scale """
+        """ Update the image scale, calculating the current scale. """
         self.__viewRect = self.getViewRect()
         self._scale = self.__calcImageScale()
 
     def setLevels(self, levels):
         """ Set levels for the display. """
-        # FIXME: The image display should not be updated after the
-        #   change in the display levels?
         self._levels = levels
+        if self._model is not None:
+            #  reload the image data with the new levels
+            self.imageModelChanged()
 
     @qtc.pyqtSlot()
     def imageModelChanged(self):
-        """ Call this function when the image model has been modified externally.
+        """ Call this function when the image model has been modified externally
 
         In this case, the ImageView will need to be notified so that the view
         can be updated.
@@ -1006,8 +1038,11 @@ class ImageView(qtw.QWidget):
         self.__updatingImage = False
 
     def setViewRect(self, rect):
-        """ Set the current view rect
-        :param rect: (qtc.QRect) The view rect
+        """ Set the current view rect.
+        The view rect is the rect region that will be visible in the view.
+
+        Args:
+            rect: (QRect) The view rect
         """
         self._imageView.getView().setRange(rect=rect, padding=0.0)
 
@@ -1016,7 +1051,8 @@ class ImageView(qtw.QWidget):
         """
         Make a rotation according to the given angle.
         Does not modify the image.
-        :param angle: (int) The angle(in degrees)
+        Args:
+            angle: (int) The angle(in degrees)
         """
         imgItem = self._imageView.getImageItem()
 
@@ -1092,15 +1128,18 @@ class ImageView(qtw.QWidget):
         self._toolBar.setVisible(visible)
 
     def showMenuButton(self, visible=True):
-        """ Show or hide the menu button. """
+        """ Show or hide the menu button used by the internal
+        pyqtgraph.ImageView """
         self._imageView.ui.menuBtn.setVisible(visible)
 
     def showRoiButton(self, visible=True):
-        """ Show or hide the ROI button. """
+        """ Show or hide the ROI button. used by the internal
+        pyqtgraph.ImageView """
         self._imageView.ui.menuBtn.setVisible(visible)
 
     def showHistogram(self, visible=True):
-        """ Show or hide the histogram widget. """
+        """ Show or hide the histogram widget used by the internal
+        pyqtgraph.ImageView. """
         self._imageView.ui.histogram.setVisible(visible)
 
     def setImageInfo(self, **kwargs):
@@ -1125,29 +1164,24 @@ class ImageView(qtw.QWidget):
         self._textEditPath.setText(text)
 
     def getViewRect(self):
-        """ Returns the view rect area. """
+        """ Returns the view rect area. See pyqtgraph.ViewBox.viewRect() """
         view = self.getViewBox()
 
         return view.viewRect()
 
     def getView(self):
-        """ Returns the internal widget used for display image """
+        """ Returns the widget used for the internal pyqtgraph.ImageView
+        to display image data.
+
+        Returns: pyqtgraph.ViewBox (or other compatible object)
+                 used by pyqtgraph.ImageView to display the image data """
         return self._imageView.getView()
 
-    def setViewSize(self, x, y, width, height):
-        """ Sets the view size """
-        # TODO review
-        plot = self._imageView.getView()
-        if isinstance(plot, pg.PlotItem):
-            if self._xAxisArgs['visible']:
-                height += plot.getAxis("bottom").height()
-            if self._yAxisArgs['visible']:
-                width += plot.getAxis("left").height()
-
-        self._imageView.setGeometry(x, y, width, height)
-
     def getViewSize(self):
-        """ Returns the image view size. """
+        """ Returns the image view size.
+
+        Returns: A tupple (width, height) representing the view size
+        """
         hw = self._imageView.ui.histogram.item.width() \
             if self._showHistogram else 0
 
@@ -1163,7 +1197,12 @@ class ImageView(qtw.QWidget):
         return width, height
 
     def getImageItem(self):
-        """ See pyqtgraph.ImageView.getImageItem """
+        """ Return the ImageItem object used for in pyqtgraph.ImageView.
+         See pyqtgraph.ImageView.getImageItem
+
+         Returns:
+             pyqtgraph.ImageItem
+         """
         return self._imageView.getImageItem()
 
     def getToolBar(self):
@@ -1228,7 +1267,7 @@ class ImageView(qtw.QWidget):
         """ Set de image scale.
 
         Args:
-            scale: (float) The image scale.
+            scale: (float) The new image scale.
         """
         viewBox = self.getViewBox()
         if scale == 0:
@@ -1244,7 +1283,9 @@ class ImageView(qtw.QWidget):
     def setXLink(self, imageView):
         """
         Link the X axis to another ImageView.
-        :param imageView: (ImageView) The ImageView widget to be linked
+
+        Args:
+            imageView: (ImageView) The ImageView widget to be linked
         """
         if isinstance(imageView, ImageView):
             local = self.getView()
@@ -1254,7 +1295,8 @@ class ImageView(qtw.QWidget):
     def setYLink(self, imageView):
         """
         Link the Y axis to another ImageView.
-        :param imageView: (ImageView) The ImageView widget to be linked
+        Args:
+            imageView: (ImageView) The ImageView widget to be linked
         """
         if isinstance(imageView, ImageView):
             local = self.getView()
@@ -1269,16 +1311,17 @@ class ImageView(qtw.QWidget):
         However, common formats such as PNG, JPG, and TIFF are almost always
         available.
 
-        :param path:       (str) The image path. If no path is specified,
-                           then a save dialog will be displayed
-        :param background: (str or qtg.QColor) The background color
-        :param antialias:  (boolean) Use antialiasing for render the image
-        :param exportView: (boolean) If true, all the view area will be exported
-                                     else export the image
+        Args:
+            path:       (str) The image path. If no path is specified,
+                        then a save dialog will be displayed
+            background: (str or qtg.QColor) The background color
+            antialias:  (boolean) Use antialiasing for render the image
+            exportView: (boolean) If true, all the view area will be exported
+                        else export the image
         """
         v = self.getView()
         if not exportView:
-            rect = self.__groupVisibleItems()
+            rect = self.__getVisibleItemsBoundingRect()
             width = rect.width()/self._scale
             height = rect.height()/self._scale
             self._exporter = ImageExporter(v.scene(), rect)
@@ -1307,7 +1350,10 @@ class ImageView(qtw.QWidget):
         self._exporter.export(path)
 
     def getMaskImage(self):
-        """ Return the mask created by the user using the Mask Creator Tools """
+        """ Return the mask created by the user using the Mask Creator Tools.
+
+        Returns: (u8bit numpy array) or None
+        """
         return self.__normalizeMask()
 
     def getMaskType(self):
@@ -1325,31 +1371,43 @@ class ImageExporter(pgImageExporter):
     always available.
     """
     def __init__(self, item, sourceRect):
+        """
+        Creates an ImageExporter object.
+
+        Args:
+            item: the item to be exported. Can be an individual graphics item
+            or a scene.
+            sourceRect: (QRect) The source rect
+        """
         self._sourceRect = sourceRect
         pgImageExporter.__init__(self, item)
 
     def setSourceRect(self, rect):
-        """
-        Set the source rect
-        :param rect: (qtc.QRect)
+        """ Set the source rect.
+        Args:
+            rect: (qtc.QRect)
         """
         self._sourceRect = rect
 
     def getTargetRect(self):
+        """ Return the target rect. """
         return self._sourceRect
 
     def getSourceRect(self):
+        """ Return the source rect. """
         return self._sourceRect
 
     def export(self, fileName=None, toBytes=False, copy=False):
         """
         Export the scene to image file.
-        :param fileName: (str)     The file path. If fileName is None,
-                                   pop-up a file dialog.
-        :param toBytes:  (boolean) If toBytes is True, return a bytes object
-                                   rather than writing to file.
-        :param copy:     (boolean) If copy is True, export to the copy buffer
-                                   rather than writing to file.
+
+        Args:
+            fileName: (str)  The file path. If fileName is None,
+                            pop-up a file dialog.
+            toBytes:  (boolean) If toBytes is True, return a bytes object
+                                rather than writing to file.
+            copy:     (boolean) If copy is True, export to the copy buffer
+                                rather than writing to file.
         """
         if fileName is None and not toBytes and not copy:
             if USE_PYSIDE:
@@ -1408,9 +1466,22 @@ class ImageExporter(pgImageExporter):
 
 
 class _MaskItem(qtw.QAbstractGraphicsShapeItem):
-
+    """
+    Represents a graphics mask item that can add to a QGraphicsScene. It can be
+    configured for circle-roi or rect-roi types.
+    """
     def __init__(self, parent, imageItem, roiType=CIRCLE_ROI, size=100,
                  showHandles=True):
+        """
+        Construct a _MaskItem object
+
+        Args:
+            parent: The parent object
+            imageItem: The image item hover the mask will be shown
+            roiType: The roi type. Possible values are: CIRCLE_ROI, RECT_ROI
+            size: (int) The roi size
+            showHandles: If True, the roi handles will be shown
+        """
         if imageItem is None:
             raise Exception("Invalid ImageItem: None value")
 
@@ -1439,7 +1510,7 @@ class _MaskItem(qtw.QAbstractGraphicsShapeItem):
         self._roi.sigRegionChanged.connect(self.__updateRoiRegion)
 
     def __updateRoiRegion(self, o):
-        """ Updates the qtc.Qt object(qtg.QRegion) used in paint method """
+        """ Updates the Qt object(QRegion) used in paint method """
         pos = self._roi.pos()
         rect = self._roi.boundingRect()
         self._roiRegion = qtg.QRegion(pos.x(), pos.y(), rect.width(), rect.height(),
@@ -1448,9 +1519,10 @@ class _MaskItem(qtw.QAbstractGraphicsShapeItem):
     def setMaskColor(self, maskColor):
         """
         Set the mask color
-        :param maskColor: (str) The mask color in ARGB format.
-                                Example: '#22FF00AA'
-                          or (qtg.QColor)
+
+        Args:
+            maskColor: (str) The mask color in ARGB format. Example: '#22FF00AA'
+                        or (qtg.QColor)
         """
         self._maskColor = maskColor
         self.setBrush(qtg.QColor(maskColor))
@@ -1471,7 +1543,7 @@ class _MaskItem(qtw.QAbstractGraphicsShapeItem):
 
     def boundingRect(self):
         """ Return the bounding rect. Reimplemented from
-        qtw.QAbstractGraphicsShapeItem """
+        QAbstractGraphicsShapeItem """
         if self._imageItem:
             return self._imageItem.boundingRect()
         return qtc.QRectF(0, 0, 0, 0)
@@ -1490,22 +1562,27 @@ class _MaskItem(qtw.QAbstractGraphicsShapeItem):
 
     def setMaxBounds(self, bounds):
         """
-        :param bounds:(qtc.QRect, qtc.QRectF, or None) Specifies boundaries that
-                      the ROI
+        Set the max bounds
+
+        Arg:
+            bounds:(QRect, QRectF, or None) Specifies boundaries that the ROI
                       cannot be dragged outside of by the user. Default is None.
         """
         self._roi.maxBounds = bounds
 
 
 class _CustomMaskItem(pg.ImageItem):
-
+    """ Represents a graphics image mask item that can add to a QGraphicsScene.
+    It can be configured with specific mask data and color """
     def __init__(self, imageItem, maskColor, maskData):
         """
-        :param imageItem: (pg.ImageItem) The image item
-        :param maskColor: (str) The mask color in ARGB format.
-                                Example: '#22FF00AA'
-                          or (QColor)
-        :param maskData:  (numpy array) The mask data
+        Construct an _CustomMaskItem object
+
+        Args:
+            imageItem: (pyqtgraph.ImageItem) The image item
+            maskColor: (str) The mask color in ARGB format. Example: '#22FF00AA'
+                        or (QColor)
+            maskData:  (numpy array) The mask data
         """
         if imageItem is None:
             raise Exception("Invalid ImageItem: None value")
@@ -1517,10 +1594,11 @@ class _CustomMaskItem(pg.ImageItem):
 
     def setMaskColor(self, maskColor):
         """
-        Set the mask color
-        :param maskColor: (str) The mask color in ARGB format.
-                                Example: '#22FF00AA'
-                          or (QColor)
+        Set the mask color.
+
+        Args:
+            maskColor: (str) The mask color in ARGB format. Example: '#22FF00AA'
+                        or (QColor)
         """
         self._maskColor = maskColor
         if maskColor is not None:
@@ -1540,6 +1618,7 @@ class _CustomMaskItem(pg.ImageItem):
 
     def setMaxBounds(self, bounds):
         """
+        Set the maz bounds
         :param bounds: (QRect, QRectF, or None) Specifies mask boundaries.
                        Default is None.
         """
@@ -1554,7 +1633,9 @@ class EMImageItemDelegate(qtw.QStyledItemDelegate):
     def __init__(self, parent=None):
         """
         Constructs a EMImageItemDelegate.
-        :param parent:  (QObject) The parent object
+
+        Args:
+            parent:  (QObject) The parent object
         """
         qtw.QStyledItemDelegate.__init__(self, parent)
         self._imageView = ImageView(None, toolBar=False, axis=False)
@@ -1569,7 +1650,7 @@ class EMImageItemDelegate(qtw.QStyledItemDelegate):
 
     def paint(self, painter, option, index):
         """
-        Reimplemented from qtw.QStyledItemDelegate
+        Reimplemented from QStyledItemDelegate
         """
         if not index.isValid():
             return
@@ -1666,22 +1747,26 @@ class EMImageItemDelegate(qtw.QStyledItemDelegate):
 
     def _getThumb(self, index, height=64):
         """
-        If the thumbnail stored in Image Cache
-        :param index: QModelIndex
-        :param height: height to scale the image
+        Return the image data provided by the given index
+
+        Arg:
+            index: QModelIndex
+            height: height to scale the image
         """
         imgData = index.data(widgets.DATA_ROLE)
 
         return imgData
 
     def getImageView(self):
-        """ Return the ImageView used to render de icons """
+        """ Return the ImageView used to render de thumbnails """
         return self._imageView
 
     def setLevels(self, levels):
         """
         Set levels for the image configuration.
-        :param levels: (tupple) Minimum an maximum pixel values
+
+        Args:
+            levels: (tupple) Minimum an maximum pixel values
         """
         self._imageView.setLevels(levels)
 
@@ -1691,7 +1776,7 @@ class EMImageItemDelegate(qtw.QStyledItemDelegate):
 
 
 class PenROI(pg.CircleROI):
-    """ Circular ROI subclass without handles """
+    """ Circular ROI subclass without handles. """
     def __init__(self, pos, size, **args):
         pg.ROI.__init__(self, pos, size, **args)
 

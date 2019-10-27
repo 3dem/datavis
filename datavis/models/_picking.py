@@ -89,7 +89,7 @@ class Micrograph:
 class PickerDataModel(TableModel):
     """ Handles information about Coordinates and Micrographs.
 
-    The PickerDataModel class contais a set of micrographs, where each
+    The PickerDataModel class contains a set of micrographs, where each
     micrograph contains a set of coordinates. Coordinates are essentially
     (x, y) position and can also have a given label. Labels are created by
     the PickerDataModel and will be used to classify different types of
