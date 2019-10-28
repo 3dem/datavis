@@ -371,7 +371,7 @@ class ImageView(qtw.QWidget):
         self._spinBoxMaskPen = widgets.IconSpinBox(
             maskPanel, valueType=int, minValue=5, maxValue=10000,
             currentValue=self._maskPenSize, iconName='fa5s.pen', iconSize=16,
-            sufix=' px')
+            suffix=' px')
         self._spinBoxMaskPen.sigValueChanged[int].connect(
             self.__onSpinBoxMaskPenValueChanged)
         self._spinBoxMaskPen.setMinimumHeight(30)
