@@ -12,7 +12,7 @@ class ImageModel:
     """
 
     def __init__(self, data=None, location=None):
-        """ Create a new ImageModel, optioanlly providing data array or location.
+        """ Create a new ImageModel, optionally providing data array or location.
 
         Args:
             data: An initial numpy array can be provided.
