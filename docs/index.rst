@@ -6,11 +6,11 @@ Welcome to datavis and emvis!
     :maxdepth: 2
     :caption: Guide
 
-    overview
-    image
-    table
-    composed
-    picker
+    guide/overview
+    guide/image
+    guide/table
+    guide/composed
+    guide/picker
 
 .. toctree::
     :maxdepth: 2

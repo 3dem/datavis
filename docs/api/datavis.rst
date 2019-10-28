@@ -25,9 +25,9 @@ views
 .. toctree::
     :maxdepth: 2
 
-    views/image
-    views/table
-    views/picking
+    views_image
+    views_table
+    views_picking
 
 widgets
 -------
