@@ -15,26 +15,34 @@ from ._constants import PIXEL_UNITS, GALLERY, SLICES, CIRCLE_ROI, RECT_ROI
 
 class VolumeView(qtw.QWidget):
     """
-    Allow to display a volume and switch between MultiSlicesView​and GalleryView
+    Allow to display a volume and switch between
+    :class:`MultiSlicesView <datavis.views.MultiSlicesView>`​ and
+    :class:`GalleryView <datavis.views.GalleryView>`.
     In case of multiple volumes, this view could be extended with a way
     to select which volume to display.
     """
     def __init__(self, parent, **kwargs):
         """
-        :param parent:  (QWidget) Parent widget
-        :param kwargs:
-           model:          (VolumeModel) The model
-           cellSize:       (int) The default cell size
-           maxCellSize:    (int) The maximum value for cell size
-           minCellSize:    (int) The minimum value for cell size
-           zoomUnits:      (int) The zoom type for GalleryView cells:
-                           PIXEL_UNITS or PERCENT_UNITS
-           galleryKwargs:  (dict) The GalleryView configuration params.
-                           See the GalleryView documentation.
-           slicesKwargs:   (dict) The MultiSliceView configuration params.
-                           See the MultiSliceView documentation.
-           slicesMode:     (int) Specifies which axis will be visible.
-                            Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
+        Create a new VolumeView instance.
+
+        Args:
+            parent:   (QWidget) Parent widget
+
+        Keyword Args:
+            model:          :class:`VolumeModel <datavis.models.VolumeModel>`​
+            cellSize:       (int) The default cell size
+            maxCellSize:    (int) The maximum value for cell size
+            minCellSize:    (int) The minimum value for cell size
+            zoomUnits:      (int) The zoom type for GalleryView cells:
+                            PIXEL_UNITS or PERCENT_UNITS
+            galleryKwargs:  :class:`GalleryView <datavis.views.GalleryView>`
+                            configuration params. See the GalleryView
+                            documentation.
+            slicesKwargs:   :class:`MultiSlicesView <datavis.views.MultiSlicesView>`
+                            configuration params. See the MultiSliceView
+                            documentation.
+            slicesMode:     (int) Specifies which axis will be visible.
+                             Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._defaultCellSize = kwargs.get("cellSize", 120)
@@ -51,6 +59,7 @@ class VolumeView(qtw.QWidget):
         self._onChangeCellSize(self._defaultCellSize)
 
     def __setupGUI(self, model, slicesKwargs, slicesMode, galleryKwargs):
+        """ Setups the GUI """
         self._mainLayout = qtw.QVBoxLayout(self)
         self._mainLayout.setSpacing(0)
         self._mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -154,7 +163,7 @@ class VolumeView(qtw.QWidget):
         self._actZoomSpinImg.blockSignals(False)
 
     def __maskSizeChanged(self, size):
-        """ Invoked when the mask size is changed """
+        """ Invoked when the mask size is changed in any one of the axis """
         d = self._galleryView.getImageItemDelegate()
         imgView = d.getImageView()
         imgView.setRoiMaskSize(size)
@@ -162,9 +171,12 @@ class VolumeView(qtw.QWidget):
     @qtc.pyqtSlot(float, int)
     def __updateImageScale(self, scale, axis):
         """
-        Update the combobox for image scale
-        :param scale: (float) The image scale
-        :param axis:  (int) The axis
+        Update the image scale in
+        :class:`ZoomSpinBox <datavis.widgets.ZoomSpinBox>`.
+
+        Args:
+            scale: (float) The image scale
+            axis:  (int) The axis
         """
         self._zoomSpinImg.setValue(scale * 100)
         self._multiSlicesView.setScale(scale)
@@ -185,7 +197,7 @@ class VolumeView(qtw.QWidget):
 
     @qtc.pyqtSlot(bool)
     def _onMultiSlicesViewTriggered(self, checked):
-        """ Triggered function for multislices view action """
+        """ Triggered function for multi-slices view action """
         if checked:
             self._stackedLayoud.setCurrentWidget(self._multiSlicesView)
             self._view = SLICES
@@ -218,8 +230,11 @@ class VolumeView(qtw.QWidget):
     @qtc.pyqtSlot(int)
     def _onAxisChanged(self, axis):
         """
-        Invoked when the current value for ComboBox axis has been changed
-        :param axis: (int) The current axis
+        Invoked when the current value for
+        :class:`AxisSelector <datavis.widgets.AxisSelector>` has been changed
+
+        Args:
+            axis: (int) The current axis
         """
         self._multiSlicesView.setAxis(axis)
         sv = self._multiSlicesView.getSliceView(axis)
@@ -258,9 +273,12 @@ class VolumeView(qtw.QWidget):
 
     def setModel(self, model):
         """
-        Sets the model.
-        :param model:  (VolumeModel)
+        Sets the :class:`VolumeModel <datavis.models.VolumeModel>`
+
+        Raises:
+            Exception if model is None.
         """
+
         if model is None:
             raise Exception("Invalid value for model: None")
 
