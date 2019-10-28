@@ -21,12 +21,17 @@ class ImageListView(qtw.QWidget):
 
     def __init__(self, model, parent=None, **kwargs):
         """
-        Creates an ImageListView.
-        :param parent:  (qtw.QWidget) Specifies the parent widget to which this
-                        ImageListView will belong. If None, then the
-                        ImageListView is created with no parent.
-        :param model: (TableModel) The data model
-        :param kwargs: The kwargs arguments for the internal ImageView
+        Creates an ImageListView instance.
+
+        Args:
+            parent: Specifies the parent widget to which this ImageListView
+                    will belong. If None, then the ImageListView is created
+                    with no parent.
+            model:  :class:`TableModel <datavis.models.TableModel>`
+
+        Keyword Args:
+            The kwargs arguments for the internal
+            :class:`ImageView <datavis.views.ImageView>`
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = model
@@ -57,8 +62,11 @@ class ImageListView(qtw.QWidget):
         """
         Build the left panel: List of images. The ColumnsView will be accessed
         from the returned ViewPanel using the 'columnsView' key.
-        :param kwargs: The kwargs arguments for the ColumnsView
-        :return: (ViewPanel) The panel.
+
+        Keyword Args:
+            The kwargs arguments for the ColumnsView
+
+        Returns: :class:`ViewPanel <datavis.widgets.ViewPanel>`
         """
         panel = ViewPanel(self, layoutType=ViewPanel.VERTICAL)
         panel.addWidget(ColumnsView(parent=panel, model=EmptyTableModel(),
@@ -72,8 +80,12 @@ class ImageListView(qtw.QWidget):
         (in subclasses should be implemented).
         The top right panel should be accessed using the 'topRightPanel' key.
         The bottom right panel should be accessed using the 'topRightPanel' key.
-        :param kwargs: The kwargs arguments for the top right panel (ImageView)
-        :return:       (ViewPanel)
+
+        Keyword Args:
+            The kwargs arguments for the top right panel (ImageView)
+
+        Return:
+            :class:`ViewPanel <datavis.widgets.ViewPanel>`
         """
         rightPanel = ViewPanel(self, ViewPanel.VSPLITTER)
         topRightPanel = self._createTopRightPanel(**kwargs)
@@ -88,8 +100,12 @@ class ImageListView(qtw.QWidget):
         """
         Build the top right panel: ViewPanel with ImageView
         The ImageView should be accessed using the 'imageView' key.
-        :param kwargs: The kwargs arguments for the ImageView
-        :return:       (ViewPanel)
+
+        Keyword Args:
+                The kwargs arguments for the ImageView
+
+        Return:
+            :class:`ViewPanel <datavis.widgets.ViewPanel>`
         """
         panel = ViewPanel(self)
         panel.addWidget(ImageView(self, **kwargs), 'imageView')
@@ -129,8 +145,12 @@ class ImageListView(qtw.QWidget):
 
     def setModel(self, model):
         """
-        Set the model used for the left panel
-        :param model: (TableModel) the model
+        Set the model used for the left panel.
+
+        Args:
+            model: :class:`TableModel <datavis.models.TableModel>`. The model
+            must provide a :class:`ImageModel <datavis.models.ImageModel>`
+            in getModel method
         """
         self._model = model
         self.currentItem = -1
@@ -142,10 +162,16 @@ class VolumeListView(ImageListView):
     """ View that will show a list of volume images """
     def __init__(self, model, parent=None, **kwargs):
         """
-        Construct a VolumeListView
-        :param parent: The parent widget
-        :param model:  (TableModel) The volume list model
-        :param kwargs: The kwargs arguments for the VolumeView widget
+        Construct a VolumeListView instance
+
+        Args:
+            parent: The parent widget
+            model:  :class:`TableModel <datavis.models.TableModel>`. The model
+            must provide a
+            :class:`VolumeModel <datavis.models.VolumeModel>` in getModel method
+
+        Keyword Args:
+            The kwargs arguments for the VolumeView widget
         """
         ImageListView.__init__(self, model, parent=parent, **kwargs)
 
@@ -155,10 +181,15 @@ class VolumeListView(ImageListView):
         return view
 
     def _createTopRightPanel(self, **kwargs):
-        """Build the top right panel: ViewPanel with VolumeView widget
+        """ Build the top right panel: ViewPanel with VolumeView widget
         The VolumeView should be accessed using the 'volumeView' key.
-        :param kwargs: The kwargs arguments for the VolumeView
-        :return:       (ViewPanel)
+
+        Keyword Args:
+                The kwargs arguments for the
+                :class:`VolumeView <datavis.views.VolumeView>`
+
+        Returns:
+            :class:`ViewPanel <datavis.widgets.ViewPanel>`
         """
         panel = ViewPanel(self)
         view = VolumeView(self, model=self._model.getModel(0), **kwargs)
@@ -166,11 +197,17 @@ class VolumeListView(ImageListView):
         return panel
 
     def updateImagePanel(self):
+        """ Reimplemented from
+        :class:`ImageListView <datavis.views.ImageListView>` """
         model = self._model.getModel(self.currentItem)
         view = self.__getVolumeView()
         view.setModel(model)
 
     def setModel(self, model):
+        """ Reimplemented from
+        :class:`ImageListView <datavis.views.ImageListView>`.
+        The model must provide a
+        :class:`VolumeModel <datavis.models.VolumeModel>` in getModel method """
         ImageListView.setModel(self, model)
         view = self.__getVolumeView()
         view.fitToSize()
@@ -182,12 +219,17 @@ class DualImageListView(ImageListView):
     (Right) the same image after some modification is applied """
     def __init__(self, model, parent=None, **kwargs):
         """
-        Construct an DualImageListView.
-        :param parent: The parent widget
-        :param model:  (ListModel) The list of images
-        :param kwargs: kwargs arguments for the two ImageView
-          - options:   (dict) Dynamic widget options
-          - method:    Function to invoke when the apply button is clicked
+        Construct an DualImageListView instance.
+
+        Args:
+            parent: The parent widget
+            model:  :class:`ListModel <datavis.models.ListModel>`.
+                    The list of images
+
+        Keyword Args:
+            kwargs arguments for the two ImageView
+            options:   (dict) Dynamic widget options
+            method:    Function to invoke when the apply button is clicked
         """
         ImageListView.__init__(self, model, parent=parent, **kwargs)
 
@@ -203,11 +245,16 @@ class DualImageListView(ImageListView):
                 self._method(self._paramsForm)
 
     def _createTopRightPanel(self, **kwargs):
-        """Build the top right panel: ViewPanel with two ImageView widgets
+        """ Build the top right panel: ViewPanel with two ImageView widgets
         The left ImageView should be accessed using the 'leftImageView' key.
         The right ImageView should be accessed using the 'rightImageView' key.
-        :param kwargs: The kwargs arguments for the two ImageView
-        :return:       (ViewPanel)
+
+        Keyword Args:
+            The kwargs arguments for the two
+            :class:`ImageView <datavis.views.ImageView>`.
+
+        Returns:
+            :class:`ViewPanel <datavis.widgets.ViewPanel>`.
         """
         panel = ViewPanel(self)
         defaultImgViewKargs = {'histogram': False,
@@ -225,10 +272,11 @@ class DualImageListView(ImageListView):
 
     def _createBottomRightPanel(self, **kwargs):
         """ Creates a FormWidget from the given 'options' param.
-        The dynamic widget should be accessed using the 'optionsWidget' key.
-        :param kwargs:
-          - options: params options. See FormWidget specifications
-          - method:  Function to invoke when the apply button is clicked
+        The FormWidget should be accessed using the 'optionsWidget' key.
+
+        Keyword Args:
+            options: params options. See FormWidget specifications
+            method:  Function to invoke when the apply button is clicked
         """
         self._paramsForm = kwargs.get('form', None)
         self._method = kwargs.get('method')
@@ -251,6 +299,8 @@ class DualImageListView(ImageListView):
         return panel
 
     def updateImagePanel(self):
+        """ Reimplemented from
+        :class:`ImageListView <datavis.views.ImageListView>` """
         panel = self._rightPanel.getWidget('topRightPanel')
         leftImageView = panel.getWidget('leftImageView')
         rightImageView = panel.getWidget('rightImageView')
@@ -272,16 +322,21 @@ class DualImageListView(ImageListView):
 
 class ImageMaskListView(ImageListView):
     """ View that will show a list of images. The ImagePanel contains a circular
-    or rectangular mask. """
+    or rectangular mask depending on the type of mask configured. """
 
     def __init__(self, model, parent=None, **kwargs):
         """
-        Construct an ImageMaskListView.
-        :param parent: (qtw.QWidget) Specifies the parent widget to which this
-                        ImageMaskListView will belong. If None, then the
-                        ImageMaskListView is created with no parent.
-        :param model: (TableModel) The data model
-        :param kwargs: The kwargs arguments for the internal ImageView
+        Construct an ImageMaskListView instance.
+
+        Args:
+            parent: Specifies the parent widget to which this
+                    ImageMaskListView will belong. If None, then the
+                    ImageMaskListView is created with no parent.
+            model: :class:`TableModel <datavis.models.TableModel>`
+
+        Keyword Args:
+            The kwargs arguments for the internal
+            :class:`ImageView <datavis.views.ImageView>`
         """
         ImageListView.__init__(self, model, parent=parent, **kwargs)
 
@@ -339,6 +394,8 @@ class ImageMaskListView(ImageListView):
         return panel
 
     def updateImagePanel(self):
+        """ Reimplemented from
+        :class:`ImageListView <datavis.views.ImageListView>` """
         ImageListView.updateImagePanel(self)
         spinSlider = self.__getSpinSlider()
         imgView = self.__getImageView()
@@ -351,9 +408,11 @@ class ImageMaskListView(ImageListView):
 
     def setMaskColor(self, color):
         """
-         Set the mask color
-        :param color: (str) The color in #ARGB format. Example: #22AAFF00
-                      or (QColor)
+         Set the mask color.
+
+        Args:
+            color: (str) The color in #ARGB format. Example: #22AAFF00
+                   or (QColor)
         """
         imageView = self.__getImageView()
         imageView.setMaskColor(color)
