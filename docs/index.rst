@@ -1,14 +1,16 @@
 
 Welcome to datavis and emvis!
-=========================================
+=============================
 
 .. toctree::
     :maxdepth: 2
     :caption: Guide
 
-    install
-    support
-    cookbook
+    overview
+    image
+    table
+    composed
+    picker
 
 .. toctree::
     :maxdepth: 2
