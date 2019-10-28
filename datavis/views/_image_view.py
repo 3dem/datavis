@@ -26,6 +26,13 @@ class ImageView(qtw.QWidget):
     This class also allows to perform basic display operations over the
     data that is being displayed such as: rotations, zoom, drag and flips,
     among others.
+
+    Example of use:
+        imageView = datavis.views.ImageView(parent=None, border_color='#FFAA33')
+        d = pyqtgraph.gaussianFilter(np.random.normal(size=(512, 512)), (5, 5))
+        imgModel = dv.models.ImageModel(data)
+        imageView.setModel(imgModel)
+
     """
 
     """ Signal emitted when the image scale changed """
@@ -41,7 +48,8 @@ class ImageView(qtw.QWidget):
             parent: (QWidget) Is the parent widget to which this
                    ImageView will belong. If None, then the ImageView is
                    created with no parent.
-            model: ImageModel that will be used to fetch the image data.
+            model: :class:`ImageModel <datavis.models.ImageModel>` instance
+                   that will be used to fetch the image data.
 
         Keyword Args:
             toolBar:  Bool value to specify if showing or hiding the toolbar.

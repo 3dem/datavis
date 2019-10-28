@@ -26,12 +26,18 @@ class GalleryView(PagingView):
     def __init__(self, parent=None, **kwargs):
         """
         Constructs an GalleryView.
-        kwargs:
-            model:          The data model
-            displayConfig:  Input TableModel that will control how the data
-                            fetched from the TableModel will be displayed.
-                            displayConfig can be None, in which case the model
-                            will be taken as displayConfig.
+        Args:
+            parent: The parent widget
+        Keyword Args:
+            model:          :class:`TableModel <datavis.models.TableModel>`
+                            instance that will be used to fetch the data.
+            displayConfig:  :class:`TableConfig <datavis.models.TableConfig>`
+                            instance TableConfig TableModel that will control
+                            how the data fetched from the TableModel will be
+                            displayed.
+                            displayConfig can be None, in which case
+                            createDefaultConfig method will be called and taken
+                            as displayConfig.
             selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
                             MULTI_SELECTION or NO_SELECTION
             cellSpacing:    (int) The cell spacing
@@ -57,6 +63,7 @@ class GalleryView(PagingView):
         self.setIconSize(qtc.QSize(w, h))
 
     def _createContentWidget(self):
+        """ Reimplemented from :class:`<datavis.views.PagingView>`. """
         lv = qtw.QListView(self)
         lv.setViewMode(qtw.QListView.IconMode)
         lv.setSelectionBehavior(qtw.QAbstractItemView.SelectRows)
@@ -77,16 +84,14 @@ class GalleryView(PagingView):
         return lv
 
     def __connectSignals(self):
-        """ Connects all signals related to the TablePageItemModel
-        """
+        """ Connects all signals related to the TablePageItemModel """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.connect(
                 self._pageItemModel.modelConfigChanged)
             self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __disconnectSignals(self):
-        """ Disconnects all signals related to the TablePageItemModel
-        """
+        """ Disconnects all signals related to the TablePageItemModel """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.disconnect(
                 self._pageItemModel.modelConfigChanged)
@@ -94,9 +99,13 @@ class GalleryView(PagingView):
 
     def __listViewResizeEvent(self, evt):
         """
-        Reimplemented to receive qtw.QListView resize events which are passed
-        in the event parameter. Emits sigListViewSizeChanged
-        :param evt:
+        Reimplemented to receive QListView resize events which are passed
+        in the event parameter.
+        Args:
+            evt: The event
+
+        Emits:
+            sigListViewSizeChanged
         """
         qtw.QListView.resizeEvent(self._listView, evt)
         self.sigSizeChanged.emit(evt.oldSize(), evt.size())
@@ -126,14 +135,17 @@ class GalleryView(PagingView):
     def __getPage(self, row):
         """
         Return the page where row are located or -1 if it can not be calculated
-        :param row: (int) The row index. 0 is the first
-        :return:    (int) The page index. 0 is the first
+
+        Args:
+            row: (int) The row index. 0 is the first
+
+        Returns: (int) The page index. 0 is the first
         """
         ps = self._pagingInfo.pageSize
         return int(row / ps) if ps > 0 and row >= 0 else -1
 
     def __updatePageBar(self):
-        """Updates the PageBar paging settings """
+        """ Updates the PageBar paging settings """
         rows, cols = self.__calcPageSize()
         rows *= cols
         if not rows == self._pagingInfo.pageSize:
@@ -143,7 +155,8 @@ class GalleryView(PagingView):
             self._pageBar.setPagingInfo(self._pagingInfo)
 
     def __updateSelectionInView(self, page):
-        """ Makes the current selection in the view """
+        """ Makes the current selection in internal widget used to display the
+        data values """
         if self._model is not None:
             selModel = self._listView.selectionModel()
             if selModel is not None:
@@ -164,7 +177,7 @@ class GalleryView(PagingView):
                     selModel.select(sel, qtc.QItemSelectionModel.Select)
 
     def __updatePagingInfo(self):
-        """"""
+        """ Updates the paging information according to the model rows count """
         self._pagingInfo.numberOfItems = self._model.getRowsCount()
         rows, cols = self.__calcPageSize()
         self._pagingInfo.setPageSize(rows * cols)
@@ -172,15 +185,25 @@ class GalleryView(PagingView):
 
     @qtc.pyqtSlot(object, object)
     def __onSizeChanged(self, oldSize, newSize):
-        """ Invoked when the gallery widget is resized """
+        """ Invoked when the gallery widget is resized.
+
+        Args:
+            oldSize: The previous size
+            newSize: The new size
+        """
         self.__updatePageBar()
         self.selectRow(self._currentRow)
 
     @qtc.pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """
-        Invoked when change current page. Emits sigCurrentRowChanged signal.
-        1 is the index of the first page.
+        Invoked when change current page.
+
+        Args:
+            page: (int) The new page. 1 is the index of the first page.
+
+        Emits:
+            sigCurrentRowChanged
         """
         if self._model is not None:
             self._currentRow = (page - 1) * self._pagingInfo.pageSize
@@ -193,7 +216,12 @@ class GalleryView(PagingView):
 
     @qtc.pyqtSlot(qtc.QModelIndex, qtc.QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
-        """ Invoked when current row change """
+        """ Invoked when current row is changed
+
+        Args:
+            current: The current index in the Qt model
+            previous: The previous index in the Qt model
+        """
         if current.isValid():
             row = current.row()
             p = self._pagingInfo
@@ -225,13 +253,16 @@ class GalleryView(PagingView):
 
     @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
-        """ Invoked when the selection is changed """
+        """ Invoked when the selection is changed. Sets the given selection as
+        the current and updates the view """
         self._selection = selection
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
     @qtc.pyqtSlot()
     def modelChanged(self):
-        """Slot for model data changed notification """
+        """ Slot for model data changed notification. Informs about external
+        changes to the data model. Updates the view.
+        """
         self.__updatePagingInfo()
         self._pageBar.setPagingInfo(self._pagingInfo)
         tableConfig = self._pageItemModel.getDisplayConfig()
@@ -245,7 +276,17 @@ class GalleryView(PagingView):
         self.updateViewConfiguration()
 
     def setModel(self, model, displayConfig=None, minMax=None):
-        """ Sets the model """
+        """
+        Sets the model for this view.
+
+        Args:
+            model:    TableModel :class:`<datavis.models.TableModel>` instance
+            displayConfig: :class:`TableConfig <datavis.models.TableConfig>`
+                           instance that will control how the data fetched from
+                           the TableModel will be displayed.
+        Raises:
+             Exception if the model is None
+        """
         if model is None:
             raise Exception('Invalid model: None')
         self._selection.clear()
@@ -295,7 +336,7 @@ class GalleryView(PagingView):
         return None
 
     def clear(self):
-        """ Clear the view """
+        """ Clear the view, setting an empty table model """
         self.setModel(models.EmptyTableModel())
 
     def resetView(self):
@@ -309,7 +350,8 @@ class GalleryView(PagingView):
     def setModelColumn(self, column):
         """
         Holds the column in the model that is visible.
-        :param column: (int) Column index. 0 is the first index.
+        Args:
+            column: (int) Column index. 0 is the first index.
         """
         self._listView.setModelColumn(column)
         self._listView.setItemDelegateForColumn(column, self._delegate)
@@ -321,8 +363,11 @@ class GalleryView(PagingView):
     def setIconSize(self, size):
         """
         Sets the icon size.
-        size: (width, height), qtc.QSize or int in % units
+
+        Args:
+            size: (width, height), QSize or int in % units
         """
+        #  FIXME[hv] review when the size is int
         if isinstance(size, tuple):
             s = qtc.QSize(size[0], size[1])
             self._percentIconSize = None
@@ -377,7 +422,8 @@ class GalleryView(PagingView):
         return self._delegate
 
     def selectRow(self, row):
-        """ Selects the given row """
+        """ Selects the given row. Change the current page to the page of the
+        given row. """
         if 0 <= row < self._pagingInfo.numberOfItems:
             page = self.__getPage(row) + 1
             if not page == self._pagingInfo.currentPage:
@@ -408,14 +454,14 @@ class GalleryView(PagingView):
 
     def getPreferredSize(self):
         """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
+        Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the data.
         """
         n = self._model.getRowsCount()
         s = self._listView.iconSize()
         spacing = self._listView.spacing()
         size = qtc.QSize(int(n**0.5) * (spacing + s.width()) + spacing,
-                     int(n**0.5) * (spacing + s.height()) + spacing)
+                         int(n**0.5) * (spacing + s.height()) + spacing)
 
         w = int(size.width() / (spacing + s.width()))
         c = int(n / w)

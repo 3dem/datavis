@@ -178,12 +178,6 @@ class PickerDataModel(TableModel):
         """
         return Coordinate(0, 0, 'M', **kwargs)
 
-    def getMicrograph(self, micId):
-        return self._micDict[micId]
-
-    def getMicrographByIndex(self, micIndex):
-        return self._micList[micIndex]
-
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
         self._boxsize = newSizeX
@@ -345,8 +339,11 @@ class PickerDataModel(TableModel):
         ext : File extension
         data_type: Image data type
 
-        :param micId:  (int) The micrograph Id
-        :return: dict
+        Args:
+            micId:  (int) The micrograph Id
+
+        Returns:
+             dict with info
         """
         return {}
 

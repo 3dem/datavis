@@ -22,13 +22,14 @@ from ._items import ItemsView
 from ._paging_view import PagingView
 from ._constants import *
 
-
+#  FIXME[hv] review if necesary the SCIPION_HOME
 SCIPION_HOME = 'SCIPION_HOME'
 
 
 class DataView(qtw.QWidget):
     """
-    Widget used for display em data
+    Widget used for display large numbers of items in three basic view types:
+    COLUMNS, GALLERY and ITEMS
     """
 
     """ This signal is emitted when the current item is changed """
@@ -58,13 +59,16 @@ class DataView(qtw.QWidget):
     def __init__(self, parent=None, **kwargs):
         """
         Constructs a DataView.
-        :param parent:       (qtw.QWidget) Parent widget
-        :param kwargs:
-             model:          (TableModel) The data model
+        Args:
+            parent:       (QWidget) The parent widget
+
+        Keyword Args:
+             model:          :class:`TableModel <datavis.models.TableModel>`
+                             instance
              selectionMode:  (int) SINGLE_SELECTION(default),EXTENDED_SELECTION,
                              MULTI_SELECTION or NO_SELECTION
              views:          (dict) Specify the views that will be available.
-                             Default value: [COLUMNS, GALLERY, ITEMS]
+                             Default: {COLUMNS: {}, GALLERY: {}, ITEMS: {}}
              view:           (int) The default view to be set
              size:           (int) The row height for ColumnsView and icon size
                              for GalleryView. Default value: 64
@@ -149,6 +153,7 @@ class DataView(qtw.QWidget):
         self.setGeometry(0, 0, 750, 800)
 
     def __createLeftToolbar(self):
+        """ Create the left tool bar """
         toolbar = ActionsToolBar(self, orientation=qtc.Qt.Vertical)
         toolbar.setToolButtonStyle(qtc.Qt.ToolButtonTextUnderIcon)
         self.__addSelectionActions(toolbar)
@@ -297,6 +302,7 @@ class DataView(qtw.QWidget):
         toolbar.addAction(self._actPlot, self._plotPanel, exclusive=False)
 
     def __createToolbar(self):
+        """ Create the top tool bar """
         toolbar = qtw.QToolBar(self)
 
         # Combobox for selecting current table
@@ -369,8 +375,11 @@ class DataView(qtw.QWidget):
 
     def __createDefaultPreferences(self):
         """
-        Creates the default preferences for the current TableModel
-        :return: A dict with the default preferences
+        Creates the default preferences for the current
+        :class:`TableModel <datavis.models.TableModel>` like the current table
+        name and the last view for the table
+
+        Returns: A dict with the default preferences
         """
         pref = dict()
 
@@ -414,18 +423,25 @@ class DataView(qtw.QWidget):
 
     def __getTableConfig(self, tableName):
         """
-        Return the TableConfig for the given table name. DataView maintains the
-        preferences for all tables in the current model,
+        Return the :class:`TableConfig <datavis.models.TableConfig>` for the
+        given table name. DataView maintains the preferences for all tables in
+        the current :class:`TableModel <datavis.models.TableModel>`,
         including the TableConfig.
-        :param tableName: (str) The table name
+        Args:
+            tableName: (str) The table name
         """
         return self._tablePref[tableName].get(TABLE_CONFIG)
 
     def __connectViewSignals(self, viewWidget):
         """
         Connects the view widget signals to the corresponding slots
-        :param viewWidget: The view widget: ColumnsView, GalleryView, ItemsView
-                           or other registered widget
+
+        Args:
+            viewWidget: The view widget: ColumnsView, GalleryView, ItemsView
+                        or other registered widget.
+
+        Raises:
+              Exception if the view widget is None
         """
         if viewWidget is None:
             raise Exception(
@@ -441,7 +457,9 @@ class DataView(qtw.QWidget):
     def __disconnectViewSignals(self, viewWidget):
         """
         Disconnects the view signals form the internal slots
-        :param viewWidget: The view widget.
+
+        Args:
+           viewWidget: The view widget.
         """
         viewWidget.sigCurrentRowChanged.disconnect(self.__onViewRowChanged)
         viewWidget.getPageBar().sigPagingInfoChanged.disconnect(
@@ -451,7 +469,11 @@ class DataView(qtw.QWidget):
         viewWidget.sigCurrentRowChanged.disconnect(self.__onViewRowChanged)
 
     def __createView(self, viewType, **kwargs):
-        """ Create and return a view. The parent of the view will be self """
+        """ Create and return a view. The parent of the view will be self.
+
+        Raises:
+            Exception if no class has been registered for the given view type
+        """
         viewClass = self._viewsDict[viewType][CLASS]
         if viewClass is None:
             raise Exception('Unregistered class for view type=%d' % viewType)
@@ -614,7 +636,7 @@ class DataView(qtw.QWidget):
 
     def __setupModel(self, config=None):
         """
-        Configure the current table model in all view modes
+        Configure the current table model in all view widgets
         """
         self.__setupAllWidgets()
 
@@ -710,14 +732,14 @@ class DataView(qtw.QWidget):
         cpTable.blockSignals(False)
 
     def __reverseCheckState(self, item):
-        """ Reverse the check state for the given qtw.QTableWidgetItem """
+        """ Reverse the check state for the given QTableWidgetItem """
         c = qtc.Qt.Checked
         st = c if item.checkState() == qtc.Qt.Unchecked else qtc.Qt.Unchecked
         item.setCheckState(st)
 
     @qtc.pyqtSlot(qtw.QTableWidgetItem)
     def __onItemChanged(self, item):
-        """ Invoked whenever the data of item has changed. """
+        """ Invoked whenever the data of an item has been changed. """
         self._tableColumnProp.blockSignals(True)
         viewWidget = self.getView()
         dispConf = viewWidget.getDisplayConfig()
@@ -911,6 +933,7 @@ class DataView(qtw.QWidget):
 
     @qtc.pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
+        """ Invoked when the page is changed in the current view """
         self._showViewDims()
         self.__makeSelectionInView(self._viewKey)
 
@@ -946,11 +969,11 @@ class DataView(qtw.QWidget):
         """
         Show a message box with the given text, icon and details.
         The icon of the message box can be specified with one of the Qt values:
-            qtw.QMessageBox.NoIcon
-            qtw.QMessageBox.Question
-            qtw.QMessageBox.Information
-            qtw.QMessageBox.Warning
-            qtw.QMessageBox.Critical
+            QMessageBox.NoIcon
+            QMessageBox.Question
+            QMessageBox.Information
+            QMessageBox.Warning
+            QMessageBox.Critical
         """
         msgBox = qtw.QMessageBox()
         msgBox.setText(text)
@@ -967,8 +990,8 @@ class DataView(qtw.QWidget):
     def _onChangeCellSize(self, size):
         """
         This slot is invoked when the cell size need to be rearranged
-        TODO: Review implementation. Change row height for the moment
         """
+        #  TODO[hv]: Review implementation. Change row height for the moment
         row = self._currentRow
         for viewWidget in self.getAllViews():
             if viewWidget.getViewType() in [COLUMNS, GALLERY]:
@@ -981,9 +1004,7 @@ class DataView(qtw.QWidget):
 
     @qtc.pyqtSlot()
     def _showViewDims(self):
-        """
-        Show column and row count in the QLineEdits
-        """
+        """ Update the widgets used to display the column and row count """
         viewWidget = self.getView()
         if viewWidget is None:
             rows = "0"
@@ -1000,7 +1021,9 @@ class DataView(qtw.QWidget):
     def _selectRow(self, row):
         """
         This slot is invoked when the value of the current spinbox changes.
-        :param row: the row, 1 is the first
+
+        Args:
+            row: the row, 1 is the first
         """
         if self._model and row in range(1, self._model.getRowsCount() + 1):
             self._currentRow = row - 1
@@ -1039,7 +1062,19 @@ class DataView(qtw.QWidget):
         return self._viewKey
 
     def setModel(self, model, config=None):
-        """ Set the table model for display. """
+        """
+        Set the table model for display.
+
+        Args:
+            model:  :class:`TableModel <datavis.models.TableModel>` instance
+            that will be used to fetch the data.
+            config: :class:`TableConfig <datavis.models.TableConfig>`
+                    instance that will control how the data fetched from
+                    the :class:`TableModel <datavis.models.TableModel>` will be
+                    displayed.
+                    config can be None, in which case createDefaultConfig method
+                    will be called and taken as config.
+        """
         self.__clearViews()
         self._model = model
         self._selection.clear()
@@ -1050,7 +1085,7 @@ class DataView(qtw.QWidget):
 
     def getModel(self):
         """
-        Return the model for this table
+        Return the current :class:`TableModel <datavis.models.TableModel>`
         """
         return self._model
 
@@ -1058,14 +1093,10 @@ class DataView(qtw.QWidget):
         """
         Set the item role that is used to query the source model's data
         when sorting items
-        :param role:
-            Qt.DisplayRole
-            Qt.DecorationRole
-            Qt.EditRole
-            Qt.ToolTipRole
-            Qt.StatusTipRole
-            Qt.WhatsThisRole
-            Qt.SizeHintRole
+        Args:
+             role: Possible values: Qt.DisplayRole, Qt.DecorationRole,
+             Qt.EditRole, Qt.ToolTipRole, Qt.StatusTipRole, Qt.WhatsThisRole,
+             Qt.SizeHintRole
         """
         self._sortRole = role
 
@@ -1083,7 +1114,7 @@ class DataView(qtw.QWidget):
         self._statusBar.setVisible(visible)
 
     def getViewKey(self):
-        """ Returns the current view """
+        """ Returns the current view type """
         return self._viewKey
 
     def getView(self, viewType=None):
@@ -1091,7 +1122,7 @@ class DataView(qtw.QWidget):
         If the given viewType is present in the available views then
         return the view.
         if viewType=None then return the current view.
-        viewType that can be used: COLUMNS, GALLERY, ITEMS, SLICES
+        viewType that can be used: COLUMNS, GALLERY, ITEMS
         """
         return self._viewsDict[viewType or self._viewKey][VIEW]
 
@@ -1111,7 +1142,8 @@ class DataView(qtw.QWidget):
 
     def selectRow(self, row):
         """
-        Sets the given row as the current row for all views.
+        Sets the given row as the current row for all views. Change the current
+        page to the page of the given row.
         0 will be considered as the first row.
         """
         r = self._spinBoxCurrentRow.getValue()
@@ -1127,8 +1159,7 @@ class DataView(qtw.QWidget):
     def setSelectionMode(self, selectionMode):
         """
         Indicates how the view responds to user selections:
-        PagingView:
-                    SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
+        SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
         """
 
         self._selectionMode = selectionMode
@@ -1150,8 +1181,7 @@ class DataView(qtw.QWidget):
         This property holds whether selections are done in terms of
         single items, rows or columns.
 
-        PagingView:
-                        SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
+        Possible values: SELECT_ITEMS, SELECT_ROWS, SELECT_COLUMNS
         """
         for viewWidget in self.getAllViews():
             viewWidget.setSelectionMode(selectionBehavior)
@@ -1160,21 +1190,15 @@ class DataView(qtw.QWidget):
         """ Return the available views """
         return self._viewsDict.keys()
 
-    # FIXME: We need to check this method, maybe together with setModel
-    def setAvailableViews(self, views):
-        """ Sets the available views """
-        raise Exception("FIXME: Needs revision")
-        self.__createViews()
-
     def getPage(self):
-        """ Return the current page for current view
-        or -1 if current table model is None """
+        """ Return the current page for current view or -1 if current table
+        model is None """
         if self._model is None:
             return -1
         return self.getView().getPageBar().getCurrentPage()
 
     def setPage(self, page):
-        """ Change to page for the current view """
+        """ Change the current view to the given page """
         if self._model is not None:
             self.getView().getPageBar().setCurrentPage(page)
 
@@ -1187,8 +1211,8 @@ class DataView(qtw.QWidget):
 
     def getPreferredSize(self):
         """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
+        Returns a tuple (width, height), which represents  the preferred
+        dimensions to contain all the data.
         """
         v = self.getView()
         w, h = v.getPreferredSize()
