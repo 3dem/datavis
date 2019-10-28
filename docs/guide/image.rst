@@ -78,7 +78,7 @@ slice's data should be returned. Additionally, it provides the
 :meth:`~datavis.models.SlicesModel.getImageModel` method as a shortcut to create an ImageModel
 from a given slice.
 
-The :meth:`~datavis.models.VolumeModel` class implements the getSlicesModel method that
+The :class:`~datavis.models.VolumeModel` class implements the getSlicesModel method that
 returns a SlicesModel for a given axis. Moreover, the :meth:`~emvis.EmStackModel` class
 inherits from SlicesModel and implement how to read each slice from the stack file. The SlicesModel
 provides a nice abstraction about how data is retrieved (i.g from disk, memory, computed, etc) and
@@ -103,4 +103,34 @@ as input.
 
 MultiSliceView
 --------------
+
+The :class:`~datavis.views.MultiSliceView` widget is a composition of 3 SlicesView,
+one for each axis *x*, *y* and *z*. This view is a good option to visualize
+3D volume data, since it allows to quickly go through the slices of any of the
+3 axis. Although, the MultiSliceView is implemented to receive as input 3
+independent SlicesView, in practice the input is commonly generated from a
+:class:`~datavis.models.VolumeModel` instance, that can provides the required
+models for each axis.
+
+The following code snippet shows how to create a MultiSlicesView (all the
+PyQt5 application boilerplate code is not shown here). It uses the
+:class:`~emvis.ModelsFactory` class that creates the VolumeModel from the
+provided path.
+
+.. code-block:: python
+
+        def createView(self, volumePath):
+            volModel = emv.ModelsFactory.createVolumeModel(volumePath)
+            msv = dv.views.MultiSliceView(
+                None, {axis: {'model': volModel.getSlicesModel(axis),
+                              'normalize': True}
+                       for axis in [dv.models.AXIS_X, dv.models.AXIS_Y,
+                                    dv.models.AXIS_Z]})
+            return msv
+
+The MultiSliceView should looks like the image below:
+
+.. image:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/multislice.png?token=ACAM6WEFF2SU6ZNNA23IVE25YCKXU
+    :width: 500px
+    :align: center
 
