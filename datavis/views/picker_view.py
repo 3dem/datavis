@@ -31,17 +31,31 @@ FILAMENT_MODE = 1
 
 
 class PickerView(qtw.QWidget):
+    """ The PickerView widget provides functionality for displaying picking
+    operations provided by a PickerModel. Additionally, operations can be
+    carried out on the model, previously configured based on the parameters
+    provided by the model. """
 
     """ Signal emitted when any of the PickerModel parameters have changed. """
     sigPickerParamChanged = qtc.pyqtSignal(int, str, object)
 
     def __init__(self, parent, model, **kwargs):
         """
-        Constructor
+        Construct an PickerView instance
 
-        :param parent:  Reference to the parent widget
-        :param model:  (datavis.models.PickerDataModel) The input picker model
-        :param kwargs:
+        Args:
+            parent:  Reference to the parent widget
+            model:  :class:`PickerDataModel <datavis.models.PickerDataModel>`
+
+        Keyword Args:
+            readOnly: (boolean) If True, the PickerView will be in read-only
+                      mode in which case users will not be able to pick.
+            pickerMode: (int) Specify the picker mode: FILAMENT_MODE or
+                        DEFAULT_MODE.
+            shape:     (int) The initial shape type: SHAPE_RECT, SHAPE_CIRCLE,
+                       SHAPE_CENTER, SHAPE_SEGMENT.
+            The :class:`ImageView <datavis.views.ImageView>` kwargs
+
         """
         qtw.QWidget.__init__(self, parent)
         self._model = model
@@ -121,6 +135,7 @@ class PickerView(qtw.QWidget):
         self.setWindowTitle("Picker")
 
     def __setupErase(self):
+        """ Setup the ERASE objects """
         self.__eraseList = []
         self.__eraseSize = 300
 
@@ -148,8 +163,12 @@ class PickerView(qtw.QWidget):
     def __addMicrographsAction(self, toolbar, **kwargs):
         """
         Add micrographs actions to the given toolBar
-        :param toolbar: The ImageView toolbar
-        :param kwargs: Kwargs arguments for the micrographs ColumnsView
+
+        Args:
+            toolbar: The toolbar
+
+        Keyword Args:
+            Arguments for the micrographs ColumnsView
         """
         micPanel = toolbar.createPanel('Micrographs')
         micPanel.setSizePolicy(qtw.QSizePolicy.Ignored, qtw.QSizePolicy.Minimum)
@@ -171,7 +190,12 @@ class PickerView(qtw.QWidget):
     def __addPickerToolAction(self, toolbar, pickerParams=None):
         """
         Add the picker tool actions to the given toolBar
-        :param toolbar: The ImageView toolbar
+
+        Args:
+            toolbar: The ImageView toolbar
+            pickerParams: Picker params provided by the model for the
+                          :class:`FormWidget <datavis.widgets.FormWidget>`
+                          creation.
         """
         # picker operations
         actPickerROIS = TriggerAction(parent=None, actionName='APRois',
@@ -300,7 +324,9 @@ class PickerView(qtw.QWidget):
     def __addControlsAction(self, toolbar):
         """
         Add the controls actions to the given toolBar
-        :param toolbar: The ImageView toolbar
+
+        Args:
+            toolbar: The ImageView toolbar
         """
         actControls = TriggerAction(parent=toolbar, actionName='AMics',
                                     text='Controls',
@@ -371,6 +397,8 @@ class PickerView(qtw.QWidget):
                                    pos.y() + size[0] / 2)
 
     def _onRoiDoubleClick(self, roi):
+        """ Invoked when the mouse is double-clicked on a roi. Used to remove
+        the corresponding Coordinate """
         if self._clickAction == PICK and not self._readOnly:
             self.__removeCoordinates([roi])
 
@@ -378,10 +406,12 @@ class PickerView(qtw.QWidget):
         """
         Create the one RoiHandler for each coordinate and append to the
         current list.
-        :param coords: iterable over the input coordinates.
-            If None, use the coordinates for current micrograph
-        :param clear: If True, the current list will be cleared first, if not
-            new RoiHandlers will be added
+
+        Args:
+            coords: iterable over the input coordinates. If None, use the
+                    coordinates for current micrograph
+            clear: If True, the current list will be cleared first, if not
+                   new RoiHandlers will be added
         """
         if clear:
             self._roiList[:] = []
@@ -418,7 +448,9 @@ class PickerView(qtw.QWidget):
         by double-clicking or by using the Eraser. The existing ROIs
         will be destroyed and the action will be notified to the
         picking model.
-        :param roiHandlerList: list of RoiHandles that need to be deleted.
+
+        Args:
+            roiHandlerList: list of RoiHandles that need to be deleted.
         """
         if roiHandlerList is None:
             roiHandlerList = list(self._roiList)
@@ -431,6 +463,8 @@ class PickerView(qtw.QWidget):
             self._roiList.remove(roi.parent)  # remove the coordROI
 
     def __removeCoordinates(self, roiList):
+        """ Remove all coordinates contained in the given roi list """
+
         result = self._model.removeCoordinates(
             self._currentMic.getId(), [roi.coordinate for roi in roiList])
         result.tableModelChanged = True
@@ -438,7 +472,7 @@ class PickerView(qtw.QWidget):
         self.__handleModelResult(result)
 
     def __createColumsViewModel(self):
-        """ Setup the em table """
+        """ Setup the micrograph ColumnsView """
         self._idIndex = self._model.getColumnsCount() - 1
         self._nameIndex = 0
         self._coordIndex = 1
@@ -447,32 +481,20 @@ class PickerView(qtw.QWidget):
         """ Show or hide the ROI handlers. """
         if not isinstance(roi, pg.ScatterPlotItem):
             funcName = 'show' if show else 'hide'
-            l = roi.getHandles()
 
             for h in roi.getHandles():
                 getattr(h, funcName)()  # show/hide
 
-    def __openImageFile(self, path, coord=None):
-        """
-        Open an em image for picking
-        :param path: file path
-        :param coord: coordinate list ([(x1,y1), (x2,y2)...])
-        """
-        # FIXME: Check how this will be used in practice
-        raise Exception('Not implemented!')
-
     def _showError(self, msg):
         """
         Popup the error msg
-        :param msg: The message for the user
+        Args:
+            msg: The message for the user
         """
         qtw.QMessageBox.critical(self, "Particle Picking", msg)
 
     def _showMicrograph(self, fitToSize=False):
-        """
-        Show the an image in the ImageView
-        :param mic: the ImageElem
-        """
+        """ Show the current micrograph """
         self.__eraseROI.setVisible(False)
         self.__eraseROIText.setVisible(False)
         self._destroyRoiHandlers()
@@ -486,7 +508,9 @@ class PickerView(qtw.QWidget):
     def _updateROIs(self, clear=False):
         """
         Update all ROIs that need to be shown in the current micrograph.
-        :param clear If True, all ROIs will be removed and created again
+
+        Args:
+            clear: If True, all ROIs will be removed and created again.
             If false, then the size will be updated.
         """
         if clear:
@@ -497,28 +521,15 @@ class PickerView(qtw.QWidget):
             for roiHandler in self._roiList:
                 roiHandler.updateSize(size)  # FIXME: Update shape?
 
-    def _openFile(self, path, **kwargs):
-        """
-        Open de given file.
-        kwargs:
-             showMic (boolean): True if you want to show the micrograph
-                                immediately. False for add to the micrographs
-                                list. Default=True.
-             coord (path or list): The path to the coordinates file or a list of
-                                   tuples for coordinates.
-             appendCoord (boolean): True if you want to append the coordinates
-                                    to the current coordinates. False to clear
-                                    the current coordinates and add.
-                                    Default=False.
-        """
-        # FIXME: Check how this will be used in practice
-        raise Exception('Not implemented!')
-
     def _makePen(self, labelName, width=1):
         """
-        Make the Pen for labelName
-        :param labelName: the label name
-        :return: pg.makePen
+        Make the Pen for the given label name
+
+        Args:
+            labelName: the label name
+
+        Returns:
+            pyqtgraph.makePen
         """
         label = self._model.getLabel(labelName)
         if label:
@@ -585,7 +596,7 @@ class PickerView(qtw.QWidget):
             self.__eraseROIText.setVisible(False)
 
     def _getSelectedPen(self):
-        """ Return the selected pen(PPSystem label depending) """
+        """ Return the selected pen(model label depending) """
         btn = self._buttonGroup.checkedButton()
 
         if btn:
@@ -594,7 +605,8 @@ class PickerView(qtw.QWidget):
         return pg.mkPen(0, 9)
 
     def _setupViewBox(self):
-        """ Configures the View Widget for self.pageBar """
+        """ Configures the pyqtgraph.ViewBox widget used by the internal
+        ImageView to show the micrograph image """
         v = self._imageView.getViewBox()
 
         if v:
@@ -672,8 +684,11 @@ class PickerView(qtw.QWidget):
     @qtc.pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
         """
-        This slot is invoked when the mouse is moved hover de View
-        :param pos: The mouse pos
+        This slot is invoked when the mouse is moved hover de pyqtgraph.ViewBox
+        widget used by the internal ImageView to show the micrograph image.
+
+        Args:
+            pos: The mouse pos
         """
         if pos:
             origPos = pos
@@ -732,6 +747,7 @@ class PickerView(qtw.QWidget):
             self._updateROIs(clear=True)
 
     def __onPickShapeChanged(self, newShape):
+        """ Update the current selected shape type """
         self._shape = newShape
         self._updateROIs(clear=True)  # FIXME: Change for updateShape???
 
@@ -773,7 +789,8 @@ class PickerView(qtw.QWidget):
 
     @qtc.pyqtSlot(int)
     def __onCurrentRowChanged(self, row):
-        """ Invoked when current row change in micrographs list """
+        """ Invoked when current row change in micrographs list.
+        Show the new micrograph """
         mic = self._model.getMicrographByIndex(row)
         try:
             if mic != self._currentMic:
@@ -788,22 +805,21 @@ class PickerView(qtw.QWidget):
     def _boxSizeChanged(self, value):
         """
         This slot is invoked when de value of spinBoxBoxSize is changed
-        :param value: The value
+
+        Args:
+            value: The value
         """
         self._updateBoxSize(value)
 
     @qtc.pyqtSlot()
     def _boxSizeEditingFinished(self):
-        """
-        This slot is invoked when spinBoxBoxSize editing is finished
+        """ This slot is invoked when spinBoxBoxSize editing is finished
         """
         self._updateBoxSize(self._spinBoxBoxSize.value())
 
     @qtc.pyqtSlot(bool)
     def _labelAction_triggered(self, checked):
-        """
-        This slot is invoked when clicks on label
-        """
+        """ This slot is invoked when clicks on label """
         btn = self._buttonGroup.checkedButton()
 
         if checked and btn:
@@ -811,12 +827,13 @@ class PickerView(qtw.QWidget):
 
     @qtc.pyqtSlot(object)
     def _roiMouseHover(self, roi):
-        """ Handler invoked when the roi is hovered by the mouse. """
+        """ Handler invoked when the roi is hovered by the mouse.
+        Show the roi handles """
         self.__showHandlers(roi, roi.mouseHovering)
 
     @qtc.pyqtSlot(object)
     def __eraseRoiChanged(self, eraseRoi):
-        """ Handler invoked when the roi is moved. """
+        """ Handler invoked when the erase roi is moved. """
         self.__eraseROIText.setVisible(False)
         viewBox = self._imageView.getViewBox()
         scene = viewBox.scene()
@@ -889,8 +906,8 @@ class PickerView(qtw.QWidget):
 
     def getPreferredSize(self):
         """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
+        Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the data
         """
         w, h = self._imageView.getPreferredSize()
         toolBar = self._imageView.getToolBar()
@@ -901,25 +918,9 @@ class PickerView(qtw.QWidget):
         return self._imageView.getToolBar()
 
 
-class MicrographItem(qtg.QStandardItem):
-    """
-    The MicrographItem is the item that we use in the ColumnsView
-    where the images are displayed
-    """
-    def __init__(self, imgElem, icon=None):
-        super(MicrographItem, self).__init__("%i" % imgElem.getId())
-        self._micrograph = imgElem
-        if icon:
-            self.setIcon(icon)
-
-    def getMicrograph(self):
-        """ Return the micrographs corresponding to this node (or item). """
-        return self._micrograph
-
-
 def isFilament(coord):
     """ Helper function to check if the coord is a filament.
-    Returns true if coords has 'x2' and 'y2' attributes.
+    Returns true if coord has 'x2' and 'y2' attributes.
     """
     return all(hasattr(coord, a) for a in ['x2', 'y2'])
 
@@ -1010,7 +1011,9 @@ class RoiHandler:
     def updateSize(self, size):
         """
         Update the roi size
-        :param size: (int) The new size
+
+        Args:
+            size: (int) The new size
         """
         if self._shape == SHAPE_CENTER:
             return  # No size update required in this case
@@ -1022,10 +1025,12 @@ class RoiHandler:
         self._roi.setPos((x, y), update=False, finish=False)
 
     def connectSignals(self, roi):
+        """ Connect the roi signals """
         for signalName, slot in self._signals.items():
             getattr(roi, signalName).connect(slot)
 
     def disconnectSignals(self, roi):
+        """ Disconnect the roi signals, connected previously """
         for signalName, slot in self._signals.items():
             getattr(roi, signalName).disconnect(slot)
 
@@ -1036,10 +1041,15 @@ class FilamentRoiHandler(RoiHandler):
     def __calcFilamentSize(self, pos1, pos2, width):
         """
         Calculate the filament size (width x height)
-        :param pos1:  (pg.Point) Fist point
-        :param pos2:  (pg.Point) Second point
-        :param width: (int) The new size
-        :return:      (pg.Point, pg.Point, float) A Tuple (pos, size, angle)
+
+        Args:
+            pos1:  (pyqtgrapgh.Point) Fist point
+            pos2:  (pyqtgrapgh.Point) Second point
+            width: (int) The new size
+
+        Returns:
+            (pyqtgrapgh.Point, pyqtgrapgh.Point, float).
+             A Tuple (pos, size, angle)
         """
         d = pg.Point(pos2) - pg.Point(pos1)
         angle = pg.Point(1, 0).angle(d)
@@ -1078,8 +1088,10 @@ class FilamentRoiHandler(RoiHandler):
 
     def updateSize(self, size):
         """
-        Update the roi size
-        :param size: (int) The new size
+        Update the filament roi size.
+
+        Args:
+            size: (int) The new size
         """
         if self._shape == SHAPE_CENTER:
             return
@@ -1095,6 +1107,6 @@ class FilamentRoiHandler(RoiHandler):
 
 
 class CircleROI(pg.CircleROI):
-    """ Circular ROI subclass without handles """
+    """ Circular ROI subclass without handles. """
     def __init__(self, pos, size, **args):
         pg.ROI.__init__(self, pos, size, **args)
