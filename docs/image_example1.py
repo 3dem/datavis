@@ -7,12 +7,11 @@ import emvis as emv
 imgPath = sys.argv[1]
 app = qtw.QApplication(sys.argv)
 win = qtw.QMainWindow()
-
 # Create the image model and view
-imgModel = dv.models.ImageModel(data=emv.ImageManager().getData(imgPath))
+data = emv.ImageManager().getData(imgPath)
+imgModel = dv.models.ImageModel(data=data)
 imgView = dv.views.ImageView(model=imgModel, parent=win,
                              histogram=True)  # show histogram of pixel values
-
 win.setCentralWidget(imgView)
 win.show()
 sys.exit(app.exec_())

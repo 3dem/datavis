@@ -55,7 +55,8 @@ keywords parameters of the :meth:`ImageView.__init__ <datavis.views.ImageView.__
 
 A simple example (image_example.py) that displays a CryoEM image using ImageView is shown below:
 
-.. literalinclude:: image_example.py
+.. literalinclude:: image_example1.py
+    :linenos:
 
 Then, we can execute the script passing an input image:
 
@@ -68,8 +69,36 @@ The following image should be shown:
 .. image:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/image_view.png?token=ACAM6WB3OLZKRY7B4GYM3VC5YBFC4
 
 
-SlicesModel and SlicesView
---------------------------
+SlicesModel
+-----------
+The :class:`~datavis.models.SlicesModel` can be seen as an N-dimesional
+:class:`~datavis.models.ImageModel`. So the main difference respect to it, is that the
+:meth:`~datavis.models.SlicesModel.getData` method has an index argument to choose which
+slice's data should be returned. Additionally, it provides the
+:meth:`~datavis.models.SlicesModel.getImageModel` method as a shortcut to create an ImageModel
+from a given slice.
+
+The :meth:`~datavis.models.VolumeModel` class implements the getSlicesModel method that
+returns a SlicesModel for a given axis. Moreover, the :meth:`~emvis.EmStackModel` class
+inherits from SlicesModel and implement how to read each slice from the stack file. The SlicesModel
+provides a nice abstraction about how data is retrieved (i.g from disk, memory, computed, etc) and
+it is used in an homogeneous way by the View widgets.
+
+SlicesView
+----------
+The :class:`~datavis.views.SlicesView` widget is very similar to the :class:`~datavis.views.ImageView`
+one, but adds an slider for the user to select the slice that is being displayed.
+
+It is very easy to adapt the example script shown above for using SlicesView, just replacing lines
+12 and 13 by the following:
+
+.. literalinclude:: image_example2.py
+    :lines: 13-22
+    :linenos:
+
+In this way, if the read data is 2D, an ImageView will be created, if 3D a SlicesView and
+raise an exception in any other case. So now the script can be calling using 2D or 3D data
+as input.
 
 
 MultiSliceView
