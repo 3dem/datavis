@@ -17,16 +17,18 @@ class TriggerAction(qtw.QAction):
                  slot=None, shortCut=None, userData=None, **kwargs):
         """
         Creates a TriggerAction with the given name, text and icon. If slot is
-        not None then the signal qtw.QAction.triggered is connected to it.
-        :param actionName:   (str)The action name
-        :param text:         (str)Action text
-        :param faIconName:   (str)qtawesome icon name
-        :param icon:         (QIcon) used if faIconName=None
-        :param checkable:    (bool)if this action is checkable
-        :param tooltip:      (str) The tooltip text
-        :param slot:         (slot) the slot to connect qtw.QAction.triggered signal
-        :param shortCut:     (QKeySequence) the short cut key
-        :param userData:     User data for specific purposes
+        not None then the signal QAction.triggered is connected to it.
+
+        Args:
+            actionName:   (str)The action name
+            text:         (str)Action text
+            faIconName:   (str)qtawesome icon name
+            icon:         (QIcon) used if faIconName=None
+            checkable:    (bool)if this action is checkable
+            tooltip:      (str) The tooltip text
+            slot:         (slot) the slot to connect qtw.QAction.triggered signal
+            shortCut:     (QKeySequence) the short cut key
+            userData:     User data for specific purposes
         """
         qtw.QAction.__init__(self, parent)
         if actionName:
@@ -67,12 +69,14 @@ class MultiStateAction(TriggerAction):
     def __init__(self, parent=None, **kwargs):
         """
         Constructor for MultiStateAction objects.
-        :param parent:   (qtc.QObject) Specifies the parent object to which
-                         this MultiStateAction will belong
-        :param kwargs:
-                states:  (list of (value, icon, tooltip)) All possible states
-                         for the MultiStateAction.
-               current:  (int) The initial state index in states list.
+
+        Args:
+            parent:  (QObject) Specifies the parent object to which
+                     this MultiStateAction will belong.
+        Keyword Args:
+            states:  (list of (value, icon, tooltip)) All possible states
+                     for the MultiStateAction.
+            current: (int) The initial state index in states list.
         """
         # List of internal states
         self._states = list(kwargs.pop('states') or [])
@@ -85,9 +89,10 @@ class MultiStateAction(TriggerAction):
     def add(self, state, icon, tooltip=""):
         """
         Add a new state to the internal states list.
-        :param state:    The state
-        :param icon:     (QIcon) Icon for the specified state
-        :param tooltip:  (str) The tooltip
+        Args:
+            state:    The state
+            icon:     (QIcon) Icon for the specified state
+            tooltip:  (str) The tooltip
         """
         self._states.append((state, icon, tooltip))
 
@@ -99,7 +104,9 @@ class MultiStateAction(TriggerAction):
         """
         Change the current active state. Raise an Exception if the specified
         state is invalid.
-        :param state: The state.
+
+        Args:
+            state: The state.
         """
         values = [s[0] for s in self._states]
         if state not in values:
@@ -113,7 +120,9 @@ class MultiStateAction(TriggerAction):
     def __move(self, shift):
         """
         Move the current active state.
-        :param shift: (int) Positions for move the current state
+
+        Args:
+            shift: (int) Positions for move the current state
         """
         newIndex = (self._current + shift) % len(self._states)
         self.set(self._states[newIndex][0])
@@ -135,11 +144,14 @@ class OnOffAction(MultiStateAction):
     """ Subclass of MultiStateAction that provide just to states: on/off. """
     def __init__(self, parent=None, **kwargs):
         """
-        Constructs an OnOffAction.
-        :param parent: The qtc.QObject parent
-        :param kwargs:
-             - toolTipOn:   (str) The tooltip for On state
-             - toolTipOff:  (str) The tooltip for Off state
+        Constructs an OnOffAction instance.
+
+        Args:
+            parent: The parent object
+
+        Keyword Args
+            toolTipOn:   (str) The tooltip for On state
+            toolTipOff:  (str) The tooltip for Off state
         """
         # Set states to On/Off
         kwargs['states'] = [
@@ -150,16 +162,20 @@ class OnOffAction(MultiStateAction):
 
 
 class ActionsToolBar(qtw.QWidget):
-    """ Toolbar that can contain a drop-down panel with additional options """
+    """ Toolbar that can contain a drop-down panel with additional options.
+    Actually,  only the Qt.Vertical mode is supported. """
 
     def __init__(self, parent, **kwargs):
         """
         Construct an ActionsToolBar to be used as part of any widget
-        :param parent:
-        **kwargs: Optional arguments.
-             orientation:   one of Qt.Orientation values (default=Qt.Horizontal)
-             panelMinWidth: (int): the minimum side panel width
-             panelMaxWidth: (int): the maximum side panel width
+
+        Args:
+            parent: The parent widget
+
+        Keyword Args:
+            orientation:   one of Qt.Orientation values (default=Qt.Horizontal)
+            panelMinWidth: (int): the minimum side panel width
+            panelMaxWidth: (int): the maximum side panel width
         """
         qtw.QWidget.__init__(self, parent=parent)
 
@@ -172,6 +188,7 @@ class ActionsToolBar(qtw.QWidget):
         self.__setupUi()
 
     def __setupUi(self):
+        """ Setups the GUI """
         if self._orientation == qtc.Qt.Vertical:
             layout = qtw.QHBoxLayout(self)
         else:
@@ -199,8 +216,10 @@ class ActionsToolBar(qtw.QWidget):
     def __visibilityChanged(self, action, dock):
         """
         Invoked when the visibility is changed for the given dock widget
-        :param action: The parent action for the dock
-        :param dock:   (qtw.QDockWidget) The dock widget
+
+        Args:
+            action: The parent action for the dock
+            dock:   (QDockWidget) The dock widget
         """
         action.setChecked(dock.isVisible())
         self.__dockShowHide(dock)
@@ -208,7 +227,9 @@ class ActionsToolBar(qtw.QWidget):
     def __dockShowHide(self, dock):
         """
         Show or hide the specified dock widget according to the current state
-        :param dock: (qtw.QDockWidget)
+
+        Args:
+            dock: (QDockWidget) The dock widget
         """
         if not dock.isVisible() and dock in self._visibleDocks:
             self._visibleDocks.remove(dock)
@@ -222,9 +243,8 @@ class ActionsToolBar(qtw.QWidget):
 
     @qtc.pyqtSlot(qtc.QObject)
     def __destroySidePanel(self, obj):
-        """
-        Invoked when the ActionsToolBar will be destroyed.
-        We need to destroy the side panel
+        """ Invoked when the ActionsToolBar will be destroyed. We need to
+        destroy the side panel.
         """
         # FIXME[phv]: Review if self.destroyed can be connected to deleteLater
         self._sidePanel.deleteLater()
@@ -262,7 +282,9 @@ class ActionsToolBar(qtw.QWidget):
     def setToolButtonStyle(self, toolButtonStyle):
         """
         Set the button style for this MultiStateAction
-        :param toolButtonStyle: (Qt.ToolButtonStyle) The style for all buttons
+
+        Args:
+            toolButtonStyle: (Qt.ToolButtonStyle) The style for all buttons
         """
         self._toolBar.setToolButtonStyle(toolButtonStyle)
 
@@ -394,8 +416,10 @@ class ActionsToolBar(qtw.QWidget):
     def createPanel(self, name, style=None):
         """
         Create a widget with the preferred width.
-        :param name:   (str) The panel name
-        :param style:  (str) The panel style
+
+        Args:
+            name:   (str) The panel name
+            style:  (str) The panel style
         """
         widget = qtw.QWidget()
         # FIXME: If the toolbar can be either vertical or horizontal

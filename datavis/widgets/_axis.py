@@ -7,7 +7,8 @@ from datavis.models import AXIS_X, AXIS_Y, AXIS_Z
 
 class AxisSelector(qtw.QWidget):
     """
-    Custom widget for axis selection
+    Custom widget for axis selection. Show a label text in the left side, and
+    the axis for selection.
     """
     """ Signal for axis changed """
     sigAxisChanged = qtc.pyqtSignal(int)
@@ -27,12 +28,13 @@ class AxisSelector(qtw.QWidget):
     def __init__(self, parent=None, orientation=HORIZONTAL, label='Axis: ',
                  xlabel='X', ylabel='Y', zlabel='Z'):
         """
-        Create a new AxisSelector object.
-        :param parent:   (QWidget) The parent widget
-        :param label:        (str) A label text at for the widget
-        :param xlabel:       (str) The label text for X-axis
-        :param ylabel:       (str) The label text for Y-axis
-        :param zlabel:       (str) The label text for Y-axis
+        Create a new AxisSelector instance.
+        Args:
+            parent:    The parent widget
+            label:     (str) A label text for the widget
+            xlabel:    (str) The label text for X-axis
+            ylabel:    (str) The label text for Y-axis
+            zlabel:    (str) The label text for Y-axis
         """
         qtw.QWidget.__init__(self, parent=parent)
 
@@ -61,7 +63,7 @@ class AxisSelector(qtw.QWidget):
         self.__group = group
 
     def __onAxisChanged(self, id):
-        """ Called when the current button change """
+        """ Called when the current axis is changed """
         self.__setupViewMode()
         self.sigAxisChanged.emit(id)
 
@@ -74,20 +76,21 @@ class AxisSelector(qtw.QWidget):
             btn.setVisible(v)
 
     def setCurrentAxis(self, axis):
-        """ Sets the current axis """
+        """ Sets the current axis. Possible values: AXIS_X, AXIS_Y, AXIS_Z """
         btn = self.__group.button(axis)
 
         if btn is not None:
             btn.setChecked(True)
 
     def getCurrentAxis(self):
-        """ Return the current axis """
+        """ Return the current axis: AXIS_X, AXIS_Y or AXIS_Z """
         return self.__group.checkedId()
 
     def setViewMode(self, mode):
         """
         Set the view mode.
-        :param mode: (int) Specify the view mode (SHOW_CURRENT, SHOW_ALL)
+        Args:
+            mode: (int) Specify the view mode: SHOW_CURRENT or SHOW_ALL
         """
         self._viewMode = mode
         self.__setupViewMode()

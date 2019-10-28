@@ -5,16 +5,22 @@ import PyQt5.QtGui as qtg
 
 import datavis as dv
 
-# TODO: Review methods, global variables, documentation, etc
-# In the whole file
-
 
 class ParamWidget(qtw.QWidget):
-    """ Base class for all Params-Widgets """
+    """ ParamWidget is the base class for all Params-Widgets. A parameter is an
+    abstract entity defined by a basic properties of a parameter to be used in
+    different context """
     #  Signal emitted when the param value is changed.
     sigValueChanged = qtc.pyqtSignal(str, object)  # (paramName, value)
 
     def __init__(self, param, parent=None):
+        """
+        Construct a ParamWidget instance
+
+        Args:
+            param:   :class:`Param <datavis.models.Param>`
+            parent:  The parent widget
+        """
         qtw.QWidget.__init__(self, parent=parent)
         self._param = param
         self._sizePolicy = qtw.QSizePolicy(qtw.QSizePolicy.Expanding,
@@ -32,21 +38,20 @@ class ParamWidget(qtw.QWidget):
         raise Exception("Not implemented yet.")
 
     def emitValueChanged(self, paramValue):
+        """ Emits the sigValueChanged signal """
         self.sigValueChanged.emit(self._param.name, paramValue)
 
 
 class OptionsWidget(ParamWidget):
     """
-    The OptionsWidget provides a means of presenting a list of options to the user.
-    The display param specify how the options will be displayed.
+    The OptionsWidget provides a means of presenting a list of options
+    to the user. The display param specify how the options will be displayed.
     """
     def __init__(self, param, parent=None):
         """
         Construct an OptionsWidget
-        exclusive(bool): If true, the radio buttons will be exclusive
-        buttonsClass:
-        :param param:        The Param that will be mapped to this widget
-        :param parent:       The QObject parent for this widget
+        param:   :class:`Param <datavis.models.Param>`
+        parent:  The parent widget
         """
         ParamWidget.__init__(self, param, parent=parent)
         display = param.display
@@ -63,6 +68,8 @@ class OptionsWidget(ParamWidget):
         self.setLayout(layout)
 
     def __createList(self, param):
+        """ Create the options list specified by the given
+        :class:`Param <datavis.models.Param>` """
         listWidget = qtw.QWidget(self)
         group = qtw.QButtonGroup(self)
         group.setExclusive(True)
@@ -96,6 +103,8 @@ class OptionsWidget(ParamWidget):
         return listWidget
 
     def __createCombo(self, param):
+        """ Create a combobox widget containing the options specified by
+        the given :class:`Param <datavis.models.Param>` """
         combo = qtw.QComboBox(self)
         for i, opt in enumerate(param.choices):
             combo.addItem(opt, i)
@@ -111,17 +120,24 @@ class OptionsWidget(ParamWidget):
 
     def __onSelectionChanged(self, index):
         """
-        Invoked when the selected item changed (either in combo or list)
-        :param index: (int) The new selected index
+        Invoked when the selected item has been changed(either in combo or list)
+
+        Arg:
+           index: (int) The new selected index
         """
         self._value = index
         self.emitValueChanged(index)
 
     def get(self):
+        """
+        Reimplemented from :class:`ParamWidget <datavis.widgets.ParamWidget>`
+        """
         return self._value
 
     def set(self, value):
-        """ Set the given option as selected """
+        """ Set the given option as selected.
+        Reimplemented from :class:`ParamWidget <datavis.widgets.ParamWidget>`
+        """
         n = len(self._param.choices)
         if value < 0 or value >= n:
             raise Exception("Invalid index '%d', value should be "
@@ -131,8 +147,15 @@ class OptionsWidget(ParamWidget):
 
 
 class TextWidget(ParamWidget):
-    """ """
+    """ The TextWidget is a one-line text editor. """
+
     def __init__(self, param, parent=None):
+        """
+        Construct an TextWidget instance.
+        Args:
+            param:   :class:`Param <datavis.models.Param>`
+            parent:  The parent widget
+        """
         ParamWidget.__init__(self, param, parent=parent)
         layout = qtw.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -145,17 +168,29 @@ class TextWidget(ParamWidget):
         self._lineEdit.returnPressed.connect(self.__onReturnPressed)
 
     def __onReturnPressed(self):
+        """ Invoked when the user press Enter """
         self.emitValueChanged(self.get())
 
     def set(self, value):
+        """
+        Reimplemented from :class:`ParamWidget <datavis.widgets.ParamWidget>`.
+        Set the given value as the current text.
+        """
         self._lineEdit.setText(str(value))
 
     def get(self):
+        """
+        Reimplemented from :class:`ParamWidget <datavis.widgets.ParamWidget>`.
+
+        Returns:
+            The current text
+        """
         return self._lineEdit.text()
 
 
 class NumericWidget(ParamWidget):
-    """ """
+    """ The NumericWidget is a one-line numbers editor.
+    It supports the following types: integer, float """
     def __init__(self, param, parent=None):
         ParamWidget.__init__(self, param, parent=parent)
         layout = qtw.QVBoxLayout()
@@ -214,6 +249,12 @@ class NumericWidget(ParamWidget):
 class BoolWidget(ParamWidget):
     """ ParamWidget subclass that wraps a Param with 'bool' type. """
     def __init__(self, param, parent=None):
+        """
+        Construct an BoolWidget instance.
+        Args:
+            param:   :class:`Param <datavis.models.Param>`
+            parent:  The parent widget
+        """
         ParamWidget.__init__(self, param, parent=parent)
         layout = qtw.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -225,18 +266,31 @@ class BoolWidget(ParamWidget):
         self._checkBox.stateChanged.connect(self.__onCheckStateChanged)
 
     def __onCheckStateChanged(self, state):
+        """ Invoked when the current state has been changed """
         self.emitValueChanged(state == qtc.Qt.Checked)
 
     def set(self, value):
+        """
+        Reimplemented from :class:`ParamWidget <datavis.widgets.ParamWidget>`
+        """
         self._checkBox.setChecked(bool(value))
 
     def get(self):
+        """
+        Reimplemented from :class:`ParamWidget <datavis.widgets.ParamWidget>`
+        """
         return self._checkBox.isChecked()
 
 
 class ButtonWidget(ParamWidget):
     """ ParamWidget subclass that wraps a Param with 'button' type. """
     def __init__(self, param, parent=None):
+        """
+        Construct an BoolWidget instance.
+        Args:
+            param:   :class:`Param <datavis.models.Param>`
+            parent:  The parent widget
+        """
         ParamWidget.__init__(self, param, parent=parent)
         layout = qtw.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -249,6 +303,7 @@ class ButtonWidget(ParamWidget):
         btn.clicked.connect(self.__onClicked)
 
     def __onClicked(self):
+        """ Invoked when the button has been clicked """
         self.emitValueChanged(True)  # just to notify
 
     def set(self, value):
@@ -259,7 +314,8 @@ class ButtonWidget(ParamWidget):
 
 
 class FormWidget(qtw.QWidget):
-    """ The base class for dynamic widgets """
+    """ The FormWidget is the container widget for a ordered
+    group of :class:`Params <datavis.models.Param>`"""
     sigValueChanged = qtc.pyqtSignal(str, object)
 
     # Map between the Param type and the associated Widget class
@@ -273,11 +329,14 @@ class FormWidget(qtw.QWidget):
 
     def __init__(self, form, parent=None, name=''):
         """
-        Construct an FormWidget object
-        :param form: Form instance with the definition of the params
-        :param parent:  The parent widget
-        :param name:    (str) The container name # FIXME: Is this useful?
+        Construct an FormWidget instance
+        Args:
+            form:   :class:`Form <datavis.models.Form>` instance with
+                    the definition of the params.
+            parent: The parent widget
+            name:   (str) The container name
         """
+        # FIXME: Is the name useful?
         qtw.QWidget.__init__(self, parent=parent)
         self.setObjectName(name)
         self.setLayout(qtw.QGridLayout())
@@ -325,10 +384,11 @@ class FormWidget(qtw.QWidget):
 
     def _onChildChanged(self, paramName, value):
         """
-         Connect this slot for child param changed notification.
-         Emits sigValueChanged signal.
+        Connect this slot for child param changed notification.
+        Emits sigValueChanged signal.
 
-        :param paramName: (str) the param name
-        :param value:     the data value.
+        Args:
+            paramName: (str) the param name
+            value:     the data value.
         """
         self.sigValueChanged.emit(paramName, value)

@@ -12,7 +12,7 @@ LABEL_ROLE = qtc.Qt.UserRole + 3
 class ColorItemDelegate(qtw.QStyledItemDelegate):
     """
     ColorItemDelegate class provides display and editing facilities for
-    QColor selections.
+    color selections.
     """
     def createEditor(self, parent, option, index):
         return qtw.QColorDialog(parent=parent)

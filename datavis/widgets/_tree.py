@@ -138,16 +138,16 @@ class Browser(qtw.QWidget):
 
     def __init__(self, **kwargs):
         """
-         Constructs a new Browser object
+        Constructs a new Browser object
 
-        :param kwargs:
-         - parent:       The parent widget
-         - model         The tree model for the view to present.
-         - mode:         (int) The TreeView mode. Possible values:
+        Keyword Args:
+            parent:      The parent widget
+            model        The tree model for the view to present.
+            mode:        (int) The TreeView mode. Possible values:
                          TREE_MODE, DIR_MODE
-        - navigate:      (Boolean) If True, the user can navigate through
+            navigate:    (Boolean) If True, the user can navigate through
                          the directories
-         - readOnly      (Boolean) If True, all navigation buttons and completer
+            readOnly     (Boolean) If True, all navigation buttons and completer
                          will be disabled
         """
         qtw.QWidget.__init__(self, kwargs.get('parent'))
@@ -155,8 +155,7 @@ class Browser(qtw.QWidget):
         self.sigIndexChanged.connect(self.__onCurrentIndexChanged)
 
     def __setupUi(self, kwargs):
-        """ Create the main GUI of the Browser.
-         """
+        """ Create the main GUI of the Browser. """
         mainLayout = qtw.QHBoxLayout(self)
         mainLayout.setSpacing(0)
         mainLayout.setContentsMargins(1, 1, 1, 1)
@@ -223,6 +222,8 @@ class Browser(qtw.QWidget):
         self._refreshAct.setEnabled(v)
 
     def __onCurrentIndexChanged(self, index):
+        """ Invoked when the current index has been changed.
+        Updates the ViewPanel """
         self.updateViewPanel()
 
     def _onSelectionChanged(self, selected, deselected):
@@ -234,9 +235,8 @@ class Browser(qtw.QWidget):
 
     def _createTreeModelView(self, **kwargs):
         """
-        Create the TreeModelView
-        :param kwargs: Initialization params
-        :return: (TreeModelView)
+        Create the TreeModelView. Subclasses must implement this method for the
+        tree model view creation
         """
         raise Exception('Not implemented yet. ')
 
@@ -260,11 +260,14 @@ class Browser(qtw.QWidget):
         return splitter
 
     def _createViewPanel(self, **kwargs):
-        """ Build the top right panel"""
+        """ Build the top right panel. Subclasses must implement this method for
+        the ViewPanel creation """
         raise Exception('Not implemented yet. ')
 
     def _createInfoPanel(self, **kwargs):
-        """ Build the bottom right panel for additional information """
+        """ Build the bottom right panel for additional information.  Subclasses
+        must implement this method for the InfoPanel creation, usually doing
+        nothing """
         raise Exception('Not implemented yet. ')
 
     def _onHomeAction(self):
@@ -318,16 +321,16 @@ class FileModelView(TreeModelView):
 
     def __init__(self, **kwargs):
         """
-        Constructs an FileBrowser object
+        Constructs an FileBrowser instance
 
-        :param kwargs:
-           - parent:       The parent widget
-           - mode:         (int) The TreeView mode. Possible values:
+        Keyword Args:
+            parent:       The parent widget
+            mode:         (int) The TreeView mode. Possible values:
                            TREE_MODE, DIR_MODE
-           - navigate:     (Boolean) If True, the user can navigate through
+            navigate:     (Boolean) If True, the user can navigate through
                            the directories
-           - rootPath:     (str) Initial root path
-           - selectedPath  (str) The selected path
+            rootPath:     (str) Initial root path
+            selectedPath  (str) The selected path
         """
 
         TreeModelView.__init__(self, **kwargs)
@@ -361,6 +364,7 @@ class FileModelView(TreeModelView):
         self._expandIndex(index)
 
     def setRootIndex(self, index):
+        """ Reimplemented from QTreeView """
         if self._navigate and index.isValid():
             qtw.QTreeView.setRootIndex(self, index)
 
@@ -387,7 +391,9 @@ class FileModelView(TreeModelView):
     def setRootPath(self, path):
         """
         Sets the root path to the given path
-        :param path: (str) The new root path
+
+        Args:
+            path: (str) The new root path
         """
         if self._navigate:
             self.setRootIndex(self._model.index(path))
@@ -423,13 +429,13 @@ class FileBrowser(Browser):
     """
     def __init__(self, **kwargs):
         """
-        Creates a FileBrowser object
-        :param kwargs:
-        - model         The tree model for the view to present.
-        - mode:         (int) The TreeView mode. Possible values:
-                        TREE_MODE, DIR_MODE
-        - navigate:     (Boolean) If True, the user can navigate through
-                        the directories
+        Creates a FileBrowser instance
+        Keyword Args:
+            model   The tree model for the view to present.
+            mode:   (int) The TreeView mode. Possible values:
+                    TREE_MODE, DIR_MODE
+            navigate: (Boolean) If True, the user can navigate through
+                      the directories
         """
         Browser.__init__(self, **kwargs)
         model = self._treeModelView.model()
@@ -437,9 +443,7 @@ class FileBrowser(Browser):
             model.filePath(self._treeModelView.currentIndex()))
 
     def _createTreeModelView(self, **kwargs):
-        """
-        Create the FileModelView
-        """
+        """ Create the FileModelView """
         model = kwargs.get('model')
         if model is None:
             kwargs['model'] = qtw.QFileSystemModel(self)

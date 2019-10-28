@@ -252,6 +252,12 @@ class TextView(qtw.QPlainTextEdit):
     TextView class provides a widget that is used to edit and display plain text
     """
     def __init__(self, parent=None):
+        """
+        Construct a TextView instance:
+
+        Args:
+            parent: The parent widget.
+        """
         qtw.QPlainTextEdit.__init__(self, parent=parent)
         self._lineNumberArea = _LineNumberArea(self)
         self._lineColor = qtg.QColor(qtc.Qt.yellow).lighter(160)
@@ -274,6 +280,7 @@ class TextView(qtw.QPlainTextEdit):
             self._highlighter.setDocument(self.document())
 
     def lineNumberAreaPaintEvent(self, event):
+        """ Paint the line number area """
         painter = qtg.QPainter(self._lineNumberArea)
         painter.fillRect(event.rect(),
                          self._lineNumberArea.getBackgrountColor())
@@ -297,9 +304,7 @@ class TextView(qtw.QPlainTextEdit):
             blockNumber += 1
 
     def lineNumberAreaWidth(self):
-        """
-        Returns the width of the line number area
-        """
+        """ Returns the width of the line number area. """
         digits = 1
         m = max(1, self.blockCount())
 
@@ -312,10 +317,11 @@ class TextView(qtw.QPlainTextEdit):
         return space
 
     def updateLineNumberAreaWidth(self, newBlockCount):
-        """ Update the width of the line number area """
+        """ Update the width of the line number area. """
         self.setViewportMargins(self.lineNumberAreaWidth(), 0, 0, 0)
 
     def highlightCurrentLine(self):
+        """ Highlight the current line """
         extraSelections = []
 
         selection = qtw.QTextEdit.ExtraSelection()
@@ -329,6 +335,7 @@ class TextView(qtw.QPlainTextEdit):
         self.setExtraSelections(extraSelections)
 
     def updateLineNumberArea(self, rect, dy):
+        """ Update the line number area """
         if dy:
             self._lineNumberArea.scroll(0, dy)
         else:
@@ -340,6 +347,8 @@ class TextView(qtw.QPlainTextEdit):
             self.updateLineNumberAreaWidth(0)
 
     def resizeEvent(self, event):
+        """ Reimplemented from QPlainTextEdit.
+        Updates the line number area """
         qtw.QPlainTextEdit.resizeEvent(self, event)
 
         cr = self.contentsRect()
