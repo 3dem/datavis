@@ -5,12 +5,13 @@ from ._constants import *
 
 
 class ColumnInfo:
-    """ Class containing basic info about a column: name and type. """
+    """ Basic information about a column: name and type. """
     def __init__(self, name, dataType=TYPE_STRING):
-        """
-        Create a new instance of a ColumnInfo
-        :param name: (string) The name of the column
-        :param dataType: (int) the type of the column
+        """ Create a new instance of a ColumnInfo
+
+        Args:
+            name: The name of the column.
+            dataType: The type of the column
         """
         self._name = name
         self._type = dataType
@@ -23,9 +24,124 @@ class ColumnInfo:
         return self._type
 
 
-class TableModel:
+class ColumnConfig(ColumnInfo):
+    """ Extend :class:`ColumnInfo <datavis.models.ColumnInfo>` class to store
+    properties about the visualization of a given column.
     """
-    Abstract base class to define the table model required by some views.
+    def __init__(self, name, dataType, **kwargs):
+        """ Create a new instance.
+
+        Args:
+            name: The column name.
+            label: The column label
+            type: column type : 'Bool', 'Int', 'Float', 'Str', 'Image'
+
+        Keyword Args:
+            label: Label that will be display as this column header.
+            description: More textual information about this column.
+            visible: If the columns will be shown or not.
+            visibleReadOnly: If 'visible' property can be changed.
+            renderable: If this columns has data that can be rendered.
+            renderableReadOnly: If renderization can be turn on/off.
+            editable: If the values in this columns can be edited.
+            editableReadOnly: Turn on/off edition of this column.
+        """
+        ColumnInfo.__init__(self, name, dataType)
+        self._label = kwargs.get('label', name)
+        self._description = kwargs.get(DESCRIPTION, '')
+        self._propertyNames = []
+        self._labels = kwargs.get(LABELS) or []
+        self.__setProperty__(VISIBLE, True, False, **kwargs)
+        self.__setProperty__(RENDERABLE, False, False, **kwargs)
+        self.__setProperty__(EDITABLE, False, True, **kwargs)
+
+    def __setProperty__(self, name, default, defaultRO, **kwargs):
+        """ Internal function to define a 'property' that will
+        define an attribute with similar name and also a 'ReadOnly'
+        flag to define when the property can be changed or not.
+
+        Args:
+            name: the name of the property to be defined
+            default: default value for the property
+            defaultRO: default value for propertyReadOnly
+
+        Keyword Args:
+            keyword-arguments from where to read the values
+        """
+        setattr(self, '__%s' % name, kwargs.get(name, default))
+        self._propertyNames.append(name)
+        roName = name + 'ReadOnly'
+        setattr(self, '__%s' % roName, kwargs.get(roName, defaultRO))
+        self._propertyNames.append(roName)
+
+    def getLabel(self):
+        """ Return the string that will be used to display this column. """
+        return self._label
+
+    def getDescrition(self):
+        """ Return the description of this column. """
+        return self._description
+
+    def getPropertyNames(self):
+        return self._propertyNames
+
+    def config(self, **props):
+        """ Configure the attributes from the provided properties key=value. """
+        for k, v in props.items():
+            self[k] = v
+
+    def check(self, **props):
+        """ Return True if this columns have these properties values. """
+        return all(self[k] == v for k, v in props.items())
+
+    def clone(self):
+        """ Return a new instance with the same values of this one. """
+        copy = ColumnConfig(self._name, self._type, label=self._label,
+                            description=self._description)
+        for p in self._propertyNames:
+            copy[p] = self[p]
+        return copy
+
+    def setLabels(self, labels):
+        """ Sets the column labels """
+        self._labels = labels
+
+    def getLabels(self):
+        """ Returns the column labels """
+        return self._labels
+
+    def __getitem__(self, propertyName):
+        """ Return the value of a given property.
+        If the property does not exits, an Exception is raised.
+        """
+        if propertyName not in self._propertyNames:
+            raise Exception("Invalid property name: %s" % propertyName)
+
+        return getattr(self, '__%s' % propertyName)
+
+    def __setitem__(self, propertyName, value):
+        """ Return the value of a given property.
+        If the property does not exits, an Exception is raised.
+        """
+        if propertyName not in self._propertyNames:
+            raise Exception("Invalid property name: %s" % propertyName)
+        return setattr(self, '__%s' % propertyName, value)
+
+    def __str__(self):
+        """ A readable representation. """
+        s = "ColumnConfig: name = %s\n" % self.getName()
+        s += "   label: %s\n" % self.getLabel()
+        s += "    desc: %s\n" % self.getDescrition()
+        s += "    type: %s\n" % self.getType()
+        for p in self._propertyNames:
+            s += "    %s: %s\n" % (p, self[p])
+
+        return s
+
+
+class TableModel:
+    """ Abstract base class to define the table model required by some views.
+
     It provides a very general interface about tabular data and how it will
     be displayed. The TableModel class will be able to handle data sources
     with more than one table. The method getTableNames will return the available
@@ -35,44 +151,39 @@ class TableModel:
     """
     # ------ Abstract methods that should be implemented in subclasses ---------
     def getTableNames(self):
-        """
-        :return: Return all the names of available tables from the data source.
-        """
+        """ Returns all available table names from the data source. """
         # Let's assume a self._tableNames property will be defined in subclasses
         # or this method will be overwritten
         return self._tableNames
 
     def getTableName(self):
-        """
-        :return: Return the current table name
-        """
+        """ Returns the name of the table currently loaded. """
         return self._tableName
 
     def loadTable(self, tableName):
-        """ Load a given table.
-        An exception will be raised if there is not table with the
-        provided name.
-        This method should not be overwritten in subclasses
-         (re-implement _loadTable)
+        """ Load the table with the given name.
+
+        This method should not be overridden in sub-classes, instead
+        _loadTable should be re-implemented.
+
+        Raises:
+            An exception if there is not table with the provided name.
         """
         if tableName not in self.getTableNames():
             raise Exception("Missing table '%s' in this data model. "
                             % tableName)
         self._tableName = tableName
+
         return self._loadTable(tableName)
 
     def _loadTable(self, tableName):
-        """
-        Internal method that should be overwritten in subclasses to load
+        """ Internal method that should be overwritten in subclasses to load
         the current active table.
-        :param tableName: The table name that will be load. It is already
-            validate that this tableName exists
-        :return: None
         """
         raise Exception("Not implemented")
 
     def iterColumns(self):
-        """ Generate a ColumnInfo iterator over the columns of the model. """
+        """ Iterated over the current ColumnInfo's of the model. """
         raise Exception("Not implemented")
 
     def getColumnsCount(self):
@@ -89,7 +200,7 @@ class TableModel:
 
     def getData(self, row, col):
         """ Return the data (array like) for the item in this row, column.
-         Used by rendering of images in a given cell of the table.
+        Used by rendering of images in a given cell of the table.
         """
         raise Exception("Not implemented")
 
@@ -190,8 +301,7 @@ class EmptyTableModel(TableModel):
 
 
 class TableConfig:
-    """
-    Store visualization properties of the columns of a table.
+    """ Contains visualization properties of the table's columns.
     """
     def __init__(self, *cols):
         # Store a list of ColumnConfig objects
@@ -231,115 +341,6 @@ class TableConfig:
     def iterColumns(self, **props):
         return iter((i, c) for i, c in enumerate(self._cols)
                     if c.check(**props))
-
-
-class ColumnConfig(ColumnInfo):
-    """
-    Extend ColumnInfo class to store properties about
-    the visualization of a given column.
-    """
-    def __init__(self, name, dataType, **kwargs):
-        """
-        Constructor
-        :param name: column name
-        :param label: column label
-        :param type: column type : 'Bool', 'Int', 'Float', 'Str', 'Image'
-        :param kwargs:
-            - visible (Bool)
-            - visibleReadOnly (Bool)
-            - renderable (Bool)
-            - renderableReadOnly (Bool)
-            - editable (Bool)
-            - editableReadOnly (Bool)
-            - label (Bool)
-            - labelReadOnly (Bool)
-            - labels (list)
-        """
-        ColumnInfo.__init__(self, name, dataType)
-        self._label = kwargs.get('label', name)
-        self._description = kwargs.get(DESCRIPTION, '')
-        self._propertyNames = []
-        self._labels = kwargs.get(LABELS) or []
-        self.__setProperty__(VISIBLE, True, False, **kwargs)
-        self.__setProperty__(RENDERABLE, False, False, **kwargs)
-        self.__setProperty__(EDITABLE, False, True, **kwargs)
-
-    def __setProperty__(self, name, default, defaultRO, **kwargs):
-        """ Internal function to define a 'property' that will
-        define an attribute with similar name and also a 'ReadOnly'
-        flag to define when the property can be changed or not.
-        :param name: the name of the property to be defined
-        :param default: default value for the property
-        :param defaultRO: default value for propertyReadOnly
-        :param **kwargs: keyword-arguments from where to read the values
-        """
-        setattr(self, '__%s' % name, kwargs.get(name, default))
-        self._propertyNames.append(name)
-        roName = name + 'ReadOnly'
-        setattr(self, '__%s' % roName, kwargs.get(roName, defaultRO))
-        self._propertyNames.append(roName)
-
-    def getLabel(self):
-        """ Return the string that will be used to display this column. """
-        return self._label
-
-    def getDescrition(self):
-        return self._description
-
-    def getPropertyNames(self):
-        return self._propertyNames
-
-    def config(self, **props):
-        """ Configure with the provided properties key=value. """
-        for k, v in props.items():
-            self[k] = v
-
-    def check(self, **props):
-        """ Return True if this columns have these properties values. """
-        return all(self[k] == v for k, v in props.items())
-
-    def clone(self):
-        copy = ColumnConfig(self._name, self._type, label=self._label,
-                            description=self._description)
-        for p in self._propertyNames:
-            copy[p] = self[p]
-        return copy
-
-    def setLabels(self, labels):
-        """ Sets the column labels """
-        self._labels = labels
-
-    def getLabels(self):
-        """ Returns the column labels """
-        return self._labels
-
-    def __getitem__(self, propertyName):
-        """ Return the value of a given property.
-        If the property does not exits, an Exception is raised.
-        """
-        if propertyName not in self._propertyNames:
-            raise Exception("Invalid property name: %s" % propertyName)
-
-        return getattr(self, '__%s' % propertyName)
-
-    def __setitem__(self, propertyName, value):
-        """ Return the value of a given property.
-        If the property does not exits, an Exception is raised.
-        """
-        if propertyName not in self._propertyNames:
-            raise Exception("Invalid property name: %s" % propertyName)
-        return setattr(self, '__%s' % propertyName, value)
-
-    def __str__(self):
-        """ A readable representation. """
-        s = "ColumnConfig: name = %s\n" % self.getName()
-        s += "   label: %s\n" % self.getLabel()
-        s += "    desc: %s\n" % self.getDescrition()
-        s += "    type: %s\n" % self.getType()
-        for p in self._propertyNames:
-            s += "    %s: %s\n" % (p, self[p])
-
-        return s
 
 
 class SimpleTableModel(TableModel):
