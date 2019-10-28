@@ -10,8 +10,8 @@ class TreeModelView(qtw.QTreeView):
         different navigation modes.
         It can be initialized by one of the following modes:
 
-            - TREE_MODE: All files on the initial QFileSystemModel are shown
-            - DIR_MODE: Only the files on the current folder are shown
+        * TREE_MODE: All files on the initial QFileSystemModel are shown
+        * DIR_MODE: Only the files on the current folder are shown
         """
     TREE_MODE = 0
     DIR_MODE = 1
@@ -20,15 +20,17 @@ class TreeModelView(qtw.QTreeView):
     sigSizeChanged = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
-        """
-        Constructs an TreeModelView object.
-        :param parent:  The parent widget
-        :param kwargs:
-        - model         The tree model for the view to present.
-        - mode:         (int) The TreeView mode. Possible values:
-                        TREE_MODE, DIR_MODE
-        - navigate:     (Boolean) If True, the user can navigate through
-                        the directories
+        """ Constructs a TreeModelView object.
+
+        Args:
+            parent:  The parent widget
+
+        Keyword Args:
+            model   The tree model for the view to present.
+            mode:   The TreeView mode. Possible values:
+                    TREE_MODE, DIR_MODE
+            navigate: (bool) If True, the user can navigate through
+                    the directories
         """
         qtw.QTreeView.__init__(self, parent)
 
@@ -326,11 +328,11 @@ class FileModelView(TreeModelView):
         Keyword Args:
             parent:       The parent widget
             mode:         (int) The TreeView mode. Possible values:
-                           TREE_MODE, DIR_MODE
+                          TREE_MODE, DIR_MODE
             navigate:     (Boolean) If True, the user can navigate through
-                           the directories
+                          the directories
             rootPath:     (str) Initial root path
-            selectedPath  (str) The selected path
+            selectedPath: (str) The selected path
         """
 
         TreeModelView.__init__(self, **kwargs)
@@ -428,8 +430,8 @@ class FileBrowser(Browser):
     """ The FileBrowser is an extension of Browser class for file navigation
     """
     def __init__(self, **kwargs):
-        """
-        Creates a FileBrowser instance
+        """ Creates a FileBrowser instance
+
         Keyword Args:
             model   The tree model for the view to present.
             mode:   (int) The TreeView mode. Possible values:

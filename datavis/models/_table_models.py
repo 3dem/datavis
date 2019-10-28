@@ -322,8 +322,10 @@ class TableConfig:
 
     def hasColumnConfig(self, **props):
         """ Returns True if has any there is any column with these properties.
-        Example to check if there is a column renderable:
-            hasColumnConfig(renderable=True)
+
+        Example to check if there is a column renderable::
+
+            tableConfig.hasColumnConfig(renderable=True)
         """
         return any(c.check(**props) for c in self._cols)
 

@@ -6,11 +6,12 @@ import PyQt5.QtWidgets as qtw
 class ViewPanel(qtw.QWidget):
     """ The ViewPanel contains widgets organized according to the specific
     layout:
-     - HORIZONTAL: Horizontal layout,
-     - VERTICAL: Vertical layout,
-     - GRID: Grid layout,
-     - HSPLITTER: Horizontal splitter,
-     - VSPLITTER: Vertical splitter.
+
+    * HORIZONTAL: Horizontal layout,
+    * VERTICAL: Vertical layout,
+    * GRID: Grid layout,
+    * HSPLITTER: Horizontal splitter,
+    * VSPLITTER: Vertical splitter.
      """
 
     """ Lines up widgets horizontally """

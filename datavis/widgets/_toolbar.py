@@ -60,8 +60,8 @@ class TriggerAction(qtw.QAction):
 
 class MultiStateAction(TriggerAction):
     """ Action handling multiple internal states.
-     Each state is a tuple containing:
-        (value, icon, tooltip)
+
+     Each state is a tuple containing (value, icon, tooltip).
     """
     # Emitted when the internal state changed
     sigStateChanged = qtc.pyqtSignal(int)
@@ -89,6 +89,7 @@ class MultiStateAction(TriggerAction):
     def add(self, state, icon, tooltip=""):
         """
         Add a new state to the internal states list.
+
         Args:
             state:    The state
             icon:     (QIcon) Icon for the specified state

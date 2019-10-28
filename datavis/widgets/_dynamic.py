@@ -14,8 +14,7 @@ class ParamWidget(qtw.QWidget):
     sigValueChanged = qtc.pyqtSignal(str, object)  # (paramName, value)
 
     def __init__(self, param, parent=None):
-        """
-        Construct a ParamWidget instance
+        """ Construct a ParamWidget instance
 
         Args:
             param:   :class:`Param <datavis.models.Param>`
@@ -48,10 +47,11 @@ class OptionsWidget(ParamWidget):
     to the user. The display param specify how the options will be displayed.
     """
     def __init__(self, param, parent=None):
-        """
-        Construct an OptionsWidget
-        param:   :class:`Param <datavis.models.Param>`
-        parent:  The parent widget
+        """ Construct an OptionsWidget
+
+        Args:
+            param:   :class:`Param <datavis.models.Param>`
+            parent:  The parent QWidget
         """
         ParamWidget.__init__(self, param, parent=parent)
         display = param.display
@@ -150,8 +150,8 @@ class TextWidget(ParamWidget):
     """ The TextWidget is a one-line text editor. """
 
     def __init__(self, param, parent=None):
-        """
-        Construct an TextWidget instance.
+        """ Construct an TextWidget instance.
+
         Args:
             param:   :class:`Param <datavis.models.Param>`
             parent:  The parent widget
@@ -328,13 +328,13 @@ class FormWidget(qtw.QWidget):
     }
 
     def __init__(self, form, parent=None, name=''):
-        """
-        Construct an FormWidget instance
+        """ Construct an FormWidget instance
+
         Args:
-            form:   :class:`Form <datavis.models.Form>` instance with
-                    the definition of the params.
+            form: :class:`Form <datavis.models.Form>` instance with
+                the definition of the params.
             parent: The parent widget
-            name:   (str) The container name
+            name: (str) The container name
         """
         # FIXME: Is the name useful?
         qtw.QWidget.__init__(self, parent=parent)
