@@ -314,6 +314,30 @@ def createSlicesModel(imgSize, size):
     return dv.models.SlicesModel(data)
 
 
+def getPythonCodeExample():
+    """ Return a python code example """
+    return """
+    def getData(self, micId):
+        if micId not in self._cache:
+            self._cache[micId] = pg.gaussianFilter(
+                np.random.normal(size=self._imageSize), (5, 5))
+        return self._cache[micId]
+    """
+
+
+def getJsonTextExample():
+    """ Return a JSON text document example """
+    return """
+    {   "n": "34",
+        "b": "ertffgddf dfg",
+        "name": "Petter HV",
+        "array": [
+            ["straight", 7],
+            [one pair", "10"]
+        ]
+    }
+    """""
+
 def createTableModel(imgSize):
     """
     Creates a SimpleTableModel from a raw string

@@ -1,0 +1,59 @@
+{% set name = "datavis" %}
+{% set version = "0.0.2" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  #url: "https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz"
+  #sha256: "747a5557a90daf3de1d9c25b467edf7d6bbd07d9efdecbb15e8474ec05acff3a"
+  path: ../../../datavis
+
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
+
+requirements:
+  host:
+    - matplotlib
+    - numpy
+    - pillow
+    - pip
+    - pyqt >=5.9
+    - pyqtgraph
+    - python
+    - qtawesome
+    - qtpy
+  run:
+    - matplotlib
+    - numpy
+    - pillow
+    - pyqt >=5.9
+    - pyqtgraph
+    - python
+    - qtawesome
+    - qtpy
+
+test:
+  imports:
+    - datavis
+    - datavis.models
+    - datavis.tests
+    - datavis.utils
+    - datavis.views
+    - datavis.widgets
+
+about:
+  home: "https://github.com/3dem/datavis"
+  license: "GNU General Public v3 (GPLv3)"
+  license_family: "GPL3"
+  license_file: ""
+  summary: "Visualization tools for Scientific Data analysis (e.g Images and Tables)"
+  doc_url: ""
+  dev_url: ""
+
+extra:
+  recipe-maintainers:
+    - delarosatrevin

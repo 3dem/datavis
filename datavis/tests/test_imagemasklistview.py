@@ -22,8 +22,7 @@ class TestImageMaskListView(dv.tests.TestView):
         maskParams = {
             'type': dv.views.DATA,
             'color': '#334BBC23',
-            'data': mask,
-            'operation': dv.views.ADD
+            'data': mask
         }
         model = dv.tests.createListImageModel(
             ['image %d' % i for i in range(10)], 'Image', (1024, 1024))
