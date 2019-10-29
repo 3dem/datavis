@@ -24,14 +24,15 @@ class ItemsView(PagingView):
     sigSizeChanged = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
-        """
-        Constructs an ItemsView
+        """ Constructs an ItemsView
+
         Args:
             parent: The parent widget
+
         Keyword Args:
-           model:          :class:`TableModel <datavis.models.TableModel>`
+            model:          :class:`~datavis.models.TableModel`
                             instance that will be used to fetch the data.
-            displayConfig:  Input :class:`TableConfig <datavis.models.TableConfig>`
+            displayConfig:  Input :class:`~datavis.models.TableConfig`
                             instance TableConfig TableModel that will control
                             how the data fetched from the TableModel will be
                             displayed.
@@ -39,9 +40,9 @@ class ItemsView(PagingView):
                             createDefaultConfig method will be called and taken
                             as displayConfig.
             selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
-                                MULTI_SELECTION or NO_SELECTION
-           imageViewKwargs: :class:`ImageView <datavis.views.ImageView>`
-                            initialization parameters.
+                            MULTI_SELECTION or NO_SELECTION
+            imageViewKwargs: :class:`~datavis.views.ImageView` initialization
+                            parameters.
         """
         self._imageViewKwargs = kwargs.get('imageViewKwargs', dict())
         PagingView.__init__(self, parent=parent, pagingInfo=PagingInfo(1, 1),
