@@ -11,8 +11,9 @@ import numpy as np
 
 
 class ImageListView(qtw.QWidget):
-    """ View that will show a list of images. It will serve as the base class
-    for other implementations. Basically, it will contain a left panel with the
+    """ Base class to display a list of images.
+
+    Basically, it will contain a left panel with the
     list, and a right panel with ImagePanel (top) and InfoPanel (bottom). """
 
     """ Signal for current item changed. The connected slots will receive 
@@ -24,14 +25,12 @@ class ImageListView(qtw.QWidget):
         Creates an ImageListView instance.
 
         Args:
+            model:  Input :class:`~datavis.models.TableModel` model
             parent: Specifies the parent widget to which this ImageListView
                     will belong. If None, then the ImageListView is created
                     with no parent.
-            model:  :class:`TableModel <datavis.models.TableModel>`
 
-        Keyword Args:
-            The kwargs arguments for the internal
-            :class:`ImageView <datavis.views.ImageView>`
+        Keyword Args: Keyword arguments for the internal :class:`~datavis.views.ImageView`
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._model = model
@@ -66,7 +65,8 @@ class ImageListView(qtw.QWidget):
         Keyword Args:
             The kwargs arguments for the ColumnsView
 
-        Returns: :class:`ViewPanel <datavis.widgets.ViewPanel>`
+        Returns:
+            :class:`~datavis.widgets.ViewPanel`
         """
         panel = ViewPanel(self, layoutType=ViewPanel.VERTICAL)
         panel.addWidget(ColumnsView(parent=panel, model=EmptyTableModel(),
@@ -144,13 +144,13 @@ class ImageListView(qtw.QWidget):
         imageView.setModel(imgModel, imageView.isEmpty())
 
     def setModel(self, model):
-        """
-        Set the model used for the left panel.
+        """ Set the model used for the left panel.
 
         Args:
-            model: :class:`TableModel <datavis.models.TableModel>`. The model
-            must provide a :class:`ImageModel <datavis.models.ImageModel>`
-            in getModel method
+            model: New :class:`~datavis.models.TableModel` model that
+                will be set. This model should implement the getModel() method
+                that should return a :class:`~datavis.models.ImageModel` used
+                for the Image panel.
         """
         self._model = model
         self.currentItem = -1
@@ -161,17 +161,17 @@ class ImageListView(qtw.QWidget):
 class VolumeListView(ImageListView):
     """ View that will show a list of volume images """
     def __init__(self, model, parent=None, **kwargs):
-        """
-        Construct a VolumeListView instance
+        """ Construct a VolumeListView instance
 
         Args:
             parent: The parent widget
-            model:  :class:`TableModel <datavis.models.TableModel>`. The model
-            must provide a
-            :class:`VolumeModel <datavis.models.VolumeModel>` in getModel method
+            model:  :class:`~datavis.models.TableModel`. The model must
+                provide a :class:`~datavis.models.VolumeModel` in getModel()
+                method.
 
         Keyword Args:
-            The kwargs arguments for the VolumeView widget
+            kwargs: The keyword arguments for the internal
+                :class:`~datavis.views.VolumeView` widget.
         """
         ImageListView.__init__(self, model, parent=parent, **kwargs)
 
@@ -185,11 +185,10 @@ class VolumeListView(ImageListView):
         The VolumeView should be accessed using the 'volumeView' key.
 
         Keyword Args:
-                The kwargs arguments for the
-                :class:`VolumeView <datavis.views.VolumeView>`
+            kwargs: The keyword arguments for the :class:`~datavis.views.VolumeView`
 
         Returns:
-            :class:`ViewPanel <datavis.widgets.ViewPanel>`
+            :class:`~datavis.widgets.ViewPanel`
         """
         panel = ViewPanel(self)
         view = VolumeView(self, model=self._model.getModel(0), **kwargs)
@@ -197,17 +196,17 @@ class VolumeListView(ImageListView):
         return panel
 
     def updateImagePanel(self):
-        """ Reimplemented from
-        :class:`ImageListView <datavis.views.ImageListView>` """
+        """ Reimplemented from :class:`~datavis.views.ImageListView` """
         model = self._model.getModel(self.currentItem)
         view = self.__getVolumeView()
         view.setModel(model)
 
     def setModel(self, model):
-        """ Reimplemented from
-        :class:`ImageListView <datavis.views.ImageListView>`.
-        The model must provide a
-        :class:`VolumeModel <datavis.models.VolumeModel>` in getModel method """
+        """ Reimplemented from :class:`~datavis.views.ImageListView`.
+
+        The model must provide a :class:`~datavis.models.VolumeModel>`
+        in getModel() method
+        """
         ImageListView.setModel(self, model)
         view = self.__getVolumeView()
         view.fitToSize()
@@ -321,22 +320,22 @@ class DualImageListView(ImageListView):
 
 
 class ImageMaskListView(ImageListView):
-    """ View that will show a list of images. The ImagePanel contains a circular
-    or rectangular mask depending on the type of mask configured. """
+    """ View that will show a list of images. The ImagePanel contains a
+    circular or rectangular mask depending on the type of mask configured.
+    """
 
     def __init__(self, model, parent=None, **kwargs):
-        """
-        Construct an ImageMaskListView instance.
+        """ Construct an ImageMaskListView instance.
 
         Args:
             parent: Specifies the parent widget to which this
                     ImageMaskListView will belong. If None, then the
                     ImageMaskListView is created with no parent.
-            model: :class:`TableModel <datavis.models.TableModel>`
+            model: :class:`~datavis.models.TableModel`
 
         Keyword Args:
-            The kwargs arguments for the internal
-            :class:`ImageView <datavis.views.ImageView>`
+            kwargs: The keyword arguments for the internal
+                :class:`~datavis.views.ImageView`.
         """
         ImageListView.__init__(self, model, parent=parent, **kwargs)
 

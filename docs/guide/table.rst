@@ -31,6 +31,23 @@ to access a given cell value at the position (row, col) by using
 :meth:`~datavis.models.TableModel.getData` method.
 
 
+ColumnConfig and TableConfig
+----------------------------
+The information that is provided by a TableModel can be displayed in different ways.
+It can be selected which columns are shown or not, in which order or which data cells
+are rendered by default. All this visualization configuration is specified by using
+the :class:`~datavis.models.ColumnConfig` and :class:`~datavis.models.TableConfig` classes.
+
+:class:`~datavis.models.ColumnConfig` inherits from ColumnInfo and add more properties
+related to the display. For example, it contains a label, that can be different from column
+name, and will be used for the text shown with the column. All the options can be passed
+as keyword arguments to :meth:`ColumnConfig.__init__ <datavis.models.ColumnConfig.__init__>`.
+
+Then, the :class:`~datavis.models.TableConfig` is used to group several ColumnConfig
+related to an underlying TableModel. In that way, the same model can be used in
+different contexts and its information visualized in different ways. In the next
+sections examples will be provided about how to use these two classes with each
+specific view.
 
 ItemsView
 ---------

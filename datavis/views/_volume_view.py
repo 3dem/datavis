@@ -14,35 +14,32 @@ from ._constants import PIXEL_UNITS, GALLERY, SLICES, CIRCLE_ROI, RECT_ROI
 
 
 class VolumeView(qtw.QWidget):
-    """
-    Allow to display a volume and switch between
-    :class:`MultiSlicesView <datavis.views.MultiSlicesView>`​ and
-    :class:`GalleryView <datavis.views.GalleryView>`.
+    """ View to display a volume and allows to switch between
+    :class:`~datavis.views.MultiSliceView` and
+    :class:`~datavis.views.GalleryView`.
+
     In case of multiple volumes, this view could be extended with a way
     to select which volume to display.
     """
     def __init__(self, parent, **kwargs):
-        """
-        Create a new VolumeView instance.
+        """ Create a new VolumeView instance.
 
         Args:
-            parent:   (QWidget) Parent widget
+            parent: (QWidget) Parent widget.
 
         Keyword Args:
-            model:          :class:`VolumeModel <datavis.models.VolumeModel>`​
-            cellSize:       (int) The default cell size
-            maxCellSize:    (int) The maximum value for cell size
-            minCellSize:    (int) The minimum value for cell size
-            zoomUnits:      (int) The zoom type for GalleryView cells:
-                            PIXEL_UNITS or PERCENT_UNITS
-            galleryKwargs:  :class:`GalleryView <datavis.views.GalleryView>`
-                            configuration params. See the GalleryView
-                            documentation.
-            slicesKwargs:   :class:`MultiSlicesView <datavis.views.MultiSlicesView>`
-                            configuration params. See the MultiSliceView
-                            documentation.
-            slicesMode:     (int) Specifies which axis will be visible.
-                             Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
+            model: Input :class:`~datavis.models.VolumeModel` instance.
+            cellSize: (int) The default cell size
+            maxCellSize: (int) The maximum value for cell size
+            minCellSize: (int) The minimum value for cell size
+            zoomUnits: (int) The zoom type for GalleryView cells:
+                PIXEL_UNITS or PERCENT_UNITS
+            galleryKwargs: Configuration params for the internal
+                :class:`~datavis.views.GalleryView`.
+            slicesKwargs: Configuration params for the internal
+                :class:`~datavis.views.MultiSliceView`.
+            slicesMode: (int) Specifies which axis will be visible.
+                Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._defaultCellSize = kwargs.get("cellSize", 120)
@@ -157,7 +154,7 @@ class VolumeView(qtw.QWidget):
         self._actAxisSelect.setVisible(
             v or not self._multiSlicesView.getMode() == AXIS_XYZ)
         self._actZoomSpinGallery.setVisible(v)
-        # MultiSlicesView
+        # MultiSliceView
         self._actZoomSpinImg.blockSignals(True)
         self._actZoomSpinImg.setVisible(not v)
         self._actZoomSpinImg.blockSignals(False)
@@ -317,7 +314,7 @@ class VolumeView(qtw.QWidget):
         self.__setupToolBar()
 
     def fitToSize(self):
-        """ Fit the images to the widget size in MultiSlicesView"""
+        """ Fit the images to the widget size in MultiSliceView"""
         self._multiSlicesView.fitToSize()
         self._zoomSpinImg.setValue(
             self._multiSlicesView.getSliceView().getScale() * 100)

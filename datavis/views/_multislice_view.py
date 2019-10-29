@@ -262,10 +262,9 @@ class MultiSliceView(qtw.QWidget):
             self.clear()
 
     def setScale(self, scale):
-        """
-         Set the image scale for all axis
+        """ Set the image scale for all axis
         Args:
-            scale: (float) The image scale
+            scale: (float) The new image scale.
         """
         for v in self._slicesDict.values():
             v.setScale(scale)
