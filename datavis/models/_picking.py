@@ -53,8 +53,8 @@ class Coordinate:
 
 class Micrograph:
     """
-    Micrograph is the base element managed by the PickerDataModel class
-    (See PickerDataModel documentation).
+    Micrograph is the base element managed by the PickerModel class
+    (See PickerModel documentation).
     """
     def __init__(self, micId=None, path=None):
         self._micId = micId
@@ -86,13 +86,13 @@ class Micrograph:
         return self._path
 
 
-class PickerDataModel(TableModel):
+class PickerModel(TableModel):
     """ Handles information about Coordinates and Micrographs.
 
-    The PickerDataModel class contains a set of micrographs, where each
+    The PickerModel class contains a set of micrographs, where each
     micrograph contains a set of coordinates. Coordinates are essentially
     (x, y) position and can also have a given label. Labels are created by
-    the PickerDataModel and will be used to classify different types of
+    the PickerModel and will be used to classify different types of
     coordinates (e.g based on quality).
     """
 
@@ -108,7 +108,7 @@ class PickerDataModel(TableModel):
             """ Create a new instance with the provided values.
 
             This class is used as the return of many methods from the
-            PickerDataModel to notify back the underlying data that has changed
+            PickerModel to notify back the underlying data that has changed
             after the operation.
 
             Args:
@@ -264,7 +264,7 @@ class PickerDataModel(TableModel):
             coords: An iterable with the coordinates that will be added.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
         """
         self._getCoordsList(micId).extend(coords)
         # Only notify changes in the coordinates that are not these
@@ -279,7 +279,7 @@ class PickerDataModel(TableModel):
             coords: An iterable over the input coordinates.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>`
+            :class:`Result <datavis.models.PickerModel.Result>`
             instance.
         """
         micCoords = self._getCoordsList(micId)
@@ -294,7 +294,7 @@ class PickerDataModel(TableModel):
         """ Remove all coordinates from this micrograph.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
         """
         self._getCoordsList(micId)[:] = []
         return self.Result()
@@ -308,7 +308,7 @@ class PickerDataModel(TableModel):
         this change if necessary.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
         """
         return self.Result(currentMicChanged=True,
                            currentCoordsChanged=True)
@@ -327,7 +327,7 @@ class PickerDataModel(TableModel):
             getValuesFunc: function that will return all values as dict
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
 
         """
         return self.Result()
@@ -388,10 +388,10 @@ class PickerDataModel(TableModel):
             raise Exception("Invalid column value '%s'" % col)
 
 
-class PickerCmpModel(PickerDataModel):
+class PickerCmpModel(PickerModel):
     """ PickerModel to handle two PickerModels """
     def __init__(self, model1, model2, boxSize=64, radius=64):
-        PickerDataModel.__init__(self, boxSize=boxSize)
+        PickerModel.__init__(self, boxSize=boxSize)
         # format RRGGBBAA
         self._labels['a'] = self.Label(name="a", color="#00ff0055")
         self._labels['b'] = self.Label(name="b", color="#00ff00")

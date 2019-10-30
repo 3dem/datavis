@@ -45,7 +45,7 @@ class PickerView(qtw.QWidget):
 
         Args:
             parent:  Reference to the parent widget
-            model:  :class:`PickerDataModel <datavis.models.PickerDataModel>`
+            model:  :class:`PickerModel <datavis.models.PickerModel>`
 
         Keyword Args:
             readOnly: (boolean) If True, the PickerView will be in read-only

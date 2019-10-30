@@ -164,11 +164,11 @@ class SimpleListImageModel(dv.models.ListModel):
         return c
 
 
-class SimplePickerDataModel(dv.models.PickerDataModel):
+class SimplePickerModel(dv.models.PickerModel):
     """ Simple picker data model with random images and picks """
 
     def __init__(self, imageSize, size, boxSize=40, picks=100, filament=False):
-        dv.models.PickerDataModel.__init__(self)
+        dv.models.PickerModel.__init__(self)
         self._imageSize = imageSize
         self._size = size
         self._images = dict()
@@ -232,29 +232,29 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         return {'dim': self._imageSize}
 
 
-def createPickerDataModel(imageSize, size, boxSize=40, picks=100,
+def createPickerModel(imageSize, size, boxSize=40, picks=100,
                           filament=False):
     """
-    Creates an PickerDataModel with random images and picks
+    Creates an PickerModel with random images and picks
     :param imageSize: (tupple) The image size
     :param size: (int) The number of images
     :param boxSize: (int) The box size
     :param picks: (int) The number of picks
     :param filament: (boolean) if True, generate filaments, else boxes
-    :return: (PickerDataModel)
+    :return: (PickerModel)
     """
-    return SimplePickerDataModel(imageSize, size, boxSize, picks, filament)
+    return SimplePickerModel(imageSize, size, boxSize, picks, filament)
 
 
-def createSimplePickerDataModel(imageSize, size=0, boxSize=40, picks=0,
+def createSimplePickerModel(imageSize, size=0, boxSize=40, picks=0,
                                 filament=False):
     """
-    Creates an PickerDataModel with random images.
+    Creates an PickerModel with random images.
     :param imageSize: (tupple) The image size
     :param boxSize: (int) The box size
-    :return: (PickerDataModel)
+    :return: (PickerModel)
     """
-    return SimplePickerDataModel(imageSize=imageSize, size=size,
+    return SimplePickerModel(imageSize=imageSize, size=size,
                                  boxSize=boxSize, picks=picks,
                                  filament=filament)
 
