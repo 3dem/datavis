@@ -68,45 +68,6 @@ class TestBase(unittest.TestCase, TestData):
     __title = ''
 
 
-# TODO: Check if this simple window with central widget and resize
-# can be re-used in other contexts and not only here in the tests
-class ViewMainWindow(qtw.QMainWindow):
-    """ Extension of QMainWindow that receive a View as input
-    and set as its central widget. This window will also resize
-    to a given percent of the screen size, if necessary given
-    the View preferred dimensions.
-    """
-    def __init__(self, view, title='', maxScreenPercent=0.8):
-        """
-        Construct the ViewMainWindow instance.
-        :param view: Input view that will be set as the central widget
-        :param maxScreenPercent: Maximum screen percent that will be used
-            if necessary
-        """
-        qtw.QMainWindow.__init__(self)
-        self.setCentralWidget(view)
-        self.setWindowTitle(title)
-        self._view = view
-
-    def setGeometryFromCentralView(self, maxScreenPercent=0.8):
-        view = self.centralWidget()
-
-        if hasattr(view, 'getPreferredSize'):
-            width, height = view.getPreferredSize()
-        else:
-            width, height = None, None
-
-        size = qtw.QApplication.desktop().size()
-        p = maxScreenPercent
-        w, h = int(p * size.width()), int(p * size.height())
-        width = width or w
-        height = height or h
-        w = min(width, w)
-        h = min(height, h)
-        x, y = (size.width() - w) / 2, (size.height() - h) / 2
-        self.setGeometry(x, y, w, h)
-
-
 class TestView(TestData):
     """ Class that will test existing Views. """
 
@@ -116,11 +77,8 @@ class TestView(TestData):
     def runApp(self, argv=None, app=None):
         self._argv = argv or sys.argv
         self._loadPaths()
-        app = app or qtw.QApplication(self.getArgs())
-        win = ViewMainWindow(self.createView(), title=self.getTitle())
-        win.show()
-        win.setGeometryFromCentralView()
-        sys.exit(app.exec_())
+        dv.views.showView(self.createView, argv=self.getArgs(),
+                          title=self.getTitle())
 
 
 class SimpleItemsModel(dv.models.SimpleTableModel):
