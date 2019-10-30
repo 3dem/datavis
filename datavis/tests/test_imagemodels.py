@@ -34,7 +34,7 @@ class TestImageModels(dv.tests.TestBase):
     #     print("Checking %s" % volName)
     #
     #     volModel = dv.models.VolumeModel(
-    #         data=emv.ImageManager().getData(volName))
+    #         data=emv.utils.ImageManager().getData(volName))
     #     minValue, maxValue = volModel.getMinMax()
     #
     #     def _check(model):

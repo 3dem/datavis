@@ -40,7 +40,7 @@ an :class:`ImageModel <datavis.models.ImageModel>` for an image on disk::
     import emvis as emv
 
     # ...
-    im = emv.ImageManager()
+    im = emv.utils.ImageManager()
     imgModel = dv.models.ImageModel(data=im.getData(imagePath))
 
 
@@ -120,7 +120,7 @@ provided path.
 .. code-block:: python
 
         def createView(self, volumePath):
-            volModel = emv.ModelsFactory.createVolumeModel(volumePath)
+            volModel = emv.models.ModelsFactory.createVolumeModel(volumePath)
             msv = dv.views.MultiSliceView(
                 None, {axis: {'model': volModel.getSlicesModel(axis),
                               'normalize': True}

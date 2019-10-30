@@ -26,7 +26,8 @@ copyright = '2019, J.M. de la Rosa Trevin'
 author = 'J.M. de la Rosa Trevin'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.0'
+version = '0.0.2'
+release = '0.0.2'
 
 
 # -- General configuration ---------------------------------------------------

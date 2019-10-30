@@ -9,7 +9,7 @@ app = qtw.QApplication(sys.argv)
 win = qtw.QMainWindow()
 
 # Create the image model and view
-data = emv.ImageManager().getData(imgPath)
+data = emv.utils.ImageManager().getData(imgPath)
 
 if len(data.shape) == 2:
 	imgModel = dv.models.ImageModel(data=data)

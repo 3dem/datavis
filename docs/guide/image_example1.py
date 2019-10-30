@@ -8,7 +8,7 @@ imgPath = sys.argv[1]
 app = qtw.QApplication(sys.argv)
 win = qtw.QMainWindow()
 # Create the image model and view
-data = emv.ImageManager().getData(imgPath)
+data = emv.utils.ImageManager().getData(imgPath)
 imgModel = dv.models.ImageModel(data=data)
 imgView = dv.views.ImageView(model=imgModel, parent=win,
                              histogram=True)  # show histogram of pixel values

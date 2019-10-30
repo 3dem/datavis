@@ -77,7 +77,8 @@ class ImageView(qtw.QWidget):
             axis:      (Bool) Show/hide de view's axes
             labelX:    (dict) Dictionary with label properties, like CSS style:
 
-                        * labelStyle: (dict) CSS style. Example:
+                        * labelStyle: (dict) CSS style. Example::
+
                             {'color': '#FFF', 'font-size': '14pt'}
                         * labelText:  (str) The label text
             labelY:    Same as labelX.
@@ -92,22 +93,23 @@ class ImageView(qtw.QWidget):
                 some possible values in this dict:
 
                 * type:
-                    * ROI_CIRCLE (display a circular mask from center) or
-                    * ROI_RECT (display rectangular mask from center) or
-                    * CONSTANT (generate data mask with given constant value) or
-                    * DATA (just provide data mask as numpy array)
+
+                  * ROI_CIRCLE (display a circular mask from center) or
+                  * ROI_RECT (display rectangular mask from center) or
+                  * CONSTANT (generate data mask with given constant value) or
+                  * DATA (just provide data mask as numpy array)
                 * data: If the type is ROI_CIRCLE or ROI_RECT, it is the value
-                    of the radius of the mask. If type is CONSTANT it is the
-                    value of entire mask. Finally, if the type is DATA, this
-                    should be a numpy array with values of the mask.
+                  of the radius of the mask. If type is CONSTANT it is the
+                  value of entire mask. Finally, if the type is DATA, this
+                  should be a numpy array with values of the mask.
                 * color: (QColor or str) The color for the mask.
-                    Example: '#66212a55' in ARGB format.
+                  Example: '#66212a55' in ARGB format.
                 * operation: What operation will be performed in the mask
-                    * NONE (the mask editor is not shown) or
-                    * ADD  (add 1 values to the mask with the pen) or
-                    * REMOVE (add 0 values to the mask with the pen)
+                  * NONE (the mask editor is not shown) or
+                  * ADD  (add 1 values to the mask with the pen) or
+                  * REMOVE (add 0 values to the mask with the pen)
                 * penSize: Size of the pen to be used, only relevant when not
-                    operation is not NONE (default 50px).
+                  operation is not NONE (default 50px).
                 * showHandles: (boolean) Enable/Disable the ROI handles
         """
         qtw.QWidget.__init__(self, parent=parent)
@@ -952,10 +954,10 @@ class ImageView(qtw.QWidget):
         Args:
             orientation: Orientation of the axis. Possible values are:
 
-            * AXIS_TOP_LEFT: axis in top-left
-            * AXIS_TOP_RIGHT: axis in top-right
-            * AXIS_BOTTOM_RIGHT: axis in bottom-right
-            * AXIS_BOTTOM_LEFT: axis in bottom-left
+                * AXIS_TOP_LEFT: axis in top-left
+                * AXIS_TOP_RIGHT: axis in top-right
+                * AXIS_BOTTOM_RIGHT: axis in bottom-right
+                * AXIS_BOTTOM_LEFT: axis in bottom-left
          """
         self._axisPos = orientation
         self.__setupAxis()
