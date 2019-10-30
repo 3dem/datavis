@@ -79,7 +79,7 @@ slice's data should be returned. Additionally, it provides the
 from a given slice.
 
 The :class:`~datavis.models.VolumeModel` class implements the getSlicesModel method that
-returns a SlicesModel for a given axis. Moreover, the :meth:`~emvis.EmStackModel` class
+returns a SlicesModel for a given axis. Moreover, the :meth:`~emvis.models.EmStackModel` class
 inherits from SlicesModel and implement how to read each slice from the stack file. The SlicesModel
 provides a nice abstraction about how data is retrieved (i.g from disk, memory, computed, etc) and
 it is used in an homogeneous way by the View widgets.
@@ -114,7 +114,7 @@ models for each axis.
 
 The following code snippet shows how to create a MultiSlicesView (all the
 PyQt5 application boilerplate code is not shown here). It uses the
-:class:`~emvis.ModelsFactory` class that creates the VolumeModel from the
+:class:`~emvis.models.ModelsFactory` class that creates the VolumeModel from the
 provided path.
 
 .. code-block:: python

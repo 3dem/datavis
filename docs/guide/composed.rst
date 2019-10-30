@@ -29,7 +29,7 @@ The following script shows how to implement a simple volume viewer:
 
 It basically create a new VolumeView from the volume file that is passed as the first
 argument. The :class:`~datavis.models.VolumeModel` is created by the function
-:meth:`~emvis.ModelsFactory.createVolumeModel` that use internally ``emcore`` to read
+:meth:`~emvis.models.ModelsFactory.createVolumeModel` that use internally ``emcore`` to read
 the volume data. In line 7, we use by default the SLICES view, but if '--gallery' is
 provided as argument, we set the GALLERY view.
 
