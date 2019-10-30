@@ -61,7 +61,7 @@ which columns will be shown from each row and which one will be rendered
 
 TODO: Code example
 
-.. image:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/itemsview.png?token=ACAM6WD5QAJIDTOPHD3BNHS5YF3K4
+.. image:: /images/itemsview.png
     :width: 600px
     :align: center
 
@@ -75,13 +75,13 @@ will be visible and which ones will be rendered.
 
 TODO: Code example
 
-.. figure:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/columnsview1.png?token=ACAM6WDYBP2F2LNHRRDQ6YK5YF4ME
+.. figure:: /images/columnsview1.png
     :width: 600px
     :align: center
 
     Example of ColumnsView, all columns are visible and no one is rendered.
 
-.. figure:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/columnsview2.png?token=ACAM6WFUWSPZUKBC7GEUZG25YF44Q
+.. figure:: /images/columnsview2.png
     :width: 600px
     :align: center
 

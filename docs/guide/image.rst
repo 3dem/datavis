@@ -66,7 +66,7 @@ Then, we can execute the script passing an input image:
 
 The following image should be shown:
 
-.. image:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/image_view.png?token=ACAM6WB3OLZKRY7B4GYM3VC5YBFC4
+.. image:: /images/image_view.png
 
 
 SlicesModel
@@ -130,7 +130,7 @@ provided path.
 
 The MultiSliceView should looks like the image below:
 
-.. image:: https://raw.githubusercontent.com/wiki/3dem/datavis/images/multislice.png?token=ACAM6WEFF2SU6ZNNA23IVE25YCKXU
+.. image:: /images/multislice.png
     :width: 500px
     :align: center
 
