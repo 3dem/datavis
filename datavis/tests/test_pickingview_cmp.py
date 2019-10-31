@@ -150,7 +150,7 @@ class TestPickerCmpView(dv.tests.TestView):
         model = MyPickerModel(model1, model2, boxSize=self._box,
                                   radius=self._radius)
 
-        return dv.views.PickerView(None, model, **kwargs)
+        return dv.views.PickerView(model, **kwargs)
 
 
 if __name__ == '__main__':

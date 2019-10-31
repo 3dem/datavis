@@ -11,7 +11,8 @@ import PyQt5.QtGui as qtg
 import qtawesome as qta
 
 
-from datavis.models import (RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO)
+from datavis.models import (RENDERABLE, RENDERABLE_RO, VISIBLE, VISIBLE_RO,
+                            EmptyTableModel)
 from datavis.widgets import (ActionsToolBar,  PlotConfigWidget, TriggerAction,
                              ZoomSpinBox, IconSpinBox)
 
@@ -22,7 +23,7 @@ from ._items import ItemsView
 from ._paging_view import PagingView
 from ._constants import *
 
-#  FIXME[hv] review if necesary the SCIPION_HOME
+#  FIXME[hv] review if necessary the SCIPION_HOME
 SCIPION_HOME = 'SCIPION_HOME'
 
 
@@ -56,15 +57,16 @@ class DataView(qtw.QWidget):
                 }
     }
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, model, **kwargs):
         """
         Constructs a DataView.
         Args:
-            parent:       (QWidget) The parent widget
+            model:          :class:`TableModel <datavis.models.TableModel>`
+                             instance
 
         Keyword Args:
-             model:          :class:`TableModel <datavis.models.TableModel>`
-                             instance
+             parent:         The parent widget
+
              selectionMode:  (int) SINGLE_SELECTION(default),EXTENDED_SELECTION,
                              MULTI_SELECTION or NO_SELECTION
              views:          (dict) Specify the views that will be available.
@@ -79,7 +81,7 @@ class DataView(qtw.QWidget):
                              ColumnsView and icon size in GalleryView. Default
                              value: 20
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
 
         viewsDict = kwargs.get('views', {COLUMNS: {}, GALLERY: {}, ITEMS: {}})
         self._viewsDict = OrderedDict()
@@ -109,7 +111,8 @@ class DataView(qtw.QWidget):
         self.__setupGUI(**kwargs)
         self.__setupActions()
         self.setSelectionMode(self._selectionMode)
-        self.setModel(kwargs['model'], config)
+        self.setModel(model, config)
+        self.setView(kwargs.get('view', self._viewKey))
 
     def __setupGUI(self, **kwargs):
         """ Create the main GUI of the DataView.
@@ -140,7 +143,7 @@ class DataView(qtw.QWidget):
         # Create views and add to StackedLayout
         self._stackedLayout = qtw.QStackedLayout(viewsContainerLayout)
         self._stackedLayout.setSpacing(0)
-        self.__createViews(**kwargs)
+        self.__createViews(model=EmptyTableModel(), **kwargs)
         # Create status bar
         self._statusBar = qtw.QStatusBar(self)
         self._statusBar.setVisible(False)  # hide for now
@@ -478,7 +481,8 @@ class DataView(qtw.QWidget):
         if viewClass is None:
             raise Exception('Unregistered class for view type=%d' % viewType)
 
-        return viewClass(self, **kwargs)
+        kwargs['parent'] = self
+        return viewClass(**kwargs)
 
     def __createViews(self, **kwargs):
         """ Create the views if necessary. Inserts the views in the GUI. """

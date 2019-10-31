@@ -113,7 +113,7 @@ class TestPickerView(dv.tests.TestView):
         kwargs['roiCentered'] = True
 
         model = MyPickerModel((1024, 1024), 10, 20, 150, True)
-        return dv.views.PickerView(None, model, **kwargs)
+        return dv.views.PickerView(model, **kwargs)
 
 
 if __name__ == '__main__':

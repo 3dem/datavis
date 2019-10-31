@@ -39,15 +39,15 @@ class PickerView(qtw.QWidget):
     """ Signal emitted when any of the PickerModel parameters have changed. """
     sigPickerParamChanged = qtc.pyqtSignal(int, str, object)
 
-    def __init__(self, parent, model, **kwargs):
+    def __init__(self, model, **kwargs):
         """
         Construct an PickerView instance
 
         Args:
-            parent:  Reference to the parent widget
             model:  :class:`~datavis.models.PickerModel`
 
         Keyword Args:
+            parent:   Reference to the parent widget
             readOnly: (boolean) If True, the PickerView will be in read-only
                       mode in which case users will not be able to pick.
             pickerMode: (int) Specify the picker mode: FILAMENT_MODE or
@@ -57,7 +57,7 @@ class PickerView(qtw.QWidget):
             The :class:`ImageView <datavis.views.ImageView>` kwargs
 
         """
-        qtw.QWidget.__init__(self, parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._model = model
         self.__currentLabelName = 'Manual'
         self._readOnly = kwargs.get('readOnly', False)
@@ -110,7 +110,8 @@ class PickerView(qtw.QWidget):
         self.resize(1097, 741)
         horizontalLayout = qtw.QHBoxLayout(self)
         horizontalLayout.setContentsMargins(1, 1, 1, 1)
-        self._imageView = ImageView(self, **kwargs)
+        kwargs['parent'] = self
+        self._imageView = ImageView(**kwargs)
         imgViewToolBar = self._imageView.getToolBar()
 
         viewWidget = qtw.QWidget(self)
@@ -176,7 +177,8 @@ class PickerView(qtw.QWidget):
         micPanel.setGeometry(0, 0, 200, micPanel.height())
         verticalLayout = qtw.QVBoxLayout(micPanel)
         verticalLayout.setContentsMargins(0, 0, 0, 0)
-        cvImages = ColumnsView(micPanel, model=self._model, **kwargs)
+        kwargs['parent'] = micPanel
+        cvImages = ColumnsView(self._model, **kwargs)
         cvImages.setObjectName("columnsViewImages")
         verticalLayout.addWidget(cvImages)
         # keep reference to cvImages

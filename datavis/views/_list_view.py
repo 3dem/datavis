@@ -108,7 +108,8 @@ class ImageListView(qtw.QWidget):
             :class:`ViewPanel <datavis.widgets.ViewPanel>`
         """
         panel = ViewPanel(self)
-        panel.addWidget(ImageView(self, **kwargs), 'imageView')
+        kwargs['parent'] = self
+        panel.addWidget(ImageView(**kwargs), 'imageView')
         return panel
 
     def _createBottomRightPanel(self, **kwargs):
@@ -191,7 +192,8 @@ class VolumeListView(ImageListView):
             :class:`~datavis.widgets.ViewPanel`
         """
         panel = ViewPanel(self)
-        view = VolumeView(self, model=self._model.getModel(0), **kwargs)
+        kwargs['parent'] = panel
+        view = VolumeView(self._model.getModel(0), **kwargs)
         panel.addWidget(view, 'volumeView')
         return panel
 
@@ -261,9 +263,9 @@ class DualImageListView(ImageListView):
                                }
         k = dict(defaultImgViewKargs)
         k.update(kwargs)
-        leftImageView = ImageView(self, model=None, **k)
+        leftImageView = ImageView(parent=self, model=None, **k)
         panel.addWidget(leftImageView, 'leftImageView')
-        rightImageView = ImageView(self, model=None, **k)
+        rightImageView = ImageView(parent=self, model=None, **k)
         leftImageView.setXLink(rightImageView)
         leftImageView.setYLink(rightImageView)
         panel.addWidget(rightImageView, 'rightImageView')

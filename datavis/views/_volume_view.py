@@ -21,14 +21,14 @@ class VolumeView(qtw.QWidget):
     In case of multiple volumes, this view could be extended with a way
     to select which volume to display.
     """
-    def __init__(self, parent, **kwargs):
+    def __init__(self, model, **kwargs):
         """ Create a new VolumeView instance.
 
         Args:
-            parent: (QWidget) Parent widget.
+            model: Input :class:`~datavis.models.VolumeModel` instance.
 
         Keyword Args:
-            model: Input :class:`~datavis.models.VolumeModel` instance.
+            parent: (QWidget) Parent widget.
             cellSize: (int) The default cell size
             maxCellSize: (int) The maximum value for cell size
             minCellSize: (int) The minimum value for cell size
@@ -41,17 +41,17 @@ class VolumeView(qtw.QWidget):
             slicesMode: (int) Specifies which axis will be visible.
                 Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._defaultCellSize = kwargs.get("cellSize", 120)
         self._maxCellSize = kwargs.get("maxCellSize", 300)
         self._minCellSize = kwargs.get("minCellSize", 20)
         self._zoomUnits = kwargs.get("zoomUnits", PIXEL_UNITS)
         self._view = kwargs.get('view', GALLERY)
-        self.__setupGUI(kwargs['model'],
+        self.__setupGUI(model,
                         kwargs.get('slicesKwargs', dict()),
                         kwargs.get('slicesMode', AXIS_XYZ),
                         kwargs.get('galleryKwargs', dict()))
-        self.setModel(kwargs['model'])
+        self.setModel(model)
         self.setView(self._view)
         self._onChangeCellSize(self._defaultCellSize)
 

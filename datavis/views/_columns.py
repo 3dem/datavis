@@ -24,16 +24,16 @@ class ColumnsView(PagingView):
     # when the Table has been resized (oldSize, newSize)
     sigSizeChanged = qtc.pyqtSignal(object, object)
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, model, **kwargs):
         """
         Creates a ColumnsView object.
 
         Args:
-            parent:  (QWidget) Parent widget
-
-        Keyword Args:
             model:          :class:`TableModel <datavis.models.TableModel>`
                             instance that will be used to fetch the data.
+
+        Keyword Args:
+            parent:         Parent widget
             displayConfig:  :class:`TableConfig <datavis.models.TableConfig>`
                             instance that will control how the data fetched from
                             the :class:`TableModel <datavis.models.TableModel>`
@@ -42,18 +42,15 @@ class ColumnsView(PagingView):
                             createDefaultConfig method will be called and taken
                             as displayConfig.
             selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
-                                MULTI_SELECTION or NO_SELECTION
+                            MULTI_SELECTION or NO_SELECTION
         """
-        self._model = kwargs['model']
-        PagingView.__init__(self, parent=parent,
-                            pagingInfo=widgets.PagingInfo(1, 1),
-                            **kwargs)
+        PagingView.__init__(self, pagingInfo=widgets.PagingInfo(1, 1), **kwargs)
         self._selection = set()
         self._delegate = EMImageItemDelegate(self)
         self._pageItemModel = None
         self.setSelectionMode(kwargs.get('selectionMode',
                                          PagingView.SINGLE_SELECTION))
-        self.setModel(model=self._model,
+        self.setModel(model=model,
                       displayConfig=kwargs.get('displayConfig'))
 
     def _createContentWidget(self):

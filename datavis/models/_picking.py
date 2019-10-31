@@ -176,7 +176,7 @@ class PickerModel(TableModel):
         the additional properties related to the model.
         Subclasses should implement this method
         """
-        return Coordinate(0, 0, 'M', **kwargs)
+        return Coordinate(x, y, 'M', **kwargs)
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """

@@ -23,15 +23,15 @@ class ItemsView(PagingView):
     """ Signal for size changed """
     sigSizeChanged = qtc.pyqtSignal()
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, model, **kwargs):
         """ Constructs an ItemsView
 
         Args:
-            parent: The parent widget
-
-        Keyword Args:
             model:          :class:`~datavis.models.TableModel`
                             instance that will be used to fetch the data.
+
+        Keyword Args:
+            parent:         The parent widget
             displayConfig:  Input :class:`~datavis.models.TableConfig`
                             instance TableConfig TableModel that will control
                             how the data fetched from the TableModel will be
@@ -45,8 +45,7 @@ class ItemsView(PagingView):
                             parameters.
         """
         self._imageViewKwargs = kwargs.get('imageViewKwargs', dict())
-        PagingView.__init__(self, parent=parent, pagingInfo=PagingInfo(1, 1),
-                            **kwargs)
+        PagingView.__init__(self, pagingInfo=PagingInfo(1, 1), **kwargs)
         self._column = 0
         self._row = -1
         self._selection = set()
@@ -55,7 +54,7 @@ class ItemsView(PagingView):
         self._model = None
         self._config = None
         self._pageItemModel = None
-        self.setModel(kwargs['model'], kwargs.get('displayConfig', None))
+        self.setModel(model, kwargs.get('displayConfig', None))
 
     def _createContentWidget(self):
         """ Reimplemented from :class:`<datavis.views.PagingView>`. """
@@ -71,7 +70,8 @@ class ItemsView(PagingView):
         self._itemsViewTable.horizontalHeader().setHighlightSections(False)
         self._itemsViewTable.verticalHeader().setHighlightSections(False)
         model.itemChanged.connect(self.__onItemDataChanged)
-        self._imageView = ImageView(self._splitter, **self._imageViewKwargs)
+        self._imageView = ImageView(parent=self._splitter,
+                                    **self._imageViewKwargs)
         layout.insertWidget(0, self._splitter)
         return mainWidget
 
