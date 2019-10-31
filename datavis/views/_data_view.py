@@ -112,6 +112,7 @@ class DataView(qtw.QWidget):
         self.__setupActions()
         self.setSelectionMode(self._selectionMode)
         self.setModel(model, config)
+        self.setView(kwargs.get('view', self._viewKey))
 
     def __setupGUI(self, **kwargs):
         """ Create the main GUI of the DataView.
