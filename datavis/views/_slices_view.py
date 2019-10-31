@@ -20,25 +20,25 @@ class SlicesView(qtw.QWidget):
     """
     sigSliceChanged = qtc.pyqtSignal(int)  # Signal for current slice changed
 
-    def __init__(self, parent, model, **kwargs):
+    def __init__(self, model, **kwargs):
         """ Construct an SlicesView instance.
         SlicesView use an :class:`ImageView <datavis.views.ImageView>`
         to display the slices, see ImageView class for initialization params.
 
         Args:
-            parent :    (QWidget) Specifies the parent widget to which
-                        this ImageView will belong.
-                        If None, then the SlicesView is created with no parent.
             model:      The :class:`SlicesModel <datavis.models.SlicesModel>`
 
         Keyword Args:
+            parent :    (QWidget) Specifies the parent widget to which
+                        this ImageView will belong.
+                        If None, then the SlicesView is created with no parent.
             text:       (str) Text to be display in the slider.
             currentValue:  (int) The index (starting at 1) of the initial slice.
 
             imageViewKwargs: The :class:`ImageView <datavis.views.ImageView>`
                              arguments
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._model = model
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
@@ -50,7 +50,8 @@ class SlicesView(qtw.QWidget):
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
         # Create ImageView widget
-        self._imageView = ImageView(self, self._model.getImageModel(0),
+        self._imageView = ImageView(parent=self,
+                                    model=self._model.getImageModel(0),
                                     **self._imageViewKwargs)
         self._imageView.setSizePolicy(
             qtw.QSizePolicy(qtw.QSizePolicy.MinimumExpanding,

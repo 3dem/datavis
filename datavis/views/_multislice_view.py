@@ -108,8 +108,7 @@ class MultiSliceView(qtw.QWidget):
             imgViewKargs = dict(defaultImgViewKargs)
             imgViewKargs.update(axisImgViewKargs[axis])
             imgViewKargs.update(args.get('imageViewKwargs', dict()))
-            sv = SlicesView(self, model,
-                            text=args.get('text', text),
+            sv = SlicesView(model, parent=self, text=args.get('text', text),
                             currentValue=args.get('currentValue',
                                                   int((n + 1)/2)),
                             imageViewKwargs=imgViewKargs)

@@ -44,19 +44,18 @@ class PagingView(qtw.QWidget):
     """
     sigPageChanged = qtc.pyqtSignal(int)
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, **kwargs):
         """
         Construct an PageBar instance
-        Arg:
-           parent:      (QWidget) The parent widget
 
         Keyword Args:
+            parent:         The parent widget
             pagingInfo:     :class:`PagingInfo <datavis.widgets.PagingInfo>`
                             The initial paging configuration
             selectionMode:  (int) The selection mode: SINGLE_SELECTION,
                             EXTENDED_SELECTION, MULTI_SELECTION or NO_SELECTION
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._pagingInfo = kwargs['pagingInfo']
         self._selectionMode = kwargs.get('selectionMode',
                                          PagingView.NO_SELECTION)

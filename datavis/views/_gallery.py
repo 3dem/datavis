@@ -23,14 +23,16 @@ class GalleryView(PagingView):
     sigPageSizeChanged = qtc.pyqtSignal()  # Signal for page size changed
     sigSizeChanged = qtc.pyqtSignal(object, object)
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, model, **kwargs):
         """
         Constructs an GalleryView.
+
         Args:
-            parent: The parent widget
-        Keyword Args:
             model:          :class:`TableModel <datavis.models.TableModel>`
                             instance that will be used to fetch the data.
+
+        Keyword Args:
+            parent:         The parent widget
             displayConfig:  :class:`TableConfig <datavis.models.TableConfig>`
                             instance TableConfig TableModel that will control
                             how the data fetched from the TableModel will be
@@ -44,9 +46,7 @@ class GalleryView(PagingView):
             iconSize:       (tuple) The icon size (width, height).
                             Default value: (100, 100)
         """
-        PagingView.__init__(self, parent=parent,
-                            pagingInfo=widgets.PagingInfo(1, 1),
-                            **kwargs)
+        PagingView.__init__(self, pagingInfo=widgets.PagingInfo(1, 1), **kwargs)
         self._selection = set()
         self._delegate = EMImageItemDelegate(self)
         self._pageItemModel = None
@@ -57,8 +57,7 @@ class GalleryView(PagingView):
         # When the icon size is in percent units,
         # we need to setIconSize in each setModel
         self._percentIconSize = None
-        self.setModel(model=kwargs['model'],
-                      displayConfig=kwargs.get('displayConfig'))
+        self.setModel(model=model, displayConfig=kwargs.get('displayConfig'))
         w, h = kwargs.get('iconSize', (100, 100))
         self.setIconSize(qtc.QSize(w, h))
 

@@ -41,19 +41,19 @@ class ImageView(qtw.QWidget):
     """ Signal emitted when the mask ROI size changed"""
     sigMaskSizeChanged = qtc.pyqtSignal(int)
 
-    def __init__(self, parent, model=None, **kwargs):
+    def __init__(self, model=None, **kwargs):
         """ Create a new ImageView instance.
 
         Args:
-            parent: (QWidget) Is the parent widget to which this
-                   ImageView will belong. If None, then the ImageView is
-                   created with no parent.
-            model: :class:`ImageModel <datavis.models.ImageModel>` instance
-                   that will be used to fetch the image data.
+            model:     :class:`ImageModel <datavis.models.ImageModel>` instance
+                       that will be used to fetch the image data.
 
         Keyword Args:
-            toolBar:  Bool value to specify if showing or hiding the toolbar.
-                By default, the toolbar is visible.
+            parent:    (QWidget) Is the parent widget to which this
+                       ImageView will belong. If None, then the ImageView is
+                       created with no parent.
+            toolBar:   Bool value to specify if showing or hiding the toolbar.
+                       By default, the toolbar is visible.
 
             roi:       (Bool) If specified, this will be used to set visible the
                        ROI button. False by default.
@@ -112,7 +112,7 @@ class ImageView(qtw.QWidget):
                   operation is not NONE (default 50px).
                 * showHandles: (boolean) Enable/Disable the ROI handles
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._model = None
         self._oddFlips = False
         self._oddRotations = False
@@ -1648,7 +1648,7 @@ class EMImageItemDelegate(qtw.QStyledItemDelegate):
             parent:  (QObject) The parent object
         """
         qtw.QStyledItemDelegate.__init__(self, parent)
-        self._imageView = ImageView(None, toolBar=False, axis=False)
+        self._imageView = ImageView(parent=None, toolBar=False, axis=False)
         self._pixmapItem = None
         self._noImageItem = pg.TextItem("NO IMAGE")
         self._imageView.getView().addItem(self._noImageItem)
