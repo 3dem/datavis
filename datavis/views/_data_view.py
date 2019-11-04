@@ -161,7 +161,7 @@ class DataView(qtw.QWidget):
         toolbar.setToolButtonStyle(qtc.Qt.ToolButtonTextUnderIcon)
         self.__addSelectionActions(toolbar)
         self.__addColumnsPanel(toolbar)
-        self.__addPlotPanel(toolbar)
+        # self.__addPlotPanel(toolbar)  FIXME[hv] Review
         # Show/hide left Toolbar action
         self.addAction(TriggerAction(self, 'SHToolBar',
                                      slot=self.__onShowHideToolBar,
@@ -1085,7 +1085,7 @@ class DataView(qtw.QWidget):
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel(config)
-        self.__initPlotConfWidgets()
+        # self.__initPlotConfWidgets() FIXME[hv] Review
 
     def getModel(self):
         """

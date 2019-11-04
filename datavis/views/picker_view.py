@@ -269,7 +269,7 @@ class PickerView(qtw.QWidget):
 
             self._actionPickEllipse = _shapeAction(
                 'actionPickEllipse', 'fa5.circle', SHAPE_CIRCLE,
-                shortcut=qtg.QKeySequence(qtc.Qt.Key_4))  # FIXME: Not working
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_4))
         else:
             self._actionPickSegment = _shapeAction(
                 'actionPickSegment', 'fa5s.arrows-alt-h', SHAPE_SEGMENT,
@@ -277,7 +277,7 @@ class PickerView(qtw.QWidget):
 
         self._actionPickCenter = _shapeAction(
             'actionPickCenter', 'fa5s.circle', SHAPE_CENTER,
-            shortcut=qtg.QKeySequence(qtc.Qt.Key_5),  # FIXME: Not working
+            shortCut=qtg.QKeySequence(qtc.Qt.Key_5),
             options=[{'scale_factor': 0.25}])
 
         tb.addSeparator()
@@ -334,6 +334,8 @@ class PickerView(qtw.QWidget):
                                     text='Controls',
                                     faIconName='fa5s.sliders-h')
         controlsPanel = toolbar.createPanel('Controls')
+        controlsPanel.setSizePolicy(qtw.QSizePolicy.Ignored,
+                                    qtw.QSizePolicy.Minimum)
 
         gLayout = qtw.QGridLayout(controlsPanel)
 
@@ -358,15 +360,43 @@ class PickerView(qtw.QWidget):
         self._controlTable.setHorizontalHeaderItem(1,
                                                    qtw.QTableWidgetItem("Help"))
         # Add table items
-        # Add row1
         flags = qtc.Qt.ItemIsSelectable | qtc.Qt.ItemIsEnabled
-        self.__addRowToControls([(qtw.QTableWidgetItem(qta.icon('fa.list-alt'),
-                                                   "Title1"), flags),
-                                 (qtw.QTableWidgetItem("Help text"), flags)])
-        # Add row2
-        self.__addRowToControls([(qtw.QTableWidgetItem(qta.icon('fa5s.user'),
-                                                   "Ok ok"), flags),
-                                 (qtw.QTableWidgetItem("Help text 2"), flags)])
+        # Add pick
+        self.__addRowToControls([
+            (qtw.QTableWidgetItem(qta.icon('fa5s.crosshairs'), "Pick"), flags),
+            (qtw.QTableWidgetItem("Activate the picking tool"), flags)])
+        # Add erase
+        self.__addRowToControls([
+            (qtw.QTableWidgetItem(qta.icon('fa5s.eraser'), "Erase"), flags),
+            (qtw.QTableWidgetItem("Activate the erase tool"), flags)])
+
+        if self.__pickerMode == DEFAULT_MODE:
+            # Add RECT
+            self.__addRowToControls([
+                (qtw.QTableWidgetItem(qta.icon('fa5.square'), "Rect shape"),
+                 flags),
+                (qtw.QTableWidgetItem("Use a RECT shape"), flags)])
+            # Add CIRCLE
+            self.__addRowToControls([
+                (qtw.QTableWidgetItem(qta.icon('fa5.circle'), "Circle shape"),
+                 flags),
+                (qtw.QTableWidgetItem("Use a CIRCLE shape"), flags)])
+        else:
+            # Add SEGMENT
+            self.__addRowToControls([
+                (qtw.QTableWidgetItem(qta.icon('fa5s.arrows-alt-h'),
+                                      "Segment shape"), flags),
+                (qtw.QTableWidgetItem("Use a SEGMENT shape"), flags)])
+        # Add CENTER
+        self.__addRowToControls([
+            (qtw.QTableWidgetItem(qta.icon('fa5s.circle'), "Center shape"),
+             flags),
+            (qtw.QTableWidgetItem("Use a CENTER shape"), flags)])
+        # Add On/Off
+        self.__addRowToControls([
+            (qtw.QTableWidgetItem(qta.icon('fa.toggle-on'), "Show/Hide"),
+             flags),
+            (qtw.QTableWidgetItem("Show/Hide coordinates"), flags)])
 
         # other configurations
         self._controlTable.setSelectionBehavior(

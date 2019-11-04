@@ -68,9 +68,6 @@ class PythonHighlighter (qtg.QSyntaxHighlighter):
     def __init__(self, document):
         qtg.QSyntaxHighlighter.__init__(self, document)
 
-        # Multi-line strings (expression, flag, style)
-        # FIXME: The triple-quotes in these two lines will mess up the
-        # syntax highlighting from this point onward
         self.tri_single = (qtc.QRegExp("'''"), 1, STYLES['string2'])
         self.tri_double = (qtc.QRegExp('"""'), 2, STYLES['string2'])
 
@@ -180,6 +177,12 @@ class JsonSyntaxHighlighter(qtg.QSyntaxHighlighter):
     Syntax highlighter for JSON documents
     """
     def __init__(self, document):
+        """
+        Construct a JsonSyntaxHighlighter instance
+
+        Args:
+            document: (QTextDocument) The document object
+        """
         qtg.QSyntaxHighlighter.__init__(self, document)
 
         self._symbolFormat = qtg.QTextCharFormat()
@@ -194,7 +197,8 @@ class JsonSyntaxHighlighter(qtg.QSyntaxHighlighter):
         self._valueFormat.setForeground(qtg.QColor("#225655"))
 
     def highlightBlock(self, text):
-        textBlock = text;
+        """ Reimplemented from QSyntaxHighlighter """
+        textBlock = text
 
         expression = qtc.QRegExp("(\\{|\\}|\\[|\\]|\\:|\\,)")
         index = expression.indexIn(textBlock)
@@ -232,7 +236,8 @@ class _LineNumberArea(qtw.QWidget):
         qtw.QWidget.__init__(self, textView)
         """
         Construct a _LineNumberArea
-        :param codeEditor: the code editor
+        Args:
+            codeEditor: the code editor
         """
         self._textView = textView
         self._backgroundColor = backgroundColor
@@ -251,15 +256,21 @@ class TextView(qtw.QPlainTextEdit):
     """
     TextView class provides a widget that is used to edit and display plain text
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, showLineNumber=True, linesDict=None):
         """
         Construct a TextView instance:
 
         Args:
             parent: The parent widget.
+            showLineNumber: If True, then show the line numbers
+            linesDict: dict for lines number mapping.
         """
         qtw.QPlainTextEdit.__init__(self, parent=parent)
+        self._showLineNumber = showLineNumber
+        self._linesDict = linesDict
+
         self._lineNumberArea = _LineNumberArea(self)
+        self._lineNumberArea.setVisible(showLineNumber)
         self._lineColor = qtg.QColor(qtc.Qt.yellow).lighter(160)
         self._highlighter = None
 
@@ -269,6 +280,18 @@ class TextView(qtw.QPlainTextEdit):
 
         self.updateLineNumberAreaWidth(0)
         self.highlightCurrentLine()
+
+    def setLinesDict(self, d):
+        """
+        Set the lines dict for lines number mapping. Each line number will be
+        mapping in the given dict.
+
+        Args:
+            d:  (dict) A dict with the line number map.
+                Example:
+                    { 1: 4, 2: 5, 3: 6}
+        """
+        self._linesDict = d
 
     def setHighlighter(self, highlighter):
         """ Set the document highlighter """
@@ -293,7 +316,11 @@ class TextView(qtw.QPlainTextEdit):
 
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
-                number = str(blockNumber + 1)
+                if self._linesDict is None:
+                    number = str(blockNumber + 1)
+                else:
+                    number = str(self._linesDict.get(blockNumber + 1, ''))
+
                 painter.setPen(qtc.Qt.black)
                 painter.drawText(0, top, self._lineNumberArea.width(),
                                  self.fontMetrics().height(), qtc.Qt.AlignRight,
@@ -304,9 +331,14 @@ class TextView(qtw.QPlainTextEdit):
             blockNumber += 1
 
     def lineNumberAreaWidth(self):
-        """ Returns the width of the line number area. """
+        """ Returns the width of the line number area according to the number
+        of lines. """
+        if not self._showLineNumber:
+            return 0
+
         digits = 1
-        m = max(1, self.blockCount())
+        m = max(self._linesDict.values()) if self._linesDict else 1
+        m = max(m, self.blockCount())
 
         while m >= 10:
             m /= 10
