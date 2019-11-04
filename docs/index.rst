@@ -23,4 +23,9 @@ mainly for CryoEM, but can be useful for any domain that deals with images and t
     api/datavis
     api/emvis
 
+.. toctree::
+    :maxdepth: 2
+    :caption: Applications
 
+    apps/em_viewer
+    apps/em_picker
