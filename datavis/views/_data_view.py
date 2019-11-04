@@ -1085,7 +1085,7 @@ class DataView(qtw.QWidget):
         self._tablePref.clear()
         self.__setupComboBoxCurrentTable()
         self.__setupModel(config)
-        self.__initPlotConfWidgets()
+        # self.__initPlotConfWidgets() FIXME[hv] Review
 
     def getModel(self):
         """

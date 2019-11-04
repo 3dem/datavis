@@ -269,7 +269,7 @@ class PickerView(qtw.QWidget):
 
             self._actionPickEllipse = _shapeAction(
                 'actionPickEllipse', 'fa5.circle', SHAPE_CIRCLE,
-                shortcut=qtg.QKeySequence(qtc.Qt.Key_4))  # FIXME: Not working
+                shortCut=qtg.QKeySequence(qtc.Qt.Key_4))
         else:
             self._actionPickSegment = _shapeAction(
                 'actionPickSegment', 'fa5s.arrows-alt-h', SHAPE_SEGMENT,
@@ -277,7 +277,7 @@ class PickerView(qtw.QWidget):
 
         self._actionPickCenter = _shapeAction(
             'actionPickCenter', 'fa5s.circle', SHAPE_CENTER,
-            shortcut=qtg.QKeySequence(qtc.Qt.Key_5),  # FIXME: Not working
+            shortCut=qtg.QKeySequence(qtc.Qt.Key_5),
             options=[{'scale_factor': 0.25}])
 
         tb.addSeparator()
