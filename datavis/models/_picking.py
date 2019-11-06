@@ -7,6 +7,7 @@ from ._constants import *
 from ._table_models import TableModel, ColumnConfig
 from ._params import Param, Form
 
+
 class Coordinate:
     """
     Simple class that holds values for x and y position and a optional label.
@@ -147,13 +148,14 @@ class PickerModel(TableModel):
         """ Iterate over all Micrographs in the model. """
         return iter(self._micList)
 
-    def getMicrograph(self, micId):
-        """ Returns the micrograph with the given ID. """
-        return self._micDict[micId]
+    def _getCoordsList(self, micId):
+        """ Return the coordinates list of a given micrograph. """
+        return self.getMicrograph(micId)._coordinates
 
-    def getMicrographByIndex(self, micIndex):
-        """ Return the micrograph at this given index. """
-        return self._micList[micIndex]
+    def _nextId(self):
+        """ Generates the next id. """
+        self._lastId += 1
+        return self._lastId
 
     def _initLabels(self):
         """ Initialize the labels for this PickerModel. """
@@ -168,6 +170,14 @@ class PickerModel(TableModel):
         default = self.Label(name="Default", color="#1EFF00")
         self._labels["Default"] = default
         self._labels["D"] = default
+
+    def getMicrograph(self, micId):
+        """ Returns the micrograph with the given ID. """
+        return self._micDict[micId]
+
+    def getMicrographByIndex(self, micIndex):
+        """ Return the micrograph at this given index. """
+        return self._micList[micIndex]
 
     def createCoordinate(self, x, y, label, **kwargs):
         """
@@ -215,11 +225,6 @@ class PickerModel(TableModel):
         """ Returns the label with this labelName. """
         return self._labels.get(labelName, self._labels['D'])
 
-    def _nextId(self):
-        """ Generates the next id. """
-        self._lastId += 1
-        return self._lastId
-
     def getData(self, micId):
         """ Return a numpy array with this micrograph binary data.
 
@@ -231,6 +236,30 @@ class PickerModel(TableModel):
         """
         raise Exception('Not implemented')
 
+    def getMicrographMask(self, micId):
+        """ Return the mask that should be applied to visualise the micrograph
+
+        Args:
+            micId: The micrograph ID
+
+        Returns:
+            A 2D numpy array with the micrograph mask.
+        """
+        return None
+
+    def getMicrographMaskColor(self, mic):
+        """ Return the color to visualise the micrograph mask
+
+        Args:
+            micId: The micrograph ID
+
+        Returns:
+            str in ARGB html format: #AARRGGBB or QColor.
+            Example: '#552200FF', QColor(r=3, g=56, b=200, a=128)
+        """
+        return '#552200FF'
+
+
     def getParams(self):
         """ Return a :class:`Form <datavis.models.Form>`
         instance with parameters used by the picker.
@@ -241,10 +270,6 @@ class PickerModel(TableModel):
         caused by user inputs.
         """
         return None
-
-    def _getCoordsList(self, micId):
-        """ Return the coordinates list of a given micrograph. """
-        return self.getMicrograph(micId)._coordinates
 
     def iterCoordinates(self, micId):
         """ Iterate over the micrograph coordinates.

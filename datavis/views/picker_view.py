@@ -1,5 +1,4 @@
 
-import collections
 from math import cos, sin
 from numpy import pi
 
@@ -12,10 +11,11 @@ import qtawesome as qta
 
 
 from datavis.widgets import (TriggerAction, OnOffAction, FormWidget)
-from datavis.models import (Coordinate, TableConfig, ImageModel)
+from datavis.models import (TableConfig, ImageModel)
 
 from ._image_view import ImageView, PenROI
 from ._columns import ColumnsView
+from ._constants import DATA
 
 
 SHAPE_RECT = 0
@@ -534,6 +534,9 @@ class PickerView(qtw.QWidget):
         micId = self._currentMic.getId()
         imgModel = ImageModel(self._model.getData(micId))
         self._imageView.setModel(imgModel, fitToSize)
+        self._imageView.setImageMask(
+            type=DATA, data=self._model.getMicrographMask(micId),
+            color=self._model.getMicrographMaskColor(micId))
         self._imageView.setImageInfo(**self._model.getImageInfo(micId))
         self._createRoiHandlers()
 
