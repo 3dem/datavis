@@ -15,6 +15,7 @@ import PyQt5.QtGui as qtg
 
 from .. import widgets
 from .. import models
+from ..utils import py23
 from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                          CIRCLE_ROI, RECT_ROI, ADD, REMOVE)
 
@@ -119,7 +120,25 @@ class ImageView(qtw.QWidget):
         self._isVerticalFlip = False
         self._isHorizontalFlip = False
         self._rotationStep = 90
-        self._scale = 1
+
+        # Handle scale input, it can be string or numeric
+        # if it is string, it can also have % character for percent
+        scale = kwargs.get('scale', 1)
+
+        # Convert from string, considering % possibility
+        if isinstance(scale, py23.str):
+            if '%' in scale:
+                scale = float(scale.replace('%', '')) / 100.
+            else:
+                scale = float(scale)
+
+        # Set the scale depending on the value
+        if 0 < scale <= 1.0:
+            self._scale = scale
+        else:
+            # FIXME: Compute the scale based on input dimension
+            raise Exception('Still not implemented')
+
         self._sizePref = kwargs.get('preferredSize', (128, 1000))
         self._exporter = None
 

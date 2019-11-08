@@ -78,7 +78,7 @@ class ColumnConfig(ColumnInfo):
         """ Return the string that will be used to display this column. """
         return self._label
 
-    def getDescrition(self):
+    def getDescription(self):
         """ Return the description of this column. """
         return self._description
 
@@ -131,7 +131,7 @@ class ColumnConfig(ColumnInfo):
         """ A readable representation. """
         s = "ColumnConfig: name = %s\n" % self.getName()
         s += "   label: %s\n" % self.getLabel()
-        s += "    desc: %s\n" % self.getDescrition()
+        s += "    desc: %s\n" % self.getDescription()
         s += "    type: %s\n" % self.getType()
         for p in self._propertyNames:
             s += "    %s: %s\n" % (p, self[p])
