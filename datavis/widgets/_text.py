@@ -252,7 +252,7 @@ class _LineNumberArea(qtw.QWidget):
         self._textView.lineNumberAreaPaintEvent(event)
 
 
-class TextView(qtw.QPlainTextEdit):
+class _PlainTextEdit(qtw.QPlainTextEdit):
     """
     TextView class provides a widget that is used to edit and display plain text
     """
@@ -387,3 +387,130 @@ class TextView(qtw.QPlainTextEdit):
         self._lineNumberArea.setGeometry(qtc.QRect(cr.left(), cr.top(),
                                                    self.lineNumberAreaWidth(),
                                                    cr.height()))
+
+
+class TextView(qtw.QWidget):
+    """ Provides a widget that is used to edit and display plain
+    text. TextView can read the text lines from a file input stream and show
+    only the first and last lines specified.
+    """
+    def __init__(self, parent=None):
+        qtw.QWidget.__init__(self, parent=parent)
+        layout = qtw.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._textEdit = _PlainTextEdit(self, True)
+        layout.addWidget(self._textEdit)
+
+    def __readLinesFromFile(self, inputStream, fi, la):
+        """
+        Read the first fi lines and last la lines from the given file input
+        stream
+
+        Args:
+            inputStream: The input stream
+            fi:    (int) The first lines to be read
+            la:    (int) The last lines to be read
+
+        Returns:
+             A tupple with two list: first and last lines,
+             and the number of lines
+        """
+
+        lines = []
+        for _ in range(fi):
+            line = inputStream.readline()
+            if line is not None:
+                lines.append(line)
+            else:
+                break
+
+        s = inputStream.tell()
+        size = len(lines)
+        for _ in inputStream:
+            size += 1
+
+        fsize = inputStream.tell()
+        inputStream.seek(s)
+
+        if s < fsize:
+            i = 0
+            bufsize = 8192
+            if bufsize > fsize:
+                bufsize = fsize - 1
+
+            data = []
+            while True:
+                i += 1
+                seek = fsize - bufsize * i
+                if seek < s:
+                    seek = s
+
+                inputStream.seek(seek)
+
+                data.extend(inputStream.readlines())
+                if len(data) >= la or seek == s:
+                    return lines, data[-la:], size
+        else:
+            return lines, [], size
+
+    def setHighlighter(self, highlighter):
+        """ Set the document highlighter """
+        self._textEdit.setHighlighter(highlighter)
+
+    def setText(self, text):
+        """ Sets the plain text editor's contents
+
+        Args:
+            text: (str) The text
+        """
+        self._textEdit.setLinesDict({})
+        self._textEdit.setPlainText(text)
+
+    def readText(self, inputStream, firstLines, lastLines, separator='.'):
+        """
+        Read text lines from the given input stream and show the first
+        'firstLines' lines and the last 'lastLines' using a separator between
+        the text blocks.
+        Args:
+            inputStream: A file input stream
+            firstLines: The number of first lines to be shown
+            lastLines: The number of last lines to be shown
+            separator: The lines range separator
+        """
+        fl, ll, size = self.__readLinesFromFile(inputStream, firstLines,
+                                                lastLines)
+        d = {i + 1: i + 1 for i in range(len(fl))}
+        self._textEdit.setLinesDict(d)
+
+        self._textEdit.setPlainText("".join(fl))
+        if ll:
+            for _ in range(3):
+                self._textEdit.appendPlainText(separator)
+            self._textEdit.appendPlainText('')
+
+            for i in range(len(ll)):
+                d[firstLines + i + 6] = size - lastLines + i + 1
+
+            self._textEdit.appendPlainText("".join(ll))
+
+    def setReadOnly(self, ro):
+        """ Set the text edition as read-only if ro is True. """
+        self._textEdit.setReadOnly(ro)
+
+    def isReadOnly(self):
+        """ Return True if the text edition is in read-only mode """
+        return self._textEdit.isReadOnly()
+
+    def clear(self):
+        """ Deletes all the text in the text edit. """
+        self._textEdit.setLinesDict(None)
+        self._textEdit.clear()
+
+    def setLinesWrap(self, w):
+        """
+        Enable/disable the lines wrap mode
+        Args:
+            w: (bool) The lines wrap
+        """
+        TE = qtw.QPlainTextEdit
+        self._textEdit.setLineWrapMode(TE.WidgetWidth if w else TE.NoWrap)
