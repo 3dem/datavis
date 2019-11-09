@@ -394,11 +394,11 @@ class TextView(qtw.QWidget):
     text. TextView can read the text lines from a file input stream and show
     only the first and last lines specified.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, showLines=True):
         qtw.QWidget.__init__(self, parent=parent)
         layout = qtw.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self._textEdit = _PlainTextEdit(self, True)
+        self._textEdit = _PlainTextEdit(self, showLines)
         layout.addWidget(self._textEdit)
 
     def __readLinesFromFile(self, inputStream, fi, la):
