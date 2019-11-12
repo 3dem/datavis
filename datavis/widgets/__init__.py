@@ -4,7 +4,8 @@ from ._toolbar import (ActionsToolBar, MultiStateAction, OnOffAction,
 from ._spinslider import SpinSlider
 from ._spinbox import ZoomSpinBox, IconSpinBox
 from ._paging import PageBar, PagingInfo
-from ._dynamic import FormWidget
+from ._dynamic import (FormWidget, ButtonWidget, BoolWidget, TextWidget,
+                       NumericWidget, OptionsWidget, ParamWidget)
 from ._plot import PlotConfigWidget
 from ._panels import ViewPanel
 from ._axis import AxisSelector

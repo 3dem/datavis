@@ -1,14 +1,20 @@
 
 Welcome to datavis and emvis!
-=========================================
+=============================
+
+Here you will find the documentation for ``datavis`` and ``emvis``, which are two
+Python libraries for scientific data analysis and visualization. There are designed
+mainly for CryoEM, but can be useful for any domain that deals with images and tables.
 
 .. toctree::
     :maxdepth: 2
     :caption: Guide
 
-    install
-    support
-    cookbook
+    guide/overview
+    guide/image
+    guide/table
+    guide/composed
+    guide/picker
 
 .. toctree::
     :maxdepth: 2
@@ -17,4 +23,9 @@ Welcome to datavis and emvis!
     api/datavis
     api/emvis
 
+.. toctree::
+    :maxdepth: 2
+    :caption: Applications
 
+    apps/em_viewer
+    apps/em_picker

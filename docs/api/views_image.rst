@@ -16,16 +16,16 @@ SlicesView
 
     .. automethod:: datavis.views.SlicesView.__init__
 
-VolumeView
-----------
-.. autoclass:: datavis.views.VolumeView
-    :members:
-
-    .. automethod:: datavis.views.VolumeView.__init__
-
 MultiSliceView
 --------------
 .. autoclass:: datavis.views.MultiSliceView
     :members:
 
     .. automethod:: datavis.views.MultiSliceView.__init__
+
+VolumeView
+----------
+.. autoclass:: datavis.views.VolumeView
+    :members:
+
+    .. automethod:: datavis.views.VolumeView.__init__

@@ -24,31 +24,37 @@ class ColumnsView(PagingView):
     # when the Table has been resized (oldSize, newSize)
     sigSizeChanged = qtc.pyqtSignal(object, object)
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, model, **kwargs):
         """
-        :param parent:  (QWidget) Parent widget
-        :param kwargs:
-            model:          The data model
-            displayConfig:  Input TableModel that will control how the data
-                            fetched from the TableModel will be displayed.
-                            displayConfig can be None, in which case the model
-                            will be taken as displayConfig.
+        Creates a ColumnsView object.
+
+        Args:
+            model:          :class:`TableModel <datavis.models.TableModel>`
+                            instance that will be used to fetch the data.
+
+        Keyword Args:
+            parent:         Parent widget
+            displayConfig:  :class:`TableConfig <datavis.models.TableConfig>`
+                            instance that will control how the data fetched from
+                            the :class:`TableModel <datavis.models.TableModel>`
+                            will be displayed.
+                            displayConfig can be None, in which case
+                            createDefaultConfig method will be called and taken
+                            as displayConfig.
             selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
                             MULTI_SELECTION or NO_SELECTION
         """
-        self._model = kwargs['model']
-        PagingView.__init__(self, parent=parent,
-                            pagingInfo=widgets.PagingInfo(1, 1),
-                            **kwargs)
+        PagingView.__init__(self, pagingInfo=widgets.PagingInfo(1, 1), **kwargs)
         self._selection = set()
         self._delegate = EMImageItemDelegate(self)
         self._pageItemModel = None
         self.setSelectionMode(kwargs.get('selectionMode',
                                          PagingView.SINGLE_SELECTION))
-        self.setModel(model=self._model,
+        self.setModel(model=model,
                       displayConfig=kwargs.get('displayConfig'))
 
     def _createContentWidget(self):
+        """ Reimplemented from :class:`<datavis.views.PagingView>`. """
         tv = qtw.QTableView(self)
         hHeader = HeaderView(tv)
         hHeader.setHighlightSections(False)
@@ -63,10 +69,6 @@ class ColumnsView(PagingView):
         tv.setSelectionMode(qtw.QTableView.SingleSelection)
         tv.setSortingEnabled(True)
         tv.setVerticalScrollBarPolicy(qtc.Qt.ScrollBarAlwaysOff)
-        #tv.setStyleSheet(
-        #    "qtw.QTableView#ColumnsViewTable::item:selected:!active{"
-        #    "selection-background-color: red;}")  # palette(light);}")
-
         tv.resizeEvent = self.__tableViewResizeEvent
         tv.setModel(None)
         tv.setFocusPolicy(qtc.Qt.NoFocus)
@@ -74,8 +76,7 @@ class ColumnsView(PagingView):
         return tv
 
     def __connectSignals(self):
-        """ Connects all signals related to the TablePageItemModel
-        """
+        """ Connects all signals related to the TablePageItemModel """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.connect(
                 self._pageItemModel.modelConfigChanged)
@@ -84,8 +85,7 @@ class ColumnsView(PagingView):
                 self.__onHeaderDataChanged)
 
     def __disconnectSignals(self):
-        """ Disconnects all signals related to the TablePageItemModel
-        """
+        """ Disconnects all signals related to the TablePageItemModel """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.disconnect(
                 self._pageItemModel.modelConfigChanged)
@@ -95,16 +95,19 @@ class ColumnsView(PagingView):
 
     def __tableViewResizeEvent(self, evt):
         """
-        Reimplemented to receive qtw.QTableView resize events which are passed
-        in the event parameter. Emits sigSizeChanged
-        :param evt: The event
+        Reimplemented to receive QTableView resize events which are passed
+        in the event parameter.
+
+        Args:
+            evt: The event
+
+        Emits: sigSizeChanged
         """
         qtw.QTableView.resizeEvent(self._tableView, evt)
         self.sigSizeChanged.emit(evt.oldSize(), evt.size())
 
     def __calcPageSize(self):
-        """
-        Calculate the number of items per page according to the size of the
+        """ Calculate the number of items per page according to the size of the
         view area.
         """
         tableSize = self._tableView.viewport().size()
@@ -117,7 +120,7 @@ class ColumnsView(PagingView):
         return 1
 
     def __updatePageBar(self):
-        """Updates the PageBar paging settings """
+        """ Updates the PageBar paging settings """
         rows = self.__calcPageSize()
         if not rows == self._pagingInfo.pageSize:
             self._pagingInfo.setPageSize(rows)
@@ -137,12 +140,14 @@ class ColumnsView(PagingView):
             self._tableView.setItemDelegateForColumn(i, delegate)
 
     def __updatePagingInfo(self):
+        """ Updates the paging information according to the model rows count """
         self._pagingInfo.numberOfItems = self._model.getRowsCount()
         self._pagingInfo.setPageSize(self.__calcPageSize())
         self._pagingInfo.currentPage = 1
 
     def __updateSelectionInView(self, page):
-        """ Makes the current selection in the view """
+        """ Makes the current selection in internal widget used to display the
+        data values """
         selModel = self._tableView.selectionModel()
         if selModel is not None:
             pageSize = self._pagingInfo.pageSize
@@ -152,11 +157,11 @@ class ColumnsView(PagingView):
                 if row in self._selection:
                     sel.append(
                         qtc.QItemSelectionRange(m.index(row % pageSize, 0),
-                                            m.index(row % pageSize,
-                                                    m.columnCount() - 1)))
+                                                m.index(row % pageSize,
+                                                        m.columnCount() - 1)))
             allSel = qtc.QItemSelection(m.index(0, 0),
-                                    m.index(pageSize - 1,
-                                            m.columnCount() - 1))
+                                        m.index(pageSize - 1,
+                                                m.columnCount() - 1))
             selModel.select(allSel, qtc.QItemSelectionModel.Deselect)
             if not sel.isEmpty():
                 selModel.select(sel, qtc.QItemSelectionModel.Select)
@@ -175,7 +180,13 @@ class ColumnsView(PagingView):
 
     @qtc.pyqtSlot(object, object)
     def __onSizeChanged(self, oldSize, newSize):
-        """ Invoked when the table widget is resized """
+        """
+        Invoked when the table widget is resized
+
+        Args:
+            oldSize: The previous size
+            newSize: The new size
+        """
         if not oldSize.height() == newSize.height():
             self._resizing = True
             self.__updatePageBar()
@@ -185,8 +196,13 @@ class ColumnsView(PagingView):
     @qtc.pyqtSlot(int)
     def __onCurrentPageChanged(self, page):
         """
-        Invoked when change current page. Emits sigCurrentRowChanged signal.
-        1 is the index of the first page.
+        Invoked when change current page.
+
+        Args:
+            page: (int) The new page. 1 is the index of the first page.
+
+        Emits:
+            sigCurrentRowChanged
         """
         if not self._resizing:
             self._currentRow = (page - 1) * self._pagingInfo.pageSize
@@ -199,7 +215,12 @@ class ColumnsView(PagingView):
 
     @qtc.pyqtSlot(qtc.QModelIndex, qtc.QModelIndex)
     def __onCurrentRowChanged(self, current, previous):
-        """ Invoked when current row change """
+        """ Invoked when current row is changed
+
+        Args:
+            current: The current index in the Qt model
+            previous: The previous index in the Qt model
+        """
         if current.isValid():
             row = current.row()
             p = self._pagingInfo
@@ -214,10 +235,12 @@ class ColumnsView(PagingView):
     def __onHeaderDataChanged(self, orientation, first, last):
         """
         This slot is invoked whenever a header is changed.
-        :param orientation:  (Qt.Orientation) The orientation indicates whether
-                             the horizontal or vertical header has changed.
-        :param first:        (int) First section index
-        :param last:         (int) Last section index
+
+        Args:
+            orientation:  (Qt.Orientation) The orientation indicates whether
+                          the horizontal or vertical header has changed.
+            first:        (int) First section index
+            last:         (int) Last section index
         """
         if self._pageItemModel is not None and orientation == qtc.Qt.Vertical:
             row = self._pageItemModel.headerData(0, orientation, 
@@ -250,7 +273,8 @@ class ColumnsView(PagingView):
 
     @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
-        """ Invoked when the selection is changed """
+        """ Invoked when the selection is changed. Sets the given selection as
+        the current and updates the view """
         self._selection = selection
         self.__updateSelectionInView(self._pagingInfo.currentPage - 1)
 
@@ -262,7 +286,9 @@ class ColumnsView(PagingView):
 
     @qtc.pyqtSlot()
     def modelChanged(self):
-        """Slot for model data changed notification """
+        """ Slot for model data changed notification. Informs about external
+        changes to the data model. Updates the view.
+        """
         self.__updatePagingInfo()
         self._pageBar.setPagingInfo(self._pagingInfo)
 
@@ -276,7 +302,8 @@ class ColumnsView(PagingView):
 
     def setupVisibleColumns(self):
         """
-        Hide the columns with visible property=True
+        Hide the columns with visible property=False and show the columns with
+        visible property=True
         """
         for i, colConfig in self._displayConfig.iterColumns():
             if not colConfig[models.VISIBLE]:
@@ -285,13 +312,14 @@ class ColumnsView(PagingView):
                 self._tableView.showColumn(i)
 
     def setupColumnsWidth(self):
-        """ Setups the width for all columns """
+        """ Setups the width for all columns in the view. Resizes all columns
+        according to the content """
         self._tableView.horizontalHeader().setStretchLastSection(True)
         self._tableView.resizeColumnsToContents()
 
     def updateViewConfiguration(self):
         """ Reimplementing from PagingView.
-        Updates the columns configuration.
+        Updates the columns configuration. Causes the visual update of the view
         """
         if self._pageItemModel is not None:
             self.setupVisibleColumns()
@@ -300,11 +328,14 @@ class ColumnsView(PagingView):
     def setModel(self, model, displayConfig=None):
         """
         Sets the model for this view.
-        Raise Exception when the model is None
-        :param model:         (datavis.model.TableModel) The data model
-        :param displayConfig: (datavis.model.TableModel) Input TableModel that
-                              will control how the data fetched from the
-                              TableModel will be displayed.
+
+        Args:
+            model:    TableModel :class:`<datavis.models.TableModel>` instance
+            displayConfig: :class:`TableConfig <datavis.models.TableConfig>`
+                           instance that will control how the data fetched from
+                           the TableModel will be displayed.
+        Raises:
+             Exception if the model is None
         """
         if model is None:
             raise Exception('Invalid model: None')
@@ -331,7 +362,7 @@ class ColumnsView(PagingView):
         self.modelChanged()
 
     def clear(self):
-        """ Clear the view """
+        """ Clear the view setting an empty table model """
         self.setModel(models.EmptyTableModel())
 
     def resetView(self):
@@ -351,23 +382,29 @@ class ColumnsView(PagingView):
     def setRowHeight(self, height):
         """
         Sets the height for all rows
-        :param height: (int) The row height in pixels
+
+        Args:
+            height: (int) The row height in pixels
         """
         self._tableView.verticalHeader().setDefaultSectionSize(height)
         self.__updatePageBar()
 
     def setColumnWidth(self, column, width):
         """
-        Sets the width for the given column
-        :param column: (int) The column index. First index is 0.
-        :param width:  (int) The column width
+        Sets the width for the given column.
+
+        Args:
+            column: (int) The column index. First index is 0.
+            width:  (int) The column width
         """
         self._tableView.setColumnWidth(column, width)
 
     def setIconSize(self, size):
         """
         Sets the icon size for renderable columns.
-        size: (width, height) or qtc.QSize
+
+        Args:
+            size: (width, height) or QSize
         """
         if isinstance(size, qtc.QSize):
             w, h = size.width(), size.height()
@@ -395,12 +432,15 @@ class ColumnsView(PagingView):
     def getColumnWidth(self, column):
         """
         Returns the width for the given column.
-        :param column: (int) The column index. First index is 0.
+
+        Args:
+            column: (int) The column index. First index is 0.
         """
         return self._tableView.columnWidth(column)
 
     def selectRow(self, row):
-        """ Selects the given row """
+        """ Selects the given row. Change the current page to the page of the
+        given row. """
         if 0 <= row < self._pagingInfo.numberOfItems:
             page = self._pagingInfo.getPage(row) + 1
             self._currentRow = row
@@ -437,8 +477,8 @@ class ColumnsView(PagingView):
 
     def getPreferredSize(self):
         """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
+        Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the data.
         """
         rowHeight = self._pageItemModel.headerData(0, qtc.Qt.Vertical,
                                                    qtc.Qt.SizeHintRole)
@@ -488,7 +528,6 @@ class ColumnsView(PagingView):
 
     def resizeColumnToContents(self, col=-1):
         """
-        From qtw.QTableView:
         Resizes the given column based on the size hints of the delegate used
         to render each item in the row.
         """
@@ -499,7 +538,6 @@ class ColumnsView(PagingView):
 
     def getHorizontalHeader(self):
         """
-        From qtw.QTableView:
         Returns the table view's horizontal header.
         """
         return self._tableView.horizontalHeader()

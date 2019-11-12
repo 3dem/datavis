@@ -15,10 +15,12 @@ class SpinSlider(qtw.QWidget):
     sigSliderReleased = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
-        """
-        Create a new SliderSpin
-        :param parent:
-        :param kwargs:
+        """ Create a new SliderSpin instance.
+
+        Args:
+            parent: Parent QWidget.
+
+        Keyword Args:
             text:         (str) Optional text to be used as label of the Widget
             minValue:     (int/float) The minimum value to be shown
             maxValue:     (int/float) The maximum value to be shown

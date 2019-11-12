@@ -68,9 +68,6 @@ class PythonHighlighter (qtg.QSyntaxHighlighter):
     def __init__(self, document):
         qtg.QSyntaxHighlighter.__init__(self, document)
 
-        # Multi-line strings (expression, flag, style)
-        # FIXME: The triple-quotes in these two lines will mess up the
-        # syntax highlighting from this point onward
         self.tri_single = (qtc.QRegExp("'''"), 1, STYLES['string2'])
         self.tri_double = (qtc.QRegExp('"""'), 2, STYLES['string2'])
 
@@ -180,6 +177,12 @@ class JsonSyntaxHighlighter(qtg.QSyntaxHighlighter):
     Syntax highlighter for JSON documents
     """
     def __init__(self, document):
+        """
+        Construct a JsonSyntaxHighlighter instance
+
+        Args:
+            document: (QTextDocument) The document object
+        """
         qtg.QSyntaxHighlighter.__init__(self, document)
 
         self._symbolFormat = qtg.QTextCharFormat()
@@ -194,7 +197,8 @@ class JsonSyntaxHighlighter(qtg.QSyntaxHighlighter):
         self._valueFormat.setForeground(qtg.QColor("#225655"))
 
     def highlightBlock(self, text):
-        textBlock = text;
+        """ Reimplemented from QSyntaxHighlighter """
+        textBlock = text
 
         expression = qtc.QRegExp("(\\{|\\}|\\[|\\]|\\:|\\,)")
         index = expression.indexIn(textBlock)
@@ -232,7 +236,8 @@ class _LineNumberArea(qtw.QWidget):
         qtw.QWidget.__init__(self, textView)
         """
         Construct a _LineNumberArea
-        :param codeEditor: the code editor
+        Args:
+            codeEditor: the code editor
         """
         self._textView = textView
         self._backgroundColor = backgroundColor
@@ -247,13 +252,25 @@ class _LineNumberArea(qtw.QWidget):
         self._textView.lineNumberAreaPaintEvent(event)
 
 
-class TextView(qtw.QPlainTextEdit):
+class _PlainTextEdit(qtw.QPlainTextEdit):
     """
     TextView class provides a widget that is used to edit and display plain text
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, showLineNumber=True, linesDict=None):
+        """
+        Construct a TextView instance:
+
+        Args:
+            parent: The parent widget.
+            showLineNumber: If True, then show the line numbers
+            linesDict: dict for lines number mapping.
+        """
         qtw.QPlainTextEdit.__init__(self, parent=parent)
+        self._showLineNumber = showLineNumber
+        self._linesDict = linesDict
+
         self._lineNumberArea = _LineNumberArea(self)
+        self._lineNumberArea.setVisible(showLineNumber)
         self._lineColor = qtg.QColor(qtc.Qt.yellow).lighter(160)
         self._highlighter = None
 
@@ -263,6 +280,18 @@ class TextView(qtw.QPlainTextEdit):
 
         self.updateLineNumberAreaWidth(0)
         self.highlightCurrentLine()
+
+    def setLinesDict(self, d):
+        """
+        Set the lines dict for lines number mapping. Each line number will be
+        mapping in the given dict.
+
+        Args:
+            d:  (dict) A dict with the line number map.
+                Example:
+                    { 1: 4, 2: 5, 3: 6}
+        """
+        self._linesDict = d
 
     def setHighlighter(self, highlighter):
         """ Set the document highlighter """
@@ -274,6 +303,7 @@ class TextView(qtw.QPlainTextEdit):
             self._highlighter.setDocument(self.document())
 
     def lineNumberAreaPaintEvent(self, event):
+        """ Paint the line number area """
         painter = qtg.QPainter(self._lineNumberArea)
         painter.fillRect(event.rect(),
                          self._lineNumberArea.getBackgrountColor())
@@ -286,7 +316,11 @@ class TextView(qtw.QPlainTextEdit):
 
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
-                number = str(blockNumber + 1)
+                if self._linesDict is None:
+                    number = str(blockNumber + 1)
+                else:
+                    number = str(self._linesDict.get(blockNumber + 1, ''))
+
                 painter.setPen(qtc.Qt.black)
                 painter.drawText(0, top, self._lineNumberArea.width(),
                                  self.fontMetrics().height(), qtc.Qt.AlignRight,
@@ -297,11 +331,14 @@ class TextView(qtw.QPlainTextEdit):
             blockNumber += 1
 
     def lineNumberAreaWidth(self):
-        """
-        Returns the width of the line number area
-        """
+        """ Returns the width of the line number area according to the number
+        of lines. """
+        if not self._showLineNumber:
+            return 0
+
         digits = 1
-        m = max(1, self.blockCount())
+        m = max(self._linesDict.values()) if self._linesDict else 1
+        m = max(m, self.blockCount())
 
         while m >= 10:
             m /= 10
@@ -312,10 +349,11 @@ class TextView(qtw.QPlainTextEdit):
         return space
 
     def updateLineNumberAreaWidth(self, newBlockCount):
-        """ Update the width of the line number area """
+        """ Update the width of the line number area. """
         self.setViewportMargins(self.lineNumberAreaWidth(), 0, 0, 0)
 
     def highlightCurrentLine(self):
+        """ Highlight the current line """
         extraSelections = []
 
         selection = qtw.QTextEdit.ExtraSelection()
@@ -329,6 +367,7 @@ class TextView(qtw.QPlainTextEdit):
         self.setExtraSelections(extraSelections)
 
     def updateLineNumberArea(self, rect, dy):
+        """ Update the line number area """
         if dy:
             self._lineNumberArea.scroll(0, dy)
         else:
@@ -340,9 +379,138 @@ class TextView(qtw.QPlainTextEdit):
             self.updateLineNumberAreaWidth(0)
 
     def resizeEvent(self, event):
+        """ Reimplemented from QPlainTextEdit.
+        Updates the line number area """
         qtw.QPlainTextEdit.resizeEvent(self, event)
 
         cr = self.contentsRect()
         self._lineNumberArea.setGeometry(qtc.QRect(cr.left(), cr.top(),
                                                    self.lineNumberAreaWidth(),
                                                    cr.height()))
+
+
+class TextView(qtw.QWidget):
+    """ Provides a widget that is used to edit and display plain
+    text. TextView can read the text lines from a file input stream and show
+    only the first and last lines specified.
+    """
+    def __init__(self, parent=None, showLines=True):
+        qtw.QWidget.__init__(self, parent=parent)
+        layout = qtw.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._textEdit = _PlainTextEdit(self, showLines)
+        layout.addWidget(self._textEdit)
+
+    def __readLinesFromFile(self, inputStream, fi, la):
+        """
+        Read the first fi lines and last la lines from the given file input
+        stream
+
+        Args:
+            inputStream: The input stream
+            fi:    (int) The first lines to be read
+            la:    (int) The last lines to be read
+
+        Returns:
+             A tupple with two list: first and last lines,
+             and the number of lines
+        """
+
+        lines = []
+        for _ in range(fi):
+            line = inputStream.readline()
+            if line is not None:
+                lines.append(line)
+            else:
+                break
+
+        s = inputStream.tell()
+        size = len(lines)
+        for _ in inputStream:
+            size += 1
+
+        fsize = inputStream.tell()
+        inputStream.seek(s)
+
+        if s < fsize:
+            i = 0
+            bufsize = 8192
+            if bufsize > fsize:
+                bufsize = fsize - 1
+
+            data = []
+            while True:
+                i += 1
+                seek = fsize - bufsize * i
+                if seek < s:
+                    seek = s
+
+                inputStream.seek(seek)
+
+                data.extend(inputStream.readlines())
+                if len(data) >= la or seek == s:
+                    return lines, data[-la:], size
+        else:
+            return lines, [], size
+
+    def setHighlighter(self, highlighter):
+        """ Set the document highlighter """
+        self._textEdit.setHighlighter(highlighter)
+
+    def setText(self, text):
+        """ Sets the plain text editor's contents
+
+        Args:
+            text: (str) The text
+        """
+        self._textEdit.setLinesDict({})
+        self._textEdit.setPlainText(text)
+
+    def readText(self, inputStream, firstLines, lastLines, separator='.'):
+        """
+        Read text lines from the given input stream and show the first
+        'firstLines' lines and the last 'lastLines' using a separator between
+        the text blocks.
+        Args:
+            inputStream: A file input stream
+            firstLines: The number of first lines to be shown
+            lastLines: The number of last lines to be shown
+            separator: The lines range separator
+        """
+        fl, ll, size = self.__readLinesFromFile(inputStream, firstLines,
+                                                lastLines)
+        d = {i + 1: i + 1 for i in range(len(fl))}
+        self._textEdit.setLinesDict(d)
+
+        self._textEdit.setPlainText("".join(fl))
+        if ll:
+            for _ in range(3):
+                self._textEdit.appendPlainText(separator)
+            self._textEdit.appendPlainText('')
+
+            for i in range(len(ll)):
+                d[firstLines + i + 6] = size - lastLines + i + 1
+
+            self._textEdit.appendPlainText("".join(ll))
+
+    def setReadOnly(self, ro):
+        """ Set the text edition as read-only if ro is True. """
+        self._textEdit.setReadOnly(ro)
+
+    def isReadOnly(self):
+        """ Return True if the text edition is in read-only mode """
+        return self._textEdit.isReadOnly()
+
+    def clear(self):
+        """ Deletes all the text in the text edit. """
+        self._textEdit.setLinesDict(None)
+        self._textEdit.clear()
+
+    def setLinesWrap(self, w):
+        """
+        Enable/disable the lines wrap mode
+        Args:
+            w: (bool) The lines wrap
+        """
+        TE = qtw.QPlainTextEdit
+        self._textEdit.setLineWrapMode(TE.WidgetWidth if w else TE.NoWrap)

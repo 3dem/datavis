@@ -12,7 +12,7 @@ class TestDataView(dv.tests.TestView):
 
     def createView(self):
         model = dv.tests.createTableModel((60, 60))
-        return dv.views.DataView(model=model)
+        return dv.views.DataView(model)
 
 
 if __name__ == '__main__':

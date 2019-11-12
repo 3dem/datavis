@@ -44,22 +44,25 @@ class PagingView(qtw.QWidget):
     """
     sigPageChanged = qtc.pyqtSignal(int)
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, **kwargs):
         """
-        Constructor
-        :param parent:      (QWidget) The parent widget
-        :param kwargs:
-            pagingInfo:     (PagingInfo) The initial paging configuration
+        Construct an PageBar instance
+
+        Keyword Args:
+            parent:         The parent widget
+            pagingInfo:     :class:`PagingInfo <datavis.widgets.PagingInfo>`
+                            The initial paging configuration
             selectionMode:  (int) The selection mode: SINGLE_SELECTION,
                             EXTENDED_SELECTION, MULTI_SELECTION or NO_SELECTION
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._pagingInfo = kwargs['pagingInfo']
         self._selectionMode = kwargs.get('selectionMode',
                                          PagingView.NO_SELECTION)
         self.__setupGUI()
 
     def __setupGUI(self):
+        """ Setups the GUI """
         layout = qtw.QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(1, 1, 1, 1)
@@ -75,8 +78,9 @@ class PagingView(qtw.QWidget):
     @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
         """
-        Invoked when the selection.
-        This method must be reimplemented in inherited classes
+        Invoked when you need to change the current selection. The selection
+        will be stored in a set, containing the indexes of the selected rows.
+        This method must be reimplemented in inherited classes.
         """
         pass
 
@@ -96,12 +100,12 @@ class PagingView(qtw.QWidget):
         """
         Indicates how the view responds to user selections:
         SINGLE_SELECTION, EXTENDED_SELECTION, MULTI_SELECTION.
-        This method must be reimplemented in inherited classes
         """
         self._selectionMode = selectionMode
 
     def getSelectionMode(self):
-        """ Returns the selection mode """
+        """ Returns the selection mode. Possible values:  SINGLE_SELECTION,
+        EXTENDED_SELECTION, MULTI_SELECTION. """
         return self._selectionMode
 
     def isSingleSelection(self):

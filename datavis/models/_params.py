@@ -5,10 +5,10 @@ from ._constants import *
 class Param:
     """ Define basic properties of a parameter to be used in different contexts.
 
-    This class is used by :class:`PickerDataModel <datavis.models.PickerDataModel>`
+    This class is used by :class:`PickerModel <datavis.models.PickerModel>`
     class to define parameters that can be changed by the user in the GUI.
     """
-    def __init__(self, paramName: str, paramType: str, **kwargs):
+    def __init__(self, paramName, paramType, **kwargs):
         """ Create a new instance.
 
         Args:

@@ -12,8 +12,7 @@ class TestSlicesView(dv.tests.TestView):
 
     def createView(self):
         model = dv.tests.createSlicesModel((512, 512), 50)
-        return dv.views.SlicesView(None, model=model,
-                                   text='Slice, image number: ',
+        return dv.views.SlicesView(model=model, text='Slice, image number: ',
                                    currentValue=1)
 
 

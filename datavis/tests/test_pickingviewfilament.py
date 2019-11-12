@@ -5,9 +5,9 @@ import datavis as dv
 from datavis.models import ColumnConfig, TYPE_STRING, TYPE_INT
 
 
-class MyPickerDataModel(dv.tests.SimplePickerDataModel):
+class MyPickerModel(dv.tests.SimplePickerModel):
     def __init__(self, *args, **kwargs):
-        dv.tests.SimplePickerDataModel.__init__(self, *args, **kwargs)
+        dv.tests.SimplePickerModel.__init__(self, *args, **kwargs)
         self._scoreThreshold = 0.5
         # Modify 'Auto' label to set red color
         self._labels['A'] = self._labels['A']._replace(color='#FF0000')
@@ -112,8 +112,8 @@ class TestPickerView(dv.tests.TestView):
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
 
-        model = MyPickerDataModel((1024, 1024), 10, 20, 150, True)
-        return dv.views.PickerView(None, model, **kwargs)
+        model = MyPickerModel((1024, 1024), 10, 20, 150, True)
+        return dv.views.PickerView(model, **kwargs)
 
 
 if __name__ == '__main__':

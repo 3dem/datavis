@@ -26,7 +26,8 @@ copyright = '2019, J.M. de la Rosa Trevin'
 author = 'J.M. de la Rosa Trevin'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.0'
+version = '0.0.2'
+release = '0.0.2'
 
 
 # -- General configuration ---------------------------------------------------
@@ -56,6 +57,7 @@ html_theme = 'sphinx_rtd_theme'
 
 html_theme_options = {
     'collapse_navigation': False,
+    'display_version': True,
 }
 
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

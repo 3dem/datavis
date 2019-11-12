@@ -7,7 +7,7 @@ import datavis as dv
 from datavis.models import ColumnConfig, TYPE_INT, TYPE_STRING
 
 
-class MyPickerDataModel(dv.models.PickerCmpModel):
+class MyPickerModel(dv.models.PickerCmpModel):
     def __init__(self, *args, **kwargs):
         dv.models.PickerCmpModel.__init__(self, *args, **kwargs)
         self._scoreThreshold = 0.5
@@ -142,15 +142,15 @@ class TestPickerCmpView(dv.tests.TestView):
 
         w, h = self._w, self._h
         boxSize = kwargs.get('boxSize', 40)
-        model1 = dv.tests.createSimplePickerDataModel((w, h), self._size,
+        model1 = dv.tests.createSimplePickerModel((w, h), self._size,
                                                       boxSize, self._picks)
-        model2 = dv.tests.createSimplePickerDataModel((w, h), self._size,
+        model2 = dv.tests.createSimplePickerModel((w, h), self._size,
                                                       boxSize, self._picks)
 
-        model = MyPickerDataModel(model1, model2, boxSize=self._box,
+        model = MyPickerModel(model1, model2, boxSize=self._box,
                                   radius=self._radius)
 
-        return dv.views.PickerView(None, model, **kwargs)
+        return dv.views.PickerView(model, **kwargs)
 
 
 if __name__ == '__main__':

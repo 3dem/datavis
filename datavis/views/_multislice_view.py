@@ -12,8 +12,9 @@ from ._constants import AXIS_BOTTOM_LEFT, AXIS_BOTTOM_RIGHT, AXIS_TOP_LEFT
 class MultiSliceView(qtw.QWidget):
     """
     This view is currently used for displaying 3D volumes and it is composed
-    by 3 SlicerViews and a custom 2D plot showing the axis and the slider
-    position. This view is the default for Volumes.
+    by 3 :class:`SlicesView <datavis.views.SlicesView>` and a custom 2D plot
+    showing the axis and the slider position.
+    This view is the default for Volumes.
     """
     # Signal for current slice changed(axis, slice)
     sigSliceChanged = qtc.pyqtSignal(int, int)
@@ -24,15 +25,17 @@ class MultiSliceView(qtw.QWidget):
     # Signal for scale changed (scale, axis)
     sigScaleChanged = qtc.pyqtSignal(float, int)
 
-    """ """
-
     def __init__(self, parent, slicesKwargs, mode=dv.models.AXIS_XYZ):
         """
-        parent:       (qtw.QWidget) Parent qtw.QWidget
-        slicesKwargs: (dict)A dict with keys of axis () and values for the model
-                      for each axis.
-        mode:         (int) Specifies which axis will be visible.
-                            Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
+        Create a new MultiSliceView instance
+
+        Args:
+            parent:       (QWidget) Parent widget
+            slicesKwargs: (dict) A dict with keys of axis(AXIS_X, AXIS_Y,
+                          AXIS_Z) and values for the model for each axis.
+                          See :class:`SlicesView <datavis.views.SlicesView>`
+            mode:         (int) Specifies which axis will be visible.
+                          Possible values: AXIS_X, AXIS_Y, AXIS_Z, AXIS_XYZ
         """
         qtw.QWidget.__init__(self, parent=parent)
         self._slicesKwargs = slicesKwargs
@@ -105,8 +108,7 @@ class MultiSliceView(qtw.QWidget):
             imgViewKargs = dict(defaultImgViewKargs)
             imgViewKargs.update(axisImgViewKargs[axis])
             imgViewKargs.update(args.get('imageViewKwargs', dict()))
-            sv = SlicesView(self, model,
-                            text=args.get('text', text),
+            sv = SlicesView(model, parent=self, text=args.get('text', text),
                             currentValue=args.get('currentValue',
                                                   int((n + 1)/2)),
                             imageViewKwargs=imgViewKargs)
@@ -134,7 +136,9 @@ class MultiSliceView(qtw.QWidget):
 
     @qtc.pyqtSlot(float)
     def __onScaleChanged(self, scale):
-        """ Called when the image scale is changed """
+        """ Called when the image scale is changed in any one of the
+        :class:`SlicesView <datavis.views.SlicesView>`. Updates the scale in all
+        :class:`SlicesView <datavis.views.SlicesView>`."""
         self.setScale(scale)
         self.sigScaleChanged.emit(scale, dv.models.AXIS_X)
 
@@ -145,7 +149,7 @@ class MultiSliceView(qtw.QWidget):
             imgView.setRoiMaskSize(size)
 
     def _onSliceChanged(self, axis, value):
-        """ Called when the slice index is changed in one of the axis. """
+        """ Called when the slice index is changed in any one of the axis. """
         e = not self._axis == axis
         self._axis = axis
         self._slice = value
@@ -176,9 +180,11 @@ class MultiSliceView(qtw.QWidget):
         self._onSliceChanged(dv.models.AXIS_X, value)
 
     def getValue(self, axis=None):
-        """ Return the current slice index for a given axis.
-         (If none, the last changed axis is be used)
-        :param axis: AXIS_X or AXIS_Y or AXIS_Z
+        """ Return the current slice index for the given axis.
+         (If axis=None, the last changed axis is used)
+
+        Args:
+            axis: AXIS_X or AXIS_Y or AXIS_Z
         """
         return self._slicesDict[axis or self._axis].getValue()
 
@@ -188,7 +194,8 @@ class MultiSliceView(qtw.QWidget):
         self._slicesDict[axis or self._axis].setValue(value)
 
     def getSliceView(self, axis=None):
-        """ Return the SliceView widget for the given axis """
+        """ Return the :class:`SlicesView <datavis.views.SlicesView>` widget
+        for the given axis """
         return self._slicesDict[self._axis if axis is None else axis]
 
     def getAxis(self):
@@ -198,7 +205,9 @@ class MultiSliceView(qtw.QWidget):
     def setAxis(self, axis):
         """
         Sets the current axis. Updates the axis graphic.
-        :param axis: (int) The axis (AXIS_X or AXIS_Y or AXIS_Z)
+
+        Args:
+            axis: (int) The axis (AXIS_X or AXIS_Y or AXIS_Z)
         """
         if axis in [dv.models.AXIS_X, dv.models.AXIS_Y, dv.models.AXIS_Z]:
             e = not self._axis == axis
@@ -215,8 +224,16 @@ class MultiSliceView(qtw.QWidget):
     def getText(self, axis):
         """
         Returns the label text for the given axis
-        :param axis: (int) The axis. (AXIS_X or AXIS_Y or AXIS_Z)
-        :return:     (str) The label text
+
+        Args:
+            axis: (int) The axis. (AXIS_X or AXIS_Y or AXIS_Z)
+
+        Returns:  (str) The label text
+
+        Raises:
+            Exception If the axis is not anyone of the following:
+                datavis.models.AXIS_X, datavis.models.AXIS_Y,
+                datavis.models.AXIS_Z
         """
         if axis in [dv.models.AXIS_X, dv.models.AXIS_Y, dv.models.AXIS_Z]:
             return self._slicesDict[axis].getText()
@@ -225,13 +242,16 @@ class MultiSliceView(qtw.QWidget):
 
     def setModel(self, models, **kwargs):
         """
-        Set the data models
-        :param models: (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z) for views
-                              or None for clear the view.
-        :param kwargs: Extra arguments
-                * normalize (bool) If True, each of the slicesView
-                  will be normalized, levels of the image will be set all range
-                * slice (int) Default slice
+        Set the data models for display.
+
+        Args:
+            models: (tuple) The models (AXIS_X, AXIS_Y, AXIS_Z) for views
+                    or None for clear the view.
+        Keyword Args:
+            normalize: (bool) If True, each of the
+                       :class:`SlicesView <datavis.views.SlicesView>` will be
+                       normalized, levels of the image will be set all range
+            slice:    (int) Default slice
         """
         if models:
             for axis, model in zip([dv.models.AXIS_X, dv.models.AXIS_Y,
@@ -241,9 +261,9 @@ class MultiSliceView(qtw.QWidget):
             self.clear()
 
     def setScale(self, scale):
-        """
-         Set the image scale for all axis
-        :param scale: (float) The image scale
+        """ Set the image scale for all axis
+        Args:
+            scale: (float) The new image scale.
         """
         for v in self._slicesDict.values():
             v.setScale(scale)
@@ -265,8 +285,8 @@ class MultiSliceView(qtw.QWidget):
 
     def getPreferredSize(self):
         """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
+        Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the data
         """
         sv = self._slicesDict[dv.models.AXIS_X]
         w, h = sv.getPreferredSize()

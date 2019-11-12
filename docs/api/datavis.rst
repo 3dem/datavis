@@ -11,10 +11,10 @@ models
 .. toctree::
     :maxdepth: 2
 
-    models/params
-    models/image
-    models/table
-    models/picking
+    models_params
+    models_image
+    models_table
+    models_picking
 
 views
 -----
@@ -25,9 +25,10 @@ views
 .. toctree::
     :maxdepth: 2
 
-    views/image
-    views/table
-    views/picking
+    views_image
+    views_table
+    views_imagelist
+    views_picking
 
 widgets
 -------

@@ -16,17 +16,19 @@ class IconSpinBox(qtw.QWidget):
     sigIconClicked = qtc.pyqtSignal()
 
     def __init__(self, parent=None, **kwargs):
-        """
-        Create a new IconSpinBox
-        :param parent:
-        :param kwargs:
+        """ Create a new IconSpinBox instance.
+
+        Args:
+            parent: Parent QWidget
+
+        Keyword Args:
             valueType:    (int) The type for the spinbox values: int or float
             minValue:     (int) The minimum value to be shown
             maxValue:     (int) The maximum value to be shown
             currentValue: (int) The currentValue
             iconName:     (str) The icon name
             iconSize:     (int) The icon size in pixels
-            sufix:        (str) The suffix is appended to the end of the
+            suffix:        (str) The suffix is appended to the end of the
                                 displayed value
             prefix:       (str) The prefix is prepended to the start of the
                                 displayed value
@@ -47,7 +49,7 @@ class IconSpinBox(qtw.QWidget):
 
         # Create the SpinBox
         spinBox = sbClass(self)
-        spinBox.setSuffix(kwargs.get('sufix', ''))
+        spinBox.setSuffix(kwargs.get('suffix', ''))
         spinBox.setPrefix(kwargs.get('prefix', ''))
         spinBox.setRange(minValue, maxValue)
         spinBox.setValue(currentValue)
@@ -119,10 +121,12 @@ class ZoomSpinBox(IconSpinBox):
     PERCENT = 1
 
     def __init__(self, parent=None, **kwargs):
-        """
-        Create a new ZoomSpinBox
-        :param parent:
-        :param kwargs:
+        """ Create a new ZoomSpinBox instance.
+
+        Args:
+            parent: Parent QWidget.
+
+        Keyword Args:
             valueType:    (int) The type for the spinbox values:
                                 TYPE_REAL or TYPE_INT. Default type: TYPE_INT
             minValue:     (int) The minimum value to be shown
@@ -132,7 +136,7 @@ class ZoomSpinBox(IconSpinBox):
         """
         z = kwargs.get('zoomUnits', ZoomSpinBox.PIXELS)
         IconSpinBox.__init__(self, parent=parent,
-                             sufix=' %' if z == ZoomSpinBox.PERCENT else ' px',
+                             suffix=' %' if z == ZoomSpinBox.PERCENT else ' px',
                              iconName='fa.search', **kwargs)
         self._units = z
 

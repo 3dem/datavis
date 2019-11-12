@@ -7,6 +7,7 @@ from ._constants import *
 from ._table_models import TableModel, ColumnConfig
 from ._params import Param, Form
 
+
 class Coordinate:
     """
     Simple class that holds values for x and y position and a optional label.
@@ -53,8 +54,8 @@ class Coordinate:
 
 class Micrograph:
     """
-    Micrograph is the base element managed by the PickerDataModel class
-    (See PickerDataModel documentation).
+    Micrograph is the base element managed by the PickerModel class
+    (See PickerModel documentation).
     """
     def __init__(self, micId=None, path=None):
         self._micId = micId
@@ -86,13 +87,13 @@ class Micrograph:
         return self._path
 
 
-class PickerDataModel(TableModel):
+class PickerModel(TableModel):
     """ Handles information about Coordinates and Micrographs.
 
-    The PickerDataModel class contais a set of micrographs, where each
+    The PickerModel class contains a set of micrographs, where each
     micrograph contains a set of coordinates. Coordinates are essentially
     (x, y) position and can also have a given label. Labels are created by
-    the PickerDataModel and will be used to classify different types of
+    the PickerModel and will be used to classify different types of
     coordinates (e.g based on quality).
     """
 
@@ -108,7 +109,7 @@ class PickerDataModel(TableModel):
             """ Create a new instance with the provided values.
 
             This class is used as the return of many methods from the
-            PickerDataModel to notify back the underlying data that has changed
+            PickerModel to notify back the underlying data that has changed
             after the operation.
 
             Args:
@@ -147,13 +148,14 @@ class PickerDataModel(TableModel):
         """ Iterate over all Micrographs in the model. """
         return iter(self._micList)
 
-    def getMicrograph(self, micId):
-        """ Returns the micrograph with the given ID. """
-        return self._micDict[micId]
+    def _getCoordsList(self, micId):
+        """ Return the coordinates list of a given micrograph. """
+        return self.getMicrograph(micId)._coordinates
 
-    def getMicrographByIndex(self, micIndex):
-        """ Return the micrograph at this given index. """
-        return self._micList[micIndex]
+    def _nextId(self):
+        """ Generates the next id. """
+        self._lastId += 1
+        return self._lastId
 
     def _initLabels(self):
         """ Initialize the labels for this PickerModel. """
@@ -169,6 +171,14 @@ class PickerDataModel(TableModel):
         self._labels["Default"] = default
         self._labels["D"] = default
 
+    def getMicrograph(self, micId):
+        """ Returns the micrograph with the given ID. """
+        return self._micDict[micId]
+
+    def getMicrographByIndex(self, micIndex):
+        """ Return the micrograph at this given index. """
+        return self._micList[micIndex]
+
     def createCoordinate(self, x, y, label, **kwargs):
         """
         Return a Coordinate object. This is the preferred way to create
@@ -176,13 +186,7 @@ class PickerDataModel(TableModel):
         the additional properties related to the model.
         Subclasses should implement this method
         """
-        return Coordinate(0, 0, 'M', **kwargs)
-
-    def getMicrograph(self, micId):
-        return self._micDict[micId]
-
-    def getMicrographByIndex(self, micIndex):
-        return self._micList[micIndex]
+        return Coordinate(x, y, 'M', **kwargs)
 
     def setBoxSize(self, newSizeX):
         """ Set the box size for the coordinates. """
@@ -221,11 +225,6 @@ class PickerDataModel(TableModel):
         """ Returns the label with this labelName. """
         return self._labels.get(labelName, self._labels['D'])
 
-    def _nextId(self):
-        """ Generates the next id. """
-        self._lastId += 1
-        return self._lastId
-
     def getData(self, micId):
         """ Return a numpy array with this micrograph binary data.
 
@@ -237,6 +236,30 @@ class PickerDataModel(TableModel):
         """
         raise Exception('Not implemented')
 
+    def getMicrographMask(self, micId):
+        """ Return the mask that should be applied to visualise the micrograph
+
+        Args:
+            micId: The micrograph ID
+
+        Returns:
+            A 2D numpy array with the micrograph mask.
+        """
+        return None
+
+    def getMicrographMaskColor(self, mic):
+        """ Return the color to visualise the micrograph mask
+
+        Args:
+            micId: The micrograph ID
+
+        Returns:
+            str in ARGB html format: #AARRGGBB or QColor.
+            Example: '#552200FF', QColor(r=3, g=56, b=200, a=128)
+        """
+        return '#552200FF'
+
+
     def getParams(self):
         """ Return a :class:`Form <datavis.models.Form>`
         instance with parameters used by the picker.
@@ -247,10 +270,6 @@ class PickerDataModel(TableModel):
         caused by user inputs.
         """
         return None
-
-    def _getCoordsList(self, micId):
-        """ Return the coordinates list of a given micrograph. """
-        return self.getMicrograph(micId)._coordinates
 
     def iterCoordinates(self, micId):
         """ Iterate over the micrograph coordinates.
@@ -270,7 +289,7 @@ class PickerDataModel(TableModel):
             coords: An iterable with the coordinates that will be added.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
         """
         self._getCoordsList(micId).extend(coords)
         # Only notify changes in the coordinates that are not these
@@ -285,7 +304,7 @@ class PickerDataModel(TableModel):
             coords: An iterable over the input coordinates.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>`
+            :class:`Result <datavis.models.PickerModel.Result>`
             instance.
         """
         micCoords = self._getCoordsList(micId)
@@ -300,7 +319,7 @@ class PickerDataModel(TableModel):
         """ Remove all coordinates from this micrograph.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
         """
         self._getCoordsList(micId)[:] = []
         return self.Result()
@@ -314,7 +333,7 @@ class PickerDataModel(TableModel):
         this change if necessary.
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
         """
         return self.Result(currentMicChanged=True,
                            currentCoordsChanged=True)
@@ -333,7 +352,7 @@ class PickerDataModel(TableModel):
             getValuesFunc: function that will return all values as dict
 
         Returns:
-            :class:`Result <datavis.models.PickerDataModel.Result>` instance
+            :class:`Result <datavis.models.PickerModel.Result>` instance
 
         """
         return self.Result()
@@ -345,8 +364,11 @@ class PickerDataModel(TableModel):
         ext : File extension
         data_type: Image data type
 
-        :param micId:  (int) The micrograph Id
-        :return: dict
+        Args:
+            micId:  (int) The micrograph Id
+
+        Returns:
+             dict with info
         """
         return {}
 
@@ -391,10 +413,10 @@ class PickerDataModel(TableModel):
             raise Exception("Invalid column value '%s'" % col)
 
 
-class PickerCmpModel(PickerDataModel):
+class PickerCmpModel(PickerModel):
     """ PickerModel to handle two PickerModels """
     def __init__(self, model1, model2, boxSize=64, radius=64):
-        PickerDataModel.__init__(self, boxSize=boxSize)
+        PickerModel.__init__(self, boxSize=boxSize)
         # format RRGGBBAA
         self._labels['a'] = self.Label(name="a", color="#00ff0055")
         self._labels['b'] = self.Label(name="b", color="#00ff00")

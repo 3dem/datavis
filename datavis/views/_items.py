@@ -23,22 +23,29 @@ class ItemsView(PagingView):
     """ Signal for size changed """
     sigSizeChanged = qtc.pyqtSignal()
 
-    def __init__(self, parent=None, **kwargs):
-        """
-        Constructs an ItemsView
-        kwargs:
-           model:          The data model
-           displayConfig:  Input TableModel that will control how the data
-                            fetched from the TableModel will be displayed.
-                            displayConfig can be None, in which case the model
-                            will be taken as displayConfig.
-           selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
-                            MULTI_SELECTION or NO_SELECTION.
-           imageViewKwargs: The internal ImageView initialization parameters.
+    def __init__(self, model, **kwargs):
+        """ Constructs an ItemsView
+
+        Args:
+            model:          :class:`~datavis.models.TableModel`
+                            instance that will be used to fetch the data.
+
+        Keyword Args:
+            parent:         The parent widget
+            displayConfig:  Input :class:`~datavis.models.TableConfig`
+                            instance TableConfig TableModel that will control
+                            how the data fetched from the TableModel will be
+                            displayed.
+                            displayConfig can be None, in which case
+                            createDefaultConfig method will be called and taken
+                            as displayConfig.
+            selectionMode:  (int) SINGLE_SELECTION(default), EXTENDED_SELECTION,
+                            MULTI_SELECTION or NO_SELECTION
+            imageViewKwargs: :class:`~datavis.views.ImageView` initialization
+                            parameters.
         """
         self._imageViewKwargs = kwargs.get('imageViewKwargs', dict())
-        PagingView.__init__(self, parent=parent, pagingInfo=PagingInfo(1, 1),
-                            **kwargs)
+        PagingView.__init__(self, pagingInfo=PagingInfo(1, 1), **kwargs)
         self._column = 0
         self._row = -1
         self._selection = set()
@@ -47,9 +54,10 @@ class ItemsView(PagingView):
         self._model = None
         self._config = None
         self._pageItemModel = None
-        self.setModel(kwargs['model'], kwargs.get('displayConfig', None))
+        self.setModel(model, kwargs.get('displayConfig', None))
 
     def _createContentWidget(self):
+        """ Reimplemented from :class:`<datavis.views.PagingView>`. """
         mainWidget = qtw.QWidget(self)
         mainWidget.setObjectName("itemsMainWidget")
         layout = qtw.QVBoxLayout(mainWidget)
@@ -62,12 +70,14 @@ class ItemsView(PagingView):
         self._itemsViewTable.horizontalHeader().setHighlightSections(False)
         self._itemsViewTable.verticalHeader().setHighlightSections(False)
         model.itemChanged.connect(self.__onItemDataChanged)
-        self._imageView = ImageView(self._splitter, **self._imageViewKwargs)
+        self._imageView = ImageView(parent=self._splitter,
+                                    **self._imageViewKwargs)
         layout.insertWidget(0, self._splitter)
         return mainWidget
 
     def __updateSelectionInView(self):
-        """ Updates the internal selection in the view widgets """
+        """ Makes the current selection in internal widget used to display the
+        data values """
         if self.isMultiSelection() and self.__selectionItem is not None:
             if self._row in self._selection:
                 self.__selectionItem.setCheckState(qtc.Qt.Checked)
@@ -75,21 +85,20 @@ class ItemsView(PagingView):
                 self.__selectionItem.setCheckState(qtc.Qt.Unchecked)
 
     def __updatePagingInfo(self):
+        """ Updates the paging information according to the model rows count """
         self._pagingInfo.numberOfItems = self._model.getRowsCount()
         self._pagingInfo.setPageSize(1)
         self._pagingInfo.currentPage = 1
 
     def __connectSignals(self):
-        """ Connects all signals related to the TablePageItemModel
-        """
+        """ Connects all signals related to the TablePageItemModel """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.connect(
                 self._pageItemModel.modelConfigChanged)
             self._pageBar.sigPageChanged.connect(self.__onCurrentPageChanged)
 
     def __disconnectSignals(self):
-        """ Disconnects all signals related to the TablePageItemModel
-        """
+        """ Disconnects all signals related to the TablePageItemModel """
         if self._pageItemModel:
             self._pageBar.sigPageChanged.disconnect(
                 self._pageItemModel.modelConfigChanged)
@@ -97,8 +106,10 @@ class ItemsView(PagingView):
 
     def __loadRow(self, row):
         """
-        Show the item at (row, col)
-        :param row: (int) The row index. First index is 0.
+        Show the item indexed by the given row.
+
+        Args:
+            row: (int) The row index. First index is 0.
         """
         self._imageView.clear()
         model = self._itemsViewTable.model()
@@ -117,9 +128,9 @@ class ItemsView(PagingView):
         """
         Load the images referenced by the given row and all the columns marked
         as renderable.
-        TODO[hv]: Now only one image is displayed, but in the future all
-        renderable columns could be displayed
         """
+        #  TODO[hv]: Now only one image is displayed, but in the future all
+        #  renderable columns could be displayed
         indexes = self._config.getColumnsCount(renderable=True)
         if indexes > 0:
             data = self._model.getData(self._row, self._column)
@@ -135,7 +146,7 @@ class ItemsView(PagingView):
     @qtc.pyqtSlot('QStandardItem*')
     def __onItemDataChanged(self, item):
         """
-        Invoked when the item data is changed. Used for selection purposes
+        Invoked when an item data is changed. Used for selection purposes
         """
         if item == self.__selectionItem:
             if self.isMultiSelection():
@@ -192,13 +203,16 @@ class ItemsView(PagingView):
 
     @qtc.pyqtSlot(set)
     def changeSelection(self, selection):
-        """ Invoked when the selection is changed """
+        """ Invoked when the selection is changed. Sets the given selection as
+        the current and updates the view """
         self._selection = selection
         self.__updateSelectionInView()
 
     @qtc.pyqtSlot()
     def modelChanged(self):
-        """Slot for model data changed notification """
+        """ Slot for model data changed notification. Informs about external
+        changes to the data model. Updates the view.
+        """
         self.__updatePagingInfo()
         self._imageView.setVisible(self._pageItemModel.hasRenderableColumn())
         tableConfig = self._pageItemModel.getDisplayConfig()
@@ -209,16 +223,21 @@ class ItemsView(PagingView):
         self._pageBar.setPagingInfo(self._pagingInfo)
 
     def selectRow(self, row):
-        """ Selects the given row """
+        """ Selects the given row. Change the current page to the page of the
+        given row. """
         self._pageBar.setCurrentPage(row + 1)
 
     def setModel(self, model, displayConfig=None):
         """
-        Set the model for this view.
-        Raise Exception when the model is None
-        :param model:         (datavis.model.TableModel) The data model
-        :param displayConfig: (datavis.model.TableConfig) control how the data
-            fetched from the TableModel will be displayed.
+        Sets the model for this view.
+
+        Args:
+            model:    TableModel :class:`<datavis.models.TableModel>` instance
+            displayConfig: :class:`TableConfig <datavis.models.TableConfig>`
+                           instance that will control how the data fetched from
+                           the TableModel will be displayed.
+        Raises:
+             Exception if the model is None
         """
         if model is None:
             raise Exception('Invalid model: None')
@@ -249,7 +268,7 @@ class ItemsView(PagingView):
         return self._config
 
     def clear(self):
-        """ Clear the view """
+        """ Clear the view setting an empty table model """
         self.setModel(EmptyTableModel())
 
     def getViewDims(self):
@@ -257,12 +276,12 @@ class ItemsView(PagingView):
         return self._config.getColumnsCount(), 1
 
     def getViewType(self):
-        """ Returns the view type
-        """
+        """ Returns the view type """
         return ITEMS
 
     def updateViewConfiguration(self):
-        """ Reimplemented from PagingView """
+        """ Reimplemented from PagingView. Show or hide the Image Area depending
+        of renderable columns """
         self._imageView.setVisible(
             self._config.hasColumnConfig(renderable=True))
         self.__loadRow(self._row)
@@ -277,7 +296,9 @@ class ItemsView(PagingView):
     def setModelColumn(self, column):
         """
         Holds the column in the model that is visible.
-        :param column: (int) Column index. 0 is the first index.
+
+        Args:
+            column: (int) Column index. 0 is the first index.
         """
         self._column = column
 

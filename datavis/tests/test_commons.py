@@ -68,45 +68,6 @@ class TestBase(unittest.TestCase, TestData):
     __title = ''
 
 
-# TODO: Check if this simple window with central widget and resize
-# can be re-used in other contexts and not only here in the tests
-class ViewMainWindow(qtw.QMainWindow):
-    """ Extension of QMainWindow that receive a View as input
-    and set as its central widget. This window will also resize
-    to a given percent of the screen size, if necessary given
-    the View preferred dimensions.
-    """
-    def __init__(self, view, title='', maxScreenPercent=0.8):
-        """
-        Construct the ViewMainWindow instance.
-        :param view: Input view that will be set as the central widget
-        :param maxScreenPercent: Maximum screen percent that will be used
-            if necessary
-        """
-        qtw.QMainWindow.__init__(self)
-        self.setCentralWidget(view)
-        self.setWindowTitle(title)
-        self._view = view
-
-    def setGeometryFromCentralView(self, maxScreenPercent=0.8):
-        view = self.centralWidget()
-
-        if hasattr(view, 'getPreferredSize'):
-            width, height = view.getPreferredSize()
-        else:
-            width, height = None, None
-
-        size = qtw.QApplication.desktop().size()
-        p = maxScreenPercent
-        w, h = int(p * size.width()), int(p * size.height())
-        width = width or w
-        height = height or h
-        w = min(width, w)
-        h = min(height, h)
-        x, y = (size.width() - w) / 2, (size.height() - h) / 2
-        self.setGeometry(x, y, w, h)
-
-
 class TestView(TestData):
     """ Class that will test existing Views. """
 
@@ -116,11 +77,8 @@ class TestView(TestData):
     def runApp(self, argv=None, app=None):
         self._argv = argv or sys.argv
         self._loadPaths()
-        app = app or qtw.QApplication(self.getArgs())
-        win = ViewMainWindow(self.createView(), title=self.getTitle())
-        win.show()
-        win.setGeometryFromCentralView()
-        sys.exit(app.exec_())
+        dv.views.showView(self.createView, argv=self.getArgs(),
+                          title=self.getTitle())
 
 
 class SimpleItemsModel(dv.models.SimpleTableModel):
@@ -206,11 +164,11 @@ class SimpleListImageModel(dv.models.ListModel):
         return c
 
 
-class SimplePickerDataModel(dv.models.PickerDataModel):
+class SimplePickerModel(dv.models.PickerModel):
     """ Simple picker data model with random images and picks """
 
     def __init__(self, imageSize, size, boxSize=40, picks=100, filament=False):
-        dv.models.PickerDataModel.__init__(self)
+        dv.models.PickerModel.__init__(self)
         self._imageSize = imageSize
         self._size = size
         self._images = dict()
@@ -274,29 +232,29 @@ class SimplePickerDataModel(dv.models.PickerDataModel):
         return {'dim': self._imageSize}
 
 
-def createPickerDataModel(imageSize, size, boxSize=40, picks=100,
+def createPickerModel(imageSize, size, boxSize=40, picks=100,
                           filament=False):
     """
-    Creates an PickerDataModel with random images and picks
+    Creates an PickerModel with random images and picks
     :param imageSize: (tupple) The image size
     :param size: (int) The number of images
     :param boxSize: (int) The box size
     :param picks: (int) The number of picks
     :param filament: (boolean) if True, generate filaments, else boxes
-    :return: (PickerDataModel)
+    :return: (PickerModel)
     """
-    return SimplePickerDataModel(imageSize, size, boxSize, picks, filament)
+    return SimplePickerModel(imageSize, size, boxSize, picks, filament)
 
 
-def createSimplePickerDataModel(imageSize, size=0, boxSize=40, picks=0,
+def createSimplePickerModel(imageSize, size=0, boxSize=40, picks=0,
                                 filament=False):
     """
-    Creates an PickerDataModel with random images.
+    Creates an PickerModel with random images.
     :param imageSize: (tupple) The image size
     :param boxSize: (int) The box size
-    :return: (PickerDataModel)
+    :return: (PickerModel)
     """
-    return SimplePickerDataModel(imageSize=imageSize, size=size,
+    return SimplePickerModel(imageSize=imageSize, size=size,
                                  boxSize=boxSize, picks=picks,
                                  filament=filament)
 

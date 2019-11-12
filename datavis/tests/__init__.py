@@ -1,7 +1,7 @@
 
 from . test_commons import (TestBase, TestView, TestData, createSlicesModel,
-                            SimpleItemsModel, SimplePickerDataModel,
+                            SimpleItemsModel, SimplePickerModel,
                             SimpleListImageModel, createTableModel,
-                            createPickerDataModel, createListImageModel,
-                            createSimplePickerDataModel, getPythonCodeExample,
+                            createPickerModel, createListImageModel,
+                            createSimplePickerModel, getPythonCodeExample,
                             getJsonTextExample)

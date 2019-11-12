@@ -12,11 +12,11 @@ Micrograph
 .. autoclass:: datavis.models.Micrograph
    :members:
 
-PickerDataModel
+PickerModel
 ---------------
-.. autoclass:: datavis.models.PickerDataModel
+.. autoclass:: datavis.models.PickerModel
     :members:
 
-    .. automethod:: datavis.models.PickerDataModel.Result.__init__
+    .. automethod:: datavis.models.PickerModel.Result.__init__
 
 

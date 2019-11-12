@@ -5,7 +5,14 @@ import PyQt5.QtWidgets as qtw
 
 class ViewPanel(qtw.QWidget):
     """ The ViewPanel contains widgets organized according to the specific
-    layout."""
+    layout:
+
+    * HORIZONTAL: Horizontal layout,
+    * VERTICAL: Vertical layout,
+    * GRID: Grid layout,
+    * HSPLITTER: Horizontal splitter,
+    * VSPLITTER: Vertical splitter.
+     """
 
     """ Lines up widgets horizontally """
     HORIZONTAL = 0
@@ -19,6 +26,13 @@ class ViewPanel(qtw.QWidget):
     VSPLITTER = 4
 
     def __init__(self, parent, layoutType=HORIZONTAL):
+        """
+        Construct an ViewPanel instance
+
+        Args:
+            parent: The parent widget
+            layoutType: The layout type
+        """
         qtw.QWidget.__init__(self, parent=parent)
         self._mainLayout = self.__createLayout(layoutType)
         if isinstance(self._mainLayout, qtw.QSplitter):
@@ -31,9 +45,13 @@ class ViewPanel(qtw.QWidget):
     def __createLayout(self, type):
         """
          Creates a layout according to the given layout type
-        :param type:  (int) The layout type: HORIZONTAL, VERTICAL, HSPLITTER,
-                      VSPLITTER or GRID
-        :return: The layout
+
+        Args:
+            type:  (int) The layout type: HORIZONTAL, VERTICAL, HSPLITTER,
+                   VSPLITTER or GRID
+        Returns:
+            The layout instance: QHBoxLayout, QVBoxLayout, QGridLayout,
+            QSplitter
         """
         if type not in [ViewPanel.HORIZONTAL, ViewPanel.VERTICAL,
                         ViewPanel.GRID, ViewPanel.HSPLITTER,
@@ -57,12 +75,14 @@ class ViewPanel(qtw.QWidget):
                   col=-1):
         """
         Add a widget to the internal layout
-        :param widget:     (qtw.QWidget) The widget
-        :param key:        Unique key for the widget
-        :param alignment:  (Qt.Alignment) The alignment for the widget.
-                           Default value is Qt.AlignCenter
-        :param row:    (int) Add the widget at row 'row' if layout is GRID
-        :param col:    (int) Add the widget at column 'col' if layout is GRID
+
+        Args:
+            widget:    (QWidget) The widget
+            key:       Unique key for the widget
+            alignment: (Qt.Alignment) The alignment for the widget.
+                        Default value is Qt.AlignCenter
+            row:       (int) Add the widget at row 'row' if layout is GRID
+            col:       (int) Add the widget at column 'col' if layout is GRID
         """
         if self._layoutType in [ViewPanel.HORIZONTAL, ViewPanel.VERTICAL]:
             self._mainLayout.addWidget(widget, alignment=alignment)

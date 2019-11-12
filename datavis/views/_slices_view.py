@@ -20,17 +20,25 @@ class SlicesView(qtw.QWidget):
     """
     sigSliceChanged = qtc.pyqtSignal(int)  # Signal for current slice changed
 
-    def __init__(self, parent, model, **kwargs):
-        """ Constructor. SlicesView use an ImageView for display the slices,
-        see ImageView class for initialization params.
+    def __init__(self, model, **kwargs):
+        """ Construct an SlicesView instance.
+        SlicesView use an :class:`ImageView <datavis.views.ImageView>`
+        to display the slices, see ImageView class for initialization params.
 
-        parent :        (QWidget) Specifies the parent widget to which
+        Args:
+            model:      The :class:`SlicesModel <datavis.models.SlicesModel>`
+
+        Keyword Args:
+            parent :    (QWidget) Specifies the parent widget to which
                         this ImageView will belong.
                         If None, then the SlicesView is created with no parent.
-        text:           (str) Text to be display in the slider.
-        currentValue:   (int) The index (starting at 1) of the initial slice.
+            text:       (str) Text to be display in the slider.
+            currentValue:  (int) The index (starting at 1) of the initial slice.
+
+            imageViewKwargs: The :class:`ImageView <datavis.views.ImageView>`
+                             arguments
         """
-        qtw.QWidget.__init__(self, parent=parent)
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
         self._model = model
         self._text = kwargs.get('text', '')
         self._currentValue = kwargs.get('currentValue', 1)
@@ -42,7 +50,8 @@ class SlicesView(qtw.QWidget):
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
         # Create ImageView widget
-        self._imageView = ImageView(self, self._model.getImageModel(0),
+        self._imageView = ImageView(parent=self,
+                                    model=self._model.getImageModel(0),
                                     **self._imageViewKwargs)
         self._imageView.setSizePolicy(
             qtw.QSizePolicy(qtw.QSizePolicy.MinimumExpanding,
@@ -67,7 +76,7 @@ class SlicesView(qtw.QWidget):
         self._spinSlider.sigValueChanged.connect(self._onSliceChanged)
 
     def _onSliceChanged(self, value):
-        """ Load the slice """
+        """ Load the slice indexed by the given index value """
         value -= 1
         if self._imageModel is None:
             self._imageModel = self._model.getImageModel(value)
@@ -96,22 +105,19 @@ class SlicesView(qtw.QWidget):
         return self._spinSlider.getRange()
 
     def setText(self, text):
-        """
-        Set the label text for the internal slider
-        :param text: (str) The text
-        """
+        """ Set the label text for the internal slider """
         self._spinSlider.setText(text)
 
     def getText(self):
-        """
-        Returns the label text for the internal slider
-        """
+        """ Returns the label text for the internal slider """
         return self._spinSlider.getText()
 
     def setScale(self, scale):
         """
         Set the image scale
-        :param scale: (float) The scale
+
+        Args:
+            scale: (float) The scale
         """
         self._imageView.setScale(scale)
 
@@ -121,11 +127,14 @@ class SlicesView(qtw.QWidget):
 
     def setModel(self, model, **kwargs):
         """
-        Set the data model
-        :param model: The model or None for clear the view
-        :param kwargs: Extra params
-            * normalize (bool) If true, set the ImageView levels
-            * slice (int) If not None, set this as the initial slice
+        Set the :class:`SlicesModel <datavis.models.SlicesModel>`
+
+        Args:
+            model: The model or None for clear the view
+
+        Keyword Args:
+            normalize: (bool) If true, set the ImageView levels
+            slice: (int) If not None, set this as the initial slice
         """
         self._model = model
         self._imageModel = None
@@ -144,7 +153,8 @@ class SlicesView(qtw.QWidget):
 
     def getImageView(self):
         """
-        Return the ImageView widget, used to visualize the slices
+        Return the :class:`ImageView <datavis.views.ImageView>` widget,
+        used to visualize the slices.
         """
         return self._imageView
 
@@ -154,9 +164,8 @@ class SlicesView(qtw.QWidget):
 
     def getPreferredSize(self):
         """
-        Returns a tuple (width, height), which represents
-        the preferred dimensions to contain all the data
+        Returns a tuple (width, height), which represents the preferred
+        dimensions to contain all the data.
         """
         w, h = self._imageView.getPreferredSize()
         return w, h + self._spinSlider.height()
-

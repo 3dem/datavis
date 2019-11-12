@@ -11,11 +11,13 @@ class PagingInfo:
     """
     def __init__(self, numberOfItems, pageSize, currentPage=1):
         """
-        Initialize a PagingInfo instance.
-        :param numberOfItems:  (int ) Total number of items that will be taken
-                               into account for paging.
-        :param pageSize:       (int) Number of items will be in one page.
-        :param currentPage:    (int) Current page (first page is 1).
+        Construct a PagingInfo instance.
+
+        Args:
+            numberOfItems:  (int ) Total number of items that will be taken
+                            into account for paging.
+            pageSize:       (int) Number of items will be in one page.
+            currentPage:    (int) Current page (first page is 1).
         """
         self.numberOfItems = numberOfItems
         self.currentPage = 1
@@ -26,8 +28,12 @@ class PagingInfo:
     def setCurrentPage(self, value):
         """
         Set the current page.
-        :param value: (int) The page number(1 is the first).
-        :return:      True if the current page is changed.
+
+        Args:
+            value: (int) The page number(1 is the first).
+
+        Returns:
+            True if the current page is changed.
         """
         if self.currentPage == value:
             return False
@@ -42,7 +48,9 @@ class PagingInfo:
         """
         Sets the page size. Changing the page size implies changing
         the current page.
-        :param pageSize:  (int) The number of items per page
+
+        Args:
+            pageSize:  (int) The number of items per page
         """
         # Calculating the current row: first index from the current page
         row = (self.currentPage - 1) * self.pageSize
@@ -57,9 +65,8 @@ class PagingInfo:
         self.setCurrentPage(int(row / pageSize) + 1)
 
     def nextPage(self):
-        """ Increase the current page by one.
-        If the current page is the last one, it will not be changed.
-        Return True if the currentPage was changed.
+        """ Increase the current page by one. If the current page is the last
+        one, it will not be changed. Return True if the currentPage was changed.
         """
         if self.currentPage < self.numberOfPages:
             self.currentPage += 1
@@ -67,9 +74,8 @@ class PagingInfo:
         return False
 
     def prevPage(self):
-        """ Decrease the current page by one.
-        If the current page is 1, it will not be changed.
-        Return True if the currentPage was changed.
+        """ Decrease the current page by one. If the current page is 1, it will
+        not be changed. Return True if the currentPage was changed.
         """
         if self.currentPage > 1:
             self.currentPage -= 1
@@ -77,15 +83,18 @@ class PagingInfo:
         return False
 
     def isLastPage(self):
-        """ Returns True if the current page is the last.
-        """
+        """ Returns True if the current page is the last. """
         return self.currentPage == self.numberOfPages
 
     def getPage(self, index):
-        """ Return the page where index are located or
-        -1 if it can not be calculated
-        :param index: (int) The index. 0 is the first
-        :return:      (int) The page index. 0 is the first
+        """ Return the page where index are located or -1 if it can not be
+        calculated.
+
+        Args:
+            index: (int) The index. 0 is the first
+
+        Returns:
+            (int) The page index. 0 is the first
         """
         if self.pageSize <= 0:
             return -1
@@ -94,8 +103,9 @@ class PagingInfo:
 
 class PageBar(qtw.QWidget):
     """
-    Paging bar tha will allow users ti navigate through pages
+    Paging bar that will allow users to navigate through pages
     """
+
     """
     This signal is emitted when the current page is changed
     emit(currentPage)
@@ -107,14 +117,20 @@ class PageBar(qtw.QWidget):
 
     def __init__(self, parent=None, **kwargs):
         """
-        :param parent: Parent qtw.QWidget
-        :param kwargs: pagingInfo should be passed
+        Construct an PageBar instance
+
+        Args:
+            parent: Parent widget
+
+        Keyword Args:
+            pagingInfo: :class:`PagingInfo <datavis.widgets.PagingInfo>`
         """
         qtw.QWidget.__init__(self, parent)
         self.__setupGUI()
         self.setPagingInfo(kwargs['pagingInfo'])
 
     def __setupGUI(self):
+        """ Setups the GUI """
         self.setMinimumHeight(40)
         self.setMaximumHeight(40)
         layout = qtw.QHBoxLayout(self)
@@ -183,8 +199,7 @@ class PageBar(qtw.QWidget):
 
     def setCurrentPage(self, page):
         """
-        Sets page as current page.
-        Emits the sigPageChanged signal
+        Sets page as current page. Emits the sigPageChanged signal
         """
         # Only take actions if the setPage really change the current page
         if self._pagingInfo.setCurrentPage(page):
