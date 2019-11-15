@@ -130,7 +130,7 @@ class VolumeView(qtw.QWidget):
         self._multiSlicesView.sigScaleChanged.connect(self.__updateImageScale)
         # for axis selection
         selector = AxisSelector(parent=self)
-        a = AXIS_X if slicesMode == AXIS_XYZ else slicesMode
+        a = AXIS_Z if slicesMode == AXIS_XYZ else slicesMode
         self._actAxisSelect = self._toolBar.addWidget(selector)
         selector.sigAxisChanged.connect(self._onAxisChanged)
         selector.setCurrentAxis(a)
@@ -214,6 +214,7 @@ class VolumeView(qtw.QWidget):
         if checked:
             self._view = GALLERY
             axis = self._multiSlicesView.getAxis()
+            self._axisSelector.setCurrentAxis(axis)
             model = self._slicesTableModels[axis]
             row = self._multiSlicesView.getValue() - 1
             self._stackedLayoud.setCurrentWidget(self._galleryView)

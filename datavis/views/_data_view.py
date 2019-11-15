@@ -1104,9 +1104,13 @@ class DataView(qtw.QWidget):
         """
         self._sortRole = role
 
-    def showToolBar(self, visible):
-        """ Show or hide the toolbar """
+    def showTopToolBar(self, visible):
+        """ Show or hide the top toolbar """
         self._toolBar.setVisible(visible)
+
+    def showLeftToolBar(self, visible):
+        """ Show or hide the left toolbar """
+        self._leftToolBar.setVisible(visible)
 
     def showPageBar(self, visible):
         """ Show or hide the page bar """
@@ -1173,7 +1177,7 @@ class DataView(qtw.QWidget):
         self._actSelections.setVisible(visible)
         self._leftToolBar.setVisible(visible)
         c = qtc.Qt.NoContextMenu
-        policy =  c if not visible else qtc.Qt.ActionsContextMenu
+        policy = c if not visible else qtc.Qt.ActionsContextMenu
 
         for viewWidget in self.getAllViews():
             viewWidget.setSelectionMode(selectionMode)

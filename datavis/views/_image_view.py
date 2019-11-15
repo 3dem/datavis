@@ -120,10 +120,11 @@ class ImageView(qtw.QWidget):
         self._isVerticalFlip = False
         self._isHorizontalFlip = False
         self._rotationStep = 90
+        self._scale = 1
 
         # Handle scale input, it can be string or numeric
         # if it is string, it can also have % character for percent
-        scale = kwargs.get('scale', 1)
+        scale = kwargs.get('scale')
 
         # Convert from string, considering % possibility
         if isinstance(scale, py23.str):
@@ -133,9 +134,7 @@ class ImageView(qtw.QWidget):
                 scale = float(scale)
 
         # Set the scale depending on the value
-        if 0 < scale <= 1.0:
-            self._scale = scale
-        else:
+        if scale and not 0 < scale <= 1.0:
             # FIXME: Compute the scale based on input dimension
             raise Exception('Still not implemented')
 
@@ -181,6 +180,8 @@ class ImageView(qtw.QWidget):
         self.__setupImageView()
         self._roi = None
         self.setModel(model)
+        if scale:
+            self.setScale(scale * 0.1)
 
     def __setupGUI(self):
         """ This is the internal method for the GUI creation """
@@ -847,7 +848,6 @@ class ImageView(qtw.QWidget):
         pyqtgraph.ImageView. Update the spinbox image scale and emits
         sigScaleChanged
         """
-
         if not self.__updatingImage:
             self.__viewRect = self.getViewRect()
             scale = self.__calcImageScale()
@@ -1268,7 +1268,7 @@ class ImageView(qtw.QWidget):
             if rightAxis is not None and rightAxis.isVisible():
                 width += rightAxis.width()
 
-        return width + self._toolBar.width(), height
+        return width + height
 
     def eventFilter(self, obj, event):
         """ Filters events if this object has been installed as an event filter
@@ -1304,7 +1304,7 @@ class ImageView(qtw.QWidget):
         elif not round(scale, 2) == round(self._scale, 2):
             self.__updatingImage = True
             viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
-            viewBox.scaleBy(x=1 / scale, y=1 / scale)  # to current scale
+            viewBox.scaleBy(x=1/scale, y=1/scale)  # to current scale
             self.__updatingImage = False
             self.updateImageScale()
             self._spinBoxScale.setValue(scale * 100)
