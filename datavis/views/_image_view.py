@@ -125,7 +125,7 @@ class ImageView(qtw.QWidget):
         # Handle scale input, it can be string or numeric
         # if it is string, it can also have % character for percent
         scale = kwargs.get('scale')
-
+        print('Initial scale: ', scale)
         # Convert from string, considering % possibility
         if isinstance(scale, py23.str):
             if '%' in scale:
@@ -180,8 +180,11 @@ class ImageView(qtw.QWidget):
         self.__setupImageView()
         self._roi = None
         self.setModel(model)
-        if scale:
-            self.setScale(scale * 0.1)
+        #if scale:
+        #    print('Current scale: ', self.getScale())
+        #    print('New scale: ', scale)
+        #    self.setScale(scale)
+        #    print('Set scale: ', self._scale)
 
     def __setupGUI(self):
         """ This is the internal method for the GUI creation """
@@ -1268,7 +1271,7 @@ class ImageView(qtw.QWidget):
             if rightAxis is not None and rightAxis.isVisible():
                 width += rightAxis.width()
 
-        return width + height
+        return width, height
 
     def eventFilter(self, obj, event):
         """ Filters events if this object has been installed as an event filter
