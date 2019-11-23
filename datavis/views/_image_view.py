@@ -125,7 +125,6 @@ class ImageView(qtw.QWidget):
         # Handle scale input, it can be string or numeric
         # if it is string, it can also have % character for percent
         scale = kwargs.get('scale')
-        print('Initial scale: ', scale)
         # Convert from string, considering % possibility
         if isinstance(scale, py23.str):
             if '%' in scale:
@@ -181,10 +180,7 @@ class ImageView(qtw.QWidget):
         self._roi = None
         self.setModel(model)
         #if scale:
-        #    print('Current scale: ', self.getScale())
-        #    print('New scale: ', scale)
         #    self.setScale(scale)
-        #    print('Set scale: ', self._scale)
 
     def __setupGUI(self):
         """ This is the internal method for the GUI creation """
@@ -356,6 +352,7 @@ class ImageView(qtw.QWidget):
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._splitter)
+        self.setGeometry(0, 0, 640, 480)
 
     def __viewBoxMouseMoved(self, pos):
         """
@@ -1008,7 +1005,7 @@ class ImageView(qtw.QWidget):
         if imageModel:
             self.__updatingImage = True
             rect = self.getViewRect() if self._model else None
-            self._imageView.setImage(imageModel.getData(),
+            self._imageView.setImage(imageModel.getData().T,
                                      autoRange=True,
                                      levels=self._levels)
 
@@ -1038,7 +1035,6 @@ class ImageView(qtw.QWidget):
             self._roi.setPos(imgItem.pos() +
                              pg.Point((b.width() - r.width()) / 2,
                                       (b.height() - r.height()) / 2))
-
         self.sigScaleChanged.emit(self._scale)
 
     def updateImageScale(self):
@@ -1065,7 +1061,7 @@ class ImageView(qtw.QWidget):
         t = self._imageView.getImageItem().transform()
         # For image change, not emit sigScaleChanged
         self.__updatingImage = True
-        self._imageView.setImage(data, transform=t, levels=self._levels)
+        self._imageView.setImage(data.T, transform=t, levels=self._levels)
         self._imageView.getView().setRange(rect=self.__viewRect, padding=0.0)
         self.__updatingImage = False
 
@@ -1306,7 +1302,8 @@ class ImageView(qtw.QWidget):
             self._spinBoxScale.setValue(self._scale * 100)
         elif not round(scale, 2) == round(self._scale, 2):
             self.__updatingImage = True
-            viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
+            s = self.getScale()
+            viewBox.scaleBy(x=s, y=s)  # restore to 100 %
             viewBox.scaleBy(x=1/scale, y=1/scale)  # to current scale
             self.__updatingImage = False
             self.updateImageScale()
