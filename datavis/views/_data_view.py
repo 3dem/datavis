@@ -713,6 +713,7 @@ class DataView(qtw.QWidget):
             cpTable.setRowCount(dConfig.getColumnsCount())
             for i, colConfig in dConfig.iterColumns():
                 item = qtw.QTableWidgetItem(colConfig.getName())
+                item.setFlags(qtc.Qt.ItemIsEnabled)
                 itemV = qtw.QTableWidgetItem("")  # for 'visible' property
                 itemR = qtw.QTableWidgetItem("")  # for 'renderable' property
                 cpTable.setItem(row, 0, itemV)

@@ -619,7 +619,8 @@ class PickerView(qtw.QWidget):
             self.__eraseROIText.setVisible(True)
 
         elif not self.__segPos == pos:  # filament mode
-            _addCoord(self.__segPos.x(), self.__segPos.y(), x2=x, y2=y)
+            x2, y2 = x, y
+            _addCoord(self.__segPos.x(), self.__segPos.y(), x2=x2, y2=y2)
             viewBox.removeItem(self.__segmentROI)
             self.__segmentROI = None  # TODO[hv] delete, memory leak???
             self.__eraseROIText.setVisible(False)
@@ -926,14 +927,17 @@ class PickerView(qtw.QWidget):
             pos = roi.pos()
             size = roi.size()
             if roi.coordinate is not None:
-                roi.coordinate.set(x=int(pos.x() + size[0] / 2.0),
-                                   y=int(pos.y() + size[1] / 2.0))
+                x, y = pos.x(), pos.y()
+                roi.coordinate.set(x=int(x + size[0] / 2.0),
+                                   y=int(y + size[1] / 2.0))
         else:  # filament mode
             viewBox = self._imageView.getViewBox()
             pos1 = viewBox.mapSceneToView(roi.getSceneHandlePositions(0)[1])
             pos2 = viewBox.mapSceneToView(roi.getSceneHandlePositions(1)[1])
             coord = roi.coordinate
-            coord.set(x=pos1.x(), y=pos1.y(), x2=pos2.x(), y2=pos2.y())
+            x, y, x2, y2 = pos1.x(), pos1.y(), pos2.x(), pos2.y()
+
+            coord.set(x=x, y=y, x2=x2, y2=y2)
             if isinstance(roi, pg.ROI):
                 width = roi.size().y()
                 if not width == self._model.getBoxSize():
@@ -971,6 +975,7 @@ class RoiHandler:
         self._roi = self._createRoi(coord, shape, roiDict, **kwargs)
         self._roi.coordinate = coord
         self._roi.parent = self
+
         # Ignore the signals for center shape
         if self._shape != SHAPE_CENTER:
             self._signals = kwargs.get('signals', {})
@@ -1057,7 +1062,9 @@ class RoiHandler:
         coord = self._roi.coordinate
         self._roi.setSize((size, size), update=False, finish=False)
         half = size / 2
+
         x, y = coord.x - half, coord.y - half
+
         self._roi.setPos((x, y), update=False, finish=False)
 
     def connectSignals(self, roi):
@@ -1135,6 +1142,7 @@ class FilamentRoiHandler(RoiHandler):
         coord = self._roi.coordinate
         point1 = coord.x, coord.y
         point2 = coord.x2, coord.y2
+
         pos, size, angle = self.__calcFilamentSize(point1, point2, size)
         self._roi.setPos(pos, update=False, finish=False)
         self._roi.setSize(size, update=False, finish=False)

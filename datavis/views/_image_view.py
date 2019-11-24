@@ -121,6 +121,7 @@ class ImageView(qtw.QWidget):
         self._isHorizontalFlip = False
         self._rotationStep = 90
         self._scale = 1
+        self._transpose = kwargs.get('transpose')
 
         # Handle scale input, it can be string or numeric
         # if it is string, it can also have % character for percent
@@ -564,6 +565,9 @@ class ImageView(qtw.QWidget):
                 value = 1 if data == 0 else 2
                 data = np.full(shape=(w, h), fill_value=value, dtype=np.int8)
 
+            if self._transpose:
+                data = data.T
+
             if (self._maskItem is None or
                     not self._maskItem.width() == w or
                     not self._maskItem.height() == h):
@@ -1005,7 +1009,12 @@ class ImageView(qtw.QWidget):
         if imageModel:
             self.__updatingImage = True
             rect = self.getViewRect() if self._model else None
-            self._imageView.setImage(imageModel.getData().T,
+            if self._transpose:
+                data = imageModel.getData().T
+            else:
+                data = imageModel.getData()
+
+            self._imageView.setImage(data,
                                      autoRange=True,
                                      levels=self._levels)
 
@@ -1383,7 +1392,10 @@ class ImageView(qtw.QWidget):
 
         Returns: (u8bit numpy array) or None
         """
-        return self.__normalizeMask()
+        m = self.__normalizeMask()
+        if m is not None and self._transpose:
+            m = m.T
+        return m
 
     def getMaskType(self):
         """ Return the mask-type. Possible values are:
