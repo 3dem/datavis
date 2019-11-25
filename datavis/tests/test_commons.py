@@ -144,8 +144,12 @@ class SimpleListImageModel(dv.models.ListModel):
          Used by rendering of images in a given cell of the table.
         """
         data = self._imgData.get(row)
+        if len(self._imgSize) == 2:  # 2D Image
+            s = (self._imgSize[1], self._imgSize[0])
+        else:  # Volume
+            s = (self._imgSize[2], self._imgSize[1], self._imgSize[0])
         if data is None:
-            data = pg.gaussianFilter(np.random.normal(size=self._imgSize),
+            data = pg.gaussianFilter(np.random.normal(size=s),
                                      [5 for _ in range(len(self._imgSize))])
             self._imgData[row] = data
 
@@ -186,11 +190,11 @@ class SimplePickerModel(dv.models.PickerModel):
         w, h = self._imageSize
 
         def _randomCoord():
-            x, y = randrange(0, w), randrange(0, h)
-            kwargs = {
-                'x2': randrange(0, w), 'y2':
-                    randrange(0, h)} if self._filament else {}
+            y, x = randrange(0, h), randrange(0, w)
 
+            kwargs = {
+                'x2': randrange(0, w),
+                'y2': randrange(0, h)} if self._filament else {}
             return dv.models.Coordinate(x, y, score=uniform(0, 1), **kwargs)
 
         return [_randomCoord() for _ in range(n)]
@@ -214,8 +218,9 @@ class SimplePickerModel(dv.models.PickerModel):
         :return: The micrograph image data
         """
         if micId not in self._cache:
+            c, r = self._imageSize
             self._cache[micId] = pg.gaussianFilter(
-                np.random.normal(size=self._imageSize), (5, 5))
+                np.random.normal(size=(r, c)), (5, 5))
 
         return self._cache[micId]
 
@@ -254,9 +259,8 @@ def createSimplePickerModel(imageSize, size=0, boxSize=40, picks=0,
     :param boxSize: (int) The box size
     :return: (PickerModel)
     """
-    return SimplePickerModel(imageSize=imageSize, size=size,
-                                 boxSize=boxSize, picks=picks,
-                                 filament=filament)
+    return SimplePickerModel(imageSize=imageSize, size=size, boxSize=boxSize,
+                             picks=picks, filament=filament)
 
 
 def createSlicesModel(imgSize, size):

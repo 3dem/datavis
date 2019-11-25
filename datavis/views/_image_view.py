@@ -121,7 +121,7 @@ class ImageView(qtw.QWidget):
         self._isHorizontalFlip = False
         self._rotationStep = 90
         self._scale = 1
-        self._transpose = kwargs.get('transpose')
+        self._transpose = kwargs.get('transpose', True)
 
         # Handle scale input, it can be string or numeric
         # if it is string, it can also have % character for percent
@@ -1070,7 +1070,9 @@ class ImageView(qtw.QWidget):
         t = self._imageView.getImageItem().transform()
         # For image change, not emit sigScaleChanged
         self.__updatingImage = True
-        self._imageView.setImage(data.T, transform=t, levels=self._levels)
+        if self._transpose:
+            data = data.T
+        self._imageView.setImage(data, transform=t, levels=self._levels)
         self._imageView.getView().setRange(rect=self.__viewRect, padding=0.0)
         self.__updatingImage = False
 
