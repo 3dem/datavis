@@ -102,6 +102,8 @@ class PickerView(qtw.QWidget):
             self._cvImages.selectRow(0)
 
         self._validateReadOnlyWidgets()
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
 
     def __setupGUI(self, **kwargs):
         """ Create the main GUI of the PickerView.
@@ -949,7 +951,7 @@ class PickerView(qtw.QWidget):
         w, h = self._imageView.getPreferredSize()
         toolBar = self._imageView.getToolBar()
 
-        return w + 100 + toolBar.getPanelMaxWidth(), max(h, toolBar.height())
+        return w, max(h, toolBar.height())
 
     def getToolBar(self):
         return self._imageView.getToolBar()

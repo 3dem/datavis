@@ -80,8 +80,7 @@ class SlicesView(qtw.QWidget):
         value -= 1
         if self._imageModel is None:
             self._imageModel = self._model.getImageModel(value)
-            self._imageView.setModel(self._imageModel,
-                                     self._imageView.isEmpty())
+            self._imageView.setModel(self._imageModel, True)
         else:
             imgData = self._model.getData(value)
             if imgData is not None:

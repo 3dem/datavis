@@ -4,6 +4,7 @@
 import sys
 
 import PyQt5.QtWidgets as qtw
+import PyQt5.QtCore as qtc
 
 
 class ViewWindow(qtw.QMainWindow):
@@ -37,13 +38,19 @@ class ViewWindow(qtw.QMainWindow):
         w, h = int(p * size.width()), int(p * size.height())
         width = width or w
         height = height or h
-        w = min(width, w)
-        h = min(height, h)
-        x, y = (size.width() - w) / 2, (size.height() - h) / 2
+
+        if width > w or height > h:
+            s = qtc.QSize(width, height).scaled(w, h, qtc.Qt.KeepAspectRatio)
+            w, h = s.width(), s.height()
+        else:
+            w, h = width, height
+
+        x, y = (size.width() - w)/2, (size.height() - h)/2
         self.setGeometry(x, y, w, h)
 
 
-def showView(createViewFunc, title='', argv=None, app=None, maxScreenPercent=0.8):
+def showView(createViewFunc, title='', argv=None, app=None,
+             maxScreenPercent=0.8):
     """ Shortcut function to quickly create a QApplication
     to show the given view, using a ViewWindow.
 

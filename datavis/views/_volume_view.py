@@ -269,6 +269,10 @@ class VolumeView(qtw.QWidget):
         # FIXME [phv] Review the volume stacks
         pass
 
+    def getPreferredSize(self):
+        w, h = self._multiSlicesView.getPreferredSize()
+        return w, h + self._toolBar.height()
+
     def setModel(self, model):
         """
         Sets the :class:`VolumeModel <datavis.models.VolumeModel>`

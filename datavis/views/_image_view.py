@@ -87,8 +87,7 @@ class ImageView(qtw.QWidget):
                        for image display. By default is None, so the data from
                        the pixel values will be used. Passing a different range
                        is useful for normalization of the slices in volumes.
-            preferredSize: (list of tuples). The first element is the image size
-                           and the second element is the preferred size.
+            preferredSize: (tuple). Minimum and maximum preferred image size.
 
             maskParams: Dictionary with mask-related params. Following are
                 some possible values in this dict:
@@ -182,6 +181,8 @@ class ImageView(qtw.QWidget):
         self.setModel(model)
         #if scale:
         #    self.setScale(scale)
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
 
     def __setupGUI(self):
         """ This is the internal method for the GUI creation """
@@ -728,6 +729,7 @@ class ImageView(qtw.QWidget):
         if vr.width() == 0:
             return 0
         scale = bounds.width() / float(vr.width())
+
         return scale
 
     def __onRoiRegionChanged(self, roi):
@@ -1259,9 +1261,11 @@ class ImageView(qtw.QWidget):
         plot = self._imageView.getView()
         dim = self._model.getDim()
         width, height = self.__getPreferredImageSize(dim[0], dim[1])
-        padding = 100
+        padding = 105
         width += hw + padding
-        height += padding
+
+        if self._toolBar.hasVisiblePanel():
+            width += self._toolBar.getPanelMaxWidth()
 
         if isinstance(plot, pg.PlotItem):
             bottomAxis = plot.getAxis("bottom")
@@ -1270,13 +1274,13 @@ class ImageView(qtw.QWidget):
             rightAxis = plot.getAxis("right")
 
             if bottomAxis is not None and bottomAxis.isVisible():
-                height += bottomAxis.height()
+                height += bottomAxis.boundingRect().height()
             if topAxis is not None and topAxis.isVisible():
-                height += topAxis.height()
+                height += topAxis.boundingRect().height()
             if leftAxis is not None and leftAxis.isVisible():
-                width += leftAxis.width()
+                width += leftAxis.boundingRect().width()
             if rightAxis is not None and rightAxis.isVisible():
-                width += rightAxis.width()
+                width += rightAxis.boundingRect().width()
 
         return width, height
 

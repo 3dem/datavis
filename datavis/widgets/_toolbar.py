@@ -405,7 +405,7 @@ class ActionsToolBar(qtw.QWidget):
         m = self._panelMaxWidth
         for dock in self._docks:
             m = max(m, dock.width())
-        print('maximum width: ', m)
+
         return m
 
     def setPanelMaxSize(self, width):
@@ -439,7 +439,7 @@ class ActionsToolBar(qtw.QWidget):
         Return True if has any panel visible
         """
         for action in self._toolBar.actions():
-            if action.isCheckable():
+            if action.isChecked():
                 actWidget = self._toolBar.widgetForAction(action)
                 if actWidget is not None:
                     return True

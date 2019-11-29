@@ -112,7 +112,7 @@ class TestPickerView(dv.tests.TestView):
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
 
-        model = MyPickerModel((512, 1024), 10, 64, 150, False)
+        model = MyPickerModel((512, 512), 10, 64, 150, False)
         return dv.views.PickerView(model, **kwargs)
 
 

@@ -44,6 +44,8 @@ class MultiSliceView(qtw.QWidget):
         self._slice = -1
         self._mode = mode
         self.__setupGUI()
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
 
     def __setupGUI(self):
         """ This is the standard method for the GUI creation """
@@ -288,8 +290,12 @@ class MultiSliceView(qtw.QWidget):
         Returns a tuple (width, height), which represents the preferred
         dimensions to contain all the data
         """
-        sv = self._slicesDict[dv.models.AXIS_X]
-        w, h = sv.getPreferredSize()
+        w, h = 1, 1
+
+        for sv in self._slicesDict.values():
+            sw, sh = sv.getPreferredSize()
+            w, h = max(w, sw), max(h, sh)
+
         return 2 * w, 2 * h
 
 
