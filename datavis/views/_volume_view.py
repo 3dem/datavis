@@ -55,6 +55,9 @@ class VolumeView(qtw.QWidget):
         self.setView(self._view)
         self._onChangeCellSize(self._defaultCellSize)
 
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
+
     def __setupGUI(self, model, slicesKwargs, slicesMode, galleryKwargs):
         """ Setups the GUI """
         self._mainLayout = qtw.QVBoxLayout(self)

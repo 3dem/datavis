@@ -1272,15 +1272,23 @@ class ImageView(qtw.QWidget):
             topAxis = plot.getAxis("top")
             leftAxis = plot.getAxis("left")
             rightAxis = plot.getAxis("right")
-
+            axisPadding = 65
             if bottomAxis is not None and bottomAxis.isVisible():
                 height += bottomAxis.boundingRect().height()
+                if len(bottomAxis.label.toPlainText()):
+                    height += axisPadding
             if topAxis is not None and topAxis.isVisible():
                 height += topAxis.boundingRect().height()
+                if len(topAxis.label.toPlainText()):
+                    height += axisPadding
             if leftAxis is not None and leftAxis.isVisible():
                 width += leftAxis.boundingRect().width()
+                if len(leftAxis.label.toPlainText()):
+                    width += axisPadding
             if rightAxis is not None and rightAxis.isVisible():
                 width += rightAxis.boundingRect().width()
+                if len(rightAxis.label.toPlainText()):
+                    width += axisPadding
 
         return width, height
 
