@@ -55,6 +55,9 @@ class VolumeView(qtw.QWidget):
         self.setView(self._view)
         self._onChangeCellSize(self._defaultCellSize)
 
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
+
     def __setupGUI(self, model, slicesKwargs, slicesMode, galleryKwargs):
         """ Setups the GUI """
         self._mainLayout = qtw.QVBoxLayout(self)
@@ -130,7 +133,7 @@ class VolumeView(qtw.QWidget):
         self._multiSlicesView.sigScaleChanged.connect(self.__updateImageScale)
         # for axis selection
         selector = AxisSelector(parent=self)
-        a = AXIS_X if slicesMode == AXIS_XYZ else slicesMode
+        a = AXIS_Z if slicesMode == AXIS_XYZ else slicesMode
         self._actAxisSelect = self._toolBar.addWidget(selector)
         selector.sigAxisChanged.connect(self._onAxisChanged)
         selector.setCurrentAxis(a)
@@ -214,6 +217,7 @@ class VolumeView(qtw.QWidget):
         if checked:
             self._view = GALLERY
             axis = self._multiSlicesView.getAxis()
+            self._axisSelector.setCurrentAxis(axis)
             model = self._slicesTableModels[axis]
             row = self._multiSlicesView.getValue() - 1
             self._stackedLayoud.setCurrentWidget(self._galleryView)
@@ -267,6 +271,10 @@ class VolumeView(qtw.QWidget):
     def _onVolumeChanged(self, index):
         # FIXME [phv] Review the volume stacks
         pass
+
+    def getPreferredSize(self):
+        w, h = self._multiSlicesView.getPreferredSize()
+        return w, h + self._toolBar.height()
 
     def setModel(self, model):
         """

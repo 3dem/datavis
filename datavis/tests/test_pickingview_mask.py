@@ -24,13 +24,13 @@ class MyPickerModel(dv.tests.SimplePickerModel):
 
     def __createMask(self, micId):
         w, h = self._imageSize
-        mask = np.zeros(shape=self._imageSize, dtype=np.int8)
+        mask = np.zeros(shape=(h, w), dtype=np.int8)
         for c in self._getCoordsList(micId):
-            for i in range(c.x - int(self._boxsize/2),
-                           c.x + int(self._boxsize/2)):
-                for j in range(c.y - int(self._boxsize/2),
-                               c.y + int(self._boxsize/2)):
-                    if 0 <= i < w and 0 <= j < h:
+            for i in range(c.y - int(self._boxsize/2),
+                           c.y + int(self._boxsize/2)):
+                for j in range(c.x - int(self._boxsize/2),
+                               c.x + int(self._boxsize/2)):
+                    if 0 <= i < h and 0 <= j < w:
                         mask[i][j] = 1
 
         return mask
@@ -136,7 +136,7 @@ class TestPickerView(dv.tests.TestView):
         kwargs['roiAspectLocked'] = True
         kwargs['roiCentered'] = True
 
-        model = MyPickerModel((1024, 1024), 10, 64, 150, False)
+        model = MyPickerModel((512, 1024), 10, 64, 150, False)
         return dv.views.PickerView(model, **kwargs)
 
 

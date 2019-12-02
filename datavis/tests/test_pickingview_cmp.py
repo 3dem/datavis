@@ -107,10 +107,10 @@ class MyPickerModel(dv.models.PickerCmpModel):
 
     def getColumns(self):
         return [
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('A', dataType=TYPE_INT, editable=True),
-            ColumnConfig('B', dataType=TYPE_INT, editable=True),
-            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=False),
+            ColumnConfig('A', dataType=TYPE_INT, editable=False),
+            ColumnConfig('B', dataType=TYPE_INT, editable=False),
+            ColumnConfig('AnB', dataType=TYPE_INT, editable=False),
             ColumnConfig('Coords < Threshold', dataType=TYPE_INT,
                          editable=False)
         ]

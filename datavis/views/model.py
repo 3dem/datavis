@@ -140,7 +140,7 @@ class TablePageItemModel(qtc.QAbstractItemModel):
         """ Reimplemented from qtc.QAbstractItemModel.
         Return the number of columns that are visible in the model.
         """
-        return self._displayConfig.getColumnsCount(visible=True)
+        return self._displayConfig.getColumnsCount()
 
     def rowCount(self, index=qtc.QModelIndex()):
         """
@@ -190,8 +190,7 @@ class TablePageItemModel(qtc.QAbstractItemModel):
     def headerData(self, column, orientation, role=qtc.Qt.DisplayRole):
         if role == qtc.Qt.DisplayRole or role == qtc.Qt.ToolTipRole:
             cc = self._displayConfig.getColumnConfig(column)
-            if (cc is not None and orientation == qtc.Qt.Horizontal
-                and cc[models.VISIBLE]):
+            if cc is not None and orientation == qtc.Qt.Horizontal:
                 return cc.getLabel()
             elif orientation == qtc.Qt.Vertical:
                 p = self._pagingInfo

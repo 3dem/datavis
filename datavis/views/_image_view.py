@@ -87,8 +87,7 @@ class ImageView(qtw.QWidget):
                        for image display. By default is None, so the data from
                        the pixel values will be used. Passing a different range
                        is useful for normalization of the slices in volumes.
-            preferredSize: (list of tuples). The first element is the image size
-                           and the second element is the preferred size.
+            preferredSize: (tuple). Minimum and maximum preferred image size.
 
             maskParams: Dictionary with mask-related params. Following are
                 some possible values in this dict:
@@ -120,11 +119,12 @@ class ImageView(qtw.QWidget):
         self._isVerticalFlip = False
         self._isHorizontalFlip = False
         self._rotationStep = 90
+        self._scale = 1
+        self._rowMajor = kwargs.get('rowMajor', True)
 
         # Handle scale input, it can be string or numeric
         # if it is string, it can also have % character for percent
-        scale = kwargs.get('scale', 1)
-
+        scale = kwargs.get('scale')
         # Convert from string, considering % possibility
         if isinstance(scale, py23.str):
             if '%' in scale:
@@ -133,9 +133,7 @@ class ImageView(qtw.QWidget):
                 scale = float(scale)
 
         # Set the scale depending on the value
-        if 0 < scale <= 1.0:
-            self._scale = scale
-        else:
+        if scale and not 0 < scale <= 1.0:
             # FIXME: Compute the scale based on input dimension
             raise Exception('Still not implemented')
 
@@ -181,6 +179,10 @@ class ImageView(qtw.QWidget):
         self.__setupImageView()
         self._roi = None
         self.setModel(model)
+        #if scale:
+        #    self.setScale(scale)
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
 
     def __setupGUI(self):
         """ This is the internal method for the GUI creation """
@@ -352,6 +354,7 @@ class ImageView(qtw.QWidget):
         # --End-File-Info--
 
         self._mainLayout.addWidget(self._splitter)
+        self.setGeometry(0, 0, 640, 480)
 
     def __viewBoxMouseMoved(self, pos):
         """
@@ -563,6 +566,9 @@ class ImageView(qtw.QWidget):
                 value = 1 if data == 0 else 2
                 data = np.full(shape=(w, h), fill_value=value, dtype=np.int8)
 
+            if self._rowMajor:
+                data = data.T
+
             if (self._maskItem is None or
                     not self._maskItem.width() == w or
                     not self._maskItem.height() == h):
@@ -723,6 +729,7 @@ class ImageView(qtw.QWidget):
         if vr.width() == 0:
             return 0
         scale = bounds.width() / float(vr.width())
+
         return scale
 
     def __onRoiRegionChanged(self, roi):
@@ -847,7 +854,6 @@ class ImageView(qtw.QWidget):
         pyqtgraph.ImageView. Update the spinbox image scale and emits
         sigScaleChanged
         """
-
         if not self.__updatingImage:
             self.__viewRect = self.getViewRect()
             scale = self.__calcImageScale()
@@ -1005,7 +1011,12 @@ class ImageView(qtw.QWidget):
         if imageModel:
             self.__updatingImage = True
             rect = self.getViewRect() if self._model else None
-            self._imageView.setImage(imageModel.getData(),
+            if self._rowMajor:
+                data = imageModel.getData().T
+            else:
+                data = imageModel.getData()
+
+            self._imageView.setImage(data,
                                      autoRange=True,
                                      levels=self._levels)
 
@@ -1035,7 +1046,6 @@ class ImageView(qtw.QWidget):
             self._roi.setPos(imgItem.pos() +
                              pg.Point((b.width() - r.width()) / 2,
                                       (b.height() - r.height()) / 2))
-
         self.sigScaleChanged.emit(self._scale)
 
     def updateImageScale(self):
@@ -1062,6 +1072,8 @@ class ImageView(qtw.QWidget):
         t = self._imageView.getImageItem().transform()
         # For image change, not emit sigScaleChanged
         self.__updatingImage = True
+        if self._rowMajor:
+            data = data.T
         self._imageView.setImage(data, transform=t, levels=self._levels)
         self._imageView.getView().setRange(rect=self.__viewRect, padding=0.0)
         self.__updatingImage = False
@@ -1249,26 +1261,36 @@ class ImageView(qtw.QWidget):
         plot = self._imageView.getView()
         dim = self._model.getDim()
         width, height = self.__getPreferredImageSize(dim[0], dim[1])
-        padding = 100
+        padding = 105
         width += hw + padding
-        height += padding
+
+        if self._toolBar.hasVisiblePanel():
+            width += self._toolBar.getPanelMaxWidth()
 
         if isinstance(plot, pg.PlotItem):
             bottomAxis = plot.getAxis("bottom")
             topAxis = plot.getAxis("top")
             leftAxis = plot.getAxis("left")
             rightAxis = plot.getAxis("right")
-
+            axisPadding = 65
             if bottomAxis is not None and bottomAxis.isVisible():
-                height += bottomAxis.height()
+                height += bottomAxis.boundingRect().height()
+                if len(bottomAxis.label.toPlainText()):
+                    height += axisPadding
             if topAxis is not None and topAxis.isVisible():
-                height += topAxis.height()
+                height += topAxis.boundingRect().height()
+                if len(topAxis.label.toPlainText()):
+                    height += axisPadding
             if leftAxis is not None and leftAxis.isVisible():
-                width += leftAxis.width()
+                width += leftAxis.boundingRect().width()
+                if len(leftAxis.label.toPlainText()):
+                    width += axisPadding
             if rightAxis is not None and rightAxis.isVisible():
-                width += rightAxis.width()
+                width += rightAxis.boundingRect().width()
+                if len(rightAxis.label.toPlainText()):
+                    width += axisPadding
 
-        return width + self._toolBar.width(), height
+        return width, height
 
     def eventFilter(self, obj, event):
         """ Filters events if this object has been installed as an event filter
@@ -1303,8 +1325,9 @@ class ImageView(qtw.QWidget):
             self._spinBoxScale.setValue(self._scale * 100)
         elif not round(scale, 2) == round(self._scale, 2):
             self.__updatingImage = True
-            viewBox.scaleBy(x=self._scale, y=self._scale)  # restore to 100 %
-            viewBox.scaleBy(x=1 / scale, y=1 / scale)  # to current scale
+            s = self.getScale()
+            viewBox.scaleBy(x=s, y=s)  # restore to 100 %
+            viewBox.scaleBy(x=1/scale, y=1/scale)  # to current scale
             self.__updatingImage = False
             self.updateImageScale()
             self._spinBoxScale.setValue(scale * 100)
@@ -1383,7 +1406,10 @@ class ImageView(qtw.QWidget):
 
         Returns: (u8bit numpy array) or None
         """
-        return self.__normalizeMask()
+        m = self.__normalizeMask()
+        if m is not None and self._rowMajor:
+            m = m.T
+        return m
 
     def getMaskType(self):
         """ Return the mask-type. Possible values are:

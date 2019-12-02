@@ -393,9 +393,9 @@ class PickerModel(TableModel):
     def getColumns(self):
         """ Return a Column list that will be used to display micrographs. """
         return [
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False),
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=False),
+            ColumnConfig('Coordinates', dataType=TYPE_INT, editable=False),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=False, visible=False)
         ]
 
     def getValue(self, row, col):
@@ -522,11 +522,11 @@ class PickerCmpModel(PickerModel):
     def getColumns(self):
         """ Return a Column list that will be used to display micrographs. """
         return [
-            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=True),
-            ColumnConfig('A', dataType=TYPE_INT, editable=True),
-            ColumnConfig('B', dataType=TYPE_INT, editable=True),
-            ColumnConfig('AnB', dataType=TYPE_INT, editable=True),
-            ColumnConfig('Id', dataType=TYPE_INT, editable=True, visible=False)
+            ColumnConfig('Micrograph', dataType=TYPE_STRING, editable=False),
+            ColumnConfig('A', dataType=TYPE_INT, editable=False),
+            ColumnConfig('B', dataType=TYPE_INT, editable=False),
+            ColumnConfig('AnB', dataType=TYPE_INT, editable=False),
+            ColumnConfig('Id', dataType=TYPE_INT, editable=False, visible=False)
         ]
 
     def getValue(self, row, col):

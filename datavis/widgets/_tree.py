@@ -2,6 +2,8 @@
 import PyQt5.QtCore as qtc
 import PyQt5.QtWidgets as qtw
 
+from datavis.utils import getExt
+
 from ._toolbar import TriggerAction
 
 
@@ -165,7 +167,8 @@ class Browser(qtw.QWidget):
                                        parent=self)
         leftWidget = qtw.QWidget(self)
         layout = qtw.QVBoxLayout(leftWidget)
-        layout.addWidget(self.__createToolBar())
+        self._toolBar = self.__createToolBar()
+        layout.addWidget(self._toolBar)
         self._completer = qtw.QCompleter(parent=self)
         self._lineCompleter = qtw.QLineEdit(self)
         boxLayout = qtw.QBoxLayout(qtw.QBoxLayout.LeftToRight)
@@ -426,9 +429,39 @@ class FileModelView(TreeModelView):
                 self.setCurrentIndex(index)
 
 
+class _ViewProperties:
+    """
+    Simple class that holds values dynamically as key=value pairs
+    """
+    def __init__(self, view, **kwargs):
+        self.view = view
+        self.set(**kwargs)
+
+    def __eq__(self, other):
+        """ Equality comparison between _ViewProperties objects """
+        return other and self.view == other.view
+
+    def __hash__(self):
+        return hash(self.view)
+
+    def set(self, **kwargs):
+        """
+        Set different properties of _ViewProperties.
+        Example:
+            p = _ViewProperties(view='TextView', icon='qta.some-icon')
+            p.set(toolTip='help...', color='#344567')
+
+        """
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 class FileBrowser(Browser):
     """ The FileBrowser is an extension of Browser class for file navigation
     """
+    VIEWS = 0
+    CURRENT = 1
+
     def __init__(self, **kwargs):
         """ Creates a FileBrowser instance
 
@@ -440,9 +473,55 @@ class FileBrowser(Browser):
                       the directories
         """
         Browser.__init__(self, **kwargs)
+        self._views = {}  # see registerView method for details
+
+        self._group = qtw.QActionGroup(self)
+        self._group.triggered.connect(self.__viewActionTriggered)
+
+        self._toolBarActions = []
+        self._toolBar.addSeparator()
+
         model = self._treeModelView.model()
         self._lineCompleter.setText(
             model.filePath(self._treeModelView.currentIndex()))
+
+    def __addAction(self, a, current, view):
+        a.setChecked(current == view)
+        self._toolBar.addAction(a)
+        self._group.addAction(a)
+        self._toolBarActions.append(a)
+
+    def __viewActionTriggered(self, action):
+        if action.isChecked():
+            model = self._treeModelView.model()
+            path = model.filePath(self._treeModelView.currentIndex())
+            ext = getExt(path)
+            d = self._views.get(ext, {})
+            d[FileBrowser.CURRENT] = action.getUserData()
+
+            self.updateViewPanel()
+
+    def __updateToolBar(self, ext):
+        """
+        Update the toolbar actions according to the given file extension.
+        """
+        vd = self._views.get(ext, {})
+        views = vd.get(FileBrowser.VIEWS, {}).values()
+        current = vd.get(FileBrowser.CURRENT)
+
+        for a in self._toolBarActions:
+            self._toolBar.removeAction(a)
+            self._group.removeAction(a)
+
+        for v in views:
+            a = getattr(v, 'action', None)
+            if a is None:
+                a = TriggerAction(self, faIconName=v.icon, checkable=True,
+                                  userData=v.view)
+                v.action = a
+
+            a.setChecked(False)
+            self.__addAction(a, current, v.view)
 
     def _createTreeModelView(self, **kwargs):
         """ Create the FileModelView """
@@ -477,4 +556,47 @@ class FileBrowser(Browser):
         if not selected.isEmpty():
             index = selected.indexes()[0]
             model = self._treeModelView.model()
-            self._lineCompleter.setText(model.filePath(index))
+            path = model.filePath(index)
+            self.__updateToolBar(getExt(path))
+            self._lineCompleter.setText(path)
+
+    def registerView(self, ext, view, icon, current, **kwargs):
+        """
+        Add additional views for the given file extension. An image icon should
+        be provided for the corresponding action that will be added to the upper
+        toolbar.
+
+        Args:
+            ext:  (str) The file extension. Example: '.xmd'
+            view: (int) A unique identifier for the view
+            icon: (str) icon name. Example: 'fa.home'
+            current: (boolean) If True, the specified view will be the current
+
+        Keyword Args:
+            Additional properties. Example: tooltip='help text ...'
+        """
+        d = self._views.get(ext, {})
+        vd = d.get(FileBrowser.VIEWS, {})
+        v = vd.get(view)
+
+        if v is None:
+            v = _ViewProperties(view, icon=icon, **kwargs)
+        else:
+            v.set(icon=icon, **kwargs)
+
+        vd[view] = v
+        if current or FileBrowser.CURRENT not in d:
+            d[FileBrowser.CURRENT] = view
+
+        d[FileBrowser.VIEWS] = vd
+        self._views[ext] = d
+
+    def getCurrentView(self, ext):
+        """ Return the current registered view for the given file extension or
+        None if no view has been registered.
+
+        Returns:
+            (int) The current view identifier or None.
+        """
+        d = self._views.get(ext, {})
+        return d.get(FileBrowser.CURRENT)

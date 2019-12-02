@@ -102,6 +102,8 @@ class PickerView(qtw.QWidget):
             self._cvImages.selectRow(0)
 
         self._validateReadOnlyWidgets()
+        w, h = self.getPreferredSize()
+        self.setGeometry(0, 0, w, h)
 
     def __setupGUI(self, **kwargs):
         """ Create the main GUI of the PickerView.
@@ -933,6 +935,7 @@ class PickerView(qtw.QWidget):
             pos1 = viewBox.mapSceneToView(roi.getSceneHandlePositions(0)[1])
             pos2 = viewBox.mapSceneToView(roi.getSceneHandlePositions(1)[1])
             coord = roi.coordinate
+
             coord.set(x=pos1.x(), y=pos1.y(), x2=pos2.x(), y2=pos2.y())
             if isinstance(roi, pg.ROI):
                 width = roi.size().y()
@@ -948,7 +951,7 @@ class PickerView(qtw.QWidget):
         w, h = self._imageView.getPreferredSize()
         toolBar = self._imageView.getToolBar()
 
-        return w + 100, max(h, toolBar.height())
+        return w, max(h, toolBar.height())
 
     def getToolBar(self):
         return self._imageView.getToolBar()
@@ -971,6 +974,7 @@ class RoiHandler:
         self._roi = self._createRoi(coord, shape, roiDict, **kwargs)
         self._roi.coordinate = coord
         self._roi.parent = self
+
         # Ignore the signals for center shape
         if self._shape != SHAPE_CENTER:
             self._signals = kwargs.get('signals', {})
@@ -1057,8 +1061,9 @@ class RoiHandler:
         coord = self._roi.coordinate
         self._roi.setSize((size, size), update=False, finish=False)
         half = size / 2
-        x, y = coord.x - half, coord.y - half
-        self._roi.setPos((x, y), update=False, finish=False)
+
+        self._roi.setPos((coord.x - half, coord.y - half), update=False,
+                         finish=False)
 
     def connectSignals(self, roi):
         """ Connect the roi signals """
@@ -1099,8 +1104,9 @@ class FilamentRoiHandler(RoiHandler):
 
     def _createRoi(self, coord, shape, roiDict, **kwargs):
         """ Create a line or filament according to the given shape. """
-        point1 = coord.x, coord.y
-        point2 = coord.x2, coord.y2
+
+        point1 = (coord.x, coord.y)
+        point2 = (coord.x2, coord.y2)
 
         if shape == SHAPE_CENTER:
             return pg.LineSegmentROI([point1, point2], **roiDict)
@@ -1133,8 +1139,9 @@ class FilamentRoiHandler(RoiHandler):
             return
 
         coord = self._roi.coordinate
-        point1 = coord.x, coord.y
-        point2 = coord.x2, coord.y2
+        point1 = (coord.x, coord.y)
+        point2 = (coord.x2, coord.y2)
+
         pos, size, angle = self.__calcFilamentSize(point1, point2, size)
         self._roi.setPos(pos, update=False, finish=False)
         self._roi.setSize(size, update=False, finish=False)
