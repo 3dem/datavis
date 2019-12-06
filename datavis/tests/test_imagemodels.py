@@ -1,5 +1,4 @@
 
-import os
 import unittest
 
 import datavis as dv
@@ -9,6 +8,7 @@ import numpy as np
 class TestImageModels(dv.tests.TestBase):
 
     def test_ImageModel(self):
+        print('test_ImageModel')
         imgModel = dv.models.ImageModel()  # Empty ImageModel
         # Data and dimensions should be None
         self.assertIsNone(imgModel.getData())
@@ -76,6 +76,7 @@ class TestImageModels(dv.tests.TestBase):
     #         self.assertEqual(img.getDim(), dim)
     #         self.assertEqual(img.getDataSize(), size)
     #
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -7,6 +7,9 @@ import datavis as dv
 class TestDualImageListView(dv.tests.TestView):
     __title = "DualImageListView example"
 
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
+
     def getDataPaths(self):
         return ['']
 
@@ -56,6 +59,9 @@ class TestDualImageListView(dv.tests.TestView):
         model = dv.tests.createListImageModel(
             ['image %d' % i for i in range(10)], 'Image', (512, 512))
         return dv.views.DualImageListView(model, form=form, method=printFunc)
+
+    def test_DualImageListView(self):
+        print('test_DualImageListView')
 
 
 def printFunc(*args):

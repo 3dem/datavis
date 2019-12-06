@@ -1,29 +1,38 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys
-import PyQt5.QtWidgets as qtw
+import datavis as dv
 
-from datavis.widgets import PagingInfo, PageBar
 
-app = qtw.QApplication(sys.argv)
+class TestPagingView(dv.tests.TestView):
+    __title = "PagingView example"
 
-pagingInfo = PagingInfo(23514, 1000)
+    def __init__(self, methodName='runTest'):
+        self.pagingInfo = dv.widgets.PagingInfo(23514, 1000)
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
-# Test some methods of pagingInfo
-assert pagingInfo.numberOfPages == 24, ("Wrong number of pages: %s"
-                                        % pagingInfo.numberOfPages)
-assert pagingInfo.currentPage == 1, "Current page should be 1 now"
-assert not pagingInfo.prevPage(), "Previous should not change page now"
-assert pagingInfo.nextPage(), "Should move to next page"
-assert pagingInfo.currentPage == 2, "After next page should be 2"
+    def createView(self):
+        return dv.widgets.PageBar(pagingInfo=self.pagingInfo)
 
-pageBar = PageBar(pagingInfo=pagingInfo)
+    def test_Paging(self):
+        print('test_Paging')
+        # Test some methods of pagingInfo
+        self.assertTrue(self.pagingInfo.numberOfPages == 24,
+                        ("Wrong number of pages: %s"
+                         % self.pagingInfo.numberOfPages))
+        self.assertTrue(self.pagingInfo.currentPage == 1,
+                        "Current page should be 1 now")
+        self.assertTrue(not self.pagingInfo.prevPage(),
+                        "Previous should not change page now")
+        self.assertTrue(self.pagingInfo.nextPage(),
+                        "Should move to next page")
+        self.assertTrue(self.pagingInfo.currentPage == 2,
+                        "After next page should be 2")
 
-# Create window with ImageView widget
-win = qtw.QMainWindow()
-win.setCentralWidget(pageBar)
-win.show()
-win.setWindowTitle('Testing paging...')
+    def test_PageBar(self):
+        print('test_PageBar')
 
-sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    TestPagingView().runApp()
+

@@ -9,6 +9,9 @@ import datavis as dv
 class TestImageMaskListView(dv.tests.TestView):
     __title = "ImageMaskListView example"
 
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
+
     def getDataPaths(self):
         return ['']
 
@@ -27,6 +30,9 @@ class TestImageMaskListView(dv.tests.TestView):
         model = dv.tests.createListImageModel(
             ['image %d' % i for i in range(10)], 'Image', (1024, 1024))
         return dv.views.ImageMaskListView(model, maskParams=maskParams)
+
+    def test_ImageMaskListView(self):
+        print('test_ImageMaskListView')
 
 
 if __name__ == '__main__':

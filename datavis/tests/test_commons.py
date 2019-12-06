@@ -9,6 +9,8 @@ from random import randrange, uniform
 import pyqtgraph as pg
 
 import PyQt5.QtWidgets as qtw
+import PyQt5.QtTest as qtt
+import PyQt5.QtCore as qtc
 
 import datavis as dv
 
@@ -36,7 +38,8 @@ class TestData:
                 self._path = argv[1]
 
         if not self._path:
-            self._path = self.getDataPaths()[i]
+            paths = self.getDataPaths()
+            self._path = paths[i] if paths else None
 
     def getPath(self, *paths):
         if not hasattr(self, '_path'):
@@ -67,9 +70,24 @@ class TestBase(unittest.TestCase, TestData):
     """
     __title = ''
 
+    def __init__(self, methodName='runTest'):
+        unittest.TestCase.__init__(self, methodName=methodName)
 
-class TestView(TestData):
+
+class TestView(TestBase):
     """ Class that will test existing Views. """
+    app = qtw.QApplication.instance() or qtw.QApplication([])
+
+    def __init__(self, methodName='runTest',argv=None):
+        TestBase.__init__(self, methodName=methodName)
+        self._argv = argv or sys.argv
+        self._loadPaths()
+
+    def setUp(self):
+        # Initialization
+        self.view = self.createView()
+        self.win = dv.views.ViewWindow(self.view, maxScreenPercent=.8)
+        self.win.setGeometryFromCentralView()
 
     def createView(self):
         return None
@@ -78,7 +96,7 @@ class TestView(TestData):
         self._argv = argv or sys.argv
         self._loadPaths()
         dv.views.showView(self.createView, argv=self.getArgs(),
-                          title=self.getTitle())
+                          title=self.getTitle(), app=app)
 
 
 class SimpleItemsModel(dv.models.SimpleTableModel):

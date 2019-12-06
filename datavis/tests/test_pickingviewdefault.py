@@ -96,8 +96,11 @@ class MyPickerModel(dv.tests.SimplePickerModel):
             raise Exception("Invalid column value '%s'" % col)
 
 
-class TestPickerView(dv.tests.TestView):
-    __title = "PickerView Example"
+class TestPickerViewDefault(dv.tests.TestView):
+    __title = "PickerViewDefault Example"
+
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def getDataPaths(self):
         return ['']
@@ -115,6 +118,9 @@ class TestPickerView(dv.tests.TestView):
         model = MyPickerModel((512, 512), 10, 64, 150, False)
         return dv.views.PickerView(model, **kwargs)
 
+    def test_PickingViewDefault(self):
+        print('test_PickingViewMask')
+
 
 if __name__ == '__main__':
-    TestPickerView().runApp()
+    TestPickerViewDefault().runApp()

@@ -6,6 +6,15 @@ import os
 from glob import glob
 import argparse
 
+import datavis as dv
+
+
+class TestMatchPaths(dv.tests.TestBase):
+
+    def test_MatchPaths(self):
+        print('test_MatchPaths')
+
+
 if __name__ == '__main__':
     kwargs = {}
 

@@ -11,8 +11,9 @@ import datavis as dv
 class TestMaskCreator(dv.tests.TestView):
     __title = "Mask Creator example"
 
-    def __init__(self, maskParams):
+    def __init__(self, methodName='runTest', maskParams=None):
         self._maskParams = maskParams
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def getDataPaths(self):
         return ['']
@@ -32,6 +33,9 @@ class TestMaskCreator(dv.tests.TestView):
                 "</html>" % (dim_x, dim_y))
         imageView.setImageInfo(text=desc)
         return imageView
+
+    def test_MaskCreator(self):
+        print('test_MaskCreator')
 
 
 if __name__ == '__main__':
@@ -57,4 +61,4 @@ if __name__ == '__main__':
         'operation': dv.views.REMOVE if args.data == 1 else dv.views.ADD,
         'penSize': args.pen
     }
-    TestMaskCreator(maskParams).runApp(argv=[str(args.data)])
+    TestMaskCreator(maskParams=maskParams).runApp(argv=[str(args.data)])

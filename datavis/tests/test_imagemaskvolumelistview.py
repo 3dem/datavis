@@ -9,6 +9,9 @@ import datavis as dv
 class TestImageMaskVolumeListView(dv.tests.TestView):
     __title = "ImageMaskVolumeListView example"
 
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
+
     def getDataPaths(self):
         return ['']
 
@@ -37,6 +40,9 @@ class TestImageMaskVolumeListView(dv.tests.TestView):
         return dv.views.VolumeListView(model,
                                        slicesKwargs=slicesKwargs,
                                        slicesMode=dv.models.AXIS_XYZ)
+
+    def test_ImageMaskVolumeListView(self):
+        print('test_ImageMaskVolumeListView')
 
 
 if __name__ == '__main__':
