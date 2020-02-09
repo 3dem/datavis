@@ -15,7 +15,6 @@ import PyQt5.QtGui as qtg
 
 from .. import widgets
 from .. import models
-from ..utils import py23
 from ._constants import (AXIS_BOTTOM_LEFT, AXIS_TOP_LEFT, AXIS_TOP_RIGHT,
                          CIRCLE_ROI, RECT_ROI, ADD, REMOVE)
 
@@ -126,7 +125,7 @@ class ImageView(qtw.QWidget):
         # if it is string, it can also have % character for percent
         scale = kwargs.get('scale')
         # Convert from string, considering % possibility
-        if isinstance(scale, py23.str):
+        if isinstance(scale, str):
             if '%' in scale:
                 scale = float(scale.replace('%', '')) / 100.
             else:
