@@ -263,6 +263,10 @@ class VolumeView(qtw.QWidget):
             imgView = delegate.getImageView()
             imgView.setImageMask(**maskParams)
 
+        delegate = self._galleryView.getImageItemDelegate()
+        iv = delegate.getImageView()
+        iv.setRowMajor(axis == AXIS_Z)
+
         self._galleryView.setModel(self._slicesTableModels[axis],
                                    minMax=self._model.getMinMax())
         self._galleryView.selectRow(self._multiSlicesView.getValue() - 1)

@@ -861,6 +861,13 @@ class ImageView(qtw.QWidget):
                 self._spinBoxScale.setValue(self._scale * 100)
                 self.sigScaleChanged.emit(self._scale)
 
+    def setRowMajor(self, rowMajor=True):
+        """ Set the image order. If True, image data is assumed to be in
+        row-major order (row, column). If False, data is assumed to be in
+        column-major order (column, row).
+        """
+        self._rowMajor = rowMajor
+
     def setRoiMaskSize(self, size):
         """
         Sets the size to the roi mask. If the ROI mask has been configured,

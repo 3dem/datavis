@@ -17,7 +17,10 @@ class TestVolumeView(dv.tests.TestView):
         return ['']
 
     def createView(self):
-        data = pg.gaussianFilter(np.random.normal(size=(64, 64, 64)), (5, 5, 5))
+        z, y, x = 300, 200, 100
+        data = np.random.normal(size=(z, y, x))
+        data = pg.gaussianFilter(data, (5, 5, 5))
+
         return dv.views.VolumeView(dv.models.VolumeModel(data), toolBar=True,
                                    slicesMode=dv.models.AXIS_XYZ)
 

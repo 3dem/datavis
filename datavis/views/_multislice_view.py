@@ -91,11 +91,11 @@ class MultiSliceView(qtw.QWidget):
         }
         axisImgViewKargs = {
             dv.models.AXIS_X: {'labelX': zArgs, 'labelY': yArgs,
-                     'axisPos': AXIS_BOTTOM_RIGHT},
+                     'axisPos': AXIS_BOTTOM_RIGHT, 'rowMajor': False},
             dv.models.AXIS_Y: {'labelX': xArgs, 'labelY': zArgs,
-                     'axisPos': AXIS_TOP_LEFT},
+                     'axisPos': AXIS_TOP_LEFT, 'rowMajor': False},
             dv.models.AXIS_Z: {'labelX': xArgs, 'labelY': yArgs,
-                     'axisPos': AXIS_BOTTOM_LEFT}
+                     'axisPos': AXIS_BOTTOM_LEFT, 'rowMajor': True}
         }
 
         if not self._mode == dv.models.AXIS_XYZ:
