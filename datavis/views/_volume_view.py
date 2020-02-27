@@ -218,13 +218,9 @@ class VolumeView(qtw.QWidget):
             self._view = GALLERY
             axis = self._multiSlicesView.getAxis()
             self._axisSelector.setCurrentAxis(axis)
-            model = self._slicesTableModels[axis]
-            row = self._multiSlicesView.getValue() - 1
             self._stackedLayoud.setCurrentWidget(self._galleryView)
-            if not model == self._galleryView.getModel():
-                self._galleryView.setModel(model,
-                                           minMax=self._model.getMinMax())
-            self._galleryView.selectRow(row)
+            self._onAxisChanged(axis)
+
         self._aSlices.setChecked(not checked)
         self.__setupToolBar()
 
@@ -247,8 +243,10 @@ class VolumeView(qtw.QWidget):
 
         imgView = sv.getImageView()
         maskType = imgView.getMaskType()
+        delegate = self._galleryView.getImageItemDelegate()
+        iv = delegate.getImageView()
+
         if maskType is not None:
-            delegate = self._galleryView.getImageItemDelegate()
             maskParams = {
                 'type': maskType,
                 'color': imgView.getMaskColor(),
@@ -260,12 +258,11 @@ class VolumeView(qtw.QWidget):
                 maskParams['showHandles'] = False
             else:  # TODO[hv] if mask has been edited?
                 maskParams['data'] = imgView.getMaskData()
-            imgView = delegate.getImageView()
-            imgView.setImageMask(**maskParams)
 
-        delegate = self._galleryView.getImageItemDelegate()
-        iv = delegate.getImageView()
-        iv.setRowMajor(axis == AXIS_Z)
+            iv.setImageMask(**maskParams)
+
+        iv.setRowMajor(imgView.isRowMajor())
+        iv.setAxisOrientation(imgView.getAxisOrientation())
 
         self._galleryView.setModel(self._slicesTableModels[axis],
                                    minMax=self._model.getMinMax())

@@ -868,6 +868,12 @@ class ImageView(qtw.QWidget):
         """
         self._rowMajor = rowMajor
 
+    def isRowMajor(self):
+        """
+        Return True if image data is assumed to be row-major order (row, column)
+        """
+        return self._rowMajor
+
     def setRoiMaskSize(self, size):
         """
         Sets the size to the roi mask. If the ROI mask has been configured,
@@ -992,6 +998,10 @@ class ImageView(qtw.QWidget):
          """
         self._axisPos = orientation
         self.__setupAxis()
+
+    def getAxisOrientation(self):
+        """ Returns the axis orientation. See setAxisOrientation. """
+        return self._axisPos
 
     def getViewBox(self):
         """ Return the pyqtgraph.ViewBox used for the internal
