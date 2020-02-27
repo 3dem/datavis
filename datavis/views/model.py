@@ -34,9 +34,9 @@ class TablePageItemModel(qtc.QAbstractItemModel):
     def _getPageValue(self, row, col, role=qtc.Qt.DisplayRole):
         """ Return the value for specified column and row in the current page
         """
-        pi = self._pagingInfo
-        if pi.pageSize > 1:
-            row += (pi.currentPage - 1) * pi.pageSize
+        i = (self._pagingInfo.currentPage - 1) * self._pagingInfo.pageSize
+        row = (row + i) if self._pagingInfo.pageSize > 1 else i
+
         if role == widgets.DATA_ROLE:
             return self._model.getData(row, col)
 
