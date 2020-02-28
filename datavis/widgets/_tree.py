@@ -386,9 +386,12 @@ class FileModelView(TreeModelView):
             parent = self.currentIndex().parent()
             rootIndex = self.rootIndex()
             index = self.currentIndex()
-            isDirMode = self._mode == TreeModelView.DIR_MODE
-            if index == rootIndex or parent == rootIndex or isDirMode:
-                self.selectPath(self._model.filePath(parent))
+
+            if self._mode == TreeModelView.DIR_MODE:
+                self.setRootIndex(rootIndex.parent())
+            elif index == rootIndex or parent == rootIndex:
+                self.setRootIndex(rootIndex.parent())
+                self.selectPath(self._model.filePath(rootIndex))
             else:
                 self.expandTree(self._model.filePath(parent))
                 self.setCurrentIndex(parent)
@@ -548,7 +551,11 @@ class FileBrowser(Browser):
             index = self._treeModelView.model().index(path)
             # FIXME[hv] self._completer.currentIndex() could be sufficient
             if index.isValid():
-                self._treeModelView.selectIndex(index)
+                if self._treeModelView.model().isDir(index):
+                    self._treeModelView.setRootIndex(index)
+                    self._treeModelView.setCurrentIndex(index)
+                else:
+                    self._treeModelView.selectIndex(index)
                 self.sigIndexChanged.emit(index)
 
     def _onSelectionChanged(self, selected, deselected):
