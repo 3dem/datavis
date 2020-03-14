@@ -87,7 +87,47 @@ class Micrograph:
         return self._path
 
 
-class PickerModel(TableModel):
+class ModelEvent:
+    """ Base class for all model events. Model Events  contain
+    Result objects that notify about internal changes.
+    """
+    def __init__(self, source, **kwargs):
+        """ Constructor for ModelEvent objects.
+
+        Args:
+             source: the source of the event
+             kwargs: the event arguments
+        """
+        self.source = source
+        for k in kwargs.keys():
+            setattr(self, k, kwargs[k])
+
+
+class Observable:
+    """ The Observable class is the base class to implement the 'Observer'
+    pattern """
+
+    def __init__(self):
+        self._observers = []
+
+    def registerObserver(self, observer):
+        """ Append a new observer to the current observers list. An observer can
+        be a callable object that receives a ModelEvent object"""
+
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def notifyEvent(self, **kwargs):
+        """ Notify all previously registered observers about an event.
+
+         Args: all event arguments."""
+
+        ev = ModelEvent(self, **kwargs)
+        for obs in self._observers:
+            obs(ev)
+
+
+class PickerModel(TableModel, Observable):
     """ Handles information about Coordinates and Micrographs.
 
     The PickerModel class contains a set of micrographs, where each
@@ -105,7 +145,7 @@ class PickerModel(TableModel):
         def __init__(self,
                      currentMicChanged=False,
                      currentCoordsChanged=False,
-                     tableModelChanged=False):
+                     tableModelChanged=False, **kwargs):
             """ Create a new instance with the provided values.
 
             This class is used as the return of many methods from the
@@ -122,8 +162,11 @@ class PickerModel(TableModel):
             self.currentMicChanged = currentMicChanged
             self.currentCoordsChanged = currentCoordsChanged
             self.tableModelChanged = tableModelChanged
+            for k in kwargs.keys():
+                setattr(self, k, kwargs[k])
 
     def __init__(self, boxSize=64):
+        Observable.__init__(self)
         # Allow access to micrographs both by id and by index
         self._micList = []
         self._micDict = {}
@@ -171,6 +214,14 @@ class PickerModel(TableModel):
         self._labels["Default"] = default
         self._labels["D"] = default
 
+    def addListener(self, listener):
+        """
+        Add a listener to the listeners list to be notified about future events
+
+        Args:
+            listener:
+        :return:
+        """
     def getMicrograph(self, micId):
         """ Returns the micrograph with the given ID. """
         return self._micDict[micId]
@@ -258,7 +309,6 @@ class PickerModel(TableModel):
             Example: '#552200FF', QColor(r=3, g=56, b=200, a=128)
         """
         return '#552200FF'
-
 
     def getParams(self):
         """ Return a :class:`Form <datavis.models.Form>`

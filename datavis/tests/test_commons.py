@@ -207,15 +207,15 @@ class SimplePickerModel(dv.models.PickerModel):
         """ Return a Micrograph object with random pick coordinates """
         w, h = self._imageSize
 
-        def _randomCoord():
-            y, x = randrange(0, h), randrange(0, w)
+        return [self._randomCoord(w, h) for _ in range(n)]
 
-            kwargs = {
-                'x2': randrange(0, w),
-                'y2': randrange(0, h)} if self._filament else {}
-            return dv.models.Coordinate(x, y, score=uniform(0, 1), **kwargs)
+    def _randomCoord(self, w, h):
+        y, x = randrange(0, h), randrange(0, w)
 
-        return [_randomCoord() for _ in range(n)]
+        kwargs = {
+            'x2': randrange(0, w),
+            'y2': randrange(0, h)} if self._filament else {}
+        return dv.models.Coordinate(x, y, score=uniform(0, 1), **kwargs)
 
     def createCoordinate(self, x, y, label, **kwargs):
         if 'score' not in kwargs:
