@@ -1,72 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import threading
 import datavis as dv
 from datavis.models import ColumnConfig, TYPE_STRING, TYPE_INT
-
-import threading
-
-import PyQt5.QtGui as qtg
-import PyQt5.QtCore as qtc
-
-
-class CoordLoader(threading.Thread):
-    """ The CoordLoader class provides a simple way to load coordinates for a
-    Micrograph stack.
-    """
-    def __init__(self, model):
-        threading.Thread.__init__(self)
-        self._model = model
-        self._maxCount = 200  # maximum coordinates count (only for test)
-        self._coordBlock = 3  # coordinates block (only for test)
-        self._waitTime = 1  # wait time for the next load in seconds
-        self._stack = []
-        self._currentMic = -1
-        self._condition = threading.Condition()
-        self._stopEvent = threading.Event()
-
-    def _loadCoordinates(self):
-        w, h = self._model.getImageInfo(self._currentMic)['dim']
-        self._condition.wait(self._waitTime)
-        return [self._model._randomCoord(w, h) for i in range(self._coordBlock)]
-
-    def addMicrograph(self, micId):
-        """ Append new micrograph to the micrograph stack """
-        if self.is_alive():
-            with self._condition:
-                self._stack.append(micId)
-                self._condition.notify()
-
-    def run(self):
-        Result = dv.models.PickerModel.Result
-        with self._condition:
-            while not self._stopEvent.is_set():
-                if not self._stack:
-                    print('ok Loader is waiting for micrograph...')
-                    self._condition.wait()
-
-                if self._stack:
-                    micId = self._stack.pop()
-                    self._currentMic = self._model.getMicrograph(micId)
-                    cont = True
-                    while cont and len(self._currentMic) < self._maxCount:
-                        self._stack.append(micId)
-                        coords = self._loadCoordinates()
-                        self._model.addCoordinates(micId, coords)
-                        self._model.notifyEvent(
-                            info=Result(micId=micId, coordsAdded=True,
-                                        coords=coords))
-                        print('mic len= %d' % len(self._currentMic))
-
-                        micId = self._stack.pop()
-                        if not micId == self._currentMic.getId():
-                            cont = False
-                            self._stack.append(micId)
-                        else:
-                            cont = not self._stopEvent.is_set()
-
-    def stop(self):
-        self._stopEvent.set()
 
 
 class MyPickerModel(dv.tests.SimplePickerModel):
@@ -76,19 +13,28 @@ class MyPickerModel(dv.tests.SimplePickerModel):
         # Modify 'Auto' label to set red color
         self._labels['A'] = self._labels['A']._replace(color='#FF0000')
         self._showBelow = True
-        self._coordLoader = CoordLoader(self)
-        self._coordLoader.start()
+        for mic in self:
+            self.beginReadCoordinates(mic.getId())
 
-    def __del__(self):
-        self._coordLoader.stop()
+        def newMicrograph():
+            mic = dv.models.Micrograph()
+            self.addMicrograph(mic)
+            self.beginReadCoordinates(mic.getId())
+
+        for i in range(25):
+            t = threading.Timer(function=newMicrograph, interval=i)
+            t.setDaemon(True)
+            t.start()
 
     def __coordsBelow(self, micId):
         return len([c for c in self._getCoordsList(micId)
                     if c.score < self._scoreThreshold])
 
-    def beginLoadCoordinates(self, micId):
-        """ Append the given micrograph id to the loader. """
-        self._coordLoader.addMicrograph(micId)
+    def readCoordinates(self, micId):
+        w, h = self.getImageInfo(micId)['dim']
+        #  only 200 coordinates
+        return [self._randomCoord(w, h) for i in
+                range(200 - len(self.getMicrograph(micId)))]
 
     def getParams(self):
         Param = dv.models.Param
@@ -169,59 +115,6 @@ class MyPickerModel(dv.tests.SimplePickerModel):
             raise Exception("Invalid column value '%s'" % col)
 
 
-class PickerEvent(qtc.QEvent):
-    def __init__(self, type, info):
-        qtc.QEvent.__init__(self, type)
-        self.info = info
-
-
-class MyPickerView(dv.views.PickerView):
-    def __init__(self, model, **kwargs):
-        dv.views.PickerView.__init__(self, model, **kwargs)
-        model.registerObserver(self._handleModelEvents)
-        self._cvImages.sigCurrentRowChanged.connect(self._onCurrentRowChanged)
-        self.installEventFilter(self)
-
-    def _onCurrentRowChanged(self, row):
-        mic = self._model.getMicrographByIndex(row)
-        if mic is not None and mic == self._currentMic:
-            print('beginLoadCoordinates')
-            self._model.beginLoadCoordinates(mic.getId())
-        print('_onCurrentRowChanged exit')
-
-    def _handleModelEvents(self, event):
-        """ Refresh different components depending on the model event """
-        print('Processing event: micId= %s' % event.info.micId)
-        qtg.QApplication.postEvent(self, PickerEvent(qtc.QEvent.User,
-                                                     event.info))
-        print('New PickerEvent was sent to event queue')
-
-    def _handleGUIEvent(self, result):
-
-        micId = result.micId
-        print('_handleGUIEvent: ', micId)
-
-        if result.tableModelChanged:
-            self._cvImages.updatePage()
-
-        if result.currentMicChanged:
-            self._showMicrograph()  # This already update coordiantes
-
-        elif result.coordsAdded:
-            self._cvImages.updatePage()
-            if (self._currentMic is not None and
-                    self._currentMic.getId() == micId):
-                self._createRoiHandlers(coords=result.coords, clear=False)
-
-    def eventFilter(self, obj, event):
-        if event.type() == qtc.QEvent.User:
-            self._handleGUIEvent(event.info)
-            return True
-        else:
-            #  standard event processing
-            return dv.views.PickerView.eventFilter(self, obj, event)
-
-
 class TestPickerViewEvents(dv.tests.TestView):
     __title = "TestPickerViewEvents Example"
 
@@ -242,8 +135,7 @@ class TestPickerViewEvents(dv.tests.TestView):
         kwargs['roiCentered'] = True
 
         model = MyPickerModel((512, 512), 10, 64, 150, False)
-        print('============= ok.. creating the pickerview ==================')
-        return MyPickerView(model, **kwargs)
+        return dv.views.PickerView(model, **kwargs)
 
     def test_PickingViewDefault(self):
         print('test_PickingViewMask')

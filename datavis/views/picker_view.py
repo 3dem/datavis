@@ -31,6 +31,18 @@ DEFAULT_MODE = 0
 FILAMENT_MODE = 1
 
 
+class PickerViewEvent(qtc.QEvent):
+
+    MODEL_EVENT = qtc.QEvent.User + 2
+
+    def __init__(self, info):
+        qtc.QEvent.__init__(self, PickerViewEvent.MODEL_EVENT)
+        self.info = info
+
+    def type(self):
+        return PickerViewEvent.MODEL_EVENT
+
+
 class PickerView(qtw.QWidget):
     """ The PickerView widget provides functionality for displaying picking
     operations provided by a PickerModel. Additionally, operations can be
@@ -104,6 +116,8 @@ class PickerView(qtw.QWidget):
         self._validateReadOnlyWidgets()
         w, h = self.getPreferredSize()
         self.setGeometry(0, 0, w, h)
+        self.installEventFilter(self)
+        self._model.registerObserver(self._handleModelEvents)
 
     def __setupGUI(self, **kwargs):
         """ Create the main GUI of the PickerView.
@@ -602,11 +616,7 @@ class PickerView(qtw.QWidget):
             # Create coordinate with event click coordinates and add it
             coordList = [self._model.createCoordinate(
                 x, y, label=self.__currentLabelName, **kwargs)]
-            self._createRoiHandlers(coords=coordList, clear=False)
-            result = self._model.addCoordinates(self._currentMic.getId(),
-                                                coordList)
-            result.tableModelChanged = True
-            self.__handleModelResult(result)
+            self._model.addCoordinates(self._currentMic.getId(), coordList)
 
         if self.__pickerMode == DEFAULT_MODE:
             _addCoord(x, y)
@@ -719,6 +729,10 @@ class PickerView(qtw.QWidget):
                 scene.mousePressEvent = __mousePressEvent
                 scene.mouseReleaseEvent = __mouseReleaseEvent
 
+    def _handleModelEvents(self, event):
+        """ Send a new PickerViewEvent to the Application event queue """
+        qtg.QApplication.postEvent(self, PickerViewEvent(event.info))
+
     @qtc.pyqtSlot(object)
     def viewBoxMouseMoved(self, pos):
         """
@@ -779,10 +793,19 @@ class PickerView(qtw.QWidget):
             self._cvImages.updatePage()
 
         if result.currentMicChanged:
-            self._showMicrograph()  # This already update coordiantes
+            self._showMicrograph()  # This already update coordinates
 
         elif result.currentCoordsChanged:
             self._updateROIs(clear=True)
+
+        elif getattr(result, 'coordsAdded', False):
+            self._cvImages.updatePage()
+            if (self._currentMic is not None and
+                    self._currentMic.getId() == result.micId):
+                self._createRoiHandlers(coords=result.coords, clear=False)
+
+        elif getattr(result, 'micrographAdded', False):
+            self._cvImages.newRowsAdded()
 
     def __onPickShapeChanged(self, newShape):
         """ Update the current selected shape type """
@@ -836,6 +859,8 @@ class PickerView(qtw.QWidget):
                 self._currentImageDim = None
                 result = self._model.selectMicrograph(mic.getId())
                 self.__handleModelResult(result)
+                self._model.beginReadCoordinates(mic.getId())
+
         except RuntimeError as ex:
             self._showError(ex.message)
 
@@ -955,6 +980,14 @@ class PickerView(qtw.QWidget):
 
     def getToolBar(self):
         return self._imageView.getToolBar()
+
+    def eventFilter(self, obj, event):
+        if event.type() == PickerViewEvent.MODEL_EVENT:
+            self.__handleModelResult(event.info)
+            return True
+        else:
+            #  standard event processing
+            return qtw.QWidget.eventFilter(self, obj, event)
 
 
 def isFilament(coord):

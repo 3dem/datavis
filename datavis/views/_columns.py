@@ -123,6 +123,7 @@ class ColumnsView(PagingView):
         """ Updates the PageBar paging settings """
         rows = self.__calcPageSize()
         if not rows == self._pagingInfo.pageSize:
+            self._pagingInfo.setNumberOfItems(self._model.getRowsCount())
             self._pagingInfo.setPageSize(rows)
             self._pagingInfo.setCurrentPage(
                 self._pagingInfo.getPage(self._currentRow) + 1)
@@ -139,11 +140,17 @@ class ColumnsView(PagingView):
                 delegate = self._delegate
             self._tableView.setItemDelegateForColumn(i, delegate)
 
-    def __updatePagingInfo(self):
-        """ Updates the paging information according to the model rows count """
+    def __updatePagingInfo(self, resetCurrentPage=True):
+        """ Updates the paging information according to the model rows count.
+
+         Args:
+             resetCurrentPage: If True then then the current page will be set to
+                               the first page.
+         """
         self._pagingInfo.numberOfItems = self._model.getRowsCount()
         self._pagingInfo.setPageSize(self.__calcPageSize())
-        self._pagingInfo.currentPage = 1
+        if resetCurrentPage:
+            self._pagingInfo.currentPage = 1
 
     def __updateSelectionInView(self, page):
         """ Makes the current selection in internal widget used to display the
@@ -289,6 +296,7 @@ class ColumnsView(PagingView):
         """ Slot for model data changed notification. Informs about external
         changes to the data model. Updates the view.
         """
+        currentRow = self._currentRow
         self.__updatePagingInfo()
         self._pageBar.setPagingInfo(self._pagingInfo)
 
@@ -299,6 +307,16 @@ class ColumnsView(PagingView):
         s = self._tableView.verticalHeader().defaultSectionSize()
         self._pageItemModel.setIconSize(qtc.QSize(s, s))
         self.setupColumnsWidth()
+        self.selectRow(currentRow)
+
+    @qtc.pyqtSlot()
+    def newRowsAdded(self):
+        """ Slot for new rows added to the model. Notify the view about rows
+        added in the model """
+        self.__updatePagingInfo(False)
+        self._pageBar.updateWidgets()
+        if self._pagingInfo.isLastPage():
+            self.updatePage()
 
     def setupVisibleColumns(self):
         """

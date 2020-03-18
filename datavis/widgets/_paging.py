@@ -44,6 +44,12 @@ class PagingInfo:
         self.currentPage = value
         return True
 
+    def setNumberOfItems(self, n):
+        """ Sets the number of items. Changing the number of items implies
+        changing the number of pages and the current page """
+        self.numberOfItems = n
+        self.setPageSize(self.pageSize)
+
     def setPageSize(self, pageSize):
         """
         Sets the page size. Changing the page size implies changing
@@ -216,7 +222,16 @@ class PageBar(qtw.QWidget):
     def setPagingInfo(self, pagingInfo, step=1):
         """ Setups the paging params """
         self._pagingInfo = pagingInfo
-        self._spinBox.setRange(1, pagingInfo.numberOfPages)
+        self._spinBox.setRange(1, self._pagingInfo.numberOfPages)
         self._spinBox.setSingleStep(step)
         self._label.setText(" of %d" % self._pagingInfo.numberOfPages)
         self._updateCurrentPage()
+
+    def updateWidgets(self):
+        """ Updates all internal widgets """
+        self._spinBox.setRange(1, self._pagingInfo.numberOfPages)
+        self._label.setText(" of %d" % self._pagingInfo.numberOfPages)
+        value = self._pagingInfo.currentPage
+        self._spinBox.setValue(value)
+        self._btnPagePrev.setEnabled(value != 1)
+        self._btnPageNext.setEnabled(not self._pagingInfo.isLastPage())

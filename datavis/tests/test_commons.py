@@ -198,7 +198,7 @@ class SimplePickerModel(dv.models.PickerModel):
         self._filament = filament
         self._cache = {}
         for i in range(size):
-            mic = dv.models.Micrograph(micId=i+1, path='Micrograph %d' % (i+1))
+            mic = dv.models.Micrograph(path='Micrograph %d' % (i+1))
             self.addMicrograph(mic)
             self.pickRandomly(mic.getId())
         self.setBoxSize(boxSize)
