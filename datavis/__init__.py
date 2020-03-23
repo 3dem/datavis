@@ -1,5 +1,5 @@
 
-__version__ = '0.0.5.post01'
+__version__ = '0.0.5'
 
 from . import models
 from . import widgets
