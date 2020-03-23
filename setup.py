@@ -32,11 +32,16 @@ https://github.com/pypa/sampleproject
 
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
-# To use a consistent encoding
-from codecs import open
+from codecs import open  # To use a consistent encoding
 from os import path
 
+
 here = path.abspath(path.dirname(__file__))
+
+with open(path.join(here, 'datavis', '__init__.py'), encoding='utf-8') as f:
+    for line in f:
+        if '__version__' in line:
+            version = line.split("'")[1].strip()
 
 # Get the long description from the README file
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
@@ -65,7 +70,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.4',  # Required
+    version=version,  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -144,9 +149,9 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['QtPy', 'QtAwesome', 'pyqtgraph', 'PyQt5',
-                      'numpy', 'matplotlib',
-                      'Pillow'],  # Optional
+
+    install_requires=['emcore', 'qtawesome', 'pyqtgraph', 'PyQt5',
+                      'numpy', 'matplotlib', 'Pillow'],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
@@ -159,7 +164,9 @@ setup(
     #extras_require={  # Optional
     #    'dev': ['check-manifest'],
     #    'test': ['coverage'],
-    #},
+    #}
+
+    python_requires='>=3.5',
 
     # If there are data files included in your packages that need to be
     # installed, specify them here.
