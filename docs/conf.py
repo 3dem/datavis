@@ -18,6 +18,7 @@ import sphinx_rtd_theme
 here = os.path.abspath('.')
 sys.path.insert(0, os.path.join(here, '..'))
 
+import datavis as dv
 
 # -- Project information -----------------------------------------------------
 
@@ -26,8 +27,8 @@ copyright = '2019, J.M. de la Rosa Trevin'
 author = 'J.M. de la Rosa Trevin'
 
 # The full version, including alpha/beta/rc tags
-version = '0.0.4'
-release = '0.0.4'
+version = dv.__version__
+release = dv.__version__
 
 
 # -- General configuration ---------------------------------------------------
