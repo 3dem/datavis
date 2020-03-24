@@ -165,12 +165,14 @@ class GalleryView(PagingView):
                 for row in range(page * pageSize, (page + 1) * pageSize):
                     if row in self._selection:
                         sel.append(
-                            qtc.QItemSelectionRange(m.index(row % pageSize, 0),
-                                                m.index(row % pageSize,
-                                                        m.columnCount() - 1)))
+                            qtc.QItemSelectionRange(
+                                m.index(row % pageSize, 0),
+                                m.index(row % pageSize,
+                                        m.columnCount() - 1)))
                 allSel = qtc.QItemSelection(m.index(0, 0),
-                                        m.index(pageSize - 1,
-                                                m.columnCount() - 1))
+                                            m.index(pageSize - 1,
+                                                    m.columnCount() - 1))
+
                 selModel.select(allSel, qtc.QItemSelectionModel.Deselect)
                 if not sel.isEmpty():
                     selModel.select(sel, qtc.QItemSelectionModel.Select)

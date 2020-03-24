@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from random import randrange
 
 import datavis as dv
 from datavis.models import ColumnConfig, TYPE_STRING, TYPE_INT
@@ -120,8 +119,11 @@ class MyPickerModel(dv.tests.SimplePickerModel):
         return self._maskCache[micId]
 
 
-class TestPickerView(dv.tests.TestView):
-    __title = "PickerView Example"
+class TestPickerViewMask(dv.tests.TestView):
+    __title = "PickerViewMask Example"
+
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def getDataPaths(self):
         return ['']
@@ -139,6 +141,9 @@ class TestPickerView(dv.tests.TestView):
         model = MyPickerModel((512, 1024), 10, 64, 150, False)
         return dv.views.PickerView(model, **kwargs)
 
+    def test_PickingViewMask(self):
+        print('test_PickingViewMask')
+
 
 if __name__ == '__main__':
-    TestPickerView().runApp()
+    TestPickerViewMask().runApp()

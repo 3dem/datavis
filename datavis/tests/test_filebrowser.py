@@ -11,14 +11,18 @@ import datavis as dv
 class TestFileBrowser(dv.tests.TestView):
     __title = "File Browser Example"
 
-    def __init__(self, **kwargs):
+    def __init__(self, methodName='runTest', **kwargs):
         self._kwargs = kwargs
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def getDataPaths(self):
         return [qtc.QDir.homePath()]
 
     def createView(self):
         return dv.widgets.FileBrowser(**self._kwargs)
+
+    def test_FileBrowser(self):
+        print('test_FileBrowser')
 
 
 if __name__ == '__main__':

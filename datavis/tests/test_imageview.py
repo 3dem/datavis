@@ -10,8 +10,8 @@ import datavis as dv
 class TestImageView(dv.tests.TestView):
     __title = "ImageView example"
 
-    def getDataPaths(self):
-        return [" "]
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def createView(self):
         imageView = dv.views.ImageView(parent=None, border_color='#FFAA33')
@@ -26,6 +26,9 @@ class TestImageView(dv.tests.TestView):
                 "</html>" % (dim_x, dim_y))
         imageView.setImageInfo(text=desc)
         return imageView
+
+    def test_ImageView(self):
+        print('test_ImageView')
 
 
 if __name__ == '__main__':

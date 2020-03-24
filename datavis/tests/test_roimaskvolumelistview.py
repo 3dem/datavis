@@ -9,8 +9,9 @@ import datavis as dv
 class TestRoiMaskVolumeListView(dv.tests.TestView):
     __title = "RoiMaskVolumeListView example"
 
-    def __init__(self, singleAxis):
+    def __init__(self, methodName='runTest', singleAxis=False):
         self._mode = dv.models.AXIS_Z if singleAxis else dv.models.AXIS_XYZ
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def getDataPaths(self):
         return ['']
@@ -37,6 +38,9 @@ class TestRoiMaskVolumeListView(dv.tests.TestView):
                                        slicesKwargs=slicesKwargs,
                                        slicesMode=self._mode)
 
+    def test_RoiMaskVolumeListView(self):
+        print('test_RoiMaskVolumeListView')
+
 
 if __name__ == '__main__':
     if 'single' in sys.argv:
@@ -45,4 +49,4 @@ if __name__ == '__main__':
         print("TIP: Use 'single' argument to show a single axis. ")
         singleAxis = False
 
-    TestRoiMaskVolumeListView(singleAxis).runApp()
+    TestRoiMaskVolumeListView(singleAxis=singleAxis).runApp()

@@ -10,6 +10,9 @@ import datavis as dv
 class TestMultiSliceView(dv.tests.TestView):
     __title = "MultiSliceView example"
 
+    def __init__(self, methodName='runTest'):
+        dv.tests.TestView.__init__(self, methodName=methodName)
+
     def getDataPaths(self):
         return ['']
 
@@ -22,6 +25,9 @@ class TestMultiSliceView(dv.tests.TestView):
                    for axis in [dv.models.AXIS_X, dv.models.AXIS_Y,
                                 dv.models.AXIS_Z]})
         return msv
+
+    def test_MultiSliceView(self):
+        print('test_MultiSliceView')
 
 
 if __name__ == '__main__':

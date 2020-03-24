@@ -119,12 +119,14 @@ class MyPickerModel(dv.models.PickerCmpModel):
 class TestPickerCmpView(dv.tests.TestView):
     __title = "PickerView Comparator Example"
 
-    def __init__(self, dim=(1512, 512), size=5, box=64, picks=80, radius=64):
+    def __init__(self, methodName='runTest', dim=(1512, 512), size=5, box=64,
+                 picks=80, radius=64):
         self._w, self._h = dim
         self._box = box
         self._radius = radius
         self._picks = picks
         self._size = size
+        dv.tests.TestView.__init__(self, methodName=methodName)
 
     def getDataPaths(self):
         return ['']
@@ -148,9 +150,12 @@ class TestPickerCmpView(dv.tests.TestView):
                                                       boxSize, self._picks)
 
         model = MyPickerModel(model1, model2, boxSize=self._box,
-                                  radius=self._radius)
+                              radius=self._radius)
 
         return dv.views.PickerView(model, **kwargs)
+
+    def testPickingViewCmp(self):
+        print('testPickingViewCmp')
 
 
 if __name__ == '__main__':
@@ -174,7 +179,6 @@ if __name__ == '__main__':
 
     args = argParser.parse_args()
 
-    TestPickerCmpView((args.width, args.height), args.images, args.box,
-                      args.picks, args.radius).runApp()
-
-TestPickerCmpView((512, 512), 1, 64, 80, 64).runApp()
+    TestPickerCmpView(dim=(args.width, args.height), size=args.images,
+                      box=args.box, picks=args.picks,
+                      radius=args.radius).runApp()
