@@ -336,9 +336,8 @@ class PickerView(qtw.QWidget):
         """ Invoked when a picker-param value is changed """
         micId = self._currentMic.getId()
         self.sigPickerParamChanged.emit(micId, paramName, value)
-        result = self._model.changeParam(micId, paramName, value,
-                                         self.__formWidget.getParamValues)
-        self.__handleModelResult(result)
+        self._model.onParamChanged(micId, paramName,
+                                   self.__formWidget.getParamValues())
 
     def __addControlsAction(self, toolbar):
         """
@@ -514,11 +513,9 @@ class PickerView(qtw.QWidget):
     def __removeCoordinates(self, roiList):
         """ Remove all coordinates contained in the given roi list """
 
-        result = self._model.removeCoordinates(
-            self._currentMic.getId(), [roi.coordinate for roi in roiList])
-        result.tableModelChanged = True
+        self._model.removeCoordinates(self._currentMic.getId(),
+                                      [roi.coordinate for roi in roiList])
         self._destroyRoiHandlers([roi.parent for roi in roiList])
-        self.__handleModelResult(result)
 
     def __createColumsViewModel(self):
         """ Setup the micrograph ColumnsView """
@@ -785,26 +782,28 @@ class PickerView(qtw.QWidget):
                     self.__updateFilemantText(-angle, d.x(), self.__segPos)
                     self.__eraseROIText.setVisible(True)
 
-    def __handleModelResult(self, result):
+    def __handleModelEventInfo(self, info):
         """ Refresh different components depending on the result
         from the action of the model.
         """
-        if result.tableModelChanged:
+        if info.get('tableModelChanged', False):
             self._cvImages.updatePage()
 
-        if result.currentMicChanged:
+        if info.get('currentMicChanged', False):
             self._showMicrograph()  # This already update coordinates
 
-        elif result.currentCoordsChanged:
+        elif info.get('currentCoordsChanged', False):
             self._updateROIs(clear=True)
 
-        elif getattr(result, 'coordsAdded', False):
+        elif info.get('coordsAdded', False):
             self._cvImages.updatePage()
-            if (self._currentMic is not None and
-                    self._currentMic.getId() == result.micId):
-                self._createRoiHandlers(coords=result.coords, clear=False)
+            if (self._currentMic is not None
+                    and info.get('micId', -1) == self._currentMic.getId()):
+                coords = info.get('coords', [])
+                if coords:
+                    self._createRoiHandlers(coords=coords, clear=False)
 
-        elif getattr(result, 'micrographAdded', False):
+        elif info.get('micrographAdded', False):
             self._cvImages.newRowsAdded()
 
     def __onPickShapeChanged(self, newShape):
@@ -857,8 +856,8 @@ class PickerView(qtw.QWidget):
             if mic != self._currentMic:
                 self._currentMic = mic
                 self._currentImageDim = None
-                result = self._model.selectMicrograph(mic.getId())
-                self.__handleModelResult(result)
+                # FIXME [hv] self._model.selectMicrograph(mic.getId())
+                self._showMicrograph()
                 self._model.beginReadCoordinates(mic.getId())
 
         except RuntimeError as ex:
@@ -983,7 +982,7 @@ class PickerView(qtw.QWidget):
 
     def eventFilter(self, obj, event):
         if event.type() == PickerViewEvent.MODEL_EVENT:
-            self.__handleModelResult(event.info)
+            self.__handleModelEventInfo(event.info)
             return True
         else:
             #  standard event processing

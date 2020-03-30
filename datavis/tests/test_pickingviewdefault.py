@@ -38,23 +38,27 @@ class MyPickerModel(dv.tests.SimplePickerModel):
             clear
         ])
 
-    def changeParam(self, micId, paramName, paramValue, getValuesFunc):
+    def onParamChanged(self, micId, paramName, paramValues):
         # Most cases here will modify the current coordinates
-        r = self.Result(currentCoordsChanged=True, tableModelChanged=True)
+        d = {'micId': micId,
+             'currentCoordsChanged': True,
+             'tableModelChanged': True}
+        n = True
 
         if paramName in ['pick', 'n']:
-            values = getValuesFunc()
-            self.pickRandomly(micId, n=values['n'])
+            self.pickRandomly(micId, n=paramValues['n'])
         elif paramName == 'scoreThreshold':
-            self._scoreThreshold = getValuesFunc()['scoreThreshold']
+            self._scoreThreshold = paramValues['scoreThreshold']
         elif paramName == 'clear':
             self.clearMicrograph(micId)
         elif paramName == 'showBelow':
-            self._showBelow = getValuesFunc()['showBelow']
+            self._showBelow = paramValues['showBelow']
         else:
-            r = self.Result()  # No modification
+            n = False  # No modification
 
-        return r
+        if n:
+            self.notifyEvent(type=dv.models.PICK_EVT_DATA_CHANGED,
+                             info=d)
 
     def iterCoordinates(self, micId):
         # Re-implement this to show only these above the threshold

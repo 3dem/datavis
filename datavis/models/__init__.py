@@ -6,5 +6,5 @@ from ._image_models import (ImageModel, SlicesModel, VolumeModel,
 from ._table_models import (TableModel, SlicesTableModel, ColumnInfo, ListModel,
                             TableConfig, ColumnConfig, EmptyTableModel,
                             SimpleTableModel)
-from ._picking import (Micrograph, Coordinate, PickerModel, PickerCmpModel,
+from ._picking import (Micrograph, Coordinate, PickerModel,
                        parseTextCoordinates)

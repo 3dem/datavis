@@ -40,3 +40,5 @@ PARAM_DISPLAY_VLIST = 'vlist'
 # Valid for int or float with range
 PARAM_DISPLAY_SLIDER = 'slider'
 
+# Picker event types
+PICK_EVT_DATA_CHANGED = 1000
