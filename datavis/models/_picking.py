@@ -127,7 +127,8 @@ class CoordLoader(threading.Thread):
                     micId = self._stack.pop()
                     self._currentMic = self._model.getMicrograph(micId)
                     coords = self._model.readCoordinates(micId)
-                    self._model.addCoordinates(micId, coords)
+                    if coords:
+                        self._model.addCoordinates(micId, coords)
 
     def stop(self):
         self._stopEvent.set()

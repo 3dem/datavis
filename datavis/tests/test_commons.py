@@ -9,8 +9,6 @@ from random import randrange, uniform
 import pyqtgraph as pg
 
 import PyQt5.QtWidgets as qtw
-import PyQt5.QtTest as qtt
-import PyQt5.QtCore as qtc
 
 import datavis as dv
 

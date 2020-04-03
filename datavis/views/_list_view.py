@@ -242,7 +242,7 @@ class DualImageListView(ImageListView):
                 self._method()
             else:
                 if self._formWidget is not None:
-                    self._paramsForm = self._formWidget.getParams()
+                    self._paramsForm = self._formWidget.getParamValues()
                 self._method(self._paramsForm)
 
     def _createTopRightPanel(self, **kwargs):
