@@ -14,14 +14,18 @@ def run_functional_tests(pattern=None):
     runner = unittest.TextTestRunner()
     runner.run(tests)
 
-
-if __name__ == "__main__":
+def main():
     print("""
-    TIP: Use a pattern to specify the test names or nothing for everyone.
-    Example: test_imagev*
-    """)
+        TIP: Use a pattern to specify the test names or nothing for everyone.
+        Example: test_imagev*
+        """)
 
     if len(sys.argv) == 1:
         run_functional_tests()
     else:
         run_functional_tests(pattern=sys.argv[1])
+
+if __name__ == "__main__":
+    main()
+
+main()

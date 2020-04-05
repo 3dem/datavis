@@ -8,26 +8,35 @@ import numpy as np
 class TestImageModels(dv.tests.TestBase):
 
     def test_ImageModel(self):
-        print('test_ImageModel')
         imgModel = dv.models.ImageModel()  # Empty ImageModel
-        # Data and dimensions should be None
-        self.assertIsNone(imgModel.getData())
-        self.assertIsNone(imgModel.getDim())
 
-        # self.assertEqual(imageModel.getDim(), (9216, 9441))
-        # self.assertAlmostEqual(minValue, 0.0)
-        # self.assertAlmostEqual(maxValue, 255.0)
-        # self.assertIsNotNone(imageModel.getData())
+        self.assertIsNone(imgModel.getData(), 'Data should be None')
+        self.assertIsNone(imgModel.getDim(), 'Dim should be None')
 
-        data = np.ones((100, 200))
-        imgModel.setData(data)
+        data = np.ones((100, 100))
+        imgModel = dv.models.ImageModel(data)
+        self.assertEqual(imgModel.getDim(), (100, 100),
+                         'Dimensions should be (100,100)')
+        self.assertIsNotNone(imgModel.getData(), 'Data should not be None')
+        self.assertEqual(imgModel.getMinMax(), (1, 1),
+                         'min,max should be (1,1)')
 
-        # Data should not be None, neither dimensions
-        self.assertIsNotNone(imgModel.getData())
-        self.assertEqual(imgModel.getDim(), (200, 100))
-        self.assertEqual(imgModel.getMinMax(), (1, 1))
-
+        print('test_ImageModel: OK')
         return
+
+    def test_SlicesModel(self):
+        s = 5, 1, 1  # 5 slices of dim=(1,1)
+        data = np.arange(5)
+        data = data.reshape(s)
+
+        sm = dv.models.SlicesModel(data)
+        self.assertEqual(sm.getDim(), (1, 1, 5),
+                         'Dimensions should be (x=1, y=1, z=5)')
+        for i in range(s[0]):
+            self.assertEqual(sm.getData(i)[0][0], i,
+                             'Data value should be %d' % i)
+
+        print('test_SlicesModel: OK')
 
     # def test_VolumeModel(self):
     #     volName = self.getDataPaths()[2]

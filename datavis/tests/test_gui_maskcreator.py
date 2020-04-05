@@ -61,4 +61,5 @@ if __name__ == '__main__':
         'operation': dv.views.REMOVE if args.data == 1 else dv.views.ADD,
         'penSize': args.pen
     }
+
     TestMaskCreator(maskParams=maskParams).runApp(argv=[str(args.data)])
