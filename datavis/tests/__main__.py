@@ -3,46 +3,10 @@ import sys
 import argparse
 import textwrap
 
-
-class TestArgsDict(dict):
-    def __init__(self):
-        dict.__init__(self, [('gui', False), ('name', '*')])
-
-TRUE_VALUES = ['on', '1', 'yes', 'true']
-FALSE_VALUES = ['off', '0', 'no', 'false']
+import datavis as dv
 
 
-class ArgDictAction(argparse.Action):
-    """ Subclass of Action to implement special dict-like params
-    with key=value pairs, usually with on/off boolean values.
-    Example:
-        --args boxsize=50 histogram=off
-    """
-    def __init__(self, option_strings, dest, argsDictClass=None, nargs=None,
-                 **kwargs):
-        if nargs != '+':
-            raise Exception("Only nargs='+' are supported for ArgDictAction.")
-
-        argparse.Action.__init__(self, option_strings, dest, nargs, **kwargs)
-        self._argsDictClass = argsDictClass
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        def _getValue(value):
-            v = value.lower()
-            if v in TRUE_VALUES:
-                return True
-            if v in FALSE_VALUES:
-                return False
-            return value  # just original string value
-
-        argDict = self._argsDictClass()
-        for pair in values:
-            key, value = pair.split("=")
-            argDict[key] = _getValue(value)
-        setattr(namespace, self.dest, argDict)
-
-
-def main(argv=None):
+def main2(argv=None):
     argv = argv or sys.argv[1:]
 
     argParser = argparse.ArgumentParser(
@@ -53,25 +17,43 @@ def main(argv=None):
         formatter_class=argparse.RawTextHelpFormatter)
 
     argParser.add_argument(
-        '--args', nargs='+', action=ArgDictAction,
-        default=TestArgsDict(),
-        argsDictClass=TestArgsDict,
+        '--type',
+        default='cls',
+        type=str,
+        choices=['cls', 'gui'],
         help=textwrap.dedent("""
-            Arguments to be passed to the tests. 
+            Tests type. Choices:  cls, gui
             """))
 
     argParser.add_argument(
-        '--name', nargs='+', action=ArgDictAction,
+        '--pattern',
         default='*',
-        argsDictClass=TestArgsDict,
+        type=str,
         help=textwrap.dedent("""
-                Pattern to specify the test names or nothing for everyone.
-                Example: test_cls_*
+                A pattern to specify the test names.
                 """))
 
     args = argParser.parse_args(argv)
 
-    print(args)
+    pattern = ('test_%s_%s' % (args.type, args.pattern))
+
+    if args.type == 'cls':
+        dv.tests.runTests(pattern)
+    else:
+        ColInfo = dv.models.ColumnInfo
+        TYPE_STR = dv.models.TYPE_STRING
+        model = dv.models.SimpleTableModel([ColInfo('Test', dataType=TYPE_STR),
+                                            ColInfo('Class',
+                                                    dataType=TYPE_STR)])
+
+        tests = dv.tests.getTests(pattern)
+
+        for path, t in tests:
+            model.addRow([dv.tests.TestFilePath(path, t.getTestMethodName()),
+                          t])
+
+        win = dv.tests.ExampleWindow(model)
+        win.runApp()
 
 if __name__ == '__main__':
-    main()
+    main2()

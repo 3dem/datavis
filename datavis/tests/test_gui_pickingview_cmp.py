@@ -247,13 +247,33 @@ class TestPickerCmpView(dv.tests.TestView):
     def testPickingViewCmp(self):
         print('testPickingViewCmp')
 
+    def getParams(self):
+        Param = dv.models.Param
+        radius = Param('radius', dv.models.PARAM_TYPE_INT, label='Radius',
+                       value=50, help='Comparator radius.')
+        width = Param('width', dv.models.PARAM_TYPE_INT, label='Image Width',
+                      value=512, help='Image width.')
+        height = Param('height', dv.models.PARAM_TYPE_INT, label='Image Height',
+                       value=512, help='Image height.')
+        images = Param('images', dv.models.PARAM_TYPE_INT,
+                       label='Number of images', value=15,
+                       help='Number of images.')
+        box = Param('box', dv.models.PARAM_TYPE_INT, label='Box', value=64,
+                    help='Box size.')
+        picks = Param('picks', dv.models.PARAM_TYPE_INT, label='Picks',
+                      value=80, help='Number of picks.')
+        button = Param('run', 'button', label='Run Test')
+
+        return dv.models.Form([
+            [radius, images, width, height],[box, picks], button])
+
 
 if __name__ == '__main__':
 
     argParser = argparse.ArgumentParser(usage='PickerView Comparator',
                                         prefix_chars='--',
                                         argument_default=None)
-    argParser.add_argument('radius', type=int, help='Comparator radius.')
+    argParser.add_argument('--radius', type=int, help='Comparator radius.')
     argParser.add_argument('--width', type=int, help='Image width.',
                            default=512)
     argParser.add_argument('--height', type=int, default=512,

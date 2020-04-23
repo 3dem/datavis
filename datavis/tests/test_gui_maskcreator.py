@@ -34,6 +34,23 @@ class TestMaskCreator(dv.tests.TestView):
         imageView.setImageInfo(text=desc)
         return imageView
 
+    def getParams(self):
+        Param = dv.models.Param
+        maskTypes = Param('data', dv.models.PARAM_TYPE_ENUM, label='Data',
+                          value=0, choices=[' 0 ', ' 1 '],
+                          display=dv.models.PARAM_DISPLAY_HLIST,
+                          help='Choose 1 to initialize the mask with all ones\n'
+                                'and operation remove by default.')
+        maskColor = Param('color', dv.models.PARAM_TYPE_STRING,
+                          label='Mask Color', value='#66212a55',
+                          help='The mask color in ARGB format.')
+        maskPen = Param('pen', dv.models.PARAM_TYPE_INT, label='Pen', value=50,
+                        help='Pen size')
+        button = Param('run', 'button', label='Run Test')
+
+        return dv.models.Form([
+            [maskTypes, maskColor, maskPen], button])
+
     def test_MaskCreator(self):
         print('test_MaskCreator')
 
@@ -42,7 +59,7 @@ if __name__ == '__main__':
     argParser = argparse.ArgumentParser(usage='Mask Creator',
                                         prefix_chars='--',
                                         argument_default=None)
-    argParser.add_argument('data', default=0, type=int,
+    argParser.add_argument('--data', default=0, type=int,
                            choices=[0, 1],
                            help='Choose 1 to initialize the mask with all ones '
                                 'and operation remove by default')

@@ -4,4 +4,5 @@ from . base import (TestBase, TestView, TestData, createSlicesModel,
                     SimpleListImageModel, createTableModel,
                     createPickerModel, createListImageModel,
                     createSimplePickerModel, getPythonCodeExample,
-                    getJsonTextExample)
+                    getJsonTextExample, ExampleWindow, ExampleWidget,
+                    TestFilePath, getTestsFiles, getTests, runTests)

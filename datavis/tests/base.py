@@ -6,9 +6,11 @@ import sys
 import unittest
 import numpy as np
 from random import randrange, uniform
+from glob import glob as glob
 import pyqtgraph as pg
 
 import PyQt5.QtWidgets as qtw
+import PyQt5.QtCore as qtc
 
 import datavis as dv
 
@@ -71,6 +73,11 @@ class TestBase(unittest.TestCase, TestData):
     def __init__(self, methodName='runTest'):
         unittest.TestCase.__init__(self, methodName=methodName)
 
+    def getTestMethodName(self):
+        return self._testMethodName
+
+    def __str__(self):
+        return self.__class__.__name__
 
 class TestView(TestBase):
     """ Class that will test existing Views. """
@@ -95,6 +102,9 @@ class TestView(TestBase):
         self._loadPaths()
         dv.views.showView(self.createView, argv=self.getArgs(),
                           title=self.getTitle(), app=app)
+
+    def getParams(self):
+        return None
 
 
 class SimpleItemsModel(dv.models.SimpleTableModel):
@@ -558,3 +568,185 @@ def createListImageModel(names, columnName, imgSize):
     :return: SimpleListImageModel
     """
     return SimpleListImageModel(names, columnName, imgSize)
+
+class ExampleWidget(qtw.QWidget):
+    """ The ExampleWindow widget provides functionality for displaying test
+    examples.  """
+
+    def __init__(self, model, **kwargs):
+        """ Construct a ExampleWindow instance.
+
+         Args:
+             model: :class:`~datavis.models.TableModel`
+
+         Keyword Args:
+            parent:   Reference to the parent widget
+         """
+        qtw.QWidget.__init__(self, parent=kwargs.get('parent'))
+        self._model = model
+        self.__setupGUI(**kwargs)
+
+    def __setupGUI(self, **kwargs):
+        """ Create the main GUI.
+        The GUI is composed of an ImageView. New action panels will be added to
+        the ImageView toolbar
+        """
+        self._mainLayout = qtw.QHBoxLayout(self)
+        self._mainLayout.setSpacing(0)
+        self._mainLayout.setContentsMargins(1, 1, 1, 1)
+        self._splitter = qtw.QSplitter(self)
+        self._toolBar = dv.widgets.ActionsToolBar(self,
+                                                  orientation=qtc.Qt.Vertical)
+        self._text = dv.widgets.TextView(self)
+        self._text.setReadOnly(True)
+        self._text.setHighlighter(dv.widgets.PythonHighlighter(None))
+
+        self._splitter.addWidget(self._toolBar)
+        self._splitter.setCollapsible(0, False)
+        self._splitter.addWidget(self._text)
+
+        examplePanel = self._toolBar.createPanel('examplePanel')
+        vLayout = qtw.QVBoxLayout(examplePanel)
+        vLayout.setContentsMargins(0, 0, 0, 0)
+        #  setting a reasonable panel width for examples table
+        examplePanel.setGeometry(0, 0, 500, examplePanel.height())
+        cvExamples = dv.views.ColumnsView(self._model, **kwargs)
+        cvExamples.setObjectName("columnsViewExamples")
+        cvExamples.sigCurrentRowChanged.connect(self.__onCurrentRowChanged)
+        vLayout.addWidget(cvExamples)
+        # keep reference to cvExamples
+        self._cvExamples = cvExamples
+        actEx = dv.widgets.TriggerAction(parent=self._toolBar,
+                                         actionName='AExamples',
+                                         text='Examples',
+                                         faIconName='fa.list-alt')
+        self._toolBar.addAction(actEx, examplePanel, index=0, exclusive=False,
+                                checked=True)
+        runAct = dv.widgets.TriggerAction(parent=self._toolBar,
+                                          actionName='ARun', text='Run',
+                                          faIconName='fa.play-circle',
+                                          slot=self.__runTest)
+        self._toolBar.addAction(runAct)
+
+        self._mainLayout.addWidget(self._splitter)
+        self._paramsDialog = None
+        self._paramsWidget = None
+        self.setWindowTitle("Tests")
+
+    def __showTestFile(self, testPath):
+        """ Show the test code in the corresponding text view """
+        with open(testPath) as f:
+            self._text.readText(f, 3000, 3000, '...')
+
+    def __getSelectedTestFilePath(self):
+        """ Return the absolute file path of the selected test """
+        row = self._cvExamples.getCurrentRow()
+        testFile = self._model.getValue(row, 0)
+        return testFile.getAbsolutePath()
+
+    def __getSelectedTest(self):
+        """ Return the selected TestCase """
+        row = self._cvExamples.getCurrentRow()
+        return self._model.getValue(row, 1)
+
+    def __runTest(self):
+        """ Run the selected test """
+        filePath = self.__getSelectedTestFilePath()
+        args = []
+        test = self.__getSelectedTest()
+        params = test.getParams()
+        if params is not None:
+            fw = dv.widgets.FormWidget(params, parent=None, name='TestParams')
+            fw.sigValueChanged.connect(self.__onRunTestBtn)
+            fw.getParamValues()
+            dialog = qtw.QDialog(parent=self)
+            layout = qtw.QHBoxLayout(dialog)
+            layout.addWidget(fw)
+            dialog.setModal(True)
+            self._paramsDialog = dialog
+            self._paramsWidget = fw
+            dialog.show()
+        else:
+            os.spawnl(os.P_NOWAIT, sys.executable, sys.executable, filePath,
+                      *args)
+
+    def __onRunTestBtn(self, paramName, value):
+        if paramName == 'run':
+            args = []
+            filePath = self.__getSelectedTestFilePath()
+            values = self._paramsWidget.getParamValues()
+            for key, value in values.items():
+                if not key == 'run':
+                    args.append('--%s' % str(key))
+                    args.append(str(value))
+            self._paramsDialog.close()
+
+            os.spawnl(os.P_NOWAIT, sys.executable, sys.executable, filePath,
+                      *args)
+
+    def __onCurrentRowChanged(self, row):
+        self.__showTestFile(self.__getSelectedTestFilePath())
+
+
+class ExampleWindow(TestView):
+
+    def __init__(self, model):
+        TestView.__init__(self, methodName='runTest')
+        self._model = model
+
+    def getDataPaths(self):
+        return ['']
+
+    def createView(self):
+        view = ExampleWidget(self._model, parent=None)
+        return view
+
+    def test_Examples(self):
+        print('Testing examples.')
+
+
+class TestFilePath:
+    def __init__(self, filePath, abstractName=None):
+        if not os.path.exists(filePath):
+            raise Exception('Invalid file path: %s' % filePath)
+
+        self._filePath = filePath
+        self._fileName = abstractName or os.path.split(filePath)[-1]
+
+    def __str__(self):
+        return self._fileName
+
+    def getAbsolutePath(self):
+        return self._filePath
+
+def getTestsFiles(pattern=None):
+    """ Return a list of paths according to the given pattern """
+    path = os.path.abspath(os.path.dirname(__file__))
+    pa = os.path.abspath('%s/%s' % (path, pattern))
+
+    return glob(pa)
+
+def getTests(pattern=None):
+    """ Find the tests according to the given pattern.
+    Return a list of tuples(TestFilePath, TestCase)
+    """
+    testFiles = getTestsFiles(pattern)
+    ret = []
+    for file in testFiles:
+        path, f = os.path.split(file)
+        tests = unittest.defaultTestLoader.discover(path, f)
+
+        for module in tests:
+            if module.countTestCases() > 0:
+                for testClass in module:
+                    for t in testClass:
+                        ret.append((file, t))
+    return ret
+
+def runTests(pattern=None):
+    testFiles = getTestsFiles(pattern)
+    for file in testFiles:
+        path, f = os.path.split(file)
+        tests = unittest.defaultTestLoader.discover(path, f)
+        runner = unittest.TextTestRunner()
+        runner.run(tests)

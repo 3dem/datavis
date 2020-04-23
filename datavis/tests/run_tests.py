@@ -14,6 +14,14 @@ def run_functional_tests(pattern=None):
     runner = unittest.TextTestRunner()
     runner.run(tests)
 
+def getFunctionalTests(pattern=None):
+    if pattern is None:
+        tests = unittest.defaultTestLoader.discover(".")
+    else:
+        pattern_with_globs = "%s" % (pattern,)
+        tests = unittest.defaultTestLoader.discover(".",
+                                                    pattern=pattern_with_globs)
+
 def main():
     print("""
         TIP: Use a pattern to specify the test names or nothing for everyone.

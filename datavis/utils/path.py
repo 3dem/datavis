@@ -288,11 +288,11 @@ colorName = {'30': 'gray',
 
 
 def createUniqueFileName(fn):
-    '''
+    """
     This function creates a file name that is similar to the original 
     by adding a unique numeric suffix. check   NamedTemporaryFile
     from tempfile for alternatives
-    '''
+    """
     if not os.path.os.path.exists(fn):
         return fn
 
