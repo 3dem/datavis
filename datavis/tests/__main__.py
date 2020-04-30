@@ -2,6 +2,7 @@
 import sys
 import argparse
 import textwrap
+from os.path import dirname
 
 import datavis as dv
 
@@ -18,7 +19,7 @@ def main2(argv=None):
 
     argParser.add_argument(
         '--type',
-        default='cls',
+        default='gui',
         type=str,
         choices=['cls', 'gui'],
         help=textwrap.dedent("""
@@ -35,25 +36,10 @@ def main2(argv=None):
 
     args = argParser.parse_args(argv)
 
+    testPath = dirname(__file__)
     pattern = ('test_%s_%s' % (args.type, args.pattern))
 
-    if args.type == 'cls':
-        dv.tests.runTests(pattern)
-    else:
-        ColInfo = dv.models.ColumnInfo
-        TYPE_STR = dv.models.TYPE_STRING
-        model = dv.models.SimpleTableModel([ColInfo('Test', dataType=TYPE_STR),
-                                            ColInfo('Class',
-                                                    dataType=TYPE_STR)])
-
-        tests = dv.tests.getTests(pattern)
-
-        for path, t in tests:
-            model.addRow([dv.tests.TestFilePath(path, t.getTestMethodName()),
-                          t])
-
-        win = dv.tests.ExampleWindow(model)
-        win.runApp()
+    dv.tests.runTests(testPath, args.type, pattern)
 
 if __name__ == '__main__':
     main2()

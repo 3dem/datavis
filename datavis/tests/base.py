@@ -106,6 +106,10 @@ class TestView(TestBase):
     def getParams(self):
         return None
 
+    def getParamsPrefix(self):
+        """ Return the params prefix used in shell invocation """
+        return '--'
+
 
 class SimpleItemsModel(dv.models.SimpleTableModel):
     """ Example class implementing a simple items model """
@@ -631,6 +635,7 @@ class ExampleWidget(qtw.QWidget):
         self._mainLayout.addWidget(self._splitter)
         self._paramsDialog = None
         self._paramsWidget = None
+        self._test = None
         self.setWindowTitle("Tests")
 
     def __showTestFile(self, testPath):
@@ -665,6 +670,7 @@ class ExampleWidget(qtw.QWidget):
             dialog.setModal(True)
             self._paramsDialog = dialog
             self._paramsWidget = fw
+            self._test = test
             dialog.show()
         else:
             os.spawnl(os.P_NOWAIT, sys.executable, sys.executable, filePath,
@@ -675,9 +681,12 @@ class ExampleWidget(qtw.QWidget):
             args = []
             filePath = self.__getSelectedTestFilePath()
             values = self._paramsWidget.getParamValues()
+            prefix = self._test.getParamsPrefix()
             for key, value in values.items():
                 if not key == 'run':
-                    args.append('--%s' % str(key))
+                    if prefix:
+                        args.append('%s%s' % (prefix, str(key)))
+
                     args.append(str(value))
             self._paramsDialog.close()
 
@@ -719,18 +728,18 @@ class TestFilePath:
     def getAbsolutePath(self):
         return self._filePath
 
-def getTestsFiles(pattern=None):
+def getTestsFiles(testPath, pattern=None):
     """ Return a list of paths according to the given pattern """
-    path = os.path.abspath(os.path.dirname(__file__))
+    path = os.path.abspath(testPath)
     pa = os.path.abspath('%s/%s' % (path, pattern))
 
     return glob(pa)
 
-def getTests(pattern=None):
+def getTests(testPath, pattern=None):
     """ Find the tests according to the given pattern.
     Return a list of tuples(TestFilePath, TestCase)
     """
-    testFiles = getTestsFiles(pattern)
+    testFiles = getTestsFiles(testPath, pattern)
     ret = []
     for file in testFiles:
         path, f = os.path.split(file)
@@ -743,10 +752,26 @@ def getTests(pattern=None):
                         ret.append((file, t))
     return ret
 
-def runTests(pattern=None):
-    testFiles = getTestsFiles(pattern)
-    for file in testFiles:
-        path, f = os.path.split(file)
-        tests = unittest.defaultTestLoader.discover(path, f)
-        runner = unittest.TextTestRunner()
-        runner.run(tests)
+def runTests(testPath, testType='cls', pattern=None):
+    testFiles = getTestsFiles(testPath, pattern)
+    if testType == 'cls':
+        for file in testFiles:
+            path, f = os.path.split(file)
+            tests = unittest.defaultTestLoader.discover(path, f)
+            runner = unittest.TextTestRunner()
+            runner.run(tests)
+    else:
+        ColInfo = dv.models.ColumnInfo
+        TYPE_STR = dv.models.TYPE_STRING
+        model = dv.models.SimpleTableModel([ColInfo('Test', dataType=TYPE_STR),
+                                            ColInfo('Class',
+                                                    dataType=TYPE_STR)])
+
+        tests = dv.tests.getTests(testPath, pattern)
+
+        for path, t in tests:
+            model.addRow([dv.tests.TestFilePath(path, t.getTestMethodName()),
+                          t])
+
+        win = dv.tests.ExampleWindow(model)
+        win.runApp()
